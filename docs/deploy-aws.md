@@ -129,7 +129,7 @@ If not already configured:
 
 Create role **GitHubActionsOceanViewUI** with:
 
-**Trust policy** (replace `ACCOUNT_ID` and confirm repo):
+**Trust policy** (replace `ACCOUNT_ID`; allows both UI and API repos on `main`):
 
 ```json
 {
@@ -147,6 +147,21 @@ Create role **GitHubActionsOceanViewUI** with:
         },
         "StringLike": {
           "token.actions.githubusercontent.com:sub": "repo:mlsloynaz/OceanView:ref:refs/heads/main"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:mlsloynaz/OceanView-API:ref:refs/heads/main"
         }
       }
     }
