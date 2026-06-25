@@ -1,0 +1,44 @@
+{
+  "analysisDate": "2026-06-24",
+  "entries": [
+    {
+      "symbol": "NVDA",
+      "nombre": "NVIDIA",
+      "priceOptimo": 450,
+      "rangoOptimoLow": 360,
+      "rangoOptimoHigh": 607.52,
+      "minPrice": 400,
+      "maxPrice": 500
+    },
+    {
+      "symbol": "AAPL",
+      "nombre": "Apple",
+      "priceOptimo": 185,
+      "rangoOptimoLow": 148,
+      "rangoOptimoHigh": 249.77,
+      "minPrice": 170,
+      "maxPrice": 200
+    },
+    {
+      "symbol": "MSFT",
+      "nombre": "Microsoft",
+      "priceOptimo": 320,
+      "rangoOptimoLow": 256,
+      "rangoOptimoHigh": 432.02
+    },
+    {
+      "symbol": "TSLA",
+      "nombre": "Tesla",
+      "priceOptimo": 175,
+      "rangoOptimoLow": 140,
+      "rangoOptimoHigh": 236.27
+    },
+    {
+      "symbol": "V",
+      "nombre": "Visa",
+      "priceOptimo": 175,
+      "rangoOptimoLow": 140,
+      "rangoOptimoHigh": 236.27
+    }
+  ]
+}

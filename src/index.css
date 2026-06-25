@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-ocean-deep: var(--ov-deep);
+  --color-ocean-surface: var(--ov-surface);
+  --color-ocean-mid: var(--ov-mid);
+  --color-ocean-teal: var(--ov-teal);
+  --color-ocean-teal-dim: var(--ov-teal-dim);
+  --color-ocean-foam: var(--ov-foam);
+  --color-ocean-sand: var(--ov-sand);
+  --color-ocean-danger: var(--ov-danger);
+  --color-ocean-danger-muted: var(--ov-danger-muted);
+  --color-ocean-danger-border: var(--ov-danger-border);
+  --font-sans: "DM Sans", system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+}
+
+/* Light mode (default) */
+:root {
+  --ov-deep: #f0f6fa;
+  --ov-surface: #ffffff;
+  --ov-mid: #c8dae6;
+  --ov-teal: #0d9488;
+  --ov-teal-dim: #0f766e;
+  --ov-foam: #0a1628;
+  --ov-sand: #5a6f82;
+  --ov-danger: #b91c1c;
+  --ov-danger-muted: #fef2f2;
+  --ov-danger-border: #fca5a5;
+}
+
+/* Dark mode */
+.dark {
+  --ov-deep: #0a1628;
+  --ov-surface: #132337;
+  --ov-mid: #1e3a52;
+  --ov-teal: #2dd4bf;
+  --ov-teal-dim: #14b8a6;
+  --ov-foam: #e8f4f8;
+  --ov-sand: #c9d4dc;
+  --ov-danger: #fca5a5;
+  --ov-danger-muted: rgb(69 10 10 / 0.4);
+  --ov-danger-border: rgb(248 113 113 / 0.6);
+}
+
+@layer base {
+  body {
+    @apply m-0 min-h-screen bg-ocean-deep font-sans text-ocean-foam antialiased transition-colors duration-200;
+  }
+}
