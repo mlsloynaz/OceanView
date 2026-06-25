@@ -9,6 +9,7 @@ export type AdminTicker = {
   symbol: string;
   name: string | null;
   isFavorite: boolean;
+  active?: boolean;
 };
 
 export type IntervalSnapshot = {
