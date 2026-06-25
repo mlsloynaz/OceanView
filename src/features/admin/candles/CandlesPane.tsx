@@ -33,8 +33,8 @@ export function CandlesPane() {
       title="Candles"
       subtitle={
         usesMock
-          ? "Mock data — set VITE_API_BASE_URL to use live API"
-          : "Live API"
+          ? "Mock data (VITE_USE_MOCK_CANDLES=true)"
+          : `Live API${apiBase ? ` — ${apiBase}` : ""}`
       }
       open={open}
       onOpenChange={setOpen}
@@ -85,9 +85,7 @@ export function CandlesPane() {
       )}
       {usesMock && (
         <p className="mb-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-800 dark:text-amber-200">
-          Using mock candles data. Add{" "}
-          <code className="text-[11px]">VITE_API_BASE_URL</code> or use the committed{" "}
-          <code className="text-[11px]">.env.development</code> file.
+          Mock mode enabled (<code className="text-[11px]">VITE_USE_MOCK_CANDLES=true</code>).
         </p>
       )}
       {message && (

@@ -21,10 +21,8 @@ import type {
 
 const MOCK_DELAY_MS = 280;
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
-const USE_MOCK =
-  import.meta.env.VITE_USE_MOCK_CANDLES === "true" ||
-  (!API_BASE && import.meta.env.VITE_USE_MOCK_CANDLES !== "false");
+const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "/api";
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_CANDLES === "true";
 
 function delay(ms = MOCK_DELAY_MS) {
   return new Promise((resolve) => setTimeout(resolve, ms));

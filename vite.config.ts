@@ -1,15 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.resolve(rootDir, "data");
 
-const API_GATEWAY_TARGET =
-  process.env.VITE_DEV_API_PROXY_TARGET ??
+const DEPLOYED_API_GATEWAY =
   "https://7bko9drijd.execute-api.us-east-1.amazonaws.com/prod";
 
 function dataDirPlugin(): Plugin {
@@ -50,21 +49,29 @@ function dataDirPlugin(): Plugin {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), tailwindcss(), dataDirPlugin()],
-  resolve: {
-    alias: {
-      "@": path.resolve(rootDir, "./src"),
-    },
-  },
-  server: {
-    proxy: {
-      "/api": {
-        target: API_GATEWAY_TARGET,
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/api/, "") || "/",
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, rootDir, "");
+  const apiProxyTarget =
+    env.VITE_DEV_API_PROXY_TARGET ||
+    process.env.VITE_DEV_API_PROXY_TARGET ||
+    DEPLOYED_API_GATEWAY;
+
+  return {
+    plugins: [react(), tailwindcss(), dataDirPlugin()],
+    resolve: {
+      alias: {
+        "@": path.resolve(rootDir, "./src"),
       },
     },
-  },
+    server: {
+      proxy: {
+        "/api": {
+          target: apiProxyTarget,
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/api/, "") || "/",
+        },
+      },
+    },
+  };
 });
