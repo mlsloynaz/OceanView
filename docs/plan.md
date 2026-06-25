@@ -115,7 +115,7 @@ Full schemas: [candles-pane.md § API reference](./candles-pane.md).
 | 6 | Wire UI to live API (`VITE_API_BASE_URL`) |
 | 7 | Write API: `candles/refresh`, `candles/reset` + async worker |
 | 8 | Port bar intake from FinanceAI → OceanView worker |
-| 9 | Production: UI deploy (S3 + CloudFront + GitHub Actions) — see [deploy-aws.md](./deploy-aws.md); Cognito later |
+| 9 | Production: UI deploy + CloudFront `/api/*` — [deploy-aws.md](./deploy-aws.md); Cognito later |
 | 10 | Decommission FinanceAI AWS stack + InvestJournal market ops |
 
 ---

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { CollapsibleSection } from "@/shared/components/CollapsibleSection";
+import { candlesApiBaseUrl, candlesApiUsesMock } from "./api/candles-client";
 import { CandlesBanner } from "./CandlesBanner";
 import { CandlesTable } from "./CandlesTable";
 import { useCandlesPane } from "./hooks/useCandlesPane";
@@ -10,6 +11,8 @@ const TOOLBAR_BTN =
 
 export function CandlesPane() {
   const [open, setOpen] = useState(true);
+  const usesMock = candlesApiUsesMock();
+  const apiBase = candlesApiBaseUrl();
   const {
     rows,
     banner,
@@ -28,7 +31,11 @@ export function CandlesPane() {
     <CollapsibleSection
       id="admin-candles-pane"
       title="Candles"
-      subtitle="Monitor ticker price data intake"
+      subtitle={
+        usesMock
+          ? "Mock data — set VITE_API_BASE_URL to use live API"
+          : "Live API"
+      }
       open={open}
       onOpenChange={setOpen}
       className="min-w-0"
@@ -71,6 +78,18 @@ export function CandlesPane() {
         </div>
       }
     >
+      {!usesMock && apiBase && (
+        <p className="mb-2 truncate text-[11px] text-ocean-sand/70" title={apiBase}>
+          API: {apiBase}
+        </p>
+      )}
+      {usesMock && (
+        <p className="mb-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-800 dark:text-amber-200">
+          Using mock candles data. Add{" "}
+          <code className="text-[11px]">VITE_API_BASE_URL</code> or use the committed{" "}
+          <code className="text-[11px]">.env.development</code> file.
+        </p>
+      )}
       {message && (
         <p className="mb-2 text-ocean-teal-dim dark:text-ocean-teal">{message}</p>
       )}

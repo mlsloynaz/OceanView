@@ -24,7 +24,7 @@ const MOCK_DELAY_MS = 280;
 const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
 const USE_MOCK =
   import.meta.env.VITE_USE_MOCK_CANDLES === "true" ||
-  (import.meta.env.VITE_USE_MOCK_CANDLES !== "false" && !API_BASE);
+  (!API_BASE && import.meta.env.VITE_USE_MOCK_CANDLES !== "false");
 
 function delay(ms = MOCK_DELAY_MS) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -171,6 +171,10 @@ function mapTicker(row: AdminTicker & { active?: boolean }): AdminTicker | null 
 
 export function candlesApiUsesMock(): boolean {
   return USE_MOCK;
+}
+
+export function candlesApiBaseUrl(): string | null {
+  return API_BASE || null;
 }
 
 export async function getAdminTickers(): Promise<AdminTickersResponse> {

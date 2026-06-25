@@ -8,6 +8,10 @@ import tailwindcss from "@tailwindcss/vite";
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.resolve(rootDir, "data");
 
+const API_GATEWAY_TARGET =
+  process.env.VITE_DEV_API_PROXY_TARGET ??
+  "https://7bko9drijd.execute-api.us-east-1.amazonaws.com/prod";
+
 function dataDirPlugin(): Plugin {
   return {
     name: "oceanview-data-dir",
@@ -51,6 +55,16 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(rootDir, "./src"),
+    },
+  },
+  server: {
+    proxy: {
+      "/api": {
+        target: API_GATEWAY_TARGET,
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api/, "") || "/",
+      },
     },
   },
 });

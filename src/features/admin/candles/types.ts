@@ -76,9 +76,10 @@ export type CandlesStatusResponse = {
 export type CandlesJobAckResponse = {
   jobId: string;
   kind: JobKind;
-  status: "running";
+  status: JobStatus;
   message: string;
   tickers: string[];
+  summary?: CandlesJob["summary"];
 };
 
 export type CandlesRequest = {
