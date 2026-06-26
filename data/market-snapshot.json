@@ -1,0 +1,467 @@
+{
+  "version": "1",
+  "evaluatedAt": "2026-06-25T14:30:00-04:00",
+  "tradeDate": "2026-06-25",
+  "signalThresholdPct": 50,
+  "candleCoverage": {
+    "timezone": "America/New_York",
+    "earliestAt": "2026-06-20T09:30:00-04:00",
+    "latestAt": "2026-06-25T16:00:00-04:00"
+  },
+  "results": [
+    {
+      "symbol": "LOW",
+      "name": "Lowe's Companies, Inc.",
+      "strategies": [
+        {
+          "strategyId": "estrategia-02",
+          "qualityPct": 50,
+          "direction": null,
+          "metCount": 3,
+          "totalCount": 6,
+          "metRequired": 2,
+          "totalRequired": 3,
+          "achievedAtEt": "10:42 AM",
+          "rules": [
+            { "ruleKey": "daily_trend_context", "status": "met", "metAtEt": "09:58 AM" },
+            { "ruleKey": "ma20_proximity", "status": "met", "metAtEt": "10:42 AM" },
+            { "ruleKey": "bounce_confirmation", "status": "not_met" },
+            { "ruleKey": "volume_day", "status": "partial" },
+            { "ruleKey": "stoch_daily", "status": "not_met" },
+            { "ruleKey": "options_execution", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "estrategia-01",
+          "qualityPct": 17,
+          "direction": null,
+          "metCount": 1,
+          "totalCount": 6,
+          "metRequired": 1,
+          "totalRequired": 4,
+          "rules": [
+            { "ruleKey": "prior_trend_1h", "status": "met" },
+            { "ruleKey": "trendline_break_1h", "status": "not_met" },
+            { "ruleKey": "midpoint_break_15m", "status": "not_met" },
+            { "ruleKey": "hourly_candle_confirm", "status": "not_met" },
+            { "ruleKey": "volume_stoch_hour", "status": "pending" },
+            { "ruleKey": "bb_exposure", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "change-trend-15m",
+          "qualityPct": 17,
+          "direction": null,
+          "metCount": 1,
+          "totalCount": 6,
+          "metRequired": 1,
+          "totalRequired": 4,
+          "rules": [
+            { "ruleKey": "prior_trend_15m", "status": "partial" },
+            { "ruleKey": "trendline_break_15m", "status": "not_met" },
+            { "ruleKey": "midpoint_break_15m_ct", "status": "not_met" },
+            { "ruleKey": "candle_confirm_15m", "status": "not_met" },
+            { "ruleKey": "volume_stoch_15m", "status": "pending" },
+            { "ruleKey": "session_open_context", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "bolinger-15-change-trend",
+          "qualityPct": 0,
+          "direction": null,
+          "metCount": 0,
+          "totalCount": 6,
+          "metRequired": 0,
+          "totalRequired": 4,
+          "rules": [
+            { "ruleKey": "prior_trend_b15m", "status": "not_met" },
+            { "ruleKey": "trendline_break_15m", "status": "not_met" },
+            { "ruleKey": "midpoint_break_15m", "status": "not_met" },
+            { "ruleKey": "opening_inside_bb", "status": "not_met" },
+            { "ruleKey": "volatility_b15m", "status": "pending" },
+            { "ruleKey": "precheck_928", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "estrategia-03",
+          "qualityPct": 0,
+          "direction": null,
+          "metCount": 0,
+          "totalCount": 5,
+          "metRequired": 0,
+          "totalRequired": 3,
+          "rules": [
+            { "ruleKey": "gap_open", "status": "not_met" },
+            { "ruleKey": "magnet_level", "status": "not_met" },
+            { "ruleKey": "gap_confirm_15m", "status": "not_met" },
+            { "ruleKey": "opening_window_5m", "status": "pending" },
+            { "ruleKey": "volume_gap", "status": "pending" }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "MU",
+      "name": "Micron Technology, Inc.",
+      "strategies": [
+        {
+          "strategyId": "bolinger-15-change-trend",
+          "qualityPct": 90,
+          "direction": "CALL",
+          "metCount": 5,
+          "totalCount": 6,
+          "metRequired": 4,
+          "totalRequired": 4,
+          "achievedAtEt": "09:24 AM",
+          "rules": [
+            { "ruleKey": "prior_trend_b15m", "status": "met", "metAtEt": "09:18 AM" },
+            { "ruleKey": "trendline_break_15m", "status": "met", "metAtEt": "09:22 AM" },
+            { "ruleKey": "midpoint_break_15m", "status": "met", "metAtEt": "09:24 AM" },
+            { "ruleKey": "opening_inside_bb", "status": "met", "metAtEt": "09:20 AM" },
+            { "ruleKey": "volatility_b15m", "status": "partial" },
+            { "ruleKey": "precheck_928", "status": "met", "metAtEt": "09:10 AM" }
+          ]
+        },
+        {
+          "strategyId": "change-trend-15m",
+          "qualityPct": 67,
+          "direction": "CALL",
+          "metCount": 4,
+          "totalCount": 6,
+          "metRequired": 3,
+          "totalRequired": 4,
+          "achievedAtEt": "09:31 AM",
+          "rules": [
+            { "ruleKey": "prior_trend_15m", "status": "met", "metAtEt": "09:26 AM" },
+            { "ruleKey": "trendline_break_15m", "status": "met", "metAtEt": "09:29 AM" },
+            { "ruleKey": "midpoint_break_15m_ct", "status": "met", "metAtEt": "09:31 AM" },
+            { "ruleKey": "candle_confirm_15m", "status": "not_met" },
+            { "ruleKey": "volume_stoch_15m", "status": "partial" },
+            { "ruleKey": "session_open_context", "status": "met", "metAtEt": "09:15 AM" }
+          ]
+        },
+        {
+          "strategyId": "estrategia-01",
+          "qualityPct": 33,
+          "direction": "CALL",
+          "metCount": 2,
+          "totalCount": 6,
+          "metRequired": 2,
+          "totalRequired": 4,
+          "rules": [
+            { "ruleKey": "prior_trend_1h", "status": "met" },
+            { "ruleKey": "trendline_break_1h", "status": "partial" },
+            { "ruleKey": "midpoint_break_15m", "status": "met" },
+            { "ruleKey": "hourly_candle_confirm", "status": "not_met" },
+            { "ruleKey": "volume_stoch_hour", "status": "not_met" },
+            { "ruleKey": "bb_exposure", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "estrategia-02",
+          "qualityPct": 0,
+          "direction": null,
+          "metCount": 0,
+          "totalCount": 6,
+          "metRequired": 0,
+          "totalRequired": 3,
+          "rules": [
+            { "ruleKey": "daily_trend_context", "status": "not_met" },
+            { "ruleKey": "ma20_proximity", "status": "not_met" },
+            { "ruleKey": "bounce_confirmation", "status": "not_met" },
+            { "ruleKey": "volume_day", "status": "pending" },
+            { "ruleKey": "stoch_daily", "status": "pending" },
+            { "ruleKey": "options_execution", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "estrategia-03",
+          "qualityPct": 0,
+          "direction": null,
+          "metCount": 0,
+          "totalCount": 5,
+          "metRequired": 0,
+          "totalRequired": 3,
+          "rules": [
+            { "ruleKey": "gap_open", "status": "not_met" },
+            { "ruleKey": "magnet_level", "status": "not_met" },
+            { "ruleKey": "gap_confirm_15m", "status": "not_met" },
+            { "ruleKey": "opening_window_5m", "status": "pending" },
+            { "ruleKey": "volume_gap", "status": "pending" }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "NVDA",
+      "name": "NVIDIA Corporation",
+      "strategies": [
+        {
+          "strategyId": "estrategia-01",
+          "qualityPct": 67,
+          "direction": "CALL",
+          "metCount": 4,
+          "totalCount": 6,
+          "metRequired": 3,
+          "totalRequired": 4,
+          "achievedAtEt": "11:05 AM",
+          "rules": [
+            { "ruleKey": "prior_trend_1h", "status": "met", "metAtEt": "10:30 AM" },
+            { "ruleKey": "trendline_break_1h", "status": "met", "metAtEt": "10:58 AM" },
+            { "ruleKey": "midpoint_break_15m", "status": "met", "metAtEt": "11:05 AM" },
+            { "ruleKey": "hourly_candle_confirm", "status": "not_met" },
+            { "ruleKey": "volume_stoch_hour", "status": "partial" },
+            { "ruleKey": "bb_exposure", "status": "met", "metAtEt": "11:12 AM" }
+          ]
+        },
+        {
+          "strategyId": "change-trend-15m",
+          "qualityPct": 50,
+          "direction": "CALL",
+          "metCount": 3,
+          "totalCount": 6,
+          "metRequired": 2,
+          "totalRequired": 4,
+          "rules": [
+            { "ruleKey": "prior_trend_15m", "status": "met" },
+            { "ruleKey": "trendline_break_15m", "status": "met" },
+            { "ruleKey": "midpoint_break_15m_ct", "status": "not_met" },
+            { "ruleKey": "candle_confirm_15m", "status": "not_met" },
+            { "ruleKey": "volume_stoch_15m", "status": "partial" },
+            { "ruleKey": "session_open_context", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "estrategia-02",
+          "qualityPct": 17,
+          "direction": null,
+          "metCount": 1,
+          "totalCount": 6,
+          "metRequired": 0,
+          "totalRequired": 3,
+          "rules": [
+            { "ruleKey": "daily_trend_context", "status": "partial" },
+            { "ruleKey": "ma20_proximity", "status": "not_met" },
+            { "ruleKey": "bounce_confirmation", "status": "not_met" },
+            { "ruleKey": "volume_day", "status": "not_met" },
+            { "ruleKey": "stoch_daily", "status": "not_met" },
+            { "ruleKey": "options_execution", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "bolinger-15-change-trend",
+          "qualityPct": 25,
+          "direction": null,
+          "metCount": 1,
+          "totalCount": 6,
+          "metRequired": 1,
+          "totalRequired": 4,
+          "rules": [
+            { "ruleKey": "prior_trend_b15m", "status": "met" },
+            { "ruleKey": "trendline_break_15m", "status": "not_met" },
+            { "ruleKey": "midpoint_break_15m", "status": "not_met" },
+            { "ruleKey": "opening_inside_bb", "status": "not_met" },
+            { "ruleKey": "volatility_b15m", "status": "pending" },
+            { "ruleKey": "precheck_928", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "estrategia-03",
+          "qualityPct": 0,
+          "direction": null,
+          "metCount": 0,
+          "totalCount": 5,
+          "metRequired": 0,
+          "totalRequired": 3,
+          "rules": [
+            { "ruleKey": "gap_open", "status": "not_met" },
+            { "ruleKey": "magnet_level", "status": "not_met" },
+            { "ruleKey": "gap_confirm_15m", "status": "not_met" },
+            { "ruleKey": "opening_window_5m", "status": "pending" },
+            { "ruleKey": "volume_gap", "status": "pending" }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "strategies": [
+        {
+          "strategyId": "estrategia-02",
+          "qualityPct": 33,
+          "direction": null,
+          "metCount": 2,
+          "totalCount": 6,
+          "metRequired": 1,
+          "totalRequired": 3,
+          "rules": [
+            { "ruleKey": "daily_trend_context", "status": "met" },
+            { "ruleKey": "ma20_proximity", "status": "partial" },
+            { "ruleKey": "bounce_confirmation", "status": "not_met" },
+            { "ruleKey": "volume_day", "status": "not_met" },
+            { "ruleKey": "stoch_daily", "status": "not_met" },
+            { "ruleKey": "options_execution", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "estrategia-01",
+          "qualityPct": 17,
+          "direction": null,
+          "metCount": 1,
+          "totalCount": 6,
+          "metRequired": 1,
+          "totalRequired": 4,
+          "rules": [
+            { "ruleKey": "prior_trend_1h", "status": "not_met" },
+            { "ruleKey": "trendline_break_1h", "status": "not_met" },
+            { "ruleKey": "midpoint_break_15m", "status": "partial" },
+            { "ruleKey": "hourly_candle_confirm", "status": "not_met" },
+            { "ruleKey": "volume_stoch_hour", "status": "pending" },
+            { "ruleKey": "bb_exposure", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "change-trend-15m",
+          "qualityPct": 0,
+          "direction": null,
+          "metCount": 0,
+          "totalCount": 6,
+          "metRequired": 0,
+          "totalRequired": 4,
+          "rules": [
+            { "ruleKey": "prior_trend_15m", "status": "not_met" },
+            { "ruleKey": "trendline_break_15m", "status": "not_met" },
+            { "ruleKey": "midpoint_break_15m_ct", "status": "not_met" },
+            { "ruleKey": "candle_confirm_15m", "status": "not_met" },
+            { "ruleKey": "volume_stoch_15m", "status": "pending" },
+            { "ruleKey": "session_open_context", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "bolinger-15-change-trend",
+          "qualityPct": 0,
+          "direction": null,
+          "metCount": 0,
+          "totalCount": 6,
+          "metRequired": 0,
+          "totalRequired": 4,
+          "rules": [
+            { "ruleKey": "prior_trend_b15m", "status": "not_met" },
+            { "ruleKey": "trendline_break_15m", "status": "not_met" },
+            { "ruleKey": "midpoint_break_15m", "status": "not_met" },
+            { "ruleKey": "opening_inside_bb", "status": "not_met" },
+            { "ruleKey": "volatility_b15m", "status": "pending" },
+            { "ruleKey": "precheck_928", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "estrategia-03",
+          "qualityPct": 0,
+          "direction": null,
+          "metCount": 0,
+          "totalCount": 5,
+          "metRequired": 0,
+          "totalRequired": 3,
+          "rules": [
+            { "ruleKey": "gap_open", "status": "not_met" },
+            { "ruleKey": "magnet_level", "status": "not_met" },
+            { "ruleKey": "gap_confirm_15m", "status": "not_met" },
+            { "ruleKey": "opening_window_5m", "status": "pending" },
+            { "ruleKey": "volume_gap", "status": "pending" }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "TSLA",
+      "name": "Tesla, Inc.",
+      "strategies": [
+        {
+          "strategyId": "estrategia-03",
+          "qualityPct": 40,
+          "direction": "PUT",
+          "metCount": 2,
+          "totalCount": 5,
+          "metRequired": 2,
+          "totalRequired": 3,
+          "rules": [
+            { "ruleKey": "gap_open", "status": "met" },
+            { "ruleKey": "magnet_level", "status": "met" },
+            { "ruleKey": "gap_confirm_15m", "status": "not_met" },
+            { "ruleKey": "opening_window_5m", "status": "partial" },
+            { "ruleKey": "volume_gap", "status": "not_met" }
+          ]
+        },
+        {
+          "strategyId": "estrategia-01",
+          "qualityPct": 0,
+          "direction": null,
+          "metCount": 0,
+          "totalCount": 6,
+          "metRequired": 0,
+          "totalRequired": 4,
+          "rules": [
+            { "ruleKey": "prior_trend_1h", "status": "not_met" },
+            { "ruleKey": "trendline_break_1h", "status": "not_met" },
+            { "ruleKey": "midpoint_break_15m", "status": "not_met" },
+            { "ruleKey": "hourly_candle_confirm", "status": "not_met" },
+            { "ruleKey": "volume_stoch_hour", "status": "pending" },
+            { "ruleKey": "bb_exposure", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "change-trend-15m",
+          "qualityPct": 0,
+          "direction": null,
+          "metCount": 0,
+          "totalCount": 6,
+          "metRequired": 0,
+          "totalRequired": 4,
+          "rules": [
+            { "ruleKey": "prior_trend_15m", "status": "not_met" },
+            { "ruleKey": "trendline_break_15m", "status": "not_met" },
+            { "ruleKey": "midpoint_break_15m_ct", "status": "not_met" },
+            { "ruleKey": "candle_confirm_15m", "status": "not_met" },
+            { "ruleKey": "volume_stoch_15m", "status": "pending" },
+            { "ruleKey": "session_open_context", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "estrategia-02",
+          "qualityPct": 0,
+          "direction": null,
+          "metCount": 0,
+          "totalCount": 6,
+          "metRequired": 0,
+          "totalRequired": 3,
+          "rules": [
+            { "ruleKey": "daily_trend_context", "status": "not_met" },
+            { "ruleKey": "ma20_proximity", "status": "not_met" },
+            { "ruleKey": "bounce_confirmation", "status": "not_met" },
+            { "ruleKey": "volume_day", "status": "pending" },
+            { "ruleKey": "stoch_daily", "status": "pending" },
+            { "ruleKey": "options_execution", "status": "pending" }
+          ]
+        },
+        {
+          "strategyId": "bolinger-15-change-trend",
+          "qualityPct": 0,
+          "direction": null,
+          "metCount": 0,
+          "totalCount": 6,
+          "metRequired": 0,
+          "totalRequired": 4,
+          "rules": [
+            { "ruleKey": "prior_trend_b15m", "status": "not_met" },
+            { "ruleKey": "trendline_break_15m", "status": "not_met" },
+            { "ruleKey": "midpoint_break_15m", "status": "not_met" },
+            { "ruleKey": "opening_inside_bb", "status": "not_met" },
+            { "ruleKey": "volatility_b15m", "status": "pending" },
+            { "ruleKey": "precheck_928", "status": "pending" }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,254 @@
+{
+  "version": "1",
+  "updatedAt": "2026-06-25",
+  "strategies": [
+    {
+      "id": "estrategia-02",
+      "name": "Midpoint Bounce",
+      "shortName": "Midpoint Bounce",
+      "description": "Detects bounces on the daily moving average (MA20) when price approaches after a counter-trend move.",
+      "entryWindow": "Hours to 2 days (daily MA20 bounce)",
+      "rules": [
+        {
+          "id": "daily_trend_context",
+          "ruleKey": "daily_trend_context",
+          "label": "Prior daily trend",
+          "type": "required",
+          "timeframe": "D"
+        },
+        {
+          "id": "ma20_proximity",
+          "ruleKey": "ma20_proximity",
+          "label": "Price near daily MA20",
+          "type": "required",
+          "timeframe": "D"
+        },
+        {
+          "id": "bounce_confirmation",
+          "ruleKey": "bounce_confirmation",
+          "label": "Daily bounce confirmation",
+          "type": "required",
+          "timeframe": "D"
+        },
+        {
+          "id": "volume_day",
+          "ruleKey": "volume_day",
+          "label": "Favorable daily volume",
+          "type": "extra",
+          "timeframe": "D"
+        },
+        {
+          "id": "stoch_daily",
+          "ruleKey": "stoch_daily",
+          "label": "Daily stochastic aligned",
+          "type": "extra",
+          "timeframe": "D"
+        },
+        {
+          "id": "options_execution",
+          "ruleKey": "options_execution",
+          "label": "Options execution",
+          "type": "extra",
+          "timeframe": "execution"
+        }
+      ]
+    },
+    {
+      "id": "estrategia-01",
+      "name": "Hourly Trend Change",
+      "shortName": "Trend Change 1H",
+      "description": "Hourly trendline break with 15m confirmation and Bollinger context.",
+      "entryWindow": "9:30–11:00 ET (1H break + 15m confirm)",
+      "rules": [
+        {
+          "id": "prior_trend_1h",
+          "ruleKey": "prior_trend_1h",
+          "label": "Prior hourly trend",
+          "type": "required",
+          "timeframe": "1h"
+        },
+        {
+          "id": "trendline_break_1h",
+          "ruleKey": "trendline_break_1h",
+          "label": "Trendline break (1H)",
+          "type": "required",
+          "timeframe": "1h"
+        },
+        {
+          "id": "midpoint_break_15m",
+          "ruleKey": "midpoint_break_15m",
+          "label": "15m midpoint break",
+          "type": "required",
+          "timeframe": "15m"
+        },
+        {
+          "id": "hourly_candle_confirm",
+          "ruleKey": "hourly_candle_confirm",
+          "label": "Hourly candle confirmation",
+          "type": "required",
+          "timeframe": "1h"
+        },
+        {
+          "id": "volume_stoch_hour",
+          "ruleKey": "volume_stoch_hour",
+          "label": "Hourly volume / stochastic",
+          "type": "extra",
+          "timeframe": "1h"
+        },
+        {
+          "id": "bb_exposure",
+          "ruleKey": "bb_exposure",
+          "label": "Bollinger exposure",
+          "type": "extra",
+          "timeframe": "15m"
+        }
+      ]
+    },
+    {
+      "id": "change-trend-15m",
+      "name": "Change Trend 15M",
+      "shortName": "Trend Change 15M",
+      "description": "15-minute trend change: prior trend, trendline break, midpoint break, and opening context on the 15m chart.",
+      "entryWindow": "Regular session (15m trend change window)",
+      "rules": [
+        {
+          "id": "prior_trend_15m",
+          "ruleKey": "prior_trend_15m",
+          "label": "Prior 15m trend",
+          "type": "required",
+          "timeframe": "15m"
+        },
+        {
+          "id": "trendline_break_15m_ct",
+          "ruleKey": "trendline_break_15m",
+          "label": "Trendline break",
+          "type": "required",
+          "timeframe": "15m"
+        },
+        {
+          "id": "midpoint_break_15m_ct",
+          "ruleKey": "midpoint_break_15m_ct",
+          "label": "15m midpoint break",
+          "type": "required",
+          "timeframe": "15m"
+        },
+        {
+          "id": "candle_confirm_15m",
+          "ruleKey": "candle_confirm_15m",
+          "label": "15m candle confirmation",
+          "type": "required",
+          "timeframe": "15m"
+        },
+        {
+          "id": "volume_stoch_15m",
+          "ruleKey": "volume_stoch_15m",
+          "label": "15m volume / stochastic",
+          "type": "extra",
+          "timeframe": "15m"
+        },
+        {
+          "id": "session_open_context",
+          "ruleKey": "session_open_context",
+          "label": "Session open context",
+          "type": "extra",
+          "timeframe": "15m"
+        }
+      ]
+    },
+    {
+      "id": "bolinger-15-change-trend",
+      "name": "Inside Bollinger 15M",
+      "shortName": "Inside BB 15M",
+      "description": "Fast 15m move inside Bollinger bands: prior B15m trend, trendline and midpoint break, opening inside bands.",
+      "entryWindow": "Regular session (Mov15m inside window)",
+      "rules": [
+        {
+          "id": "prior_trend_b15m",
+          "ruleKey": "prior_trend_b15m",
+          "label": "Prior B15m trend",
+          "type": "required",
+          "timeframe": "15m"
+        },
+        {
+          "id": "trendline_break_15m",
+          "ruleKey": "trendline_break_15m",
+          "label": "Trendline break",
+          "type": "required",
+          "timeframe": "15m"
+        },
+        {
+          "id": "midpoint_break_15m_inside",
+          "ruleKey": "midpoint_break_15m",
+          "label": "15m midpoint break",
+          "type": "required",
+          "timeframe": "15m"
+        },
+        {
+          "id": "opening_inside_bb",
+          "ruleKey": "opening_inside_bb",
+          "label": "Opening inside Bollinger",
+          "type": "required",
+          "timeframe": "15m"
+        },
+        {
+          "id": "volatility_b15m",
+          "ruleKey": "volatility_b15m",
+          "label": "B15m volatility",
+          "type": "extra",
+          "timeframe": "15m"
+        },
+        {
+          "id": "precheck_928",
+          "ruleKey": "precheck_928",
+          "label": "Pre-check 9:28",
+          "type": "extra",
+          "timeframe": "15m"
+        }
+      ]
+    },
+    {
+      "id": "estrategia-03",
+      "name": "Magnet Effect",
+      "shortName": "Magnet Effect",
+      "description": "Overnight gap toward a magnet level with 15m confirmation during the first hour of the session.",
+      "entryWindow": "9:30–10:30 ET (gap + 15m confirm)",
+      "rules": [
+        {
+          "id": "gap_open",
+          "ruleKey": "gap_open",
+          "label": "Overnight gap (premarket → open)",
+          "type": "required",
+          "timeframe": "D"
+        },
+        {
+          "id": "magnet_level",
+          "ruleKey": "magnet_level",
+          "label": "Magnet level identified",
+          "type": "required",
+          "timeframe": "D"
+        },
+        {
+          "id": "gap_confirm_15m",
+          "ruleKey": "gap_confirm_15m",
+          "label": "Post-gap 15m confirmation",
+          "type": "required",
+          "timeframe": "15m"
+        },
+        {
+          "id": "opening_window_5m",
+          "ruleKey": "opening_window_5m",
+          "label": "5m opening window",
+          "type": "extra",
+          "timeframe": "15m"
+        },
+        {
+          "id": "volume_gap",
+          "ruleKey": "volume_gap",
+          "label": "Gap volume",
+          "type": "extra",
+          "timeframe": "15m"
+        }
+      ]
+    }
+  ]
+}

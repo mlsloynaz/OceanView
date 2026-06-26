@@ -5,6 +5,8 @@ Consolidated roadmap from decisions made so far. Use this as the **single checkl
 | Document | Contents |
 |----------|----------|
 | [candles-pane.md](./candles-pane.md) | Candles UI, API contract, button → endpoint matrix, JSON shapes |
+| [market-backend-plan.md](./market-backend-plan.md) | Market eval pipeline, snapshot/detail APIs, URL modes (plan only) |
+| [market-api-contract.md](./market-api-contract.md) | Market field-level DTOs and endpoint inventory |
 | [deploy-aws.md](./deploy-aws.md) | S3 + CloudFront + GitHub Actions deploy |
 | [oceanview-api-setup.md](./oceanview-api-setup.md) | OceanView-API repo layout, SAM, DynamoDB, deploy steps |
 | `src/features/admin/candles/types.ts` | TypeScript DTOs the API must match |

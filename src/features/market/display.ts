@@ -1,0 +1,248 @@
+import type {
+  MarketSnapshotFile,
+  RuleCardModel,
+  RuleDisplayRow,
+  RuleEval,
+  RuleStatus,
+  StrategyCardModel,
+  StrategyCatalogItem,
+  StrategyRule,
+  TickerCardModel,
+  TickerEvalResult,
+  TickerStrategyEval,
+  TradeDirection,
+} from "./types";
+import { cn } from "@/shared/lib/cn";
+
+export function isSignal(qualityPct: number, threshold: number): boolean {
+  return qualityPct >= threshold;
+}
+
+export function qualityBadgeClass(pct: number, threshold: number): string {
+  if (pct >= threshold) {
+    return "bg-ocean-teal/15 text-ocean-teal-dim dark:text-ocean-teal";
+  }
+  if (pct >= threshold * 0.6) {
+    return "bg-amber-500/15 text-amber-800 dark:text-amber-200";
+  }
+  return "bg-ocean-mid/30 text-ocean-sand";
+}
+
+export function directionBadgeClass(direction: TradeDirection | null): string {
+  if (direction === "CALL") {
+    return "bg-ocean-teal/20 text-ocean-teal-dim dark:text-ocean-teal";
+  }
+  if (direction === "PUT") {
+    return "bg-ocean-danger-muted text-ocean-danger";
+  }
+  return "bg-ocean-mid/30 text-ocean-sand";
+}
+
+export function ruleStatusTitle(status: RuleStatus): string {
+  switch (status) {
+    case "met":
+      return "Met";
+    case "partial":
+      return "Partial / near";
+    case "not_met":
+      return "Not met";
+    case "about_to_cross":
+      return "About to cross BB mid";
+    default:
+      return "Pending";
+  }
+}
+
+export function ruleStatusClass(status: RuleStatus): string {
+  return cn(
+    status === "met" && "text-ocean-teal-dim dark:text-ocean-teal",
+    status === "partial" && "text-amber-600 dark:text-amber-400",
+    status === "not_met" && "text-orange-600 dark:text-orange-400",
+    status === "about_to_cross" && "text-sky-600 dark:text-sky-400",
+    status === "pending" && "text-ocean-sand",
+  );
+}
+
+export function buildStrategyCards(
+  catalog: StrategyCatalogItem[],
+  snapshot: MarketSnapshotFile,
+): StrategyCardModel[] {
+  const threshold = snapshot.signalThresholdPct;
+  return catalog.map((strategy) => {
+    const matches: { symbol: string; qualityPct: number }[] = [];
+    for (const ticker of snapshot.results) {
+      const evalRow = ticker.strategies.find((s) => s.strategyId === strategy.id);
+      if (evalRow && isSignal(evalRow.qualityPct, threshold)) {
+        matches.push({ symbol: ticker.symbol, qualityPct: evalRow.qualityPct });
+      }
+    }
+    matches.sort((a, b) => b.qualityPct - a.qualityPct);
+    return {
+      strategy,
+      signalCount: matches.length,
+      previewTickers: matches.slice(0, 4),
+    };
+  });
+}
+
+export function buildTickerCards(
+  catalog: StrategyCatalogItem[],
+  snapshot: MarketSnapshotFile,
+): TickerCardModel[] {
+  const threshold = snapshot.signalThresholdPct;
+  const catalogById = new Map(catalog.map((s) => [s.id, s]));
+
+  return snapshot.results.map((ticker) => {
+    const signals = ticker.strategies
+      .filter((s) => isSignal(s.qualityPct, threshold))
+      .sort((a, b) => b.qualityPct - a.qualityPct);
+
+    const best = signals[0] ?? null;
+    const top = [...ticker.strategies].sort((a, b) => b.qualityPct - a.qualityPct)[0] ?? null;
+
+    return {
+      symbol: ticker.symbol,
+      name: ticker.name,
+      signalCount: signals.length,
+      bestSignal: best
+        ? {
+            strategyId: best.strategyId,
+            strategyName: catalogById.get(best.strategyId)?.name ?? best.strategyId,
+            qualityPct: best.qualityPct,
+            direction: best.direction,
+          }
+        : null,
+      topStrategyEval: top,
+    };
+  });
+}
+
+export function buildRuleCards(
+  catalog: StrategyCatalogItem[],
+  snapshot: MarketSnapshotFile,
+): RuleCardModel[] {
+  const cards: RuleCardModel[] = [];
+
+  for (const strategy of catalog) {
+    for (const rule of strategy.rules) {
+      const preview: RuleCardModel["previewSymbols"] = [];
+      let metCount = 0;
+
+      for (const ticker of snapshot.results) {
+        const evalRow = ticker.strategies.find((s) => s.strategyId === strategy.id);
+        const ruleEval = evalRow?.rules.find((r) => r.ruleKey === rule.ruleKey);
+        if (!ruleEval) continue;
+        if (ruleEval.status === "met") metCount += 1;
+        preview.push({
+          symbol: ticker.symbol,
+          status: ruleEval.status,
+          metAtEt: ruleEval.metAtEt,
+        });
+      }
+
+      preview.sort((a, b) => {
+        if (a.status === "met" && b.status !== "met") return -1;
+        if (a.status !== "met" && b.status === "met") return 1;
+        return a.symbol.localeCompare(b.symbol);
+      });
+
+      cards.push({
+        ruleKey: rule.ruleKey,
+        label: rule.label,
+        type: rule.type,
+        timeframe: rule.timeframe,
+        strategyId: strategy.id,
+        strategyName: strategy.name,
+        metCount,
+        totalSymbols: snapshot.results.length,
+        previewSymbols: preview.slice(0, 4),
+      });
+    }
+  }
+
+  return cards.sort((a, b) => {
+    if (a.metCount !== b.metCount) return b.metCount - a.metCount;
+    return a.label.localeCompare(b.label);
+  });
+}
+
+export function tickersForStrategy(
+  strategyId: string,
+  snapshot: MarketSnapshotFile,
+  threshold: number,
+): Array<TickerEvalResult & { eval: TickerStrategyEval }> {
+  const rows: Array<TickerEvalResult & { eval: TickerStrategyEval }> = [];
+  for (const ticker of snapshot.results) {
+    const evalRow = ticker.strategies.find((s) => s.strategyId === strategyId);
+    if (evalRow) {
+      rows.push({ ...ticker, eval: evalRow });
+    }
+  }
+  return rows.sort((a, b) => {
+    const aSignal = isSignal(a.eval.qualityPct, threshold);
+    const bSignal = isSignal(b.eval.qualityPct, threshold);
+    if (aSignal !== bSignal) return aSignal ? -1 : 1;
+    return b.eval.qualityPct - a.eval.qualityPct;
+  });
+}
+
+export function mergeRuleDisplay(
+  catalogRules: StrategyRule[],
+  evalRules: RuleEval[],
+): RuleDisplayRow[] {
+  const evalByKey = new Map(evalRules.map((r) => [r.ruleKey, r]));
+  return catalogRules.map((rule) => {
+    const ev = evalByKey.get(rule.ruleKey);
+    return {
+      ruleKey: rule.ruleKey,
+      label: rule.label,
+      type: rule.type,
+      status: ev?.status ?? "pending",
+      metAtEt: ev?.metAtEt,
+      evidence: ev?.evidence,
+    };
+  });
+}
+
+export function formatEvaluatedAt(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
+
+export function signalCountLabel(count: number): string {
+  if (count === 1) return "1 signal today";
+  return `${count} signals today`;
+}
+
+/** Latest ET time the strategy met the signal threshold (explicit or from required rules). */
+export function strategyAchievedAtEt(
+  evalRow: TickerStrategyEval,
+  catalogRules: StrategyRule[],
+): string | null {
+  const explicit = evalRow.achievedAtEt?.trim();
+  if (explicit) return formatAchievedTimeEt(explicit);
+
+  const requiredKeys = new Set(
+    catalogRules.filter((r) => r.type === "required").map((r) => r.ruleKey),
+  );
+  let latest: string | null = null;
+  for (const rule of evalRow.rules) {
+    if (rule.status !== "met" || !requiredKeys.has(rule.ruleKey)) continue;
+    const at = rule.metAtEt?.trim();
+    if (!at) continue;
+    if (!latest || at > latest) latest = at;
+  }
+  return latest ? formatAchievedTimeEt(latest) : null;
+}
+
+export function formatAchievedTimeEt(raw: string): string {
+  const trimmed = raw.trim();
+  if (/ET/i.test(trimmed)) return trimmed;
+  return `${trimmed} ET`;
+}

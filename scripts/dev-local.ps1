@@ -69,7 +69,7 @@ if (Test-OceanViewApiHealth -Port $ApiPort) {
   Write-Host "Starting OceanView-API in a new terminal (SAM local)..." -ForegroundColor Yellow
   $apiCmd = @"
 Set-Location '$ApiRoot'
-Write-Host 'OceanView-API — SAM local on port $ApiPort' -ForegroundColor Cyan
+Write-Host 'OceanView-API - SAM local on port $ApiPort' -ForegroundColor Cyan
 & '$samScript' local start-api --port $ApiPort
 "@
   Start-Process powershell -ArgumentList @("-NoExit", "-Command", $apiCmd) | Out-Null
@@ -94,7 +94,7 @@ Write-Host 'OceanView-API — SAM local on port $ApiPort' -ForegroundColor Cyan
 
 $env:VITE_DEV_API_PROXY_TARGET = "http://127.0.0.1:$ApiPort"
 Write-Host ""
-Write-Host "Starting UI (Vite) — proxy /api -> $env:VITE_DEV_API_PROXY_TARGET" -ForegroundColor Yellow
+Write-Host "Starting UI (Vite) - proxy /api -> $env:VITE_DEV_API_PROXY_TARGET" -ForegroundColor Yellow
 Write-Host "Open http://localhost:5173/admin for Candles pane" -ForegroundColor Cyan
 Write-Host ""
 
