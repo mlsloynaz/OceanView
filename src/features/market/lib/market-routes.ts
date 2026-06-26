@@ -15,7 +15,10 @@ export function marketPath(mode: MarketViewMode): string {
 export function readStoredMarketMode(): MarketViewMode | null {
   try {
     const raw = localStorage.getItem(MARKET_MODE_STORAGE_KEY);
-    return isMarketViewMode(raw ?? undefined) ? raw : null;
+    if (raw != null && isMarketViewMode(raw)) {
+      return raw;
+    }
+    return null;
   } catch {
     return null;
   }
