@@ -2,6 +2,8 @@
 
 Static hosting for the Vite/React app. Cognito and API routing are documented in [plan.md](./plan.md) for a later phase.
 
+**Production URLs:** [aws-urls.md](./aws-urls.md)
+
 ## Architecture
 
 ```

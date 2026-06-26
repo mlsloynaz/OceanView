@@ -8,6 +8,7 @@ Consolidated roadmap from decisions made so far. Use this as the **single checkl
 | [market-backend-plan.md](./market-backend-plan.md) | Market eval pipeline, snapshot/detail APIs, URL modes (plan only) |
 | [market-api-contract.md](./market-api-contract.md) | Market field-level DTOs and endpoint inventory |
 | [deploy-aws.md](./deploy-aws.md) | S3 + CloudFront + GitHub Actions deploy |
+| [aws-urls.md](./aws-urls.md) | Production UI + API URLs (CloudFront, API Gateway) |
 | [oceanview-api-setup.md](./oceanview-api-setup.md) | OceanView-API repo layout, SAM, DynamoDB, deploy steps |
 | `src/features/admin/candles/types.ts` | TypeScript DTOs the API must match |
 
