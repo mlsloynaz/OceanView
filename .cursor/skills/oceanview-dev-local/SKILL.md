@@ -24,9 +24,9 @@ Or directly:
 1. Finds sibling repo `OceanView-API` (default `..\OceanView-API` from UI root).
 2. Starts `sam local start-api` in a **new PowerShell window** (Docker required).
 3. Waits until `GET http://127.0.0.1:3001/health` returns `oceanview-api` JSON.
-4. Runs `npm run dev` with `VITE_DEV_API_PROXY_TARGET=http://127.0.0.1:3001` (or use `.env.development.local`).
+4. Runs `npm run dev` with `VITE_DEV_API_PROXY_TARGET=http://127.0.0.1:3001` and **`VITE_USE_MOCK_MARKET=false`** (live Market Assess).
 
-Default API port is **3001** (avoids conflicts with other apps on 3000).
+If port 3001 already has an old SAM instance (health OK but `/market/envelope` → 403), the script fails with rebuild instructions.
 
 ## Options
 

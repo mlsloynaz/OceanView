@@ -7,6 +7,7 @@ import type {
   TickerCardModel,
   TickerSnapshotItem,
 } from "../types";
+import { activeCatalogStrategies } from "../lib/catalog";
 
 export function adaptStrategySnapshotItems(
   catalog: StrategyCatalogItem[],
@@ -14,7 +15,7 @@ export function adaptStrategySnapshotItems(
 ): StrategyCardModel[] {
   const byId = new Map(items.map((item) => [item.strategyId, item]));
 
-  return catalog.map((strategy) => {
+  return activeCatalogStrategies(catalog).map((strategy) => {
     const item = byId.get(strategy.id);
     return {
       strategy,

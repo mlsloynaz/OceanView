@@ -24,6 +24,16 @@ function Test-OceanViewApiHealth {
   }
 }
 
+function Test-OceanViewApiMarket {
+  param([int]$Port)
+  try {
+    $response = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/market/envelope" -UseBasicParsing -TimeoutSec 5
+    return $response.StatusCode -eq 200
+  } catch {
+    return $false
+  }
+}
+
 function Test-PortInUse {
   param([int]$Port)
   return [bool](Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
@@ -44,6 +54,15 @@ if (-not (Test-Path $samScript)) {
 }
 
 if (Test-OceanViewApiHealth -Port $ApiPort) {
+  if (-not (Test-OceanViewApiMarket -Port $ApiPort)) {
+    throw @"
+OceanView-API on port $ApiPort is running but missing /market/* routes (stale SAM build).
+Stop the API PowerShell window, then in OceanView-API run:
+  .\scripts\sam.ps1 build
+  .\scripts\sam.ps1 local start-api --port $ApiPort
+Then re-run npm run dev:local from OceanView.
+"@
+  }
   Write-Host "OceanView-API already running on port $ApiPort." -ForegroundColor Green
 } elseif ($SkipApi) {
   throw "OceanView-API is not healthy on port $ApiPort and -SkipApi was set."
@@ -67,6 +86,14 @@ if (Test-OceanViewApiHealth -Port $ApiPort) {
   }
 
   Write-Host "Starting OceanView-API in a new terminal (SAM local)..." -ForegroundColor Yellow
+  Write-Host "Building SAM artifacts (includes /market/* routes)..." -ForegroundColor Yellow
+  Push-Location $ApiRoot
+  try {
+    & $samScript build
+    if ($LASTEXITCODE -ne 0) { throw "sam build failed with exit code $LASTEXITCODE" }
+  } finally {
+    Pop-Location
+  }
   $apiCmd = @"
 Set-Location '$ApiRoot'
 Write-Host 'OceanView-API - SAM local on port $ApiPort' -ForegroundColor Cyan
@@ -89,13 +116,17 @@ Write-Host 'OceanView-API - SAM local on port $ApiPort' -ForegroundColor Cyan
   if (-not $ready) {
     throw "OceanView-API did not become healthy on port $ApiPort. Check the API terminal for errors."
   }
+  if (-not (Test-OceanViewApiMarket -Port $ApiPort)) {
+    throw "OceanView-API started on port $ApiPort but GET /market/envelope failed. Check the API terminal."
+  }
   Write-Host "API ready: http://127.0.0.1:$ApiPort/health" -ForegroundColor Green
 }
 
 $env:VITE_DEV_API_PROXY_TARGET = "http://127.0.0.1:$ApiPort"
+$env:VITE_USE_MOCK_MARKET = "false"
 Write-Host ""
-Write-Host "Starting UI (Vite) - proxy /api -> $env:VITE_DEV_API_PROXY_TARGET" -ForegroundColor Yellow
-Write-Host "Open http://localhost:5173/admin for Candles pane" -ForegroundColor Cyan
+Write-Host "Starting UI (Vite) - proxy /api -> $env:VITE_DEV_API_PROXY_TARGET, live Market API" -ForegroundColor Yellow
+Write-Host "Open http://localhost:5173/market/strategies" -ForegroundColor Cyan
 Write-Host ""
 
 Set-Location $UiRoot

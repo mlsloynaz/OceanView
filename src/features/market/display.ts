@@ -12,6 +12,7 @@ import type {
   TickerStrategyEval,
   TradeDirection,
 } from "./types";
+import { activeCatalogStrategies } from "./lib/catalog";
 import { cn } from "@/shared/lib/cn";
 
 export function isSignal(qualityPct: number, threshold: number): boolean {
@@ -68,7 +69,7 @@ export function buildStrategyCards(
   snapshot: MarketSnapshotFile,
 ): StrategyCardModel[] {
   const threshold = snapshot.signalThresholdPct;
-  return catalog.map((strategy) => {
+  return activeCatalogStrategies(catalog).map((strategy) => {
     const matches: { symbol: string; qualityPct: number }[] = [];
     for (const ticker of snapshot.results) {
       const evalRow = ticker.strategies.find((s) => s.strategyId === strategy.id);
@@ -90,15 +91,18 @@ export function buildTickerCards(
   snapshot: MarketSnapshotFile,
 ): TickerCardModel[] {
   const threshold = snapshot.signalThresholdPct;
-  const catalogById = new Map(catalog.map((s) => [s.id, s]));
+  const activeCatalog = activeCatalogStrategies(catalog);
+  const catalogById = new Map(activeCatalog.map((s) => [s.id, s]));
+  const activeIds = new Set(activeCatalog.map((s) => s.id));
 
   return snapshot.results.map((ticker) => {
-    const signals = ticker.strategies
+    const activeEvals = ticker.strategies.filter((s) => activeIds.has(s.strategyId));
+    const signals = activeEvals
       .filter((s) => isSignal(s.qualityPct, threshold))
       .sort((a, b) => b.qualityPct - a.qualityPct);
 
     const best = signals[0] ?? null;
-    const top = [...ticker.strategies].sort((a, b) => b.qualityPct - a.qualityPct)[0] ?? null;
+    const top = [...activeEvals].sort((a, b) => b.qualityPct - a.qualityPct)[0] ?? null;
 
     return {
       symbol: ticker.symbol,
@@ -123,7 +127,7 @@ export function buildRuleCards(
 ): RuleCardModel[] {
   const cards: RuleCardModel[] = [];
 
-  for (const strategy of catalog) {
+  for (const strategy of activeCatalogStrategies(catalog)) {
     for (const rule of strategy.rules) {
       const preview: RuleCardModel["previewSymbols"] = [];
       let metCount = 0;

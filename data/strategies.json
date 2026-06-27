@@ -6,7 +6,7 @@
       "id": "estrategia-01",
       "name": "Hourly Trend Change",
       "shortName": "Trend Change 1H",
-      "description": "Hourly trendline break with Bollinger midpoint confirmation on 1h and 15m.",
+      "description": "Hourly trendline break with Bollinger midpoint rupture on 1h (L-T-2H). 15m confirm per playbook doc is midpoint direction — not a BB mid cross.",
       "entryWindow": "9:30–11:00 ET (1H break + 15m confirm)",
       "rules": [
         {
@@ -29,13 +29,6 @@
           "label": "Ruptura punto medio Bollinger (HORA)",
           "type": "required",
           "timeframe": "1h"
-        },
-        {
-          "id": "estrategia-01-a-cambio-tendencia-al-alza-req4",
-          "ruleKey": "bb_mid_15m",
-          "label": "Punto medio alcista en 15 min",
-          "type": "required",
-          "timeframe": "15m"
         },
         {
           "id": "estrategia-01-a-cambio-tendencia-al-alza-req6",
@@ -91,7 +84,7 @@
         },
         {
           "id": "estrategia-02-a-rebote-al-alza-req5",
-          "ruleKey": "bb_mid_15m",
+          "ruleKey": "bb_mid_cut_15m",
           "label": "Rebote visible en 15 min",
           "type": "required",
           "timeframe": "15m"
@@ -140,20 +133,6 @@
           "label": "Volumen en HORA cruza la línea roja (Worden Stochastics) → PUT",
           "type": "required",
           "timeframe": "1h"
-        },
-        {
-          "id": "estrategia-03-a-efecto-iman-alcista-e2",
-          "ruleKey": "open_outside_bb_strength_1h",
-          "label": "Price exposed outside Bollinger (1H and/or D)",
-          "type": "extra",
-          "timeframe": "1h"
-        },
-        {
-          "id": "estrategia-03-a-efecto-iman-alcista-e3",
-          "ruleKey": "open_outside_bb_multi_tf_1h",
-          "label": "Multi-TF exposure (stronger magnet)",
-          "type": "extra",
-          "timeframe": "1h"
         }
       ],
       "active": false
@@ -162,8 +141,8 @@
       "id": "estrategia-04",
       "name": "Lateral BB15 + Gap",
       "shortName": "Lateral BB15",
-      "description": "15m Bollinger squeeze with extreme opening gap and first-five-minute entry window.",
-      "entryWindow": "9:30–9:35 ET (opening gap window)",
+      "description": "15m Bollinger squeeze with extreme opening gap.",
+      "entryWindow": "9:30 ET (opening gap)",
       "rules": [
         {
           "id": "estrategia-04-a-lateral-gap-abajo-recuperacion-req1",
@@ -191,7 +170,7 @@
       "rules": [
         {
           "id": "bb15-r1",
-          "ruleKey": "vol_bb_expand_1h",
+          "ruleKey": "vol_bb_expand_15m",
           "label": "Vol BB expandiendo (15m)",
           "type": "required",
           "timeframe": "15m"

@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   loadMarketBootstrap,
@@ -12,6 +13,11 @@ import {
   postMarketEvaluate,
 } from "../api/market-client";
 import { buildRuleCards, buildStrategyCards, buildTickerCards } from "../display";
+import {
+  activeCatalogStrategies,
+  countActiveRules,
+  countActiveStrategies,
+} from "../lib/catalog";
 import {
   defaultAssessmentTime,
   formatAssessmentDisplay,
@@ -73,6 +79,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   const [assessmentAt, setAssessmentAt] = useState<Date>(() => new Date());
   const [lastAssessedAt, setLastAssessedAt] = useState<Date | null>(null);
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
+  const [assessNotice, setAssessNotice] = useState<string | null>(null);
   const [assessPending, setAssessPending] = useState(false);
   const [coverageInitialized, setCoverageInitialized] = useState(false);
 
@@ -202,8 +209,9 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       else setLastAssessedAt(new Date(assessmentAt.getTime()));
 
       const cat = catalogRef.current;
-      if (cat && newRunId) {
-        const payload = await loadSnapshotForModeWithCatalog(viewMode, newRunId, cat);
+      const activeRunId = newRunId || env.runId;
+      if (cat && activeRunId) {
+        const payload = await loadSnapshotForModeWithCatalog(viewMode, activeRunId, cat);
         setSnapshotCache({
           [viewMode]: {
             strategyCards: payload.strategyCards,
@@ -226,6 +234,9 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
 
     if (useMock) {
       setAssessmentError(null);
+      setAssessNotice(
+        "Mock mode: assessment time updated only. Run npm run dev:local for live Assess against SAM.",
+      );
       setAssessPending(true);
       window.setTimeout(() => {
         setLastAssessedAt(new Date(assessmentAt.getTime()));
@@ -235,6 +246,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     }
 
     setAssessmentError(null);
+    setAssessNotice(null);
     setAssessPending(true);
     void postMarketEvaluate({
       simulationTimeEt: formatSimulationTimeEt(assessmentAt),
@@ -252,7 +264,10 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       .finally(() => setAssessPending(false));
   }, [assessmentAt, candleCoverage, envelope, refreshAfterAssess, useMock]);
 
-  const strategies = catalog?.strategies ?? [];
+  const strategies = useMemo(
+    () => activeCatalogStrategies(catalog?.strategies),
+    [catalog],
+  );
   const threshold = useMock
     ? (snapshot?.signalThresholdPct ?? 50)
     : (envelope?.signalThresholdPct ?? 50);
@@ -337,14 +352,15 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   const activeSignalCount = useMemo(() => {
     if (!useMock && envelope) return envelope.summary.activeSignals;
     if (!snapshot) return 0;
+    const activeIds = new Set(strategies.map((s) => s.id));
     let count = 0;
     for (const ticker of snapshot.results) {
       for (const s of ticker.strategies) {
-        if (s.qualityPct >= threshold) count += 1;
+        if (activeIds.has(s.strategyId) && s.qualityPct >= threshold) count += 1;
       }
     }
     return count;
-  }, [useMock, envelope, snapshot, threshold]);
+  }, [useMock, envelope, snapshot, threshold, strategies]);
 
   const tickerCount = useMemo(() => {
     if (!useMock && envelope) return envelope.summary.tickerCount;
@@ -353,13 +369,12 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
 
   const strategyCount = useMemo(() => {
     if (!useMock && envelope) return envelope.summary.strategyCount;
-    return catalog?.strategies.length ?? 0;
+    return countActiveStrategies(catalog);
   }, [useMock, envelope, catalog]);
 
   const ruleCount = useMemo(() => {
     if (!useMock && envelope?.summary.ruleCount != null) return envelope.summary.ruleCount;
-    if (!catalog) return undefined;
-    return catalog.strategies.reduce((sum, s) => sum + s.rules.length, 0);
+    return countActiveRules(catalog);
   }, [useMock, envelope, catalog]);
 
   const strategyById = useMemo(() => {
@@ -405,6 +420,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     candleCoverage,
     assessmentAt,
     assessmentError,
+    assessNotice,
     assessPending,
     setAssessmentFromLocal,
     resetAssessmentToNow,

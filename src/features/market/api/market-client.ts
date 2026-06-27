@@ -56,7 +56,9 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
     const message =
       typeof record?.error === "string"
         ? record.error
-        : `HTTP ${response.status}`;
+        : typeof record?.message === "string"
+          ? record.message
+          : `HTTP ${response.status}`;
     const code = typeof record?.code === "string" ? record.code : undefined;
     throw new MarketApiError(message, code);
   }

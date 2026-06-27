@@ -11,6 +11,7 @@ type Props = {
   value: Date;
   coverage: CandleCoverage;
   error: string | null;
+  notice: string | null;
   pending: boolean;
   onChange: (value: string) => void;
   onNow: () => void;
@@ -22,6 +23,7 @@ export function AssessmentTimeControl({
   value,
   coverage,
   error,
+  notice,
   pending,
   onChange,
   onNow,
@@ -76,6 +78,8 @@ export function AssessmentTimeControl({
         <p id="market-assessment-time-error" className="mt-1 text-[11px] text-ocean-danger">
           {error}
         </p>
+      ) : notice ? (
+        <p className="mt-1 text-[11px] text-ocean-teal-dim dark:text-ocean-teal">{notice}</p>
       ) : (
         <p className="mt-1 text-[10px] text-ocean-sand/70">
           Candles: {formatAssessmentDisplay(new Date(coverage.earliestAt))}

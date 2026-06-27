@@ -69,6 +69,7 @@ export function MarketPage() {
     candleCoverage,
     assessmentAt,
     assessmentError,
+    assessNotice,
     assessPending,
     setAssessmentFromLocal,
     resetAssessmentToNow,
@@ -117,6 +118,7 @@ export function MarketPage() {
             value={assessmentAt}
             coverage={candleCoverage}
             error={assessmentError}
+            notice={assessNotice}
             pending={assessPending}
             onChange={setAssessmentFromLocal}
             onNow={resetAssessmentToNow}

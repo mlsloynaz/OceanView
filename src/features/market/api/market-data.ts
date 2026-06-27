@@ -27,8 +27,13 @@ async function fetchJson<T>(path: string): Promise<T> {
 
 export async function loadStrategiesCatalogMock(): Promise<StrategiesCatalogFile> {
   if (catalogCache) return catalogCache;
-  catalogCache = await fetchJson<StrategiesCatalogFile>("/data/strategies.json");
-  return catalogCache;
+  try {
+    catalogCache = await fetchStrategiesCatalog();
+    return catalogCache;
+  } catch {
+    catalogCache = await fetchJson<StrategiesCatalogFile>("/data/strategies.json");
+    return catalogCache;
+  }
 }
 
 export async function loadMarketSnapshotMock(): Promise<MarketSnapshotFile> {

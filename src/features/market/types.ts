@@ -15,6 +15,8 @@ export type StrategyCatalogItem = {
   shortName?: string;
   description: string;
   entryWindow?: string;
+  /** When false or omitted, strategy is excluded from Market grids and assess. */
+  active?: boolean;
   rules: StrategyRule[];
 };
 
