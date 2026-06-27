@@ -361,7 +361,7 @@ State and data loading live in `useMarketWorkspace` (`src/features/market/hooks/
 |-----------|------------|
 | Loading bootstrap or snapshot | “Loading market data…” |
 | Bootstrap/snapshot HTTP failure | Red error banner with message |
-| Envelope `runId === null` (live, no persisted run) | Banner: “No assessment run yet. Click **Assess**…” |
+| Envelope `runId === null` (live, no persisted run) | Banner: “No assessment run yet. Click **Assess**…” (hidden while snapshot is loading) |
 | Search with no matches | “No {strategies\|tickers\|rules} match your search.” |
 | Search empty, grid empty | No misleading search message (banner or loading/error only) |
 
@@ -371,6 +371,7 @@ State and data loading live in `useMarketWorkspace` (`src/features/market/hooks/
 
 | Symptom | Likely cause | What to check |
 |---------|--------------|---------------|
+| “Unexpected Application Error! 404 Not Found” | Unknown URL (no matching route) | Use `/market/strategies`, `/market/tickers`, `/admin`; deploy must include `RouteNotFound` catch-all |
 | Empty strategy grid, no error | Was: snapshot not fetched when `envelope.runId` is null (fixed in UI) | Deploy latest UI; confirm `GET /market/strategies/snapshot` returns items |
 | “No assessment run yet” banner | No persisted Assess run (`runId: null`) | Expected until **Assess**; banner can show alongside fixture preview cards |
 | `MARKET_NO_CANDLES` on Assess | No bars for active tickers | Admin → refresh candles ([candles-pane.md](./candles-pane.md)) |
