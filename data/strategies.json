@@ -1,254 +1,224 @@
 {
   "version": "1",
-  "updatedAt": "2026-06-25",
+  "updatedAt": "2026-06-26",
   "strategies": [
-    {
-      "id": "estrategia-02",
-      "name": "Midpoint Bounce",
-      "shortName": "Midpoint Bounce",
-      "description": "Detects bounces on the daily moving average (MA20) when price approaches after a counter-trend move.",
-      "entryWindow": "Hours to 2 days (daily MA20 bounce)",
-      "rules": [
-        {
-          "id": "daily_trend_context",
-          "ruleKey": "daily_trend_context",
-          "label": "Prior daily trend",
-          "type": "required",
-          "timeframe": "D"
-        },
-        {
-          "id": "ma20_proximity",
-          "ruleKey": "ma20_proximity",
-          "label": "Price near daily MA20",
-          "type": "required",
-          "timeframe": "D"
-        },
-        {
-          "id": "bounce_confirmation",
-          "ruleKey": "bounce_confirmation",
-          "label": "Daily bounce confirmation",
-          "type": "required",
-          "timeframe": "D"
-        },
-        {
-          "id": "volume_day",
-          "ruleKey": "volume_day",
-          "label": "Favorable daily volume",
-          "type": "extra",
-          "timeframe": "D"
-        },
-        {
-          "id": "stoch_daily",
-          "ruleKey": "stoch_daily",
-          "label": "Daily stochastic aligned",
-          "type": "extra",
-          "timeframe": "D"
-        },
-        {
-          "id": "options_execution",
-          "ruleKey": "options_execution",
-          "label": "Options execution",
-          "type": "extra",
-          "timeframe": "execution"
-        }
-      ]
-    },
     {
       "id": "estrategia-01",
       "name": "Hourly Trend Change",
       "shortName": "Trend Change 1H",
-      "description": "Hourly trendline break with 15m confirmation and Bollinger context.",
+      "description": "Hourly trendline break with Bollinger midpoint confirmation on 1h and 15m.",
       "entryWindow": "9:30–11:00 ET (1H break + 15m confirm)",
       "rules": [
         {
-          "id": "prior_trend_1h",
-          "ruleKey": "prior_trend_1h",
-          "label": "Prior hourly trend",
+          "id": "estrategia-01-a-cambio-tendencia-al-alza-req1",
+          "ruleKey": "trendline_1h",
+          "label": "Línea de tendencia bajista",
           "type": "required",
           "timeframe": "1h"
         },
         {
-          "id": "trendline_break_1h",
+          "id": "estrategia-01-a-cambio-tendencia-al-alza-req2",
           "ruleKey": "trendline_break_1h",
-          "label": "Trendline break (1H)",
+          "label": "Ruptura de línea de tendencia (HORA)",
           "type": "required",
           "timeframe": "1h"
         },
         {
-          "id": "midpoint_break_15m",
-          "ruleKey": "midpoint_break_15m",
-          "label": "15m midpoint break",
+          "id": "estrategia-01-a-cambio-tendencia-al-alza-req3",
+          "ruleKey": "bb_mid_cut_1h",
+          "label": "Ruptura punto medio Bollinger (HORA)",
+          "type": "required",
+          "timeframe": "1h"
+        },
+        {
+          "id": "estrategia-01-a-cambio-tendencia-al-alza-req4",
+          "ruleKey": "bb_mid_15m",
+          "label": "Punto medio alcista en 15 min",
           "type": "required",
           "timeframe": "15m"
         },
         {
-          "id": "hourly_candle_confirm",
-          "ruleKey": "hourly_candle_confirm",
-          "label": "Hourly candle confirmation",
-          "type": "required",
-          "timeframe": "1h"
-        },
-        {
-          "id": "volume_stoch_hour",
-          "ruleKey": "volume_stoch_hour",
-          "label": "Hourly volume / stochastic",
+          "id": "estrategia-01-a-cambio-tendencia-al-alza-req6",
+          "ruleKey": "vol_bb_expand_1h",
+          "label": "Volatilidad Bollinger abierta en HORA (disipadores expandiendo)",
           "type": "extra",
           "timeframe": "1h"
         },
         {
-          "id": "bb_exposure",
-          "ruleKey": "bb_exposure",
-          "label": "Bollinger exposure",
+          "id": "estrategia-01-a-cambio-tendencia-al-alza-e2",
+          "ruleKey": "ma_convergence_1h",
+          "label": "MA 20 and MA 40 converging (1H)",
           "type": "extra",
-          "timeframe": "15m"
+          "timeframe": "1h"
         }
-      ]
+      ],
+      "active": true
     },
     {
-      "id": "change-trend-15m",
-      "name": "Change Trend 15M",
-      "shortName": "Trend Change 15M",
-      "description": "15-minute trend change: prior trend, trendline break, midpoint break, and opening context on the 15m chart.",
-      "entryWindow": "Regular session (15m trend change window)",
+      "id": "estrategia-02",
+      "name": "Midpoint Bounce",
+      "shortName": "Midpoint Bounce",
+      "description": "Daily MA20 bounce with hourly level respect and 15m midpoint confirmation.",
+      "entryWindow": "Hours to 2 days (daily MA20 bounce)",
       "rules": [
         {
-          "id": "prior_trend_15m",
-          "ruleKey": "prior_trend_15m",
-          "label": "Prior 15m trend",
+          "id": "estrategia-02-a-rebote-al-alza-req1",
+          "ruleKey": "bb_mid_d",
+          "label": "DÍA alcista claro (Bollinger)",
+          "type": "required",
+          "timeframe": "D"
+        },
+        {
+          "id": "estrategia-02-a-rebote-al-alza-req2",
+          "ruleKey": "bb_mid_cut_1h",
+          "label": "HORA bajista clara (Bollinger)",
+          "type": "required",
+          "timeframe": "1h"
+        },
+        {
+          "id": "estrategia-02-a-rebote-al-alza-req3",
+          "ruleKey": "daily_ma_interaction_d",
+          "label": "Precio baja hacia el punto medio DÍA (MA 20)",
+          "type": "required",
+          "timeframe": "D"
+        },
+        {
+          "id": "estrategia-02-a-rebote-al-alza-req4",
+          "ruleKey": "level_respect_1h",
+          "label": "Toca y respeta (no rompe)",
+          "type": "required",
+          "timeframe": "1h"
+        },
+        {
+          "id": "estrategia-02-a-rebote-al-alza-req5",
+          "ruleKey": "bb_mid_15m",
+          "label": "Rebote visible en 15 min",
           "type": "required",
           "timeframe": "15m"
         },
         {
-          "id": "trendline_break_15m_ct",
-          "ruleKey": "trendline_break_15m",
-          "label": "Trendline break",
+          "id": "estrategia-02-a-rebote-al-alza-req6",
+          "ruleKey": "hourly_candle_confirm_1h",
+          "label": "Vela HORA completa alcista → CALL",
           "type": "required",
-          "timeframe": "15m"
-        },
-        {
-          "id": "midpoint_break_15m_ct",
-          "ruleKey": "midpoint_break_15m_ct",
-          "label": "15m midpoint break",
-          "type": "required",
-          "timeframe": "15m"
-        },
-        {
-          "id": "candle_confirm_15m",
-          "ruleKey": "candle_confirm_15m",
-          "label": "15m candle confirmation",
-          "type": "required",
-          "timeframe": "15m"
-        },
-        {
-          "id": "volume_stoch_15m",
-          "ruleKey": "volume_stoch_15m",
-          "label": "15m volume / stochastic",
-          "type": "extra",
-          "timeframe": "15m"
-        },
-        {
-          "id": "session_open_context",
-          "ruleKey": "session_open_context",
-          "label": "Session open context",
-          "type": "extra",
-          "timeframe": "15m"
+          "timeframe": "1h"
         }
-      ]
-    },
-    {
-      "id": "bolinger-15-change-trend",
-      "name": "Inside Bollinger 15M",
-      "shortName": "Inside BB 15M",
-      "description": "Fast 15m move inside Bollinger bands: prior B15m trend, trendline and midpoint break, opening inside bands.",
-      "entryWindow": "Regular session (Mov15m inside window)",
-      "rules": [
-        {
-          "id": "prior_trend_b15m",
-          "ruleKey": "prior_trend_b15m",
-          "label": "Prior B15m trend",
-          "type": "required",
-          "timeframe": "15m"
-        },
-        {
-          "id": "trendline_break_15m",
-          "ruleKey": "trendline_break_15m",
-          "label": "Trendline break",
-          "type": "required",
-          "timeframe": "15m"
-        },
-        {
-          "id": "midpoint_break_15m_inside",
-          "ruleKey": "midpoint_break_15m",
-          "label": "15m midpoint break",
-          "type": "required",
-          "timeframe": "15m"
-        },
-        {
-          "id": "opening_inside_bb",
-          "ruleKey": "opening_inside_bb",
-          "label": "Opening inside Bollinger",
-          "type": "required",
-          "timeframe": "15m"
-        },
-        {
-          "id": "volatility_b15m",
-          "ruleKey": "volatility_b15m",
-          "label": "B15m volatility",
-          "type": "extra",
-          "timeframe": "15m"
-        },
-        {
-          "id": "precheck_928",
-          "ruleKey": "precheck_928",
-          "label": "Pre-check 9:28",
-          "type": "extra",
-          "timeframe": "15m"
-        }
-      ]
+      ],
+      "active": false
     },
     {
       "id": "estrategia-03",
       "name": "Magnet Effect",
       "shortName": "Magnet Effect",
-      "description": "Overnight gap toward a magnet level with 15m confirmation during the first hour of the session.",
+      "description": "Extreme opening gap away from hourly MAs with 15m Bollinger exposure and volume confirmation.",
       "entryWindow": "9:30–10:30 ET (gap + 15m confirm)",
       "rules": [
         {
-          "id": "gap_open",
-          "ruleKey": "gap_open",
-          "label": "Overnight gap (premarket → open)",
+          "id": "estrategia-03-a-efecto-iman-alcista-req1",
+          "ruleKey": "ma_separation_1h",
+          "label": "Tendencia claramente alcista (MA 20 y 40 en HORA)",
           "type": "required",
-          "timeframe": "D"
+          "timeframe": "1h"
         },
         {
-          "id": "magnet_level",
-          "ruleKey": "magnet_level",
-          "label": "Magnet level identified",
+          "id": "estrategia-03-a-efecto-iman-alcista-req2",
+          "ruleKey": "open_outside_bb_1h",
+          "label": "Salto de apertura alcista extremo — lejos de MA 20 HORA",
           "type": "required",
-          "timeframe": "D"
+          "timeframe": "1h"
         },
         {
-          "id": "gap_confirm_15m",
-          "ruleKey": "gap_confirm_15m",
-          "label": "Post-gap 15m confirmation",
+          "id": "estrategia-03-a-efecto-iman-alcista-req3",
+          "ruleKey": "open_outside_bb_15m",
+          "label": "Primera vela 15 min completamente fuera de Bollinger",
           "type": "required",
           "timeframe": "15m"
         },
         {
-          "id": "opening_window_5m",
-          "ruleKey": "opening_window_5m",
-          "label": "5m opening window",
+          "id": "estrategia-03-a-efecto-iman-alcista-req4",
+          "ruleKey": "volume_stoch_1h",
+          "label": "Volumen en HORA cruza la línea roja (Worden Stochastics) → PUT",
+          "type": "required",
+          "timeframe": "1h"
+        },
+        {
+          "id": "estrategia-03-a-efecto-iman-alcista-e2",
+          "ruleKey": "open_outside_bb_strength_1h",
+          "label": "Price exposed outside Bollinger (1H and/or D)",
           "type": "extra",
+          "timeframe": "1h"
+        },
+        {
+          "id": "estrategia-03-a-efecto-iman-alcista-e3",
+          "ruleKey": "open_outside_bb_multi_tf_1h",
+          "label": "Multi-TF exposure (stronger magnet)",
+          "type": "extra",
+          "timeframe": "1h"
+        }
+      ],
+      "active": false
+    },
+    {
+      "id": "estrategia-04",
+      "name": "Lateral BB15 + Gap",
+      "shortName": "Lateral BB15",
+      "description": "15m Bollinger squeeze with extreme opening gap and first-five-minute entry window.",
+      "entryWindow": "9:30–9:35 ET (opening gap window)",
+      "rules": [
+        {
+          "id": "estrategia-04-a-lateral-gap-abajo-recuperacion-req1",
+          "ruleKey": "bb_lateral_squeeze_15m",
+          "label": "Bollinger 15 min: tendencia totalmente lateral y sin volatilidad",
+          "type": "required",
           "timeframe": "15m"
         },
         {
-          "id": "volume_gap",
-          "ruleKey": "volume_gap",
-          "label": "Gap volume",
-          "type": "extra",
+          "id": "estrategia-04-a-lateral-gap-abajo-recuperacion-req2",
+          "ruleKey": "open_outside_bb_1h",
+          "label": "Apertura con salto extremo bajo la banda inferior + empieza a subir",
+          "type": "required",
+          "timeframe": "1h"
+        }
+      ],
+      "active": false
+    },
+    {
+      "id": "estrategia-05",
+      "name": "Inside Bollinger 15M",
+      "shortName": "Inside BB 15M",
+      "description": "Fast 15m move inside Bollinger bands: vol expansion, open inside bands, midpoint and trend cuts.",
+      "entryWindow": "Regular session (Mov15m inside window)",
+      "rules": [
+        {
+          "id": "bb15-r1",
+          "ruleKey": "vol_bb_expand_1h",
+          "label": "Vol BB expandiendo (15m)",
+          "type": "required",
+          "timeframe": "15m"
+        },
+        {
+          "id": "bb15-r2",
+          "ruleKey": "open_inside_bb_15m",
+          "label": "Open dentro BB 15m",
+          "type": "required",
+          "timeframe": "15m"
+        },
+        {
+          "id": "bb15-r3",
+          "ruleKey": "bb_mid_cut_15m",
+          "label": "Corte punto medio BB",
+          "type": "required",
+          "timeframe": "15m"
+        },
+        {
+          "id": "bb15-r4",
+          "ruleKey": "trend_cut_15m",
+          "label": "Corte de Tendencia",
+          "type": "required",
           "timeframe": "15m"
         }
-      ]
+      ],
+      "active": true
     }
   ]
 }

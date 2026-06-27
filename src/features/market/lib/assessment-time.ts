@@ -121,3 +121,43 @@ export function coverageBoundsForInput(coverage: CandleCoverage): {
     max: formatEtDatetimeLocal(new Date(coverage.latestAt)),
   };
 }
+
+/** Format assessment moment for POST /market/evaluate (ISO8601 with ET offset). */
+export function formatSimulationTimeEt(date: Date): string {
+  const p = etParts(date);
+  const offset = etOffsetHours(date);
+  const sign = offset <= 0 ? "-" : "+";
+  const abs = String(Math.abs(offset)).padStart(2, "0");
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:00${sign}${abs}:00`;
+}
+
+function etOffsetHours(date: Date): number {
+  const p = etParts(date);
+  const utcGuess = Date.UTC(
+    Number(p.year),
+    Number(p.month) - 1,
+    Number(p.day),
+    Number(p.hour),
+    Number(p.minute),
+  );
+  for (const offsetHours of [-4, -5]) {
+    const candidate = new Date(utcGuess - offsetHours * 60 * 60 * 1000);
+    const check = etParts(candidate);
+    if (
+      check.year === p.year &&
+      check.month === p.month &&
+      check.day === p.day &&
+      check.hour === p.hour &&
+      check.minute === p.minute
+    ) {
+      return offsetHours;
+    }
+  }
+  return -4;
+}
+
+export function parseSimulationTimeEt(iso: string | null | undefined): Date | null {
+  if (!iso?.trim()) return null;
+  const parsed = new Date(iso);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}

@@ -100,6 +100,9 @@ export function useCandlesPane(open: boolean) {
         try {
           const ack = await postCandlesRefresh({ tickers });
           setMessage(ack.message);
+          const status = await postCandlesStatus({ tickers: tickerSymbols });
+          setSymbols(status.symbols);
+          setBanner(bannerFromJob(status.job));
         } catch (err) {
           setError(err instanceof Error ? err.message : "Candle refresh failed.");
         } finally {
@@ -111,7 +114,7 @@ export function useCandlesPane(open: boolean) {
         }
       });
     },
-    [],
+    [tickerSymbols],
   );
 
   const resetCandles = useCallback(() => {
@@ -127,6 +130,9 @@ export function useCandlesPane(open: boolean) {
       try {
         const ack = await postCandlesReset({ tickers: tickerSymbols });
         setMessage(ack.message);
+        const status = await postCandlesStatus({ tickers: tickerSymbols });
+        setSymbols(status.symbols);
+        setBanner(bannerFromJob(status.job));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Candle reset failed.");
       }

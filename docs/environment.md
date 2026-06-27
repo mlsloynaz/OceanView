@@ -26,7 +26,7 @@ Vite embeds `VITE_*` variables into the JavaScript bundle at **build time**. The
 | `.env.production` | `npm run build` |
 | `.env.example` | Documentation only |
 
-Current values are non-secret: `VITE_API_BASE_URL=/api`, `VITE_USE_MOCK_CANDLES=false`.
+Current values are non-secret: `VITE_API_BASE_URL=/api`, `VITE_USE_MOCK_CANDLES=false`, `VITE_USE_MOCK_MARKET=true` (dev) / `false` (production).
 
 ### Gitignored (personal / machine-specific)
 
@@ -54,6 +54,7 @@ Optional overrides via GitHub **Variables** (only if you add them to the workflo
 
 - `VITE_API_BASE_URL`
 - `VITE_USE_MOCK_CANDLES`
+- `VITE_USE_MOCK_MARKET`
 
 Today the workflow uses committed `.env.production` only.
 

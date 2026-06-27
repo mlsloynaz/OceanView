@@ -1,6 +1,12 @@
-import { Fragment, useState } from "react";
-import type { MarketSnapshotFile, StrategyCatalogItem } from "../types";
+import { Fragment, useEffect, useState } from "react";
+import { fetchStrategyDetail } from "../api/market-client";
+import type {
+  MarketSnapshotFile,
+  StrategyCatalogItem,
+  StrategyDetailRow,
+} from "../types";
 import {
+  formatAchievedTimeEt,
   isSignal,
   mergeRuleDisplay,
   qualityBadgeClass,
@@ -14,14 +20,124 @@ import { cn } from "@/shared/lib/cn";
 
 type Props = {
   strategy: StrategyCatalogItem;
-  snapshot: MarketSnapshotFile;
+  runId: string | null;
+  threshold: number;
+  useMock: boolean;
+  snapshot: MarketSnapshotFile | null;
   onClose: () => void;
 };
 
-export function StrategyDetailModal({ strategy, snapshot, onClose }: Props) {
-  const threshold = snapshot.signalThresholdPct;
-  const rows = tickersForStrategy(strategy.id, snapshot, threshold);
+type RowModel = {
+  symbol: string;
+  name: string | null;
+  qualityPct: number;
+  metCount: number;
+  totalCount: number;
+  achievedAt: string | null;
+  rules: ReturnType<typeof mergeRuleDisplay>;
+};
+
+function mapDetailRow(
+  row: StrategyDetailRow,
+  strategyId: string,
+  catalogRules: StrategyCatalogItem["rules"],
+): RowModel {
+  const rules =
+    row.rules.length > 0 && row.rules[0]?.label
+      ? row.rules
+      : mergeRuleDisplay(catalogRules, row.rules);
+  const evalRow = {
+    strategyId,
+    qualityPct: row.qualityPct,
+    direction: row.direction,
+    metCount: row.metCount,
+    totalCount: row.totalCount,
+    metRequired: row.metRequired ?? 0,
+    totalRequired: row.totalRequired ?? 0,
+    achievedAtEt: row.achievedAtEt,
+    rules: row.rules.map((r) => ({
+      ruleKey: r.ruleKey,
+      status: r.status,
+      metAtEt: r.metAtEt,
+      evidence: r.evidence,
+    })),
+  };
+  const achievedAt = row.achievedAtEt
+    ? formatAchievedTimeEt(String(row.achievedAtEt))
+    : strategyAchievedAtEt(evalRow, catalogRules);
+
+  return {
+    symbol: row.symbol,
+    name: row.name,
+    qualityPct: row.qualityPct,
+    metCount: row.metCount,
+    totalCount: row.totalCount,
+    achievedAt,
+    rules,
+  };
+}
+
+export function StrategyDetailModal({
+  strategy,
+  runId,
+  threshold,
+  useMock,
+  snapshot,
+  onClose,
+}: Props) {
   const [expandedSymbol, setExpandedSymbol] = useState<string | null>(null);
+  const [rows, setRows] = useState<RowModel[]>([]);
+  const [loading, setLoading] = useState(!useMock);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (useMock && snapshot) {
+      const mockRows = tickersForStrategy(strategy.id, snapshot, threshold);
+      setRows(
+        mockRows.map((row) => {
+          const rules = mergeRuleDisplay(strategy.rules, row.eval.rules);
+          const signal = isSignal(row.eval.qualityPct, threshold);
+          return {
+            symbol: row.symbol,
+            name: row.name,
+            qualityPct: row.eval.qualityPct,
+            metCount: row.eval.metCount,
+            totalCount: row.eval.totalCount,
+            achievedAt: signal ? strategyAchievedAtEt(row.eval, strategy.rules) : null,
+            rules,
+          };
+        }),
+      );
+      setLoading(false);
+      return;
+    }
+
+    if (!runId) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    void fetchStrategyDetail(strategy.id, runId)
+      .then((detail) => {
+        if (cancelled) return;
+        setRows(detail.rows.map((row) => mapDetailRow(row, strategy.id, strategy.rules)));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load strategy detail.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [useMock, snapshot, strategy, runId, threshold]);
 
   return (
     <MarketDetailModal
@@ -38,9 +154,19 @@ export function StrategyDetailModal({ strategy, snapshot, onClose }: Props) {
         Tickers evaluated
       </h3>
 
-      {rows.length === 0 ? (
+      {loading && <p className="text-sm text-ocean-sand">Loading detail…</p>}
+
+      {error && (
+        <p className="rounded-lg border border-ocean-danger-border bg-ocean-danger-muted px-3 py-2 text-sm text-ocean-danger">
+          {error}
+        </p>
+      )}
+
+      {!loading && !error && rows.length === 0 ? (
         <p className="text-sm text-ocean-sand">No tickers in snapshot.</p>
-      ) : (
+      ) : null}
+
+      {!loading && !error && rows.length > 0 && (
         <div className="overflow-x-auto rounded-lg border border-ocean-mid/40">
           <table className="w-full min-w-[28rem] text-left text-sm">
             <thead>
@@ -54,13 +180,8 @@ export function StrategyDetailModal({ strategy, snapshot, onClose }: Props) {
             </thead>
             <tbody>
               {rows.map((row) => {
-                const { eval: ev } = row;
                 const expanded = expandedSymbol === row.symbol;
-                const rules = mergeRuleDisplay(strategy.rules, ev.rules);
-                const signal = isSignal(ev.qualityPct, threshold);
-                const achievedAt = signal
-                  ? strategyAchievedAtEt(ev, strategy.rules)
-                  : null;
+                const signal = isSignal(row.qualityPct, threshold);
 
                 return (
                   <Fragment key={row.symbol}>
@@ -80,27 +201,27 @@ export function StrategyDetailModal({ strategy, snapshot, onClose }: Props) {
                         <span
                           className={cn(
                             "inline-block rounded px-2 py-0.5 text-xs font-semibold tabular-nums",
-                            qualityBadgeClass(ev.qualityPct, threshold),
+                            qualityBadgeClass(row.qualityPct, threshold),
                           )}
                         >
-                          {ev.qualityPct}%
+                          {row.qualityPct}%
                         </span>
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span className="tabular-nums text-ocean-foam">
-                            {ev.metCount}/{ev.totalCount}
+                            {row.metCount}/{row.totalCount}
                           </span>
-                          <RuleCheckStrip rules={rules} />
+                          <RuleCheckStrip rules={row.rules} />
                         </div>
                       </td>
                       <td className="px-3 py-2.5">
-                        {achievedAt ? (
+                        {row.achievedAt ? (
                           <span
                             className="text-xs tabular-nums text-ocean-teal-dim dark:text-ocean-teal"
                             title="Time strategy criteria were achieved (ET)"
                           >
-                            {achievedAt}
+                            {row.achievedAt}
                           </span>
                         ) : (
                           <span className="text-xs text-ocean-sand/50">—</span>
@@ -133,7 +254,7 @@ export function StrategyDetailModal({ strategy, snapshot, onClose }: Props) {
                     {expanded && (
                       <tr key={`${row.symbol}-detail`} className="border-b border-ocean-mid/30 bg-ocean-deep/30">
                         <td colSpan={5} className="px-3 py-3">
-                          <RuleRequirementsList rules={rules} />
+                          <RuleRequirementsList rules={row.rules} />
                         </td>
                       </tr>
                     )}

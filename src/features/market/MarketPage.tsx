@@ -46,6 +46,9 @@ export function MarketPage() {
     error,
     catalog,
     snapshot,
+    runId,
+    useMock,
+    needsAssess,
     search,
     setSearch,
     threshold,
@@ -53,11 +56,15 @@ export function MarketPage() {
     filteredTickerCards,
     filteredRuleCards,
     selectedStrategy,
+    selectedTicker,
     selectedTickerResult,
     openStrategy,
     openTicker,
     closeDetail,
     activeSignalCount,
+    strategyCount,
+    tickerCount,
+    ruleCount,
     strategyById,
     candleCoverage,
     assessmentAt,
@@ -67,7 +74,7 @@ export function MarketPage() {
     resetAssessmentToNow,
     runAssessment,
     assessmentLabel,
-  } = useMarketWorkspace();
+  } = useMarketWorkspace(viewMode);
 
   const searchPlaceholder =
     viewMode === "strategies"
@@ -76,17 +83,20 @@ export function MarketPage() {
         ? "Search by ticker or name"
         : "Search by rule or strategy";
 
+  const showGrids = !loading && !error;
+
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="font-display text-xl font-semibold text-ocean-foam sm:text-2xl">Market</h1>
-          {catalog && snapshot && (
+          {catalog && (snapshot || !useMock) && (
             <div className="mt-1">
               <MarketSummaryStrip
-                strategyCount={catalog.strategies.length}
+                strategyCount={strategyCount}
                 activeSignals={activeSignalCount}
-                tickerCount={snapshot.results.length}
+                tickerCount={tickerCount}
+                ruleCount={ruleCount}
                 assessmentLabel={assessmentLabel}
               />
             </div>
@@ -126,7 +136,13 @@ export function MarketPage() {
         </p>
       )}
 
-      {!loading && !error && viewMode === "strategies" && (
+      {needsAssess && (
+        <p className="rounded-lg border border-ocean-mid/40 bg-ocean-deep/30 px-3 py-2 text-sm text-ocean-sand">
+          No assessment run yet. Click <strong className="text-ocean-foam">Assess</strong> to evaluate active tickers.
+        </p>
+      )}
+
+      {showGrids && viewMode === "strategies" && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
           {filteredStrategyCards.map((card) => (
             <StrategyCard
@@ -142,7 +158,7 @@ export function MarketPage() {
         </div>
       )}
 
-      {!loading && !error && viewMode === "tickers" && (
+      {showGrids && viewMode === "tickers" && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredTickerCards.map((card) => (
             <TickerCard
@@ -159,7 +175,7 @@ export function MarketPage() {
         </div>
       )}
 
-      {!loading && !error && viewMode === "rules" && (
+      {showGrids && viewMode === "rules" && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredRuleCards.map((card) => (
             <RuleCard key={`${card.strategyId}:${card.ruleKey}`} card={card} />
@@ -170,19 +186,25 @@ export function MarketPage() {
         </div>
       )}
 
-      {selectedStrategy && snapshot && (
+      {selectedStrategy && (
         <StrategyDetailModal
           strategy={selectedStrategy}
+          runId={runId}
+          threshold={threshold}
+          useMock={useMock}
           snapshot={snapshot}
           onClose={closeDetail}
         />
       )}
 
-      {selectedTickerResult && (
+      {selectedTicker && (
         <TickerDetailModal
+          symbol={selectedTicker}
+          runId={runId}
+          threshold={threshold}
+          useMock={useMock}
           ticker={selectedTickerResult}
           strategyById={strategyById}
-          threshold={threshold}
           onClose={closeDetail}
         />
       )}

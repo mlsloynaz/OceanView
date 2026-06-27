@@ -79,7 +79,7 @@ export type MarketViewMode = "strategies" | "tickers" | "rules";
 export type StrategyCardModel = {
   strategy: StrategyCatalogItem;
   signalCount: number;
-  previewTickers: { symbol: string; qualityPct: number }[];
+  previewTickers: { symbol: string; qualityPct: number; achievedAtEt?: string }[];
 };
 
 /** Derived view model for ticker thumbnail grid. */
@@ -87,7 +87,13 @@ export type TickerCardModel = {
   symbol: string;
   name: string | null;
   signalCount: number;
-  bestSignal: { strategyId: string; strategyName: string; qualityPct: number; direction: TradeDirection | null } | null;
+  bestSignal: {
+    strategyId: string;
+    strategyName: string;
+    qualityPct: number;
+    direction: TradeDirection | null;
+    achievedAtEt?: string;
+  } | null;
   topStrategyEval: TickerStrategyEval | null;
 };
 
@@ -112,4 +118,103 @@ export type RuleDisplayRow = {
   status: RuleStatus;
   metAtEt?: string | null;
   evidence?: string | null;
+};
+
+export type MarketEnvelopeStatus = "complete" | "running" | "failed" | "stale";
+
+export type MarketEnvelopeSummary = {
+  strategyCount: number;
+  tickerCount: number;
+  activeSignals: number;
+  ruleCount?: number;
+};
+
+export type MarketEnvelope = {
+  runId: string | null;
+  evaluatedAt: string | null;
+  simulationTimeEt: string | null;
+  tradeDate: string;
+  signalThresholdPct: number;
+  catalogVersion: string;
+  status: MarketEnvelopeStatus;
+  candleCoverage: CandleCoverage;
+  summary: MarketEnvelopeSummary;
+};
+
+export type StrategySnapshotItem = {
+  strategyId: string;
+  name: string;
+  shortName?: string;
+  entryWindow?: string;
+  signalCount: number;
+  previewTickers: { symbol: string; qualityPct: number; achievedAtEt?: string }[];
+};
+
+export type TickerSnapshotItem = {
+  symbol: string;
+  name: string | null;
+  signalCount: number;
+  bestSignal: TickerCardModel["bestSignal"];
+  topStrategyEval?: {
+    strategyId: string;
+    qualityPct: number;
+    rules: RuleEval[];
+  } | null;
+};
+
+export type RuleSnapshotItem = RuleCardModel;
+
+export type StrategyDetailRow = {
+  symbol: string;
+  name: string | null;
+  qualityPct: number;
+  direction: TradeDirection | null;
+  metCount: number;
+  totalCount: number;
+  metRequired?: number;
+  totalRequired?: number;
+  achievedAtEt?: string | null;
+  rules: RuleDisplayRow[];
+};
+
+export type StrategyDetailResponse = {
+  strategy: StrategyCatalogItem;
+  runId: string;
+  rows: StrategyDetailRow[];
+};
+
+export type TickerDetailStrategyRow = TickerStrategyEval & {
+  rules: RuleDisplayRow[];
+};
+
+export type TickerDetailResponse = {
+  symbol: string;
+  name: string | null;
+  runId: string;
+  strategies: TickerDetailStrategyRow[];
+};
+
+export type MarketEvaluateRequest = {
+  symbols?: string[];
+  strategyIds?: string[] | null;
+  tradeDate?: string;
+  simulationTimeEt?: string;
+  options?: { signalThresholdPct?: number };
+};
+
+export type MarketEvaluateResponse = {
+  runId: string;
+  status: string;
+  message?: string;
+  symbols?: string[];
+  strategyIds?: string[] | null;
+  assessment?: MarketSnapshotFile;
+};
+
+export type MarketEvaluateStatusResponse = {
+  runId: string;
+  status: string;
+  progress?: { completed?: number; total?: number } | null;
+  summary?: Record<string, unknown> | null;
+  assessment?: MarketSnapshotFile | null;
 };
