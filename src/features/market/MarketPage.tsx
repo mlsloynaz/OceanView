@@ -152,7 +152,7 @@ export function MarketPage() {
               onOpen={openStrategy}
             />
           ))}
-          {filteredStrategyCards.length === 0 && (
+          {filteredStrategyCards.length === 0 && search.trim() && (
             <p className="text-sm text-ocean-sand sm:col-span-2">No strategies match your search.</p>
           )}
         </div>
@@ -169,7 +169,7 @@ export function MarketPage() {
               onOpen={openTicker}
             />
           ))}
-          {filteredTickerCards.length === 0 && (
+          {filteredTickerCards.length === 0 && search.trim() && (
             <p className="text-sm text-ocean-sand sm:col-span-2">No tickers match your search.</p>
           )}
         </div>
@@ -180,7 +180,7 @@ export function MarketPage() {
           {filteredRuleCards.map((card) => (
             <RuleCard key={`${card.strategyId}:${card.ruleKey}`} card={card} />
           ))}
-          {filteredRuleCards.length === 0 && (
+          {filteredRuleCards.length === 0 && search.trim() && (
             <p className="text-sm text-ocean-sand sm:col-span-2">No rules match your search.</p>
           )}
         </div>

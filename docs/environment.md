@@ -28,6 +28,11 @@ Vite embeds `VITE_*` variables into the JavaScript bundle at **build time**. The
 
 Current values are non-secret: `VITE_API_BASE_URL=/api`, `VITE_USE_MOCK_CANDLES=false`, `VITE_USE_MOCK_MARKET=true` (dev) / `false` (production).
 
+| Flag | Feature doc |
+|------|-------------|
+| `VITE_USE_MOCK_MARKET` | [market-page.md](./market-page.md) |
+| `VITE_USE_MOCK_CANDLES` | [candles-pane.md](./candles-pane.md) |
+
 ### Gitignored (personal / machine-specific)
 
 | File | Purpose |
@@ -152,3 +157,15 @@ GitHub
   Secrets: AWS_ROLE_ARN
   Variables: S3_BUCKET, CLOUDFRONT_DISTRIBUTION_ID, AWS_REGION
 ```
+
+---
+
+## Related docs
+
+| Doc | Purpose |
+|-----|---------|
+| [README.md](./README.md) | Documentation index |
+| [market-page.md](./market-page.md) | Market feature flags and local live API |
+| [candles-pane.md](./candles-pane.md) | Admin candles mock flag |
+| [cursor-rules-skills.md](./cursor-rules-skills.md) | `npm run dev:local` |
+| [aws-urls.md](./aws-urls.md) | Production URLs |

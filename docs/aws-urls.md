@@ -59,6 +59,8 @@ That is expected. API Gateway has no route on `/prod` itself — only on named p
 
 ### Live routes (today)
 
+**Health, tickers, jobs, candles**
+
 | Method | Path | Example |
 |--------|------|---------|
 | `GET` | `/health` | https://7bko9drijd.execute-api.us-east-1.amazonaws.com/prod/health |
@@ -69,7 +71,23 @@ That is expected. API Gateway has no route on `/prod` itself — only on named p
 | `POST` | `/candles/refresh` | …/prod/candles/refresh |
 | `POST` | `/candles/reset` | …/prod/candles/reset |
 
-Market routes (`/market/*`) are **planned** — see [market-api-contract.md](./market-api-contract.md) and `OceanView-API/docs/market-plan.md`.
+**Market** (used by the Market page when `VITE_USE_MOCK_MARKET=false`)
+
+| Method | Path | Example |
+|--------|------|---------|
+| `GET` | `/market/envelope` | …/prod/market/envelope |
+| `GET` | `/market/strategies` | …/prod/market/strategies |
+| `GET` | `/market/strategies/snapshot` | …/prod/market/strategies/snapshot |
+| `GET` | `/market/tickers/snapshot` | …/prod/market/tickers/snapshot |
+| `GET` | `/market/rules/snapshot` | …/prod/market/rules/snapshot |
+| `GET` | `/market/strategies/{strategyId}/detail` | …/prod/market/strategies/estrategia-01/detail |
+| `GET` | `/market/tickers/{symbol}/detail` | …/prod/market/tickers/AAPL/detail |
+| `POST` | `/market/evaluate` | …/prod/market/evaluate |
+| `GET` | `/market/evaluate/{runId}` | …/prod/market/evaluate/{runId} |
+
+Contract and field shapes: [market-page.md](./market-page.md) (APIs section). Implementation notes: `OceanView-API/docs/market-plan.md`.
+
+**Market bootstrap behavior:** `GET /market/envelope` may return `"runId": null` until someone runs **Assess** in the UI (`POST /market/evaluate`). Snapshot endpoints still respond without `runId` (fixture preview when no persisted run exists).
 
 ### Smoke test
 
@@ -77,6 +95,8 @@ Market routes (`/market/*`) are **planned** — see [market-api-contract.md](./m
 $api = "https://7bko9drijd.execute-api.us-east-1.amazonaws.com/prod"
 curl.exe "$api/health"
 curl.exe "$api/tickers"
+curl.exe "$api/market/envelope"
+curl.exe "$api/market/strategies/snapshot"
 ```
 
 ---
@@ -87,6 +107,7 @@ The browser loads the app from **CloudFront**. The built app uses `VITE_API_BASE
 
 ```
 https://d1xsxf8zu41xgt.cloudfront.net/api/tickers
+https://d1xsxf8zu41xgt.cloudfront.net/api/market/envelope
 ```
 
 CloudFront behavior:
@@ -121,10 +142,12 @@ See [environment.md](./environment.md) and `.cursor/skills/oceanview-dev-local/S
 
 | Doc | Purpose |
 |-----|---------|
+| [README.md](./README.md) | Documentation index |
 | [deploy-aws.md](./deploy-aws.md) | One-time AWS setup, GitHub Actions, CloudFront `/api` wiring |
 | [environment.md](./environment.md) | `VITE_*` vars, local vs production |
-| [candles-pane.md](./candles-pane.md) | Candles API contract |
-| [market-api-contract.md](./market-api-contract.md) | Planned Market API |
+| [candles-pane.md](./candles-pane.md) | Admin Candles pane (UI + API contract) |
+| [market-page.md](./market-page.md) | Market page (UI, APIs, assess flow) |
+| [cursor-rules-skills.md](./cursor-rules-skills.md) | Cursor project rules and skills |
 | `OceanView-API/README.md` | API repo deploy and smoke tests |
 
 ---

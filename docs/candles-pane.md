@@ -6,7 +6,9 @@ Operational panel for **candle (OHLC bar) collection** — incremental refresh, 
 **UI title:** Candles  
 **Subtitle:** Monitor ticker price data intake  
 
-**Related repos (future):**
+**Downstream:** Market **Assess** needs candle bars for active tickers — see [market-page.md](./market-page.md).
+
+**Related repos:**
 
 | Repo | Role |
 |------|------|
@@ -31,7 +33,7 @@ Operational panel for **candle (OHLC bar) collection** — incremental refresh, 
 
 - Earning calendar
 - Foundation / BB15 / pipeline eval
-- Strategy eval (Result Now)
+- Strategy eval (Result Now) — use [market-page.md](./market-page.md) `/market` instead
 - MySQL / InvestJournal catalog
 
 ---
@@ -471,25 +473,25 @@ OceanView-API/
 
 ---
 
-### Later (not started — do not implement yet)
+### Later phases (historical roadmap)
 
-See **[plan.md](./plan.md)** for the full roadmap and **[oceanview-api-setup.md](./oceanview-api-setup.md)** for step-by-step repo creation, SAM deploy, and Phase 3–5 checklist.
+Phases 3–5 below are largely **done** for candles (live API + CloudFront `/api/*`). Use [deploy-aws.md](./deploy-aws.md) and `OceanView-API/README.md` for current deploy steps.
 
-#### Phase 3 — OceanView-API read paths
+#### Phase 3 — OceanView-API read paths ✓
 
 - `GET /admin/tickers`
 - `POST /candles/result`
 - `POST /candles/status`
 - Point UI `VITE_API_BASE_URL` at API
 
-#### Phase 4 — OceanView-API write paths
+#### Phase 4 — OceanView-API write paths ✓
 
 - `POST /candles/refresh` (async job, 202)
 - `POST /candles/reset`
 - Job tracking in `candles/status`
 - FinanceAI bridge during migration
 
-#### Phase 5 — Infra
+#### Phase 5 — Infra ✓
 
 - Cognito authorizer
 - CloudFront `/api/*`
@@ -501,9 +503,7 @@ See **[plan.md](./plan.md)** for the full roadmap and **[oceanview-api-setup.md]
 
 OceanView-API is built as a **new stack** with `OceanView-*` DynamoDB tables. FinanceAI is used to **port Python logic** (bar intake, Schwab client), not as a runtime API or shared database.
 
-See [oceanview-api-setup.md §1b](./oceanview-api-setup.md) for which AWS resources to create vs avoid.
-
-External contract for OceanView UI is **always** `candles/*` — never expose legacy FinanceAI paths to the browser.
+External contract for OceanView UI is **`candles/*`** and **`market/*`** — never expose legacy FinanceAI paths to the browser.
 
 ---
 
@@ -516,3 +516,15 @@ External contract for OceanView UI is **always** `candles/*` — never expose le
 **Build UI (Phases 1–2 only):**
 
 > Implement Admin Candles Pane per `OceanView/docs/candles-pane.md`. English labels. Mock client only. No polling. Subtitle: "Monitor ticker price data intake". Reset requires confirm dialog. After refresh/reset show message only; user clicks Refresh status to update rows.
+
+---
+
+## Related docs
+
+| Doc | Purpose |
+|-----|---------|
+| [README.md](./README.md) | Documentation index |
+| [market-page.md](./market-page.md) | Market Assess (consumes candle data) |
+| [environment.md](./environment.md) | `VITE_USE_MOCK_CANDLES` |
+| [aws-urls.md](./aws-urls.md) | Production API URLs |
+| `OceanView-API/README.md` | API deploy |

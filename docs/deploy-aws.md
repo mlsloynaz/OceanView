@@ -1,8 +1,9 @@
 # Deploy OceanView UI — S3 + CloudFront + GitHub Actions
 
-Static hosting for the Vite/React app. Cognito and API routing are documented in [plan.md](./plan.md) for a later phase.
+Static hosting for the Vite/React app. Cognito auth is a future phase (not documented in this repo yet).
 
-**Production URLs:** [aws-urls.md](./aws-urls.md)
+**Production URLs:** [aws-urls.md](./aws-urls.md)  
+**Doc index:** [README.md](./README.md)
 
 ## Architecture
 
@@ -15,7 +16,7 @@ GitHub (push main) → GitHub Actions → S3 bucket → CloudFront → users
 - **CloudFront**: HTTPS, SPA routing, **`/api/*` → API Gateway** (same domain, no CORS).
 - **GitHub Actions**: build `dist/` and `aws s3 sync` on every push to `main`.
 
-The UI calls **`/api/tickers`**, **`/api/candles/*`**, etc. (relative URLs). CloudFront forwards to API Gateway `.../prod/tickers`.
+The UI calls **`/api/tickers`**, **`/api/candles/*`**, **`/api/market/*`**, etc. (relative URLs). CloudFront forwards to API Gateway `.../prod/...`.
 
 Auth uses **OIDC** (no long-lived AWS access keys in GitHub).
 
@@ -292,11 +293,12 @@ aws cloudfront create-invalidation --distribution-id EXXXXX --paths "/data/*"
 | GitHub Action `Not authorized to perform sts:AssumeRoleWithWebIdentity` | OIDC trust `sub` must match `repo:OWNER/REPO:ref:refs/heads/main` |
 | Stale UI after deploy | Invalidation takes 1–3 min; hard-refresh browser |
 | Candles API fails in prod | Complete §1.3 (`/api/*` behavior); redeploy UI; test `curl https://CF_DOMAIN/api/tickers` |
-| Candles API CORS error | UI should use `/api` not full API Gateway URL; check `.env.production` |
+| Market API fails in prod | Same as candles — `/api/*` behavior; test `curl https://CF_DOMAIN/api/market/envelope` |
 | `/api/*` returns 403/502 | Behavior order: `/api/*` above `*`; origin path `/prod`; function published |
 
 ---
 
 ## 8. Next (not in this doc)
 
-- Cognito login — [plan.md](./plan.md) Phase E
+- Cognito login — future phase
+- Custom domain — see [aws-urls.md](./aws-urls.md)

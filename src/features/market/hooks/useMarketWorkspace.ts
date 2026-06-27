@@ -135,8 +135,8 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   }, [candleCoverage, coverageInitialized, lastAssessedAt]);
 
   const fetchSnapshot = useCallback(
-    async (mode: MarketViewMode, activeRunId: string, force = false) => {
-      if (useMock || !activeRunId) return;
+    async (mode: MarketViewMode, activeRunId: string | null, force = false) => {
+      if (useMock) return;
       if (!force && snapshotCacheRef.current[mode]) return;
 
       const cat = catalogRef.current;
@@ -145,7 +145,9 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       setSnapshotLoading(true);
       try {
         const payload = await loadSnapshotForModeWithCatalog(mode, activeRunId, cat);
-        setRunId(payload.runId);
+        if (activeRunId) {
+          setRunId(payload.runId);
+        }
         setSnapshotCache((prev) => ({
           ...prev,
           [mode]: {
@@ -164,9 +166,9 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   );
 
   useEffect(() => {
-    if (useMock || !runId || loading) return;
+    if (useMock || loading || !catalog) return;
     void fetchSnapshot(viewMode, runId);
-  }, [useMock, runId, viewMode, loading, fetchSnapshot]);
+  }, [useMock, runId, viewMode, loading, fetchSnapshot, catalog]);
 
   const setAssessmentFromLocal = useCallback(
     (localValue: string) => {

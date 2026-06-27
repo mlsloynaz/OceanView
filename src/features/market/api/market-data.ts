@@ -61,7 +61,7 @@ export async function loadMarketBootstrap(): Promise<{
 
 export async function loadSnapshotForModeWithCatalog(
   mode: MarketViewMode,
-  runId: string,
+  runId: string | null,
   catalog: StrategiesCatalogFile,
 ): Promise<{
   runId: string;
