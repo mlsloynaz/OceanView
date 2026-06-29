@@ -33,6 +33,7 @@ Quick reference for hosted OceanView in **us-east-1**. Region and IDs match the 
 | Market — by ticker | https://d1xsxf8zu41xgt.cloudfront.net/market/tickers |
 | Market — by rule | https://d1xsxf8zu41xgt.cloudfront.net/market/rules |
 | Admin | https://d1xsxf8zu41xgt.cloudfront.net/admin |
+| Premarket *(planned)* | https://d1xsxf8zu41xgt.cloudfront.net/premarket |
 
 Deploy: push to `main` → GitHub Actions → S3 sync → CloudFront invalidation. See [deploy-aws.md](./deploy-aws.md).
 
@@ -89,6 +90,14 @@ Contract and field shapes: [market-page.md](./market-page.md) (APIs section). Im
 
 **Market bootstrap behavior:** `GET /market/envelope` may return `"runId": null` until someone runs **Assess** in the UI (`POST /market/evaluate`). Snapshot endpoints still respond without `runId` (fixture preview when no persisted run exists).
 
+**Premarket** (planned UI — [premarket-page.md](./premarket-page.md); deploy `PremarketFunction` first)
+
+| Method | Path | Example |
+|--------|------|---------|
+| `POST` | `/premarket/evaluate/start` | …/prod/premarket/evaluate/start |
+| `POST` | `/premarket/evaluate/stop` | …/prod/premarket/evaluate/stop |
+| `GET` | `/premarket/evaluate/result` | …/prod/premarket/evaluate/result |
+
 ### Smoke test
 
 ```powershell
@@ -97,6 +106,8 @@ curl.exe "$api/health"
 curl.exe "$api/tickers"
 curl.exe "$api/market/envelope"
 curl.exe "$api/market/strategies/snapshot"
+curl.exe -X POST "$api/premarket/evaluate/start" -H "Content-Type: application/json" -d "{}"
+curl.exe "$api/premarket/evaluate/result"
 ```
 
 ---

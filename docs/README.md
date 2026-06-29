@@ -9,6 +9,7 @@ Index of docs in this repo. Feature pages are the **source of truth** for UI beh
 | Doc | Area | Route |
 |-----|------|-------|
 | [market-page.md](./market-page.md) | Market — strategies, tickers, rules, Assess | `/market/*` |
+| [premarket-page.md](./premarket-page.md) | Premarket — pre-open evaluate (9:25 ET) | `/premarket` |
 | [candles-pane.md](./candles-pane.md) | Admin — candle intake and status | `/admin` |
 
 Agent rule [update-documentation](../.cursor/rules/update-documentation.mdc) requires updating these when fixing bugs or adding functionality.
@@ -45,14 +46,15 @@ Agent rule [update-documentation](../.cursor/rules/update-documentation.mdc) req
 ## How the app fits together
 
 ```
-Admin (/admin)          Market (/market)
-  candles/*               market/*
-  tickers catalog    →    Assess + strategy eval
-       ↓                        ↑
-   OceanView-Candles ────────────┘ (coverage + bars)
+Admin (/admin)          Market (/market)        Premarket (/premarket)
+  candles/*               market/*                  premarket/evaluate/*
+  tickers catalog    →    Assess + snapshots   ←   pre-open grouped scan
+       ↓                        ↑                        ↑
+   OceanView-Candles ──────────┴────────────────────────┘ (read + in-memory overlay)
 ```
 
 1. **Admin** — refresh candle data for active tickers ([candles-pane.md](./candles-pane.md)).
 2. **Market** — run **Assess** at a point in time; browse results by strategy, ticker, or rule ([market-page.md](./market-page.md)).
+3. **Premarket** — manual **Start evaluate** at 9:25 ET; view tickers grouped by strategy ([premarket-page.md](./premarket-page.md)).
 
 Local full-stack: `npm run dev:local` — see [cursor-rules-skills.md](./cursor-rules-skills.md).

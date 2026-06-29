@@ -1,4 +1,5 @@
 import { CandlesPane } from "./candles/CandlesPane";
+import { TickersPane } from "./tickers/TickersPane";
 
 export function AdminPage() {
   return (
@@ -10,6 +11,7 @@ export function AdminPage() {
         </p>
       </div>
 
+      <TickersPane />
       <CandlesPane />
     </div>
   );

@@ -1,9 +1,9 @@
+import { getActiveTickersForAdmin } from "../../tickers/api/tickers-client";
 import {
   buildMockResult,
   buildMockStatus,
   completeMockJob,
   markMockJobStarted,
-  MOCK_CATALOG,
 } from "./mock-data";
 import type {
   AdminTicker,
@@ -158,13 +158,25 @@ function mapAckPayload(payload: ApiAckPayload): CandlesJobAckResponse {
   };
 }
 
-function mapTicker(row: AdminTicker & { active?: boolean }): AdminTicker | null {
-  if (row.active === false) return null;
+function mapActiveTicker(row: AdminTicker & { active?: boolean }): AdminTicker {
   return {
     symbol: row.symbol,
     name: row.name ?? null,
     isFavorite: Boolean(row.isFavorite),
+    active: row.active !== false,
   };
+}
+
+export async function getAdminTickers(): Promise<AdminTickersResponse> {
+  if (USE_MOCK) {
+    await delay();
+    const { tickers } = await getActiveTickersForAdmin();
+    return { tickers };
+  }
+  const payload = await fetchJson<{ tickers: (AdminTicker & { active?: boolean })[] }>(
+    "/tickers?activeOnly=true",
+  );
+  return { tickers: (payload.tickers ?? []).map(mapActiveTicker) };
 }
 
 export function candlesApiUsesMock(): boolean {
@@ -173,18 +185,6 @@ export function candlesApiUsesMock(): boolean {
 
 export function candlesApiBaseUrl(): string | null {
   return API_BASE || null;
-}
-
-export async function getAdminTickers(): Promise<AdminTickersResponse> {
-  if (USE_MOCK) {
-    await delay();
-    return { tickers: MOCK_CATALOG };
-  }
-  const payload = await fetchJson<{ tickers: (AdminTicker & { active?: boolean })[] }>("/tickers");
-  const tickers = (payload.tickers ?? [])
-    .map(mapTicker)
-    .filter((row): row is AdminTicker => row !== null);
-  return { tickers };
 }
 
 export async function postCandlesResult(body: CandlesRequest): Promise<CandlesResultResponse> {

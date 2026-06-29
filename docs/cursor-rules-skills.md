@@ -19,6 +19,7 @@ Rules are `.mdc` files with YAML frontmatter (`description`, `globs`, `alwaysApp
 | Code area | Doc |
 |-----------|-----|
 | `src/features/market/**` | [market-page.md](./market-page.md) |
+| `src/features/premarket/**` | [premarket-page.md](./premarket-page.md) |
 | `src/features/admin/candles/**` | [candles-pane.md](./candles-pane.md) |
 | `.cursor/rules/**`, `.cursor/skills/**` | This file ([cursor-rules-skills.md](./cursor-rules-skills.md)) |
 

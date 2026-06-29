@@ -30,7 +30,7 @@ export function CandlesTable({
   if (rows.length === 0) {
     return (
       <p className="leading-snug text-ocean-sand">
-        No tickers in catalog. Add symbols in ticker configuration (coming soon).
+        No tickers in catalog. Activate symbols in Ticker catalog above.
       </p>
     );
   }

@@ -22,6 +22,7 @@ Operational panel for **candle (OHLC bar) collection** — incremental refresh, 
 
 ### In scope
 
+- **Ticker catalog** pane — activate/deactivate symbols (`PATCH /tickers/{symbol}`)
 - Load last **candles job** summary and per-symbol candle context
 - **Refresh candles** (incremental D / 1h / 15m intake)
 - **Reset candles** (full re-fetch)
@@ -52,8 +53,9 @@ flowchart TB
     BtnRow["Refresh one ticker"]
   end
 
-  subgraph Catalog["Admin catalog"]
-    T["GET /admin/tickers"]
+  subgraph Catalog["Ticker catalog"]
+    T["GET /tickers?activeOnly=true"]
+    P["PATCH /tickers/{symbol}"]
   end
 
   subgraph Candles["OceanView API — candles"]
@@ -80,8 +82,10 @@ flowchart TB
 
 | UI control | When | API | Purpose |
 |------------|------|-----|---------|
-| *(panel open)* | After catalog loads | `GET /admin/tickers` | Symbol list, name, favorite flag |
-| *(panel open)* | Immediately after | `POST /candles/result` | Last **candles job** outcome + per-symbol candle context |
+| **Ticker catalog** toggle | User click | `PATCH /tickers/{symbol}` `{ active }` | Include/exclude from Market + Candles bulk |
+| **Ticker catalog** reload | User click | `GET /tickers` | Full catalog (active + inactive) |
+| *(Candles panel open)* | After catalog loads | `GET /tickers?activeOnly=true` | Active symbols only |
+| *(Candles panel open)* | Immediately after | `POST /candles/result` | Last **candles job** outcome + per-symbol candle context |
 | **Refresh status** | User click | `POST /candles/status` | Live collection state for requested tickers (no new job) |
 | **Refresh candles** | User click | `POST /candles/refresh` | Start incremental intake; show acknowledgment message |
 | **Reset candles** | User click (after confirm) | `POST /candles/reset` | Start full reset intake; show acknowledgment message |
@@ -112,9 +116,11 @@ Base path: `/api` or same-origin `/` (CloudFront → API Gateway). All requests 
 
 ---
 
-### `GET /admin/tickers`
+### `GET /tickers`
 
-**Purpose:** Catalog for the pane — not candle data.
+**Purpose:** Catalog for Admin — not candle data.
+
+**Query:** `activeOnly=true` — return only rows with `active: true` (used by Candles pane).
 
 **Response `200`:**
 
@@ -124,13 +130,28 @@ Base path: `/api` or same-origin `/` (CloudFront → API Gateway). All requests 
     {
       "symbol": "AAPL",
       "name": "Apple Inc.",
-      "isFavorite": true
+      "isFavorite": true,
+      "active": true
     }
   ]
 }
 ```
 
-**Used by:** Panel open only.
+### `PATCH /tickers/{symbol}`
+
+**Purpose:** Activate or deactivate one catalog row (Dynamo `OceanView-Tickers`).
+
+**Request:** `{ "active": true | false }`
+
+**Response `200`:** Updated ticker object (same shape as list item).
+
+**Used by:** Ticker catalog pane toggle.
+
+---
+
+### Legacy doc note
+
+Older drafts referenced `GET /admin/tickers`. The live route is **`GET /tickers`**.
 
 ---
 
@@ -405,7 +426,13 @@ Removed from legacy pane: Request Earning Calendar, Refresh + foundation.
 
 ```
 src/features/admin/
-  AdminPage.tsx                 # hosts CandlesPane
+  AdminPage.tsx                 # TickersPane + CandlesPane
+  tickers/
+    TickersPane.tsx             # catalog filters + active toggle
+    TickersTable.tsx
+    types.ts
+    api/tickers-client.ts       # GET /tickers, PATCH /tickers/{symbol}
+    hooks/useTickersPane.ts
   candles/
     CandlesPane.tsx             # collapsible panel + toolbar
     CandlesTable.tsx            # ticker rows
