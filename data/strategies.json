@@ -165,20 +165,31 @@
       "id": "estrategia-05",
       "name": "Inside Bollinger 15M",
       "shortName": "Inside BB 15M",
-      "description": "Fast 15m move inside Bollinger bands: vol expansion, open inside bands, midpoint and trend cuts.",
-      "entryWindow": "Regular session (Mov15m inside window)",
+      "description": "Fast 15m opening move inside Bollinger bands: 9:30 open gate, then vol expansion, midpoint and trend cuts through 10:30 ET.",
+      "entryWindow": {
+        "startEt": "09:30",
+        "endEt": "10:30",
+        "timezone": "America/New_York"
+      },
+      "gates": [
+        {
+          "ruleKey": "open_inside_bb_15m",
+          "when": "not_met",
+          "skipRemaining": true
+        }
+      ],
       "rules": [
+        {
+          "id": "bb15-r2",
+          "ruleKey": "open_inside_bb_15m",
+          "label": "Open dentro BB 15m (9:30)",
+          "type": "gate",
+          "timeframe": "15m"
+        },
         {
           "id": "bb15-r1",
           "ruleKey": "vol_bb_expand_15m",
           "label": "Vol BB expandiendo (15m)",
-          "type": "required",
-          "timeframe": "15m"
-        },
-        {
-          "id": "bb15-r2",
-          "ruleKey": "open_inside_bb_15m",
-          "label": "Open dentro BB 15m",
           "type": "required",
           "timeframe": "15m"
         },
