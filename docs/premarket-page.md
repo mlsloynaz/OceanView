@@ -5,7 +5,7 @@ Pre-open screening workspace — run **premarket evaluate** at **9:25 AM ET**, s
 **Backend contract:** `OceanView-API/docs/premarket-evaluate.md`  
 **Related UI docs:** [market-page.md](./market-page.md), [candles-pane.md](./candles-pane.md)
 
-**Integration status:** **Not implemented** — this document is the build plan.
+**Integration status:** **Implemented** — route `/premarket`, live API client, mock mode (`VITE_USE_MOCK_PREMARKET`).
 
 ---
 
@@ -346,26 +346,25 @@ Add to `package.json` scripts note in [environment.md](./environment.md): `dev:l
 
 ### Phase 1 — Scaffold (no API)
 
-- [ ] Add route, nav, empty `PremarketPage`
-- [ ] Add `types.ts`, mock data, `premarket-client.ts` (mock branch only)
-- [ ] `usePremarketWorkspace` with mock start/result/stop
-- [ ] Render grouped strategies from fixture
-- [ ] Update `docs/README.md`, this doc status → “UI mock wired”
+- [x] Add route, nav, empty `PremarketPage`
+- [x] Add `types.ts`, mock data, `premarket-client.ts` (mock branch only)
+- [x] `usePremarketWorkspace` with mock start/result/stop
+- [x] Render grouped strategies from fixture
+- [x] Update `docs/README.md`, this doc status → “UI mock wired”
 
 ### Phase 2 — Live API client
 
-- [ ] Wire real `fetch` paths (same `VITE_API_BASE_URL` as market)
-- [ ] Map error codes; loading / pending states on toolbar
-- [ ] `PremarketBanner` — show mock vs live base URL (copy from `CandlesPane`)
-- [ ] Update [aws-urls.md](./aws-urls.md) with three endpoints
+- [x] Wire real `fetch` paths (same `VITE_API_BASE_URL` as market)
+- [x] Map error codes; loading / pending states on toolbar
+- [x] `PremarketBanner` — show mock vs live base URL (copy from `CandlesPane`)
+- [x] Update [aws-urls.md](./aws-urls.md) with three endpoints
 
 ### Phase 3 — UX polish
 
-- [ ] Collapsible strategy sections (`CollapsibleSection` from shared)
-- [ ] Quality badge colors (reuse Market signal / quality styling where possible)
-- [ ] Stop button enabled only while `startPending`
-- [ ] Confirm dialog not needed for Start (non-destructive); optional info tooltip on “no candle persist”
-- [ ] `symbolOutcomes` diagnostics panel (collapsed by default)
+- [x] Collapsible strategy sections (`CollapsibleSection` from shared)
+- [x] Quality badge colors (reuse Market signal / quality styling where possible)
+- [x] Stop button enabled only while `startPending`
+- [x] `symbolOutcomes` diagnostics panel (collapsed by default)
 
 ### Phase 4 — Integration test & deploy
 

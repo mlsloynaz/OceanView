@@ -7,6 +7,7 @@ import type {
 } from "../types";
 import {
   formatAchievedTimeEt,
+  formatEntryWindow,
   isSignal,
   mergeRuleDisplay,
   qualityBadgeClass,
@@ -139,6 +140,8 @@ export function StrategyDetailModal({
     };
   }, [useMock, snapshot, strategy, runId, threshold]);
 
+  const entryWindowLabel = formatEntryWindow(strategy.entryWindow);
+
   return (
     <MarketDetailModal
       open
@@ -146,8 +149,8 @@ export function StrategyDetailModal({
       title={strategy.name}
       subtitle={strategy.description}
     >
-      {strategy.entryWindow && (
-        <p className="mb-4 text-xs text-ocean-sand">{strategy.entryWindow}</p>
+      {entryWindowLabel && (
+        <p className="mb-4 text-xs text-ocean-sand">{entryWindowLabel}</p>
       )}
 
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ocean-sand">

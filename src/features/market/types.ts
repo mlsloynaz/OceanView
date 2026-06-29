@@ -1,3 +1,5 @@
+import type { EntryWindow } from "./lib/entry-window";
+
 /** Rule definition in strategy catalog. */
 export type RuleType = "required" | "extra";
 
@@ -14,7 +16,7 @@ export type StrategyCatalogItem = {
   name: string;
   shortName?: string;
   description: string;
-  entryWindow?: string;
+  entryWindow?: EntryWindow;
   /** When false or omitted, strategy is excluded from Market grids and assess. */
   active?: boolean;
   rules: StrategyRule[];
@@ -147,7 +149,7 @@ export type StrategySnapshotItem = {
   strategyId: string;
   name: string;
   shortName?: string;
-  entryWindow?: string;
+  entryWindow?: EntryWindow;
   signalCount: number;
   previewTickers: { symbol: string; qualityPct: number; achievedAtEt?: string }[];
 };

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchTickerDetail } from "../api/market-client";
+import type { EntryWindow } from "../lib/entry-window";
+import { formatEntryWindow } from "../lib/entry-window";
 import type { StrategyCatalogItem, TickerEvalResult } from "../types";
 import {
   directionBadgeClass,
@@ -25,7 +27,7 @@ type Props = {
 type StrategyRow = {
   strategyId: string;
   name: string;
-  entryWindow?: string;
+  entryWindow?: EntryWindow;
   qualityPct: number;
   direction: TickerEvalResult["strategies"][0]["direction"];
   rules: ReturnType<typeof mergeRuleDisplay>;
@@ -148,6 +150,7 @@ export function TickerDetailModal({
           {rows.map((ev) => {
             const expanded = expandedStrategyId === ev.strategyId;
             const signal = isSignal(ev.qualityPct, threshold);
+            const entryWindowLabel = formatEntryWindow(ev.entryWindow);
 
             return (
               <li
@@ -179,8 +182,8 @@ export function TickerDetailModal({
                         </span>
                       )}
                     </div>
-                    {ev.entryWindow && (
-                      <p className="mt-0.5 text-[11px] text-ocean-sand">{ev.entryWindow}</p>
+                    {entryWindowLabel && (
+                      <p className="mt-0.5 text-[11px] text-ocean-sand">{entryWindowLabel}</p>
                     )}
                   </div>
                   <span

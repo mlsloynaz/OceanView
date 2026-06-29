@@ -15,6 +15,8 @@ import type {
 import { activeCatalogStrategies } from "./lib/catalog";
 import { cn } from "@/shared/lib/cn";
 
+export { formatEntryWindow } from "./lib/entry-window";
+
 export function isSignal(qualityPct: number, threshold: number): boolean {
   return qualityPct >= threshold;
 }

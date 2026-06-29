@@ -1,4 +1,5 @@
 import type { StrategyCardModel } from "../types";
+import { formatEntryWindow } from "../lib/entry-window";
 import { qualityBadgeClass, signalCountLabel } from "../display";
 import { cn } from "@/shared/lib/cn";
 
@@ -11,6 +12,7 @@ type Props = {
 export function StrategyCard({ card, threshold, onOpen }: Props) {
   const { strategy, signalCount, previewTickers } = card;
   const hasSignals = signalCount > 0;
+  const entryWindowLabel = formatEntryWindow(strategy.entryWindow);
 
   return (
     <article className="flex flex-col rounded-xl border border-ocean-mid/50 bg-ocean-surface p-4 shadow-sm transition-shadow hover:shadow-md">
@@ -19,8 +21,8 @@ export function StrategyCard({ card, threshold, onOpen }: Props) {
           <h3 className="truncate font-display text-lg font-semibold text-ocean-foam">
             {strategy.name}
           </h3>
-          {strategy.entryWindow && (
-            <p className="mt-0.5 line-clamp-1 text-[11px] text-ocean-sand">{strategy.entryWindow}</p>
+          {entryWindowLabel && (
+            <p className="mt-0.5 line-clamp-1 text-[11px] text-ocean-sand">{entryWindowLabel}</p>
           )}
         </div>
         <button

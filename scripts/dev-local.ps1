@@ -124,9 +124,10 @@ Write-Host 'OceanView-API - SAM local on port $ApiPort' -ForegroundColor Cyan
 
 $env:VITE_DEV_API_PROXY_TARGET = "http://127.0.0.1:$ApiPort"
 $env:VITE_USE_MOCK_MARKET = "false"
+$env:VITE_USE_MOCK_PREMARKET = "false"
 Write-Host ""
-Write-Host "Starting UI (Vite) - proxy /api -> $env:VITE_DEV_API_PROXY_TARGET, live Market API" -ForegroundColor Yellow
-Write-Host "Open http://localhost:5173/market/strategies" -ForegroundColor Cyan
+Write-Host "Starting UI (Vite) - proxy /api -> $env:VITE_DEV_API_PROXY_TARGET, live Market + Premarket API" -ForegroundColor Yellow
+Write-Host "Open http://localhost:5173/market/strategies or http://localhost:5173/premarket" -ForegroundColor Cyan
 Write-Host ""
 
 Set-Location $UiRoot

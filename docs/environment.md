@@ -26,12 +26,13 @@ Vite embeds `VITE_*` variables into the JavaScript bundle at **build time**. The
 | `.env.production` | `npm run build` |
 | `.env.example` | Documentation only |
 
-Current values are non-secret: `VITE_API_BASE_URL=/api`, `VITE_USE_MOCK_CANDLES=false`, `VITE_USE_MOCK_MARKET=true` (dev) / `false` (production).
+Current values are non-secret: `VITE_API_BASE_URL=/api`, `VITE_USE_MOCK_CANDLES=false`, `VITE_USE_MOCK_MARKET=true` (dev) / `false` (production), `VITE_USE_MOCK_PREMARKET=true` (dev) / `false` (production).
 
 | Flag | Feature doc |
 |------|-------------|
 | `VITE_USE_MOCK_MARKET` | [market-page.md](./market-page.md) |
 | `VITE_USE_MOCK_CANDLES` | [candles-pane.md](./candles-pane.md) |
+| `VITE_USE_MOCK_PREMARKET` | [premarket-page.md](./premarket-page.md) |
 
 ### Gitignored (personal / machine-specific)
 
