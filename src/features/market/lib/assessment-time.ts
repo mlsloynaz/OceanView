@@ -103,7 +103,7 @@ export function validateAssessmentTime(
     return `Before earliest candle data (${formatAssessmentDisplay(new Date(min))}).`;
   }
   if (ms > max) {
-    return `After latest candle data (${formatAssessmentDisplay(new Date(max))}).`;
+    return `After latest candle data (${formatAssessmentDisplay(new Date(max))}). Refresh candles in Admin, then try again.`;
   }
   return null;
 }

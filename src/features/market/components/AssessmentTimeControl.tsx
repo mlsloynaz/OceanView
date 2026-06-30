@@ -30,7 +30,7 @@ export function AssessmentTimeControl({
   onAssess,
   className,
 }: Props) {
-  const { min, max } = coverageBoundsForInput(coverage);
+  const { min } = coverageBoundsForInput(coverage);
   const atNow = isAssessmentNow(value);
   const inputValue = formatEtDatetimeLocal(value);
 
@@ -45,7 +45,6 @@ export function AssessmentTimeControl({
           type="datetime-local"
           value={inputValue}
           min={min}
-          max={max}
           onChange={(e) => onChange(e.target.value)}
           className={cn(
             "rounded-md border bg-ocean-surface py-1.5 pl-2 pr-1 text-sm text-ocean-foam tabular-nums",
@@ -61,7 +60,7 @@ export function AssessmentTimeControl({
           onClick={onNow}
           disabled={atNow}
           className="rounded-md border border-ocean-mid/40 px-2 py-1 text-[11px] font-medium text-ocean-sand transition-colors hover:border-ocean-teal/40 hover:text-ocean-foam disabled:opacity-40"
-          title="Reset to current time"
+          title="Set to current Eastern time"
         >
           Now
         </button>

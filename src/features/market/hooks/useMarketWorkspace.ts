@@ -19,7 +19,6 @@ import {
   countActiveStrategies,
 } from "../lib/catalog";
 import {
-  defaultAssessmentTime,
   formatAssessmentDisplay,
   formatSimulationTimeEt,
   isAssessmentNow,
@@ -135,8 +134,9 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
 
   useEffect(() => {
     if (!candleCoverage || coverageInitialized) return;
-    const initial = defaultAssessmentTime(candleCoverage);
+    const initial = new Date();
     setAssessmentAt(initial);
+    setAssessmentError(validateAssessmentTime(initial, candleCoverage));
     if (!lastAssessedAt) setLastAssessedAt(initial);
     setCoverageInitialized(true);
   }, [candleCoverage, coverageInitialized, lastAssessedAt]);
@@ -193,7 +193,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
 
   const resetAssessmentToNow = useCallback(() => {
     if (!candleCoverage) return;
-    const now = defaultAssessmentTime(candleCoverage);
+    const now = new Date();
     setAssessmentAt(now);
     setAssessmentError(validateAssessmentTime(now, candleCoverage));
   }, [candleCoverage]);
@@ -255,8 +255,8 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       .then((result) => refreshAfterAssess(result.runId, formatSimulationTimeEt(assessmentAt)))
       .catch((err) => {
         if (err instanceof MarketApiError) {
-          const friendly = err.code ? MARKET_ERROR_MESSAGES[err.code] : undefined;
-          setAssessmentError(friendly ?? err.message);
+          const fallback = err.code ? MARKET_ERROR_MESSAGES[err.code] : undefined;
+          setAssessmentError(err.message || fallback || "Assessment failed.");
         } else {
           setAssessmentError(err instanceof Error ? err.message : "Assessment failed.");
         }
