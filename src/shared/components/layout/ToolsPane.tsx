@@ -4,7 +4,7 @@ import { RangoOptimoLookup } from "@/features/tools/rango-optimo/RangoOptimoLook
 export function ToolsPane() {
   return (
     <aside
-      className="flex w-72 shrink-0 flex-col border-l border-ocean-mid/60 bg-ocean-surface/60"
+      className="flex w-72 shrink-0 flex-col border-r border-ocean-mid/60 bg-ocean-surface/60"
       aria-label="Tools panel"
     >
       <div className="border-b border-ocean-mid/40 px-4 py-3">

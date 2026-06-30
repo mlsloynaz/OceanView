@@ -6,28 +6,38 @@ const DATA_URL = "/data/rango-optimo.json";
 
 let cache: Map<string, RangoOptimoEntry> | null = null;
 let analysisDate: string | null = null;
+let catalogCount = 0;
 
 async function loadIndex(): Promise<Map<string, RangoOptimoEntry>> {
   if (cache) return cache;
 
-  const response = await fetch(DATA_URL);
+  const response = await fetch(DATA_URL, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Could not load ${DATA_URL} (${response.status})`);
   }
 
   const file = (await response.json()) as RangoOptimoFile;
   analysisDate = file.analysisDate ?? null;
+  catalogCount = file.entries?.length ?? 0;
 
   cache = new Map(
-    file.entries.map((entry) => [formatSymbol(entry.symbol), entry]),
+    (file.entries ?? []).map((entry) => [formatSymbol(entry.symbol), entry]),
   );
 
   return cache;
 }
 
-export async function getRangoOptimoAnalysisDate(): Promise<string | null> {
+export async function getRangoOptimoMeta(): Promise<{
+  analysisDate: string | null;
+  count: number;
+}> {
   await loadIndex();
-  return analysisDate;
+  return { analysisDate, count: catalogCount };
+}
+
+export async function getRangoOptimoAnalysisDate(): Promise<string | null> {
+  const meta = await getRangoOptimoMeta();
+  return meta.analysisDate;
 }
 
 function entryToResult(symbol: string, entry: RangoOptimoEntry): RangoOptimoLookupResult {
@@ -40,6 +50,7 @@ function entryToResult(symbol: string, entry: RangoOptimoEntry): RangoOptimoLook
   return {
     success: true,
     symbol,
+    nombre: entry.nombre ?? null,
     priceOptimo,
     rangoOptimoLow,
     rangoOptimoHigh,
@@ -61,7 +72,10 @@ export async function lookupRangoOptimo(symbol: string): Promise<RangoOptimoLook
     const entry = index.get(normalized);
 
     if (!entry) {
-      return { success: false, error: `No optimal range for ${normalized}.` };
+      return {
+        success: false,
+        error: `No optimal range for ${normalized}. (${catalogCount} symbols in catalog.)`,
+      };
     }
 
     return entryToResult(normalized, entry);
@@ -77,4 +91,5 @@ export async function lookupRangoOptimo(symbol: string): Promise<RangoOptimoLook
 export function clearRangoOptimoCache(): void {
   cache = null;
   analysisDate = null;
+  catalogCount = 0;
 }

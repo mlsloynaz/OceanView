@@ -1,16 +1,15 @@
-function fmt(n: number | null | undefined): string {
-  return n != null && Number.isFinite(n) ? n.toFixed(2) : "—";
-}
-
 export function formatRangoOptimoLabel(row: {
   rangoOptimoLow: number | null;
   rangoOptimoHigh: number | null;
   priceOptimo: number | null;
 }): string {
+  const fmtMoney = (n: number) =>
+    Number.isInteger(n) ? String(n) : n.toFixed(2);
+
   if (row.rangoOptimoLow != null && row.rangoOptimoHigh != null) {
-    return `$${fmt(row.rangoOptimoLow)} – $${fmt(row.rangoOptimoHigh)}`;
+    return `$${fmtMoney(row.rangoOptimoLow)} – $${fmtMoney(row.rangoOptimoHigh)}`;
   }
-  if (row.priceOptimo != null) return `$${fmt(row.priceOptimo)}`;
+  if (row.priceOptimo != null) return `$${fmtMoney(row.priceOptimo)}`;
   return "—";
 }
 
@@ -19,5 +18,9 @@ export function formatMinMaxLabel(row: {
   maxPrice: number | null;
 }): string | null {
   if (row.minPrice == null && row.maxPrice == null) return null;
-  return `MIN $${fmt(row.minPrice)} · MAX $${fmt(row.maxPrice)}`;
+  const fmtMoney = (n: number | null | undefined) => {
+    if (n == null || !Number.isFinite(n)) return "—";
+    return Number.isInteger(n) ? String(n) : n.toFixed(2);
+  };
+  return `MIN $${fmtMoney(row.minPrice)} · MAX $${fmtMoney(row.maxPrice)}`;
 }

@@ -17,6 +17,7 @@ export type RangoOptimoLookupResult = {
   success: boolean;
   error?: string;
   symbol?: string;
+  nombre?: string | null;
   priceOptimo?: number | null;
   rangoOptimoLow?: number | null;
   rangoOptimoHigh?: number | null;

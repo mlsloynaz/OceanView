@@ -1,10 +1,11 @@
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { formatCalcResult } from "@/shared/lib/price-calc";
 import { formatMinMaxLabel, formatRangoOptimoLabel } from "@/shared/lib/rango-optimo-display";
-import { getRangoOptimoAnalysisDate, lookupRangoOptimo } from "./api";
+import { getRangoOptimoMeta, lookupRangoOptimo } from "./api";
 
 type LookupState = {
   symbol: string;
+  nombre: string | null;
   rangoLabel: string;
   minMaxLabel: string | null;
   priceOptimo: number | null;
@@ -15,7 +16,19 @@ export function RangoOptimoLookup() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<LookupState | null>(null);
   const [analysisDate, setAnalysisDate] = useState<string | null>(null);
+  const [catalogCount, setCatalogCount] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    void getRangoOptimoMeta()
+      .then((meta) => {
+        setAnalysisDate(meta.analysisDate);
+        setCatalogCount(meta.count);
+      })
+      .catch(() => {
+        setCatalogCount(null);
+      });
+  }, []);
 
   function onLookup() {
     const trimmed = symbol.trim();
@@ -27,11 +40,12 @@ export function RangoOptimoLookup() {
 
     setError(null);
     startTransition(async () => {
-      const [response, date] = await Promise.all([
+      const [response, meta] = await Promise.all([
         lookupRangoOptimo(trimmed),
-        getRangoOptimoAnalysisDate(),
+        getRangoOptimoMeta(),
       ]);
-      setAnalysisDate(date);
+      setAnalysisDate(meta.analysisDate);
+      setCatalogCount(meta.count);
 
       if (!response.success) {
         setResult(null);
@@ -41,9 +55,10 @@ export function RangoOptimoLookup() {
 
       setResult({
         symbol: response.symbol ?? trimmed.toUpperCase(),
+        nombre: response.nombre ?? null,
         rangoLabel: formatRangoOptimoLabel({
-          rangoOptimoLow: response.rangoOptimoLow ?? null,
-          rangoOptimoHigh: response.rangoOptimoHigh ?? null,
+          rangoOptimoLow: response.rangoOptimoLow ?? response.rangeLow ?? null,
+          rangoOptimoHigh: response.rangoOptimoHigh ?? response.rangeHigh ?? null,
           priceOptimo: response.priceOptimo ?? null,
         }),
         minMaxLabel: formatMinMaxLabel({
@@ -65,7 +80,7 @@ export function RangoOptimoLookup() {
           onKeyDown={(e) => {
             if (e.key === "Enter") onLookup();
           }}
-          placeholder="NVDA"
+          placeholder="AMD"
           aria-label="Ticker for optimal range"
           className="min-w-0 flex-1 rounded-lg border border-ocean-mid/60 bg-ocean-deep px-3 py-2.5 text-base font-medium uppercase text-ocean-foam placeholder:text-ocean-sand/50 focus:border-ocean-teal focus:outline-none focus:ring-2 focus:ring-ocean-teal/30"
         />
@@ -79,8 +94,17 @@ export function RangoOptimoLookup() {
         </button>
       </div>
 
-      {analysisDate && (
-        <p className="text-center text-[10px] text-ocean-sand/50">Data as of {analysisDate}</p>
+      {catalogCount != null && catalogCount > 0 && (
+        <p className="text-center text-[10px] text-ocean-sand/50">
+          {catalogCount} symbols
+          {analysisDate ? ` · data as of ${analysisDate}` : ""}
+        </p>
+      )}
+
+      {catalogCount === 0 && (
+        <p className="text-center text-[11px] text-ocean-danger">
+          Catalog empty — run npm run import:rango-optimo on your Excel file.
+        </p>
       )}
 
       {error && <p className="text-center text-[11px] text-ocean-danger">{error}</p>}
@@ -88,6 +112,9 @@ export function RangoOptimoLookup() {
       {result && (
         <div className="space-y-2">
           <p className="text-center text-sm font-bold text-ocean-teal">{result.symbol}</p>
+          {result.nombre && (
+            <p className="text-center text-[11px] text-ocean-sand">{result.nombre}</p>
+          )}
           <div className="rounded-lg bg-ocean-teal/20 px-2 py-2.5 text-center ring-2 ring-ocean-teal">
             <p className="text-[9px] font-bold uppercase tracking-wide text-ocean-sand">
               Optimal range

@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:local": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/dev-local.ps1",
     "build": "tsc -b && vite build",
+    "import:rango-optimo": "node scripts/import-rango-optimo-xlsx.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },
@@ -25,6 +26,7 @@
     "oxlint": "^1.69.0",
     "tailwindcss": "^4.3.1",
     "typescript": "~6.0.2",
-    "vite": "^8.1.0"
+    "vite": "^8.1.0",
+    "xlsx": "^0.18.5"
   }
 }

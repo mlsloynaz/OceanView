@@ -1,44 +1,454 @@
 {
-  "analysisDate": "2026-06-24",
+  "analysisDate": "2026-05-20",
   "entries": [
     {
-      "symbol": "NVDA",
-      "nombre": "NVIDIA",
-      "priceOptimo": 450,
-      "rangoOptimoLow": 360,
-      "rangoOptimoHigh": 607.52,
-      "minPrice": 400,
-      "maxPrice": 500
+      "symbol": "AAL",
+      "nombre": "American Airlines Group Inc.",
+      "priceOptimo": 55,
+      "rangoOptimoLow": 40,
+      "rangoOptimoHigh": 70,
+      "minPrice": 30,
+      "maxPrice": 70
     },
     {
       "symbol": "AAPL",
-      "nombre": "Apple",
+      "nombre": "Apple Inc.",
+      "priceOptimo": 62.5,
+      "rangoOptimoLow": 35,
+      "rangoOptimoHigh": 90,
+      "minPrice": 40,
+      "maxPrice": 100
+    },
+    {
+      "symbol": "AMD",
+      "nombre": "Advanced Micro Devices, Inc.",
+      "priceOptimo": 192.5,
+      "rangoOptimoLow": 150,
+      "rangoOptimoHigh": 235,
+      "minPrice": 140,
+      "maxPrice": 240
+    },
+    {
+      "symbol": "AMZN",
+      "nombre": "Amazon.com, Inc.",
       "priceOptimo": 185,
-      "rangoOptimoLow": 148,
-      "rangoOptimoHigh": 249.77,
-      "minPrice": 170,
-      "maxPrice": 200
+      "rangoOptimoLow": 140,
+      "rangoOptimoHigh": 230,
+      "minPrice": 130,
+      "maxPrice": 240
+    },
+    {
+      "symbol": "AVGO",
+      "nombre": "Broadcom Inc",
+      "priceOptimo": 105,
+      "rangoOptimoLow": 70,
+      "rangoOptimoHigh": 140,
+      "minPrice": 65,
+      "maxPrice": 145
+    },
+    {
+      "symbol": "AXP",
+      "nombre": "American Express Company",
+      "priceOptimo": 137.5,
+      "rangoOptimoLow": 85,
+      "rangoOptimoHigh": 190,
+      "minPrice": 80,
+      "maxPrice": 195
+    },
+    {
+      "symbol": "BA",
+      "nombre": "The Boeing Company",
+      "priceOptimo": 115,
+      "rangoOptimoLow": 60,
+      "rangoOptimoHigh": 170,
+      "minPrice": 50,
+      "maxPrice": 180
+    },
+    {
+      "symbol": "BABA",
+      "nombre": "Alibaba Group Holding Limited",
+      "priceOptimo": 50,
+      "rangoOptimoLow": 40,
+      "rangoOptimoHigh": 60,
+      "minPrice": 40,
+      "maxPrice": 70
+    },
+    {
+      "symbol": "C",
+      "priceOptimo": 95,
+      "rangoOptimoLow": 50,
+      "rangoOptimoHigh": 140,
+      "minPrice": 45,
+      "maxPrice": 150
+    },
+    {
+      "symbol": "CCL",
+      "nombre": "Carnival Corporation & plc",
+      "priceOptimo": 50,
+      "rangoOptimoLow": 40,
+      "rangoOptimoHigh": 60,
+      "minPrice": 35,
+      "maxPrice": 65
+    },
+    {
+      "symbol": "COIN",
+      "nombre": "Coinbase Global, Inc.",
+      "priceOptimo": 250,
+      "rangoOptimoLow": 200,
+      "rangoOptimoHigh": 300,
+      "minPrice": 195,
+      "maxPrice": 310
+    },
+    {
+      "symbol": "CVS",
+      "nombre": "CVS Health Corporation",
+      "priceOptimo": 90,
+      "rangoOptimoLow": 60,
+      "rangoOptimoHigh": 120,
+      "minPrice": 55,
+      "maxPrice": 130
+    },
+    {
+      "symbol": "DAL",
+      "nombre": "Delta Air Lines, Inc.",
+      "priceOptimo": 52.5,
+      "rangoOptimoLow": 40,
+      "rangoOptimoHigh": 65,
+      "minPrice": 35,
+      "maxPrice": 70
+    },
+    {
+      "symbol": "DASH",
+      "nombre": "DoorDash, Inc.",
+      "priceOptimo": 200,
+      "rangoOptimoLow": 160,
+      "rangoOptimoHigh": 240,
+      "minPrice": 155,
+      "maxPrice": 245
+    },
+    {
+      "symbol": "DIA",
+      "nombre": "SPDR Dow Jones Industrial Average ETF Trust",
+      "priceOptimo": 150,
+      "rangoOptimoLow": 100,
+      "rangoOptimoHigh": 200,
+      "minPrice": 95,
+      "maxPrice": 210
+    },
+    {
+      "symbol": "GLD",
+      "nombre": "The GDL Fund",
+      "priceOptimo": 60,
+      "rangoOptimoLow": 40,
+      "rangoOptimoHigh": 80,
+      "minPrice": 40,
+      "maxPrice": 90
+    },
+    {
+      "symbol": "GOOG",
+      "nombre": "Alphabet Inc.",
+      "priceOptimo": 115,
+      "rangoOptimoLow": 60,
+      "rangoOptimoHigh": 170,
+      "minPrice": 50,
+      "maxPrice": 170
+    },
+    {
+      "symbol": "HD",
+      "nombre": "The Home Depot, Inc.",
+      "priceOptimo": 180,
+      "rangoOptimoLow": 120,
+      "rangoOptimoHigh": 240,
+      "minPrice": 120,
+      "maxPrice": 240
+    },
+    {
+      "symbol": "HOOD",
+      "nombre": "Robinhood Markets Inc",
+      "priceOptimo": 125,
+      "rangoOptimoLow": 100,
+      "rangoOptimoHigh": 150,
+      "minPrice": 90,
+      "maxPrice": 160
+    },
+    {
+      "symbol": "IWM",
+      "nombre": "iShares Russell 2000 ETF",
+      "priceOptimo": 55,
+      "rangoOptimoLow": 40,
+      "rangoOptimoHigh": 70,
+      "minPrice": 35,
+      "maxPrice": 70
+    },
+    {
+      "symbol": "LI",
+      "nombre": "Li Auto Inc.",
+      "priceOptimo": 42.5,
+      "rangoOptimoLow": 25,
+      "rangoOptimoHigh": 60,
+      "minPrice": 25,
+      "maxPrice": 70
+    },
+    {
+      "symbol": "LOW",
+      "nombre": "Lowe's Companies, Inc.",
+      "priceOptimo": 170,
+      "rangoOptimoLow": 120,
+      "rangoOptimoHigh": 220,
+      "minPrice": 110,
+      "maxPrice": 225
+    },
+    {
+      "symbol": "LYFT",
+      "nombre": "Lyft, Inc.",
+      "priceOptimo": 37.5,
+      "rangoOptimoLow": 25,
+      "rangoOptimoHigh": 50,
+      "minPrice": 25,
+      "maxPrice": 55
+    },
+    {
+      "symbol": "MA",
+      "nombre": "Mastercard Incorporated",
+      "priceOptimo": 132.5,
+      "rangoOptimoLow": 90,
+      "rangoOptimoHigh": 175,
+      "minPrice": 85,
+      "maxPrice": 180
+    },
+    {
+      "symbol": "META",
+      "nombre": "Meta Platforms, Inc.",
+      "priceOptimo": 180,
+      "rangoOptimoLow": 150,
+      "rangoOptimoHigh": 210,
+      "minPrice": 145,
+      "maxPrice": 220
+    },
+    {
+      "symbol": "MRNA",
+      "nombre": "Moderna, Inc.",
+      "priceOptimo": 90,
+      "rangoOptimoLow": 50,
+      "rangoOptimoHigh": 130,
+      "minPrice": 50,
+      "maxPrice": 130
     },
     {
       "symbol": "MSFT",
-      "nombre": "Microsoft",
-      "priceOptimo": 320,
-      "rangoOptimoLow": 256,
-      "rangoOptimoHigh": 432.02
+      "nombre": "Microsoft Corporation",
+      "priceOptimo": 90,
+      "rangoOptimoLow": 60,
+      "rangoOptimoHigh": 120,
+      "minPrice": 50,
+      "maxPrice": 130
+    },
+    {
+      "symbol": "MU",
+      "nombre": "Micron Technology, Inc.",
+      "priceOptimo": 500,
+      "rangoOptimoLow": 400,
+      "rangoOptimoHigh": 600,
+      "minPrice": 400,
+      "maxPrice": 650
+    },
+    {
+      "symbol": "NFLX",
+      "nombre": "Netflix, Inc.",
+      "priceOptimo": 60,
+      "rangoOptimoLow": 40,
+      "rangoOptimoHigh": 80,
+      "minPrice": 35,
+      "maxPrice": 85
+    },
+    {
+      "symbol": "NIO",
+      "nombre": "NIO Inc.",
+      "priceOptimo": 52.5,
+      "rangoOptimoLow": 30,
+      "rangoOptimoHigh": 75,
+      "minPrice": 25,
+      "maxPrice": 75
+    },
+    {
+      "symbol": "NVDA",
+      "nombre": "NVIDIA Corporation",
+      "priceOptimo": 125,
+      "rangoOptimoLow": 80,
+      "rangoOptimoHigh": 170,
+      "minPrice": 75,
+      "maxPrice": 175
+    },
+    {
+      "symbol": "ORCL",
+      "nombre": "Oracle Corp",
+      "priceOptimo": 105,
+      "rangoOptimoLow": 80,
+      "rangoOptimoHigh": 130,
+      "minPrice": 70,
+      "maxPrice": 140
+    },
+    {
+      "symbol": "PFE",
+      "nombre": "Pfizer Inc.",
+      "priceOptimo": 50,
+      "rangoOptimoLow": 30,
+      "rangoOptimoHigh": 70,
+      "minPrice": 25,
+      "maxPrice": 75
+    },
+    {
+      "symbol": "PLTR",
+      "nombre": "Palantir Technologies Inc",
+      "priceOptimo": 220,
+      "rangoOptimoLow": 140,
+      "rangoOptimoHigh": 300,
+      "minPrice": 135,
+      "maxPrice": 310
+    },
+    {
+      "symbol": "PYPL",
+      "nombre": "PayPal Holdings, Inc.",
+      "priceOptimo": 65,
+      "rangoOptimoLow": 50,
+      "rangoOptimoHigh": 80,
+      "minPrice": 40,
+      "maxPrice": 90
+    },
+    {
+      "symbol": "QCOM",
+      "nombre": "Qualcomm, Inc",
+      "priceOptimo": 120,
+      "rangoOptimoLow": 80,
+      "rangoOptimoHigh": 160,
+      "minPrice": 70,
+      "maxPrice": 170
+    },
+    {
+      "symbol": "QQQ",
+      "nombre": "Invesco QQQ Trust",
+      "priceOptimo": 45,
+      "rangoOptimoLow": 35,
+      "rangoOptimoHigh": 55,
+      "minPrice": 30,
+      "maxPrice": 60
+    },
+    {
+      "symbol": "RCL",
+      "nombre": "Royal Caribbean Cruises Ltd.",
+      "priceOptimo": 115,
+      "rangoOptimoLow": 80,
+      "rangoOptimoHigh": 150,
+      "minPrice": 75,
+      "maxPrice": 155
+    },
+    {
+      "symbol": "SLV",
+      "nombre": "iShares Silver Trust",
+      "priceOptimo": 57.5,
+      "rangoOptimoLow": 40,
+      "rangoOptimoHigh": 75,
+      "minPrice": 35,
+      "maxPrice": 80
+    },
+    {
+      "symbol": "SOXL",
+      "nombre": "Direxion Daily Semiconductor Bull 3X Shares",
+      "priceOptimo": 195,
+      "rangoOptimoLow": 150,
+      "rangoOptimoHigh": 240,
+      "minPrice": 120,
+      "maxPrice": 250
+    },
+    {
+      "symbol": "SPX",
+      "nombre": "SPDR S&P 500 ETF Trust",
+      "priceOptimo": 500,
+      "rangoOptimoLow": 400,
+      "rangoOptimoHigh": 600,
+      "minPrice": 380,
+      "maxPrice": 620
+    },
+    {
+      "symbol": "SPY",
+      "nombre": "SPDR S&P 500 ETF Trust",
+      "priceOptimo": 37.5,
+      "rangoOptimoLow": 30,
+      "rangoOptimoHigh": 45,
+      "minPrice": 25,
+      "maxPrice": 50
+    },
+    {
+      "symbol": "TNA",
+      "nombre": "Direxion Daily Small Cap Bull 3X Shares",
+      "priceOptimo": 65,
+      "rangoOptimoLow": 40,
+      "rangoOptimoHigh": 90,
+      "minPrice": 40,
+      "maxPrice": 100
     },
     {
       "symbol": "TSLA",
-      "nombre": "Tesla",
+      "nombre": "Tesla, Inc.",
       "priceOptimo": 175,
-      "rangoOptimoLow": 140,
-      "rangoOptimoHigh": 236.27
+      "rangoOptimoLow": 100,
+      "rangoOptimoHigh": 250,
+      "minPrice": 90,
+      "maxPrice": 250
+    },
+    {
+      "symbol": "UBER",
+      "nombre": "Uber Technologies, Inc.",
+      "priceOptimo": 47.5,
+      "rangoOptimoLow": 35,
+      "rangoOptimoHigh": 60,
+      "minPrice": 30,
+      "maxPrice": 65
+    },
+    {
+      "symbol": "URA",
+      "nombre": "Global X Uranium ETF",
+      "priceOptimo": 67.5,
+      "rangoOptimoLow": 55,
+      "rangoOptimoHigh": 80,
+      "minPrice": 55,
+      "maxPrice": 85
+    },
+    {
+      "symbol": "USO",
+      "nombre": "United States Oil Fund, LP",
+      "priceOptimo": 65,
+      "rangoOptimoLow": 50,
+      "rangoOptimoHigh": 80,
+      "minPrice": 45,
+      "maxPrice": 90
     },
     {
       "symbol": "V",
-      "nombre": "Visa",
-      "priceOptimo": 175,
-      "rangoOptimoLow": 140,
-      "rangoOptimoHigh": 236.27
+      "nombre": "Visa Inc.",
+      "priceOptimo": 115,
+      "rangoOptimoLow": 60,
+      "rangoOptimoHigh": 170,
+      "minPrice": 55,
+      "maxPrice": 175
+    },
+    {
+      "symbol": "WMT",
+      "nombre": "Walmart Inc.",
+      "priceOptimo": 85,
+      "rangoOptimoLow": 60,
+      "rangoOptimoHigh": 110,
+      "minPrice": 55,
+      "maxPrice": 115
+    },
+    {
+      "symbol": "XPEV",
+      "nombre": "XPeng Inc.",
+      "priceOptimo": 60,
+      "rangoOptimoLow": 50,
+      "rangoOptimoHigh": 70,
+      "minPrice": 45,
+      "maxPrice": 75
     }
   ]
 }
