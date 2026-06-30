@@ -24,12 +24,9 @@ export function TickersTable({ rows, loading, pending, bulkPending, onToggleActi
 
   return (
     <ul className="divide-y divide-ocean-mid/30 overflow-hidden rounded-lg border border-ocean-mid/40">
-      {rows.map((row, index) => {
+      {rows.map((row) => {
         const symbolUpper = row.symbol.toUpperCase();
         const rowPending = bulkPending || Boolean(pending[symbolUpper]);
-        const isLastFavorite =
-          row.isFavorite &&
-          (index === rows.length - 1 || !rows[index + 1]?.isFavorite);
 
         return (
           <li
@@ -37,7 +34,6 @@ export function TickersTable({ rows, loading, pending, bulkPending, onToggleActi
             className={cn(
               "flex flex-wrap items-center justify-between gap-x-3 gap-y-2 bg-ocean-surface px-2 py-2",
               !row.active && "opacity-70",
-              isLastFavorite && index < rows.length - 1 && "border-b-2 border-ocean-teal/30",
             )}
           >
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">

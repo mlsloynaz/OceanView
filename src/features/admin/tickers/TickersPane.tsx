@@ -2,8 +2,9 @@ import { useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { CollapsibleSection } from "@/shared/components/CollapsibleSection";
 import { tickersApiBaseUrl, tickersApiUsesMock } from "./api/tickers-client";
-import { TickersTable } from "./TickersTable";
 import { useTickersPane } from "./hooks/useTickersPane";
+import { TickersPager } from "./TickersPager";
+import { TickersTable } from "./TickersTable";
 import type { TickerCatalogFilter } from "./types";
 
 const FILTER_BTN =
@@ -14,18 +15,24 @@ export function TickersPane() {
   const usesMock = tickersApiUsesMock();
   const apiBase = tickersApiBaseUrl();
   const {
-    tickers,
+    pageTickers,
+    page,
+    pages,
+    pageSize,
+    filteredCount,
+    setPage,
     filter,
     setFilter,
     counts,
+    pageCounts,
     loading,
     error,
     message,
     pending,
     isPending,
     reload,
-    activateAll,
-    deactivateAll,
+    activatePage,
+    deactivatePage,
     setActive,
   } = useTickersPane(open);
 
@@ -50,7 +57,7 @@ export function TickersPane() {
       headerExtra={
         <div className="flex flex-wrap items-center justify-end gap-2">
           <span className="text-[11px] text-ocean-sand/80">
-            {counts.active} active · {counts.total} total
+            {counts.active} active · {counts.total} total · A–Z
           </span>
           <button
             type="button"
@@ -75,8 +82,8 @@ export function TickersPane() {
       )}
 
       <p className="mb-3 text-xs text-ocean-sand">
-        Active tickers are included in Market Assess and the Candles pane bulk actions. Deactivating
-        does not delete stored candle bars.
+        Tickers are sorted A–Z, {pageSize} per page. Page actions apply to the current page only.
+        Active tickers are included in Market Assess and Candles bulk refresh.
       </p>
 
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
@@ -99,25 +106,25 @@ export function TickersPane() {
         <span className="mx-1 hidden h-4 w-px bg-ocean-mid/50 sm:inline" aria-hidden />
         <button
           type="button"
-          disabled={loading || isPending || counts.inactive === 0}
-          onClick={activateAll}
+          disabled={loading || isPending || pageCounts.inactive === 0}
+          onClick={activatePage}
           className={cn(
             FILTER_BTN,
             "border border-ocean-teal/40 text-ocean-teal-dim hover:bg-ocean-teal/10 dark:text-ocean-teal",
           )}
         >
-          Activate all
+          Activate page
         </button>
         <button
           type="button"
-          disabled={loading || isPending || counts.active === 0}
-          onClick={deactivateAll}
+          disabled={loading || isPending || pageCounts.active === 0}
+          onClick={deactivatePage}
           className={cn(
             FILTER_BTN,
             "border border-ocean-danger-border/60 text-ocean-danger hover:bg-ocean-danger-muted/50",
           )}
         >
-          Deactivate all
+          Deactivate page
         </button>
       </div>
 
@@ -127,11 +134,20 @@ export function TickersPane() {
       {error && <p className="mb-2 text-ocean-danger">{error}</p>}
 
       <TickersTable
-        rows={tickers}
+        rows={pageTickers}
         loading={loading}
         pending={pending}
         bulkPending={isPending}
         onToggleActive={setActive}
+      />
+
+      <TickersPager
+        page={page}
+        totalPages={pages}
+        totalItems={filteredCount}
+        pageSize={pageSize}
+        disabled={loading || isPending}
+        onPageChange={setPage}
       />
     </CollapsibleSection>
   );
