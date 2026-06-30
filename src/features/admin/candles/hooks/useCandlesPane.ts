@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   getAdminTickers,
   postCandlesRefresh,
@@ -26,7 +26,6 @@ export function useCandlesPane(open: boolean) {
   const [loading, setLoading] = useState(false);
   const [rowPending, setRowPending] = useState<Record<string, boolean>>({});
   const [bulkPending, startBulkTransition] = useTransition();
-  const loadedRef = useRef(false);
 
   const tickerSymbols = useMemo(
     () => catalog.map((t) => t.symbol.trim().toUpperCase()).filter(Boolean),
@@ -68,8 +67,7 @@ export function useCandlesPane(open: boolean) {
   }, []);
 
   useEffect(() => {
-    if (!open || loadedRef.current) return;
-    loadedRef.current = true;
+    if (!open) return;
     void loadPanel();
   }, [open, loadPanel]);
 
@@ -140,8 +138,31 @@ export function useCandlesPane(open: boolean) {
   }, [tickerSymbols]);
 
   const refreshAll = useCallback(() => {
-    refreshCandles(tickerSymbols);
-  }, [refreshCandles, tickerSymbols]);
+    setMessage(null);
+    setError(null);
+    startBulkTransition(async () => {
+      try {
+        const { tickers } = await getAdminTickers();
+        setCatalog(tickers);
+        const symbols = tickers.map((t) => t.symbol.trim().toUpperCase()).filter(Boolean);
+        if (symbols.length === 0) {
+          setMessage("No active tickers — activate symbols in Ticker catalog first.");
+          return;
+        }
+        const pendingKeys = Object.fromEntries(symbols.map((s) => [s, true]));
+        setRowPending(pendingKeys);
+        const ack = await postCandlesRefresh({ tickers: symbols });
+        setMessage(`${ack.message} (${symbols.length} active ticker(s))`);
+        const status = await postCandlesStatus({ tickers: symbols });
+        setSymbols(status.symbols);
+        setBanner(bannerFromJob(status.job));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Candle refresh failed.");
+      } finally {
+        setRowPending({});
+      }
+    });
+  }, []);
 
   const refreshOne = useCallback(
     (symbol: string) => {

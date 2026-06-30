@@ -59,6 +59,7 @@ export function CandlesPane() {
               "bg-ocean-teal font-semibold text-ocean-deep hover:brightness-105",
             )}
             disabled={bulkPending || loading || rows.length === 0}
+            title="Incremental D + 1h + 15m fetch for all active tickers"
             onClick={refreshAll}
           >
             {bulkPending ? "Refreshing…" : "Refresh candles"}
@@ -88,6 +89,10 @@ export function CandlesPane() {
           Mock mode enabled (<code className="text-[11px]">VITE_USE_MOCK_CANDLES=true</code>).
         </p>
       )}
+      <p className="mb-2 text-xs text-ocean-sand">
+        Bulk actions use <strong className="font-medium text-ocean-foam">active</strong> tickers
+        from Ticker catalog ({rows.length} shown).
+      </p>
       {message && (
         <p className="mb-2 text-ocean-teal-dim dark:text-ocean-teal">{message}</p>
       )}

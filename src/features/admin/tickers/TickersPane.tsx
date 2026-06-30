@@ -24,6 +24,8 @@ export function TickersPane() {
     pending,
     isPending,
     reload,
+    activateAll,
+    deactivateAll,
     setActive,
   } = useTickersPane(open);
 
@@ -77,12 +79,12 @@ export function TickersPane() {
         does not delete stored candle bars.
       </p>
 
-      <div className="mb-3 flex flex-wrap gap-1.5">
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
         {filters.map((item) => (
           <button
             key={item.id}
             type="button"
-            disabled={loading}
+            disabled={loading || isPending}
             onClick={() => setFilter(item.id)}
             className={cn(
               FILTER_BTN,
@@ -94,6 +96,29 @@ export function TickersPane() {
             {item.label} ({item.count})
           </button>
         ))}
+        <span className="mx-1 hidden h-4 w-px bg-ocean-mid/50 sm:inline" aria-hidden />
+        <button
+          type="button"
+          disabled={loading || isPending || counts.inactive === 0}
+          onClick={activateAll}
+          className={cn(
+            FILTER_BTN,
+            "border border-ocean-teal/40 text-ocean-teal-dim hover:bg-ocean-teal/10 dark:text-ocean-teal",
+          )}
+        >
+          Activate all
+        </button>
+        <button
+          type="button"
+          disabled={loading || isPending || counts.active === 0}
+          onClick={deactivateAll}
+          className={cn(
+            FILTER_BTN,
+            "border border-ocean-danger-border/60 text-ocean-danger hover:bg-ocean-danger-muted/50",
+          )}
+        >
+          Deactivate all
+        </button>
       </div>
 
       {message && (

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { getTickersCatalog, patchTickerActive } from "../api/tickers-client";
+import { getTickersCatalog, patchTickerActive, patchTickersActive } from "../api/tickers-client";
 import type { CatalogTicker, TickerCatalogFilter } from "../types";
 
 export function useTickersPane(open: boolean) {
@@ -85,6 +85,53 @@ export function useTickersPane(open: boolean) {
     });
   }, []);
 
+  const setAllActive = useCallback(
+    (nextActive: boolean) => {
+      const targets = tickers.filter((row) => row.active !== nextActive);
+      if (targets.length === 0) {
+        setMessage(nextActive ? "All tickers are already active." : "No active tickers to deactivate.");
+        return;
+      }
+
+      if (!nextActive) {
+        const ok = window.confirm(
+          `Deactivate all ${targets.length} active ticker(s)? They will be excluded from Market Assess and Candles bulk actions.`,
+        );
+        if (!ok) return;
+      }
+
+      setMessage(null);
+      setError(null);
+      const pendingKeys = Object.fromEntries(targets.map((row) => [row.symbol, true]));
+      setPending((prev) => ({ ...prev, ...pendingKeys }));
+
+      startTransition(async () => {
+        try {
+          const updated = await patchTickersActive(
+            targets.map((row) => row.symbol),
+            nextActive,
+          );
+          const bySymbol = new Map(updated.map((row) => [row.symbol, row]));
+          setTickers((prev) => prev.map((row) => bySymbol.get(row.symbol) ?? row));
+          setMessage(
+            nextActive
+              ? `Activated ${updated.length} ticker(s).`
+              : `Deactivated ${updated.length} ticker(s).`,
+          );
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Bulk update failed.");
+          await loadCatalog();
+        } finally {
+          setPending({});
+        }
+      });
+    },
+    [tickers, loadCatalog],
+  );
+
+  const activateAll = useCallback(() => setAllActive(true), [setAllActive]);
+  const deactivateAll = useCallback(() => setAllActive(false), [setAllActive]);
+
   return {
     tickers: filteredTickers,
     filter,
@@ -97,5 +144,7 @@ export function useTickersPane(open: boolean) {
     isPending,
     reload: loadCatalog,
     setActive,
+    activateAll,
+    deactivateAll,
   };
 }

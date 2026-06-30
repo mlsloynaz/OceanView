@@ -105,6 +105,16 @@ export async function patchTickerActive(symbol: string, active: boolean): Promis
   return mapTicker(payload);
 }
 
+export async function patchTickersActive(
+  symbols: string[],
+  active: boolean,
+): Promise<CatalogTicker[]> {
+  const unique = [...new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))];
+  if (unique.length === 0) return [];
+  const results = await Promise.all(unique.map((symbol) => patchTickerActive(symbol, active)));
+  return results;
+}
+
 /** Active symbols for Candles pane and other admin bulk actions. */
 export async function getActiveTickersForAdmin(): Promise<CatalogTickersResponse> {
   if (USE_MOCK) {
