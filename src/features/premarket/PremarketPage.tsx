@@ -28,8 +28,8 @@ export function PremarketPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam">Premarket</h1>
         <p className="mt-2 text-ocean-sand">
-          Pre-open scan at 9:25 AM ET — extended-hours bars in memory only; Admin candles are not
-          updated.
+          Pre-open screening — bars sliced to the run moment (9:25 AM ET once the open approaches).
+          Extended-hours fetch is in memory only; Admin candles are not updated.
         </p>
       </div>
 

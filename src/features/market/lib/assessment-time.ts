@@ -92,6 +92,9 @@ export function defaultAssessmentTime(coverage: CandleCoverage): Date {
   return clampAssessmentTime(new Date(), coverage);
 }
 
+/** `now` — assess at click time; `et` — user picks an Eastern datetime. */
+export type AssessmentTimeMode = "now" | "et";
+
 export type AssessmentTimeValidation = {
   /** Hard failure — blocks Assess (before stored history). */
   error: string | null;

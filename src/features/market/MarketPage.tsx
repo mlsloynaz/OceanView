@@ -67,12 +67,13 @@ export function MarketPage() {
     ruleCount,
     strategyById,
     candleCoverage,
+    assessmentMode,
     assessmentAt,
     assessmentError,
     assessNotice,
     assessPending,
+    setAssessmentMode,
     setAssessmentFromLocal,
-    resetAssessmentToNow,
     runAssessment,
     assessmentLabel,
   } = useMarketWorkspace(viewMode);
@@ -115,15 +116,16 @@ export function MarketPage() {
         />
         {candleCoverage && (
           <AssessmentTimeControl
+            mode={assessmentMode}
             value={assessmentAt}
             coverage={candleCoverage}
             error={assessmentError}
             notice={assessNotice}
             pending={assessPending}
+            onModeChange={setAssessmentMode}
             onChange={setAssessmentFromLocal}
-            onNow={resetAssessmentToNow}
             onAssess={runAssessment}
-            className="sm:flex-1 sm:max-w-md"
+            className="sm:flex-1 sm:max-w-lg"
           />
         )}
       </div>

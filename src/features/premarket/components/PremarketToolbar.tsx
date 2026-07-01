@@ -72,9 +72,18 @@ export function PremarketToolbar({
             {startPending ? "Running" : formatPremarketStatus(result?.status)}
           </strong>
         </span>
-        {result?.simulationTimeEt && (
+        {result?.evaluatedAt && (
           <span>
-            Sim: <strong className="text-ocean-foam">{formatSimTimeEt(result.simulationTimeEt)}</strong>
+            Ran:{" "}
+            <strong className="text-ocean-foam">{formatSimTimeEt(result.evaluatedAt)}</strong>
+          </span>
+        )}
+        {result?.simulationTimeEt && (
+          <span
+            title="Price bars are sliced to this Eastern time — not necessarily when you clicked Start"
+          >
+            Bars as of:{" "}
+            <strong className="text-ocean-foam">{formatSimTimeEt(result.simulationTimeEt)}</strong>
           </span>
         )}
         {result?.runId && (
