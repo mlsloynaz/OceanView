@@ -1,3 +1,5 @@
+import { DynamicStrategyBuilder } from "./components/DynamicStrategyBuilder";
+import { DynamicStrategyCatalog } from "./components/DynamicStrategyCatalog";
 import { PremarketBanner } from "./components/PremarketBanner";
 import { PremarketDiagnostics } from "./components/PremarketDiagnostics";
 import { PremarketEmptyState } from "./components/PremarketEmptyState";
@@ -6,97 +8,138 @@ import { PremarketToolbar } from "./components/PremarketToolbar";
 import { usePremarketWorkspace } from "./hooks/usePremarketWorkspace";
 
 export function PremarketPage() {
-  const {
-    result,
-    loading,
-    startPending,
-    stopPending,
-    error,
-    notice,
-    threshold,
-    startEvaluate,
-    stopEvaluate,
-    refreshResult,
-  } = usePremarketWorkspace();
+  const ws = usePremarketWorkspace();
 
-  const strategies = result?.strategies ?? [];
-  const hasResults = strategies.length > 0;
-  const showEmpty = !loading && !startPending && !hasResults && !error;
+  const resultStrategies = ws.result?.strategies ?? [];
+  const hasResults = resultStrategies.length > 0;
+  const showEmpty =
+    !ws.loading && !ws.startPending && !hasResults && !ws.error && !ws.useMock;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam">Premarket</h1>
         <p className="mt-2 text-ocean-sand">
-          Pre-open screening — bars sliced to the run moment (9:25 AM ET once the open approaches).
-          Extended-hours fetch is in memory only; Admin candles are not updated.
+          Build dynamic strategies from the rule library, save to Dynamo, and evaluate all active
+          tickers. Extended-hours bars stay in memory only.
         </p>
       </div>
+
+      {ws.useMock ? (
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          Mock mode — use <code className="text-[11px]">npm run dev:local</code> for the strategy
+          builder and live evaluate.
+        </p>
+      ) : ws.catalogLoading ? (
+        <p className="text-sm text-ocean-sand">Loading dynamic strategy catalog…</p>
+      ) : (
+        <>
+          {ws.catalogError && (
+            <p className="text-sm text-ocean-danger" role="alert">
+              {ws.catalogError}
+            </p>
+          )}
+
+          <DynamicStrategyBuilder
+            rules={ws.rules}
+            selectedRuleKeys={ws.selectedRuleKeys}
+            name={ws.builderName}
+            shortName={ws.builderShortName}
+            description={ws.builderDescription}
+            editingStrategyId={ws.editingStrategyId}
+            saving={ws.catalogSaving}
+            startPending={ws.startPending}
+            onNameChange={ws.setBuilderName}
+            onShortNameChange={ws.setBuilderShortName}
+            onDescriptionChange={ws.setBuilderDescription}
+            onAddRule={ws.addRuleToBuilder}
+            onRemoveRule={ws.removeRuleFromBuilder}
+            onMoveRule={ws.moveRuleInBuilder}
+            onClear={ws.clearBuilder}
+            onSave={() => void ws.saveBuilder()}
+            onPreview={() => void ws.startEvaluate("rules")}
+          />
+
+          <DynamicStrategyCatalog
+            strategies={ws.strategies}
+            selectedStrategyIds={ws.selectedStrategyIds}
+            saving={ws.catalogSaving}
+            startPending={ws.startPending}
+            onToggleSelection={ws.toggleStrategySelection}
+            onSelectAllActive={ws.selectAllActiveStrategies}
+            onClearSelection={ws.clearStrategySelection}
+            onEdit={ws.loadStrategyForEdit}
+            onToggleActive={(s) => void ws.toggleStrategyActive(s)}
+            onDelete={(id) => void ws.removeStrategy(id)}
+            onEvaluateSelected={() => void ws.startEvaluate("strategies")}
+          />
+        </>
+      )}
 
       <PremarketBanner />
 
       <PremarketToolbar
-        result={result}
-        startPending={startPending}
-        stopPending={stopPending}
-        loading={loading}
-        threshold={threshold}
-        onStart={() => void startEvaluate()}
-        onStop={() => void stopEvaluate()}
-        onRefresh={() => void refreshResult()}
+        result={ws.result}
+        startPending={ws.startPending}
+        stopPending={ws.stopPending}
+        loading={ws.loading}
+        threshold={ws.threshold}
+        onStart={() => void ws.startEvaluate("strategies")}
+        onStop={() => void ws.stopEvaluate()}
+        onRefresh={() => void ws.refreshResult()}
       />
 
-      {notice && (
+      {ws.notice && (
         <p className="text-sm text-ocean-teal-dim dark:text-ocean-teal" role="status">
-          {notice}
+          {ws.notice}
         </p>
       )}
-      {error && (
+      {ws.error && (
         <p className="text-sm text-ocean-danger" role="alert">
-          {error}
+          {ws.error}
         </p>
       )}
 
-      {loading && !result && !startPending && (
-        <p className="text-sm text-ocean-sand">Loading last premarket result…</p>
+      {ws.loading && !ws.result && !ws.startPending && (
+        <p className="text-sm text-ocean-sand">Loading last evaluate result…</p>
       )}
 
-      {startPending && (
+      {ws.startPending && (
         <p className="text-sm text-ocean-sand">
-          Running premarket evaluate for all active tickers and strategies. This may take a minute…
+          Evaluating active tickers against selected dynamic strategies…
         </p>
       )}
 
       {hasResults && (
         <div className="space-y-4">
-          {result?.summary && (
+          {ws.result?.summary && (
             <p className="text-xs text-ocean-sand">
-              {result.summary.symbolsAboveThreshold ?? 0} hit(s) across{" "}
-              {result.summary.strategyCount ?? strategies.length} strateg
-              {(result.summary.strategyCount ?? strategies.length) === 1 ? "y" : "ies"} ·{" "}
-              {result.summary.symbolsTotal ?? "—"} symbols evaluated
+              {ws.result.summary.symbolsAboveThreshold ?? 0} hit(s) across{" "}
+              {ws.result.summary.strategyCount ?? resultStrategies.length} strateg
+              {(ws.result.summary.strategyCount ?? resultStrategies.length) === 1 ? "y" : "ies"}{" "}
+              · {ws.result.summary.symbolsTotal ?? "—"} symbols evaluated
             </p>
           )}
-          {strategies.map((group) => (
+          {resultStrategies.map((group) => (
             <PremarketStrategySection
-              key={group.strategyId}
+              key={`${group.strategyId}-${group.name ?? ""}`}
               group={group}
-              threshold={threshold}
+              threshold={ws.threshold}
             />
           ))}
         </div>
       )}
 
-      {showEmpty && <PremarketEmptyState threshold={threshold} />}
+      {showEmpty && <PremarketEmptyState threshold={ws.threshold} />}
 
-      {!hasResults && result && !startPending && !loading && (
+      {!hasResults && ws.result && !ws.startPending && !ws.loading && (
         <p className="rounded-lg border border-ocean-mid/40 bg-ocean-surface px-4 py-3 text-sm text-ocean-sand">
-          Run complete — no tickers met ≥ {threshold}% for any active strategy.
+          Run complete — no tickers met ≥ {ws.threshold}% for the selected strategies.
         </p>
       )}
 
-      {result?.symbolOutcomes && result.symbolOutcomes.length > 0 && (
-        <PremarketDiagnostics outcomes={result.symbolOutcomes} />
+      {ws.result?.symbolOutcomes && ws.result.symbolOutcomes.length > 0 && (
+        <PremarketDiagnostics outcomes={ws.result.symbolOutcomes} />
       )}
     </div>
   );

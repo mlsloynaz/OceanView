@@ -6,11 +6,15 @@ import {
   TICKERS_PAGE_SIZE,
   totalPages as calcTotalPages,
 } from "../pagination";
+import { filterTickersBySearch } from "../search";
 import type { CatalogTicker, TickerCatalogFilter } from "../types";
+
+const SEARCH_SUGGESTION_LIMIT = 8;
 
 export function useTickersPane(open: boolean) {
   const [tickers, setTickers] = useState<CatalogTicker[]>([]);
   const [filter, setFilter] = useState<TickerCatalogFilter>("all");
+  const [search, setSearchState] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +45,16 @@ export function useTickersPane(open: boolean) {
     setPage(1);
   }, []);
 
+  const setSearch = useCallback((next: string) => {
+    setSearchState(next);
+    setPage(1);
+  }, []);
+
+  const selectSearchTicker = useCallback((symbol: string) => {
+    setSearchState(symbol);
+    setPage(1);
+  }, []);
+
   const filteredTickers = useMemo(() => {
     const rows =
       filter === "active"
@@ -48,8 +62,20 @@ export function useTickersPane(open: boolean) {
         : filter === "inactive"
           ? tickers.filter((row) => !row.active)
           : tickers;
-    return sortTickersAlphabetically(rows);
-  }, [tickers, filter]);
+    return filterTickersBySearch(sortTickersAlphabetically(rows), search);
+  }, [tickers, filter, search]);
+
+  const searchSuggestions = useMemo(() => {
+    const q = search.trim();
+    if (!q) return [];
+    const pool =
+      filter === "active"
+        ? tickers.filter((row) => row.active)
+        : filter === "inactive"
+          ? tickers.filter((row) => !row.active)
+          : tickers;
+    return filterTickersBySearch(pool, q).slice(0, SEARCH_SUGGESTION_LIMIT);
+  }, [tickers, filter, search]);
 
   const pages = useMemo(
     () => calcTotalPages(filteredTickers.length, TICKERS_PAGE_SIZE),
@@ -181,6 +207,10 @@ export function useTickersPane(open: boolean) {
     pages,
     pageSize: TICKERS_PAGE_SIZE,
     filteredCount: filteredTickers.length,
+    search,
+    searchSuggestions,
+    setSearch,
+    selectSearchTicker,
     setPage,
     filter,
     setFilter: setFilterAndResetPage,

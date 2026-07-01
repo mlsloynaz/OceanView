@@ -37,7 +37,7 @@ export function PremarketToolbar({
           disabled={busy || startPending}
           onClick={onStart}
         >
-          {startPending ? "Evaluating…" : "Start evaluate"}
+          {startPending ? "Evaluating…" : "Evaluate strategies"}
         </button>
         <button
           type="button"

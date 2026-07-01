@@ -6,10 +6,18 @@ type Props = {
   loading: boolean;
   pending: Record<string, boolean>;
   bulkPending: boolean;
+  emptyMessage?: string;
   onToggleActive: (symbol: string, active: boolean) => void;
 };
 
-export function TickersTable({ rows, loading, pending, bulkPending, onToggleActive }: Props) {
+export function TickersTable({
+  rows,
+  loading,
+  pending,
+  bulkPending,
+  emptyMessage,
+  onToggleActive,
+}: Props) {
   if (loading) {
     return null;
   }
@@ -17,7 +25,8 @@ export function TickersTable({ rows, loading, pending, bulkPending, onToggleActi
   if (rows.length === 0) {
     return (
       <p className="leading-snug text-ocean-sand">
-        No tickers match this filter. Sync symbols via OceanView-API seed script if the catalog is empty.
+        {emptyMessage ??
+          "No tickers match this filter. Sync symbols via OceanView-API seed script if the catalog is empty."}
       </p>
     );
   }

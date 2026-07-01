@@ -5,6 +5,7 @@ import { tickersApiBaseUrl, tickersApiUsesMock } from "./api/tickers-client";
 import { useTickersPane } from "./hooks/useTickersPane";
 import { TickersPager } from "./TickersPager";
 import { TickersTable } from "./TickersTable";
+import { TickerCatalogSearch } from "./TickerCatalogSearch";
 import type { TickerCatalogFilter } from "./types";
 
 const FILTER_BTN =
@@ -20,6 +21,10 @@ export function TickersPane() {
     pages,
     pageSize,
     filteredCount,
+    search,
+    searchSuggestions,
+    setSearch,
+    selectSearchTicker,
     setPage,
     filter,
     setFilter,
@@ -86,6 +91,31 @@ export function TickersPane() {
         Active tickers are included in Market Assess and Candles bulk refresh.
       </p>
 
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <TickerCatalogSearch
+          value={search}
+          suggestions={searchSuggestions}
+          disabled={loading || isPending}
+          onChange={setSearch}
+          onSelect={selectSearchTicker}
+        />
+        {search.trim() ? (
+          <button
+            type="button"
+            disabled={loading || isPending}
+            onClick={() => setSearch("")}
+            className="rounded px-2 py-1 text-xs font-medium text-ocean-sand hover:text-ocean-foam"
+          >
+            Clear
+          </button>
+        ) : null}
+        {search.trim() ? (
+          <span className="text-[11px] text-ocean-sand/80">
+            {filteredCount} match{filteredCount === 1 ? "" : "es"}
+          </span>
+        ) : null}
+      </div>
+
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
         {filters.map((item) => (
           <button
@@ -139,6 +169,11 @@ export function TickersPane() {
         pending={pending}
         bulkPending={isPending}
         onToggleActive={setActive}
+        emptyMessage={
+          search.trim()
+            ? `No tickers match “${search.trim()}”.`
+            : undefined
+        }
       />
 
       <TickersPager

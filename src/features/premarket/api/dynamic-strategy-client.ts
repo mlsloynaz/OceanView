@@ -1,0 +1,337 @@
+import type { PremarketResultResponse } from "../types";
+
+import { nextMockPremarketStart } from "./mock-data";
+
+
+
+export type DynamicRuleTemplate = {
+
+  ruleKey: string;
+
+  label: string;
+
+  defaultType?: string;
+
+  timeframe?: string;
+
+  when?: Record<string, unknown>;
+
+};
+
+
+
+export type DynamicRulesResponse = {
+
+  rules: DynamicRuleTemplate[];
+
+  count: number;
+
+};
+
+
+
+export type DynamicStrategy = {
+
+  id: string;
+
+  name: string;
+
+  shortName?: string | null;
+
+  description?: string;
+
+  active: boolean;
+
+  rules: Array<{
+
+    id: string;
+
+    ruleKey: string;
+
+    label: string;
+
+    type: string;
+
+    timeframe?: string;
+
+    when?: Record<string, unknown>;
+
+  }>;
+
+};
+
+
+
+export type DynamicCatalogResponse = {
+
+  version?: string;
+
+  updatedAt?: string;
+
+  catalogKind?: string;
+
+  description?: string;
+
+  strategies?: DynamicStrategy[];
+
+};
+
+
+
+export type CreateDynamicStrategyRequest = {
+
+  name: string;
+
+  shortName?: string;
+
+  description?: string;
+
+  active?: boolean;
+
+  ruleKeys: string[];
+
+};
+
+
+
+export type PatchDynamicStrategyRequest = {
+
+  name?: string;
+
+  shortName?: string;
+
+  description?: string;
+
+  active?: boolean;
+
+  ruleKeys?: string[];
+
+};
+
+
+
+export type DynamicEvaluateRequest = {
+
+  simulationTimeEt?: string;
+
+  strategyIds?: string[];
+
+  ruleKeys?: string[];
+
+  name?: string;
+
+  saveAs?: { name: string; active?: boolean };
+
+  options?: { signalThresholdPct?: number };
+
+};
+
+
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "/api";
+
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_PREMARKET === "true";
+
+
+
+export class DynamicStrategyApiError extends Error {
+
+  readonly code: string | undefined;
+
+
+
+  constructor(message: string, code?: string) {
+
+    super(message);
+
+    this.name = "DynamicStrategyApiError";
+
+    this.code = code;
+
+  }
+
+}
+
+
+
+async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+
+  if (!API_BASE) throw new DynamicStrategyApiError("VITE_API_BASE_URL is not set.");
+
+  const response = await fetch(`${API_BASE}${path}`, {
+
+    ...init,
+
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+
+  });
+
+  const text = await response.text();
+
+  let body: unknown = null;
+
+  if (text) {
+
+    try {
+
+      body = JSON.parse(text);
+
+    } catch {
+
+      body = text;
+
+    }
+
+  }
+
+  if (!response.ok) {
+
+    const record = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : null;
+
+    const message =
+
+      typeof record?.error === "string"
+
+        ? record.error
+
+        : typeof record?.message === "string"
+
+          ? record.message
+
+          : `HTTP ${response.status}`;
+
+    const code = typeof record?.code === "string" ? record.code : undefined;
+
+    throw new DynamicStrategyApiError(message, code);
+
+  }
+
+  return body as T;
+
+}
+
+
+
+export function dynamicStrategiesUseMock(): boolean {
+
+  return USE_MOCK;
+
+}
+
+
+
+export function dynamicStrategiesApiBaseUrl(): string | null {
+
+  return API_BASE || null;
+
+}
+
+
+
+export async function fetchDynamicCatalog(): Promise<DynamicCatalogResponse> {
+
+  return fetchJson("/dynamic-strategies/catalog");
+
+}
+
+
+
+export async function fetchDynamicRules(): Promise<DynamicRulesResponse> {
+
+  return fetchJson("/dynamic-strategies/rules");
+
+}
+
+
+
+export async function createDynamicStrategy(
+
+  body: CreateDynamicStrategyRequest,
+
+): Promise<DynamicStrategy> {
+
+  return fetchJson("/dynamic-strategies", {
+
+    method: "POST",
+
+    body: JSON.stringify(body),
+
+  });
+
+}
+
+
+
+export async function patchDynamicStrategy(
+
+  strategyId: string,
+
+  body: PatchDynamicStrategyRequest,
+
+): Promise<DynamicStrategy> {
+
+  return fetchJson(`/dynamic-strategies/${encodeURIComponent(strategyId)}`, {
+
+    method: "PATCH",
+
+    body: JSON.stringify(body),
+
+  });
+
+}
+
+
+
+export async function deleteDynamicStrategy(strategyId: string): Promise<void> {
+
+  await fetchJson(`/dynamic-strategies/${encodeURIComponent(strategyId)}`, {
+
+    method: "DELETE",
+
+  });
+
+}
+
+
+
+/** Run premarket evaluate using the dynamic strategy catalog (Dynamo). */
+
+export async function postDynamicEvaluate(
+
+  body: DynamicEvaluateRequest = {},
+
+): Promise<PremarketResultResponse> {
+
+  if (USE_MOCK) {
+
+    await new Promise((r) => setTimeout(r, 900));
+
+    return nextMockPremarketStart();
+
+  }
+
+  return fetchJson<PremarketResultResponse>("/dynamic-strategies/evaluate", {
+
+    method: "POST",
+
+    body: JSON.stringify({
+
+      options: { signalThresholdPct: 50, ...body.options },
+
+      simulationTimeEt: body.simulationTimeEt,
+
+      strategyIds: body.strategyIds,
+
+      ruleKeys: body.ruleKeys,
+
+      name: body.name,
+
+      saveAs: body.saveAs,
+
+    }),
+
+  });
+
+}
+
+

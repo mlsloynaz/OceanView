@@ -24,6 +24,8 @@ export const PREMARKET_ERROR_MESSAGES: Record<string, string> = {
   PREMARKET_CONFLICT: "Another premarket evaluate run is already in progress.",
   PREMARKET_NOT_FOUND: "No saved premarket result yet.",
   PREMARKET_INVALID_TIME: "Invalid simulation time.",
+  DYNAMIC_EVAL_CONFLICT: "Another evaluate run is already in progress.",
+  DYNAMIC_EVAL_INVALID: "Invalid evaluate request.",
 };
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
