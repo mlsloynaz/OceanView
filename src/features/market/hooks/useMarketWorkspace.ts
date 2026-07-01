@@ -132,14 +132,49 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     return null;
   }, [useMock, snapshot, envelope]);
 
+  const applyAssessmentValidation = useCallback(
+    (date: Date, coverage: CandleCoverage) => {
+      const validation = validateAssessmentTime(date, coverage);
+      setAssessmentError(validation.error);
+      setAssessNotice(validation.notice);
+      return validation;
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!candleCoverage || coverageInitialized) return;
     const initial = new Date();
     setAssessmentAt(initial);
-    setAssessmentError(validateAssessmentTime(initial, candleCoverage));
+    applyAssessmentValidation(initial, candleCoverage);
     if (!lastAssessedAt) setLastAssessedAt(initial);
     setCoverageInitialized(true);
-  }, [candleCoverage, coverageInitialized, lastAssessedAt]);
+  }, [applyAssessmentValidation, candleCoverage, coverageInitialized, lastAssessedAt]);
+
+  useEffect(() => {
+    if (!candleCoverage) return;
+    applyAssessmentValidation(assessmentAt, candleCoverage);
+  }, [applyAssessmentValidation, assessmentAt, candleCoverage]);
+
+  useEffect(() => {
+    if (useMock) return;
+
+    const refreshEnvelope = () => {
+      if (document.visibilityState !== "visible") return;
+      void fetchMarketEnvelope()
+        .then((env) => setEnvelope(env))
+        .catch(() => {
+          /* ignore background refresh errors */
+        });
+    };
+
+    document.addEventListener("visibilitychange", refreshEnvelope);
+    window.addEventListener("focus", refreshEnvelope);
+    return () => {
+      document.removeEventListener("visibilitychange", refreshEnvelope);
+      window.removeEventListener("focus", refreshEnvelope);
+    };
+  }, [useMock]);
 
   const fetchSnapshot = useCallback(
     async (mode: MarketViewMode, activeRunId: string | null, force = false) => {
@@ -183,20 +218,21 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       const parsed = parseEtDatetimeLocal(localValue);
       if (!parsed) {
         setAssessmentError("Invalid date or time.");
+        setAssessNotice(null);
         return;
       }
       setAssessmentAt(parsed);
-      setAssessmentError(validateAssessmentTime(parsed, candleCoverage));
+      applyAssessmentValidation(parsed, candleCoverage);
     },
-    [candleCoverage],
+    [applyAssessmentValidation, candleCoverage],
   );
 
   const resetAssessmentToNow = useCallback(() => {
     if (!candleCoverage) return;
     const now = new Date();
     setAssessmentAt(now);
-    setAssessmentError(validateAssessmentTime(now, candleCoverage));
-  }, [candleCoverage]);
+    applyAssessmentValidation(now, candleCoverage);
+  }, [applyAssessmentValidation, candleCoverage]);
 
   const refreshAfterAssess = useCallback(
     async (newRunId: string, simulationTimeEt?: string | null) => {
@@ -207,6 +243,10 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       const sim = parseSimulationTimeEt(simulationTimeEt ?? env.simulationTimeEt);
       if (sim) setLastAssessedAt(sim);
       else setLastAssessedAt(new Date(assessmentAt.getTime()));
+
+      if (env.candleCoverage) {
+        applyAssessmentValidation(assessmentAt, env.candleCoverage);
+      }
 
       const cat = catalogRef.current;
       const activeRunId = newRunId || env.runId;
@@ -221,14 +261,15 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
         });
       }
     },
-    [assessmentAt, viewMode],
+    [applyAssessmentValidation, assessmentAt, viewMode],
   );
 
   const runAssessment = useCallback(() => {
     if (!candleCoverage) return;
-    const err = validateAssessmentTime(assessmentAt, candleCoverage);
-    if (err) {
-      setAssessmentError(err);
+    const validation = validateAssessmentTime(assessmentAt, candleCoverage);
+    if (validation.error) {
+      setAssessmentError(validation.error);
+      setAssessNotice(null);
       return;
     }
 
@@ -246,7 +287,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     }
 
     setAssessmentError(null);
-    setAssessNotice(null);
+    setAssessNotice(validation.notice);
     setAssessPending(true);
     void postMarketEvaluate({
       simulationTimeEt: formatSimulationTimeEt(assessmentAt),
@@ -256,9 +297,17 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       .catch((err) => {
         if (err instanceof MarketApiError) {
           const fallback = err.code ? MARKET_ERROR_MESSAGES[err.code] : undefined;
-          setAssessmentError(err.message || fallback || "Assessment failed.");
+          const message = err.message || fallback || "Assessment failed.";
+          if (err.code === "MARKET_EVAL_OUT_OF_COVERAGE" || err.code === "MARKET_NO_CANDLES") {
+            setAssessmentError(null);
+            setAssessNotice(message);
+          } else {
+            setAssessmentError(message);
+            setAssessNotice(null);
+          }
         } else {
           setAssessmentError(err instanceof Error ? err.message : "Assessment failed.");
+          setAssessNotice(null);
         }
       })
       .finally(() => setAssessPending(false));

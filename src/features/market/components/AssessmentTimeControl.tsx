@@ -1,5 +1,6 @@
 import type { CandleCoverage } from "../types";
 import {
+  blocksAssess,
   coverageBoundsForInput,
   formatAssessmentDisplay,
   formatEtDatetimeLocal,
@@ -33,6 +34,7 @@ export function AssessmentTimeControl({
   const { min } = coverageBoundsForInput(coverage);
   const atNow = isAssessmentNow(value);
   const inputValue = formatEtDatetimeLocal(value);
+  const assessDisabled = pending || blocksAssess(value, coverage);
 
   return (
     <div className={cn("min-w-0", className)}>
@@ -67,7 +69,12 @@ export function AssessmentTimeControl({
         <button
           type="button"
           onClick={onAssess}
-          disabled={Boolean(error) || pending}
+          disabled={assessDisabled}
+          title={
+            blocksAssess(value, coverage)
+              ? "Assessment time is before earliest candle data"
+              : undefined
+          }
           className="rounded-md bg-ocean-teal px-2.5 py-1 text-[11px] font-semibold text-ocean-deep transition-colors hover:brightness-105 disabled:opacity-40"
         >
           {pending ? "…" : "Assess"}
@@ -77,15 +84,17 @@ export function AssessmentTimeControl({
         <p id="market-assessment-time-error" className="mt-1 text-[11px] text-ocean-danger">
           {error}
         </p>
-      ) : notice ? (
+      ) : null}
+      {notice ? (
         <p className="mt-1 text-[11px] text-ocean-teal-dim dark:text-ocean-teal">{notice}</p>
-      ) : (
+      ) : null}
+      {!error && !notice ? (
         <p className="mt-1 text-[10px] text-ocean-sand/70">
           Candles: {formatAssessmentDisplay(new Date(coverage.earliestAt))}
           {" – "}
           {formatAssessmentDisplay(new Date(coverage.latestAt))}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

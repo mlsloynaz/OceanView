@@ -92,20 +92,37 @@ export function defaultAssessmentTime(coverage: CandleCoverage): Date {
   return clampAssessmentTime(new Date(), coverage);
 }
 
+export type AssessmentTimeValidation = {
+  /** Hard failure — blocks Assess (before stored history). */
+  error: string | null;
+  /** Soft hint — Assess is allowed; API may refresh candles first. */
+  notice: string | null;
+};
+
+export function blocksAssess(date: Date, coverage: CandleCoverage): boolean {
+  return date.getTime() < parseIsoToMs(coverage.earliestAt);
+}
+
 export function validateAssessmentTime(
   date: Date,
   coverage: CandleCoverage,
-): string | null {
+): AssessmentTimeValidation {
   const ms = date.getTime();
   const min = parseIsoToMs(coverage.earliestAt);
   const max = parseIsoToMs(coverage.latestAt);
   if (ms < min) {
-    return `Before earliest candle data (${formatAssessmentDisplay(new Date(min))}).`;
+    return {
+      error: `Before earliest candle data (${formatAssessmentDisplay(new Date(min))}).`,
+      notice: null,
+    };
   }
   if (ms > max) {
-    return `After latest candle data (${formatAssessmentDisplay(new Date(max))}). Refresh candles in Admin, then try again.`;
+    return {
+      error: null,
+      notice: `Candle data ends ${formatAssessmentDisplay(new Date(max))}. Assess will refresh candles first.`,
+    };
   }
-  return null;
+  return { error: null, notice: null };
 }
 
 export function isAssessmentNow(date: Date, toleranceMs = 60_000): boolean {
