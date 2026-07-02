@@ -62,16 +62,9 @@ export function PremarketPage() {
 
           <DynamicStrategyCatalog
             strategies={ws.strategies}
-            selectedStrategyIds={ws.selectedStrategyIds}
             saving={ws.catalogSaving}
-            startPending={ws.startPending}
-            onToggleSelection={ws.toggleStrategySelection}
-            onSelectAllActive={ws.selectAllActiveStrategies}
-            onClearSelection={ws.clearStrategySelection}
             onEdit={ws.loadStrategyForEdit}
             onToggleActive={(s) => void ws.toggleStrategyActive(s)}
-            onDelete={(id) => void ws.removeStrategy(id)}
-            onEvaluateSelected={() => void ws.startEvaluate("strategies")}
           />
         </>
       )}
@@ -80,6 +73,7 @@ export function PremarketPage() {
 
       <PremarketToolbar
         result={ws.result}
+        activeStrategyCount={ws.activeStrategies.length}
         startPending={ws.startPending}
         stopPending={ws.stopPending}
         loading={ws.loading}
@@ -106,7 +100,8 @@ export function PremarketPage() {
 
       {ws.startPending && (
         <p className="text-sm text-ocean-sand">
-          Evaluating active tickers against selected dynamic strategies…
+          Evaluating active tickers against {ws.activeStrategies.length} active strateg
+          {ws.activeStrategies.length === 1 ? "y" : "ies"}…
         </p>
       )}
 

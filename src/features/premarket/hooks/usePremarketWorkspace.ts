@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DynamicStrategyApiError,
   createDynamicStrategy,
-  deleteDynamicStrategy,
   fetchDynamicCatalog,
   fetchDynamicRules,
   patchDynamicStrategy,
@@ -38,7 +37,6 @@ export function usePremarketWorkspace() {
 
   const [strategies, setStrategies] = useState<DynamicStrategy[]>([]);
   const [rules, setRules] = useState<DynamicRuleTemplate[]>([]);
-  const [selectedStrategyIds, setSelectedStrategyIds] = useState<string[]>([]);
 
   const [editingStrategyId, setEditingStrategyId] = useState<string | null>(null);
   const [builderName, setBuilderName] = useState("");
@@ -83,13 +81,6 @@ export function usePremarketWorkspace() {
       })) as DynamicStrategy[];
       setStrategies(rows);
       setRules(rulesPayload.rules ?? []);
-      setSelectedStrategyIds((prev) => {
-        const activeIds = rows.filter((s) => s.active).map((s) => s.id);
-        if (prev.length === 0) return activeIds;
-        const valid = new Set(rows.map((s) => s.id));
-        const kept = prev.filter((id) => valid.has(id));
-        return kept.length > 0 ? kept : activeIds;
-      });
     } catch (err) {
       setCatalogError(err instanceof Error ? err.message : "Failed to load dynamic catalog.");
     } finally {
@@ -202,7 +193,6 @@ export function usePremarketWorkspace() {
         : await createDynamicStrategy(payload);
       clearBuilder();
       await reloadCatalog();
-      setSelectedStrategyIds((prev) => [...new Set([...prev, saved.id])]);
       setNotice(
         wasEdit
           ? `Strategy "${saved.name}" updated.`
@@ -225,22 +215,6 @@ export function usePremarketWorkspace() {
     selectedRuleKeys,
   ]);
 
-  const toggleStrategySelection = useCallback((strategyId: string) => {
-    setSelectedStrategyIds((prev) =>
-      prev.includes(strategyId)
-        ? prev.filter((id) => id !== strategyId)
-        : [...prev, strategyId],
-    );
-  }, []);
-
-  const selectAllActiveStrategies = useCallback(() => {
-    setSelectedStrategyIds(activeStrategies.map((s) => s.id));
-  }, [activeStrategies]);
-
-  const clearStrategySelection = useCallback(() => {
-    setSelectedStrategyIds([]);
-  }, []);
-
   const toggleStrategyActive = useCallback(
     async (strategy: DynamicStrategy) => {
       setCatalogSaving(true);
@@ -255,23 +229,6 @@ export function usePremarketWorkspace() {
       }
     },
     [reloadCatalog],
-  );
-
-  const removeStrategy = useCallback(
-    async (strategyId: string) => {
-      setCatalogSaving(true);
-      setCatalogError(null);
-      try {
-        await deleteDynamicStrategy(strategyId);
-        if (editingStrategyId === strategyId) clearBuilder();
-        await reloadCatalog();
-      } catch (err) {
-        setCatalogError(resolveError(err));
-      } finally {
-        setCatalogSaving(false);
-      }
-    },
-    [clearBuilder, editingStrategyId, reloadCatalog],
   );
 
   const startEvaluate = useCallback(
@@ -291,12 +248,9 @@ export function usePremarketWorkspace() {
           return;
         }
 
-        const ids =
-          selectedStrategyIds.length > 0
-            ? selectedStrategyIds
-            : activeStrategies.map((s) => s.id);
+        const ids = activeStrategies.map((s) => s.id);
         if (ids.length === 0) {
-          setError("No strategies selected — save or activate a strategy first.");
+          setError("No active strategies — activate a saved strategy first.");
           return;
         }
         const payload = await postDynamicEvaluate({ strategyIds: ids });
@@ -308,7 +262,7 @@ export function usePremarketWorkspace() {
         setStartPending(false);
       }
     },
-    [activeStrategies, selectedRuleKeys, selectedStrategyIds],
+    [activeStrategies, selectedRuleKeys],
   );
 
   const stopEvaluate = useCallback(async () => {
@@ -339,7 +293,6 @@ export function usePremarketWorkspace() {
     strategies,
     rules,
     activeStrategies,
-    selectedStrategyIds,
     editingStrategyId,
     builderName,
     builderShortName,
@@ -354,11 +307,7 @@ export function usePremarketWorkspace() {
     clearBuilder,
     loadStrategyForEdit,
     saveBuilder,
-    toggleStrategySelection,
-    selectAllActiveStrategies,
-    clearStrategySelection,
     toggleStrategyActive,
-    removeStrategy,
     reloadCatalog,
     catalogLoading,
     catalogSaving,

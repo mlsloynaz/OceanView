@@ -7,6 +7,7 @@ const BTN =
 
 type Props = {
   result: PremarketResultResponse | null;
+  activeStrategyCount: number;
   startPending: boolean;
   stopPending: boolean;
   loading: boolean;
@@ -18,6 +19,7 @@ type Props = {
 
 export function PremarketToolbar({
   result,
+  activeStrategyCount,
   startPending,
   stopPending,
   loading,
@@ -30,11 +32,25 @@ export function PremarketToolbar({
 
   return (
     <div className="space-y-3 rounded-xl border border-ocean-mid/50 bg-ocean-surface p-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-display text-lg font-semibold text-ocean-foam">Evaluate strategies</h2>
+          <p className="mt-0.5 text-xs text-ocean-sand">
+            Run all active saved strategies against active tickers. Extended-hours bars stay in memory
+            only.
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
           className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105")}
-          disabled={busy || startPending}
+          disabled={busy || startPending || activeStrategyCount === 0}
+          title={
+            activeStrategyCount === 0
+              ? "Activate at least one saved strategy first"
+              : `Evaluate ${activeStrategyCount} active strateg${activeStrategyCount === 1 ? "y" : "ies"}`
+          }
           onClick={onStart}
         >
           {startPending ? "Evaluating…" : "Evaluate strategies"}
@@ -62,7 +78,9 @@ export function PremarketToolbar({
         >
           {loading ? "Loading…" : "Refresh result"}
         </button>
-        <span className="ml-auto text-xs text-ocean-sand">Threshold: {threshold}%</span>
+        <span className="ml-auto text-xs text-ocean-sand">
+          {activeStrategyCount} active · threshold {threshold}%
+        </span>
       </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ocean-sand">
