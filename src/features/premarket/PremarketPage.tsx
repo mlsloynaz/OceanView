@@ -74,6 +74,7 @@ export function PremarketPage() {
       <PremarketToolbar
         result={ws.result}
         activeStrategyCount={ws.activeStrategies.length}
+        evaluateRunning={ws.evaluateRunning}
         startPending={ws.startPending}
         stopPending={ws.stopPending}
         loading={ws.loading}

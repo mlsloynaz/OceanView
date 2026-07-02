@@ -8,6 +8,7 @@ const BTN =
 type Props = {
   result: PremarketResultResponse | null;
   activeStrategyCount: number;
+  evaluateRunning: boolean;
   startPending: boolean;
   stopPending: boolean;
   loading: boolean;
@@ -20,6 +21,7 @@ type Props = {
 export function PremarketToolbar({
   result,
   activeStrategyCount,
+  evaluateRunning,
   startPending,
   stopPending,
   loading,
@@ -28,7 +30,7 @@ export function PremarketToolbar({
   onStop,
   onRefresh,
 }: Props) {
-  const busy = startPending || stopPending || loading;
+  const busy = evaluateRunning || stopPending || loading;
 
   return (
     <div className="space-y-3 rounded-xl border border-ocean-mid/50 bg-ocean-surface p-4">
@@ -45,9 +47,11 @@ export function PremarketToolbar({
         <button
           type="button"
           className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105")}
-          disabled={busy || startPending || activeStrategyCount === 0}
+          disabled={busy || activeStrategyCount === 0}
           title={
-            activeStrategyCount === 0
+            evaluateRunning
+              ? "An evaluate run is already in progress"
+              : activeStrategyCount === 0
               ? "Activate at least one saved strategy first"
               : `Evaluate ${activeStrategyCount} active strateg${activeStrategyCount === 1 ? "y" : "ies"}`
           }

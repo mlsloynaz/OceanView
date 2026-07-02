@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DynamicStrategyApiError,
   createDynamicStrategy,
@@ -32,6 +32,13 @@ function resolveError(err: unknown): string {
   return "Premarket request failed.";
 }
 
+function isEvaluateConflict(err: unknown): boolean {
+  if (err instanceof DynamicStrategyApiError || err instanceof PremarketApiError) {
+    return err.code === "DYNAMIC_EVAL_CONFLICT" || err.code === "PREMARKET_CONFLICT";
+  }
+  return false;
+}
+
 export function usePremarketWorkspace() {
   const useMock = dynamicStrategiesUseMock();
 
@@ -54,6 +61,7 @@ export function usePremarketWorkspace() {
   const [stopPending, setStopPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const evaluateInFlightRef = useRef(false);
 
   const activeStrategies = useMemo(
     () => strategies.filter((s) => s.active),
@@ -232,7 +240,9 @@ export function usePremarketWorkspace() {
   );
 
   const startEvaluate = useCallback(
-    async (mode: "strategies" | "rules" = "strategies") => {
+    async (mode: "strategies" | "rules" = "strategies", allowRetry = true) => {
+      if (evaluateInFlightRef.current) return;
+      evaluateInFlightRef.current = true;
       setStartPending(true);
       setError(null);
       setNotice(null);
@@ -257,8 +267,15 @@ export function usePremarketWorkspace() {
         setResult(payload);
         setNotice(payload.message ?? "Evaluate complete.");
       } catch (err) {
+        if (allowRetry && isEvaluateConflict(err)) {
+          await new Promise((resolve) => window.setTimeout(resolve, 400));
+          evaluateInFlightRef.current = false;
+          setStartPending(false);
+          return startEvaluate(mode, false);
+        }
         setError(resolveError(err));
       } finally {
+        evaluateInFlightRef.current = false;
         setStartPending(false);
       }
     },
@@ -288,6 +305,9 @@ export function usePremarketWorkspace() {
     }
   }, [loadResult, result?.runId]);
 
+  const evaluateRunning =
+    startPending || (result?.status ?? "").toLowerCase() === "running";
+
   return {
     useMock,
     strategies,
@@ -315,6 +335,7 @@ export function usePremarketWorkspace() {
     result,
     loading: catalogLoading || resultLoading,
     startPending,
+    evaluateRunning,
     stopPending,
     error,
     notice,
