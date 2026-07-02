@@ -1,8 +1,18 @@
+export type PremarketRuleRow = {
+  ruleKey: string;
+  label: string;
+  type: string;
+  status: string;
+  metAtEt?: string | null;
+  evidence?: string | null;
+};
+
 export type PremarketTickerHit = {
   symbol: string;
   name?: string | null;
   qualityPct: number;
   achievedAtEt?: string;
+  rules?: PremarketRuleRow[];
 };
 
 export type PremarketStrategyGroup = {

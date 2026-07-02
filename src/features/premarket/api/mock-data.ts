@@ -20,15 +20,73 @@ export const MOCK_PREMARKET_RESULT: PremarketResultResponse = {
       name: "Hourly Trend Change",
       shortName: "Trend Change 1H",
       tickers: [
-        { symbol: "AAPL", name: "Apple Inc.", qualityPct: 67 },
-        { symbol: "HD", name: "Home Depot", qualityPct: 55 },
+        {
+          symbol: "AAPL",
+          name: "Apple Inc.",
+          qualityPct: 67,
+          achievedAtEt: "09:22 AM",
+          rules: [
+            {
+              ruleKey: "trendline_1h",
+              label: "1H trendline",
+              type: "required",
+              status: "met",
+              metAtEt: "09:15 AM",
+            },
+            {
+              ruleKey: "close_ma20_alcista",
+              label: "Close MA20 alcista",
+              type: "required",
+              status: "met",
+              metAtEt: "09:22 AM",
+            },
+          ],
+        },
+        {
+          symbol: "HD",
+          name: "Home Depot",
+          qualityPct: 55,
+          achievedAtEt: "09:20 AM",
+          rules: [
+            {
+              ruleKey: "trendline_1h",
+              label: "1H trendline",
+              type: "required",
+              status: "met",
+              metAtEt: "09:10 AM",
+            },
+            {
+              ruleKey: "close_ma20_alcista",
+              label: "Close MA20 alcista",
+              type: "required",
+              status: "partial",
+            },
+          ],
+        },
       ],
     },
     {
       strategyId: "estrategia-05",
       name: "Inside Bollinger 15M",
       shortName: "Inside BB 15M",
-      tickers: [{ symbol: "LOW", name: "Lowe's", qualityPct: 58 }],
+      tickers: [
+        {
+          symbol: "LOW",
+          name: "Lowe's",
+          qualityPct: 58,
+          achievedAtEt: "09:18 AM",
+          rules: [
+            {
+              ruleKey: "close_bb_mid_15m",
+              label: "Close BB mid 15m",
+              type: "required",
+              status: "met",
+              metAtEt: "09:18 AM",
+              evidence: "Within 0.3% of middle band",
+            },
+          ],
+        },
+      ],
     },
   ],
   symbolOutcomes: [
