@@ -50,6 +50,7 @@ export function usePremarketWorkspace() {
   const [builderShortName, setBuilderShortName] = useState("");
   const [builderDescription, setBuilderDescription] = useState("");
   const [selectedRuleKeys, setSelectedRuleKeys] = useState<string[]>([]);
+  const [builderOpen, setBuilderOpen] = useState(false);
 
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogSaving, setCatalogSaving] = useState(false);
@@ -147,7 +148,18 @@ export function usePremarketWorkspace() {
     setBuilderDescription("");
     setSelectedRuleKeys([]);
     setCatalogError(null);
+    setNotice(null);
   }, []);
+
+  const closeBuilder = useCallback(() => {
+    clearBuilder();
+    setBuilderOpen(false);
+  }, [clearBuilder]);
+
+  const openBuilderForNew = useCallback(() => {
+    clearBuilder();
+    setBuilderOpen(true);
+  }, [clearBuilder]);
 
   const loadStrategyForEdit = useCallback((strategy: DynamicStrategy) => {
     setEditingStrategyId(strategy.id);
@@ -156,7 +168,7 @@ export function usePremarketWorkspace() {
     setBuilderDescription(strategy.description ?? "");
     setSelectedRuleKeys(strategy.rules.map((r) => r.ruleKey));
     setCatalogError(null);
-    setNotice(`Editing "${strategy.name}" — change rules and click Update strategy.`);
+    setBuilderOpen(true);
   }, []);
 
   const addRuleToBuilder = useCallback((ruleKey: string) => {
@@ -200,6 +212,7 @@ export function usePremarketWorkspace() {
         ? await patchDynamicStrategy(editingStrategyId, payload)
         : await createDynamicStrategy(payload);
       clearBuilder();
+      setBuilderOpen(false);
       await reloadCatalog();
       setNotice(
         wasEdit
@@ -260,7 +273,7 @@ export function usePremarketWorkspace() {
 
         const ids = activeStrategies.map((s) => s.id);
         if (ids.length === 0) {
-          setError("No active strategies — activate a saved strategy first.");
+          setError("No active strategies — activate a dynamic strategy first.");
           return;
         }
         const payload = await postDynamicEvaluate({ strategyIds: ids });
@@ -325,6 +338,8 @@ export function usePremarketWorkspace() {
     removeRuleFromBuilder,
     moveRuleInBuilder,
     clearBuilder,
+    closeBuilder,
+    openBuilderForNew,
     loadStrategyForEdit,
     saveBuilder,
     toggleStrategyActive,
@@ -332,6 +347,7 @@ export function usePremarketWorkspace() {
     catalogLoading,
     catalogSaving,
     catalogError,
+    builderOpen,
     result,
     loading: catalogLoading || resultLoading,
     startPending,

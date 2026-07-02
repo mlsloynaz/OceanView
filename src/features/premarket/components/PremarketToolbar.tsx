@@ -38,7 +38,7 @@ export function PremarketToolbar({
         <div>
           <h2 className="font-display text-lg font-semibold text-ocean-foam">Evaluate strategies</h2>
           <p className="mt-0.5 text-xs text-ocean-sand">
-            Run all active saved strategies against active tickers. Extended-hours bars stay in memory
+            Run all active dynamic strategies against active tickers. Extended-hours bars stay in memory
             only.
           </p>
         </div>
@@ -52,7 +52,7 @@ export function PremarketToolbar({
             evaluateRunning
               ? "An evaluate run is already in progress"
               : activeStrategyCount === 0
-              ? "Activate at least one saved strategy first"
+              ? "Activate at least one dynamic strategy first"
               : `Evaluate ${activeStrategyCount} active strateg${activeStrategyCount === 1 ? "y" : "ies"}`
           }
           onClick={onStart}

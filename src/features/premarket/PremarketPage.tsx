@@ -1,5 +1,5 @@
-import { DynamicStrategyBuilder } from "./components/DynamicStrategyBuilder";
 import { DynamicStrategyCatalog } from "./components/DynamicStrategyCatalog";
+import { StrategyBuilderModal } from "./components/StrategyBuilderModal";
 import { PremarketBanner } from "./components/PremarketBanner";
 import { PremarketDiagnostics } from "./components/PremarketDiagnostics";
 import { PremarketEmptyState } from "./components/PremarketEmptyState";
@@ -20,8 +20,8 @@ export function PremarketPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam">Premarket</h1>
         <p className="mt-2 text-ocean-sand">
-          Build dynamic strategies from the rule library, save to Dynamo, and evaluate all active
-          tickers. Extended-hours bars stay in memory only.
+          Manage dynamic strategies in Dynamo and evaluate all active tickers. Extended-hours bars
+          stay in memory only.
         </p>
       </div>
 
@@ -34,38 +34,42 @@ export function PremarketPage() {
         <p className="text-sm text-ocean-sand">Loading dynamic strategy catalog…</p>
       ) : (
         <>
-          {ws.catalogError && (
+          {ws.catalogError && !ws.builderOpen && (
             <p className="text-sm text-ocean-danger" role="alert">
               {ws.catalogError}
             </p>
           )}
 
-          <DynamicStrategyBuilder
-            rules={ws.rules}
-            selectedRuleKeys={ws.selectedRuleKeys}
-            name={ws.builderName}
-            shortName={ws.builderShortName}
-            description={ws.builderDescription}
-            editingStrategyId={ws.editingStrategyId}
-            saving={ws.catalogSaving}
-            startPending={ws.startPending}
-            onNameChange={ws.setBuilderName}
-            onShortNameChange={ws.setBuilderShortName}
-            onDescriptionChange={ws.setBuilderDescription}
-            onAddRule={ws.addRuleToBuilder}
-            onRemoveRule={ws.removeRuleFromBuilder}
-            onMoveRule={ws.moveRuleInBuilder}
-            onClear={ws.clearBuilder}
-            onSave={() => void ws.saveBuilder()}
-            onPreview={() => void ws.startEvaluate("rules")}
-          />
-
           <DynamicStrategyCatalog
             strategies={ws.strategies}
             saving={ws.catalogSaving}
             onEdit={ws.loadStrategyForEdit}
+            onNew={ws.openBuilderForNew}
             onToggleActive={(s) => void ws.toggleStrategyActive(s)}
           />
+
+          {ws.builderOpen && (
+            <StrategyBuilderModal
+              rules={ws.rules}
+              selectedRuleKeys={ws.selectedRuleKeys}
+              name={ws.builderName}
+              shortName={ws.builderShortName}
+              description={ws.builderDescription}
+              editingStrategyId={ws.editingStrategyId}
+              saving={ws.catalogSaving}
+              startPending={ws.startPending}
+              error={ws.catalogError}
+              onNameChange={ws.setBuilderName}
+              onShortNameChange={ws.setBuilderShortName}
+              onDescriptionChange={ws.setBuilderDescription}
+              onAddRule={ws.addRuleToBuilder}
+              onRemoveRule={ws.removeRuleFromBuilder}
+              onMoveRule={ws.moveRuleInBuilder}
+              onSave={() => void ws.saveBuilder()}
+              onPreview={() => void ws.startEvaluate("rules")}
+              onClose={ws.closeBuilder}
+            />
+          )}
         </>
       )}
 
