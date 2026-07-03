@@ -85,6 +85,8 @@ function formatGapUsd(value: unknown): string | null {
   if (!Number.isFinite(n)) return null;
   return formatCalcResult(n);
 }
+
+function dangerStatusClass(status: DangerEval["status"]): string {
   if (status === "passed") return "text-ocean-teal-dim dark:text-ocean-teal";
   if (status === "failed") return "text-ocean-danger";
   return "text-ocean-sand";
