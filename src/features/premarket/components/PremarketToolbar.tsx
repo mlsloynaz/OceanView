@@ -1,11 +1,16 @@
 import { cn } from "@/shared/lib/cn";
 import { SimulationTimeControl } from "@/shared/components/SimulationTimeControl";
 import type { AssessmentTimeMode } from "@/features/market/lib/assessment-time";
+import type { useStrategiesPane } from "@/features/admin/strategies/hooks/useStrategiesPane";
 import { formatPremarketStatus, formatSimTimeEt } from "../display";
 import type { PremarketResultResponse } from "../types";
+import { DynamicStrategyCatalog } from "./DynamicStrategyCatalog";
+import { StrategyBuilderModal } from "./StrategyBuilderModal";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+
+type BuilderState = ReturnType<typeof useStrategiesPane>;
 
 type Props = {
   result: PremarketResultResponse | null;
@@ -24,8 +29,8 @@ type Props = {
   onStart: () => void;
   onStop: () => void;
   onRefresh: () => void;
-  onOpenStrategyBuilder: () => void;
-  strategyBuilderDisabled?: boolean;
+  builder: BuilderState;
+  onStrategyMutated: () => void;
 };
 
 const THRESHOLD_PRESETS = [0, 50, 75] as const;
@@ -47,8 +52,8 @@ export function PremarketToolbar({
   onStart,
   onStop,
   onRefresh,
-  onOpenStrategyBuilder,
-  strategyBuilderDisabled = false,
+  builder,
+  onStrategyMutated,
 }: Props) {
   const busy = evaluateRunning || stopPending || loading;
   const evaluateDisabled =
@@ -56,25 +61,12 @@ export function PremarketToolbar({
 
   return (
     <div className="space-y-3 rounded-xl border border-ocean-mid/50 bg-ocean-surface p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-display text-lg font-semibold text-ocean-foam">Evaluate strategies</h2>
-          <p className="mt-0.5 text-xs text-ocean-sand">
-            Run all active dynamic strategies against active tickers. Extended-hours bars stay in memory
-            only.
-          </p>
-        </div>
-        <button
-          type="button"
-          className={cn(
-            BTN,
-            "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-ocean-teal/50",
-          )}
-          disabled={busy || strategyBuilderDisabled}
-          onClick={onOpenStrategyBuilder}
-        >
-          Strategy builder
-        </button>
+      <div>
+        <h2 className="font-display text-lg font-semibold text-ocean-foam">Evaluate strategies</h2>
+        <p className="mt-0.5 text-xs text-ocean-sand">
+          Run all active dynamic strategies against active tickers. Edit screens below, then evaluate.
+          Extended-hours bars stay in memory only.
+        </p>
       </div>
 
       <SimulationTimeControl
@@ -227,6 +219,57 @@ export function PremarketToolbar({
           <span className="text-amber-600 dark:text-amber-400">Stopped early — partial results</span>
         )}
       </div>
+
+      {builder.error && !builder.builderOpen && (
+        <p className="text-sm text-ocean-danger" role="alert">
+          {builder.error}
+        </p>
+      )}
+
+      {builder.loading ? (
+        <p className="text-sm text-ocean-sand">Loading strategy catalog…</p>
+      ) : (
+        <DynamicStrategyCatalog
+          title="Strategies"
+          defaultOpen
+          strategies={builder.strategies}
+          saving={builder.saving}
+          onEdit={builder.loadStrategyForEdit}
+          onNew={builder.openBuilderForNew}
+          onToggleActive={async (strategy) => {
+            await builder.toggleStrategyActive(strategy);
+            onStrategyMutated();
+          }}
+        />
+      )}
+
+      {builder.builderOpen && (
+        <StrategyBuilderModal
+          rules={builder.rules}
+          selectedRuleKeys={builder.selectedRuleKeys}
+          name={builder.builderName}
+          shortName={builder.builderShortName}
+          description={builder.builderDescription}
+          direction={builder.builderDirection}
+          editingStrategyId={builder.editingStrategyId}
+          saving={builder.saving}
+          startPending={builder.previewPending}
+          error={builder.error}
+          onNameChange={builder.setBuilderName}
+          onShortNameChange={builder.setBuilderShortName}
+          onDescriptionChange={builder.setBuilderDescription}
+          onDirectionChange={builder.setBuilderDirection}
+          onAddRule={builder.addRuleToBuilder}
+          onRemoveRule={builder.removeRuleFromBuilder}
+          onMoveRule={builder.moveRuleInBuilder}
+          onSave={async () => {
+            const saved = await builder.saveBuilder();
+            if (saved) onStrategyMutated();
+          }}
+          onPreview={() => void builder.previewBuilder()}
+          onClose={builder.closeBuilder}
+        />
+      )}
     </div>
   );
 }

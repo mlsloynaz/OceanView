@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { cn } from "@/shared/lib/cn";
-import { CollapsibleSection } from "@/shared/components/CollapsibleSection";
+import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane";
 import { tickersApiBaseUrl, tickersApiUsesMock } from "./api/tickers-client";
 import { useTickersPane } from "./hooks/useTickersPane";
 import { TickersPager } from "./TickersPager";
@@ -12,7 +11,6 @@ const FILTER_BTN =
   "rounded px-2 py-0.5 text-xs font-medium transition-colors disabled:opacity-50";
 
 export function TickersPane() {
-  const [open, setOpen] = useState(true);
   const usesMock = tickersApiUsesMock();
   const apiBase = tickersApiBaseUrl();
   const {
@@ -39,7 +37,7 @@ export function TickersPane() {
     activatePage,
     deactivatePage,
     setActive,
-  } = useTickersPane(open);
+  } = useTickersPane(true);
 
   const filters: { id: TickerCatalogFilter; label: string; count: number }[] = [
     { id: "all", label: "All", count: counts.total },
@@ -48,7 +46,7 @@ export function TickersPane() {
   ];
 
   return (
-    <CollapsibleSection
+    <AdminExpandedPane
       id="admin-tickers-pane"
       title="Ticker catalog"
       subtitle={
@@ -56,8 +54,6 @@ export function TickersPane() {
           ? "Mock data (VITE_USE_MOCK_CANDLES=true)"
           : `Live API${apiBase ? ` — ${apiBase}` : ""}`
       }
-      open={open}
-      onOpenChange={setOpen}
       className="min-w-0"
       headerExtra={
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -184,6 +180,6 @@ export function TickersPane() {
         disabled={loading || isPending}
         onPageChange={setPage}
       />
-    </CollapsibleSection>
+    </AdminExpandedPane>
   );
 }

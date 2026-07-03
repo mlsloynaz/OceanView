@@ -1,0 +1,47 @@
+export type AdminPaneId = "setup-scan" | "tickers" | "candles" | "strategies";
+
+export type AdminPaneMeta = {
+  id: AdminPaneId;
+  anchorId: string;
+  title: string;
+  description: string;
+};
+
+export const ADMIN_PANE_ORDER: AdminPaneId[] = [
+  "setup-scan",
+  "tickers",
+  "candles",
+  "strategies",
+];
+
+export const ADMIN_PANES: Record<AdminPaneId, AdminPaneMeta> = {
+  "setup-scan": {
+    id: "setup-scan",
+    anchorId: "admin-setup-scan-pane",
+    title: "Setup scan",
+    description: "Preselection — refresh stale candles and score the catalog",
+  },
+  tickers: {
+    id: "tickers",
+    anchorId: "admin-tickers-pane",
+    title: "Ticker catalog",
+    description: "Search, filter, and activate symbols for Market and Candles",
+  },
+  candles: {
+    id: "candles",
+    anchorId: "admin-candles-pane",
+    title: "Candles",
+    description: "Monitor price data intake and refresh stored bars",
+  },
+  strategies: {
+    id: "strategies",
+    anchorId: "admin-strategies-pane",
+    title: "Dynamic strategies",
+    description: "Create and manage rule-based screens for evaluate",
+  },
+};
+
+export function adminPaneFromHash(hash: string): AdminPaneId | null {
+  const id = hash.replace(/^#/, "");
+  return ADMIN_PANE_ORDER.find((paneId) => ADMIN_PANES[paneId].anchorId === id) ?? null;
+}

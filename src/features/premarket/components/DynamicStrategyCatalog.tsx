@@ -13,7 +13,95 @@ type Props = {
   onEdit: (strategy: DynamicStrategy) => void;
   onNew: () => void;
   onToggleActive: (strategy: DynamicStrategy) => void;
+  defaultOpen?: boolean;
+  title?: string;
+  embedded?: boolean;
 };
+
+function StrategyCatalogBody({
+  strategies,
+  saving,
+  onEdit,
+  onToggleActive,
+}: Pick<Props, "strategies" | "saving" | "onEdit" | "onToggleActive">) {
+  if (strategies.length === 0) {
+    return (
+      <p className="rounded-md border border-dashed border-ocean-mid/40 px-4 py-8 text-center text-sm text-ocean-sand">
+        No dynamic strategies yet. Click <strong className="text-ocean-foam">New</strong> to open
+        the strategy builder and save your first screen.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="space-y-2">
+      {strategies.map((strategy) => (
+        <li
+          key={strategy.id}
+          className={cn(
+            "rounded-lg border border-ocean-mid/30 px-3 py-3",
+            !strategy.active && "opacity-70",
+          )}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <span className="font-medium text-ocean-foam">{strategy.name}</span>
+              {strategy.shortName && strategy.shortName !== strategy.name && (
+                <span className="ml-2 text-xs text-ocean-sand">({strategy.shortName})</span>
+              )}
+              <span
+                className={cn(
+                  "ml-2 inline rounded px-1.5 py-px text-[10px] font-medium uppercase",
+                  strategy.active
+                    ? "bg-ocean-teal/20 text-ocean-teal"
+                    : "bg-ocean-mid/40 text-ocean-sand",
+                )}
+              >
+                {strategy.active ? "active" : "inactive"}
+              </span>
+              {strategy.direction && <DirectionDisplay direction={strategy.direction} compact />}
+              {strategy.description && (
+                <p className="mt-1 text-xs text-ocean-sand">{strategy.description}</p>
+              )}
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button
+                type="button"
+                className="text-xs text-ocean-teal hover:underline"
+                disabled={saving}
+                onClick={() => onEdit(strategy)}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="text-xs text-ocean-teal hover:underline"
+                disabled={saving}
+                onClick={() => onToggleActive(strategy)}
+              >
+                {strategy.active ? "Deactivate" : "Activate"}
+              </button>
+            </div>
+          </div>
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {strategy.rules.map((rule) => (
+              <li
+                key={rule.id}
+                className="rounded bg-ocean-mid/30 px-2 py-0.5 text-[10px] text-ocean-sand"
+                title={rule.ruleKey}
+              >
+                {rule.label}
+                {rule.timeframe && (
+                  <span className="ml-1 opacity-70">· {normalizeTimeframe(rule.timeframe)}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export function DynamicStrategyCatalog({
   strategies,
@@ -21,11 +109,24 @@ export function DynamicStrategyCatalog({
   onEdit,
   onNew,
   onToggleActive,
+  defaultOpen = false,
+  title = "Dynamic strategies",
+  embedded = false,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const activeCount = strategies.filter((s) => s.active).length;
   const summary = `${strategies.length} in Dynamo · ${activeCount} active for evaluate`;
 
+  if (embedded) {
+    return (
+      <StrategyCatalogBody
+        strategies={strategies}
+        saving={saving}
+        onEdit={onEdit}
+        onToggleActive={onToggleActive}
+      />
+    );
+  }
   return (
     <section className="overflow-hidden rounded-xl border border-ocean-mid/50 bg-ocean-surface shadow-sm">
       <header
@@ -41,7 +142,7 @@ export function DynamicStrategyCatalog({
           aria-controls="dynamic-strategies-body"
           onClick={() => setOpen((prev) => !prev)}
         >
-          <h2 className="font-display text-lg font-semibold text-ocean-foam">Dynamic strategies</h2>
+          <h2 className="font-display text-lg font-semibold text-ocean-foam">{title}</h2>
           <p className="mt-0.5 text-xs text-ocean-sand">{summary}</p>
         </button>
         <div className="flex shrink-0 items-center gap-1">
@@ -84,83 +185,12 @@ export function DynamicStrategyCatalog({
 
       {open ? (
         <div id="dynamic-strategies-body" className="p-4">
-          {strategies.length === 0 ? (
-            <p className="rounded-md border border-dashed border-ocean-mid/40 px-4 py-8 text-center text-sm text-ocean-sand">
-              No dynamic strategies yet. Click <strong className="text-ocean-foam">New</strong> to
-              open the strategy builder and save your first screen.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {strategies.map((strategy) => (
-                <li
-                  key={strategy.id}
-                  className={cn(
-                    "rounded-lg border border-ocean-mid/30 px-3 py-3",
-                    !strategy.active && "opacity-70",
-                  )}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="font-medium text-ocean-foam">{strategy.name}</span>
-                      {strategy.shortName && strategy.shortName !== strategy.name && (
-                        <span className="ml-2 text-xs text-ocean-sand">({strategy.shortName})</span>
-                      )}
-                      <span
-                        className={cn(
-                          "ml-2 inline rounded px-1.5 py-px text-[10px] font-medium uppercase",
-                          strategy.active
-                            ? "bg-ocean-teal/20 text-ocean-teal"
-                            : "bg-ocean-mid/40 text-ocean-sand",
-                        )}
-                      >
-                        {strategy.active ? "active" : "inactive"}
-                      </span>
-                      {strategy.direction && (
-                        <DirectionDisplay direction={strategy.direction} compact />
-                      )}
-                      {strategy.description && (
-                        <p className="mt-1 text-xs text-ocean-sand">{strategy.description}</p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="text-xs text-ocean-teal hover:underline"
-                        disabled={saving}
-                        onClick={() => onEdit(strategy)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="text-xs text-ocean-teal hover:underline"
-                        disabled={saving}
-                        onClick={() => onToggleActive(strategy)}
-                      >
-                        {strategy.active ? "Deactivate" : "Activate"}
-                      </button>
-                    </div>
-                  </div>
-                  <ul className="mt-2 flex flex-wrap gap-1.5">
-                    {strategy.rules.map((rule) => (
-                      <li
-                        key={rule.id}
-                        className="rounded bg-ocean-mid/30 px-2 py-0.5 text-[10px] text-ocean-sand"
-                        title={rule.ruleKey}
-                      >
-                        {rule.label}
-                        {rule.timeframe && (
-                          <span className="ml-1 opacity-70">
-                            · {normalizeTimeframe(rule.timeframe)}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-            </ul>
-          )}
+          <StrategyCatalogBody
+            strategies={strategies}
+            saving={saving}
+            onEdit={onEdit}
+            onToggleActive={onToggleActive}
+          />
         </div>
       ) : null}
     </section>

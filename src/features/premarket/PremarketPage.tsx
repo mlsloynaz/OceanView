@@ -5,7 +5,6 @@ import { PremarketDiagnostics } from "./components/PremarketDiagnostics";
 import { PremarketEmptyState } from "./components/PremarketEmptyState";
 import { PremarketStrategySection } from "./components/PremarketStrategySection";
 import { PremarketToolbar } from "./components/PremarketToolbar";
-import { StrategyBuilderModal } from "./components/StrategyBuilderModal";
 import { usePremarketWorkspace } from "./hooks/usePremarketWorkspace";
 
 export function PremarketPage() {
@@ -22,9 +21,8 @@ export function PremarketPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam">Premarket</h1>
         <p className="mt-2 text-ocean-sand">
-          Evaluate active dynamic strategies against active tickers. Use{" "}
-          <strong className="font-medium text-ocean-foam">Strategy builder</strong> below or manage
-          screens in{" "}
+          Evaluate active dynamic strategies against active tickers. Create and edit strategies in the
+          evaluate pane below, or manage full catalog in{" "}
           <Link to="/admin" className="text-ocean-teal hover:underline">
             Admin
           </Link>
@@ -40,7 +38,8 @@ export function PremarketPage() {
 
       {!ws.catalogLoading && ws.activeStrategies.length === 0 && (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
-          No active strategies — create or activate one in{" "}
+          No active strategies — create or activate one in the{" "}
+          <strong className="font-medium">Strategies</strong> section below or in{" "}
           <Link to="/admin" className="font-medium underline hover:text-ocean-foam">
             Admin → Dynamic strategies
           </Link>
@@ -67,37 +66,9 @@ export function PremarketPage() {
         onStart={() => void ws.startEvaluate()}
         onStop={() => void ws.stopEvaluate()}
         onRefresh={() => void ws.refreshResult()}
-        onOpenStrategyBuilder={builder.openBuilderForNew}
-        strategyBuilderDisabled={builder.loading}
+        builder={builder}
+        onStrategyMutated={() => void ws.reloadCatalog()}
       />
-
-      {builder.builderOpen && (
-        <StrategyBuilderModal
-          rules={builder.rules}
-          selectedRuleKeys={builder.selectedRuleKeys}
-          name={builder.builderName}
-          shortName={builder.builderShortName}
-          description={builder.builderDescription}
-          direction={builder.builderDirection}
-          editingStrategyId={builder.editingStrategyId}
-          saving={builder.saving}
-          startPending={builder.previewPending}
-          error={builder.error}
-          onNameChange={builder.setBuilderName}
-          onShortNameChange={builder.setBuilderShortName}
-          onDescriptionChange={builder.setBuilderDescription}
-          onDirectionChange={builder.setBuilderDirection}
-          onAddRule={builder.addRuleToBuilder}
-          onRemoveRule={builder.removeRuleFromBuilder}
-          onMoveRule={builder.moveRuleInBuilder}
-          onSave={async () => {
-            const saved = await builder.saveBuilder();
-            if (saved) void ws.reloadCatalog();
-          }}
-          onPreview={() => void builder.previewBuilder()}
-          onClose={builder.closeBuilder}
-        />
-      )}
 
       {(ws.notice || builder.notice) && (
         <p className="text-sm text-ocean-teal-dim dark:text-ocean-teal" role="status">

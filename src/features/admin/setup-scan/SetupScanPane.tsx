@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { cn } from "@/shared/lib/cn";
-import { CollapsibleSection } from "@/shared/components/CollapsibleSection";
+import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane";
 import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
 import { setupScanApiBaseUrl, setupScanUsesMock } from "./api/preselection-client";
 import {
@@ -152,14 +151,13 @@ function DetailModal({
 }
 
 export function SetupScanPane() {
-  const [open, setOpen] = useState(true);
-  const ws = useSetupScanPane(open);
+  const ws = useSetupScanPane(true);
   const usesMock = setupScanUsesMock();
   const apiBase = setupScanApiBaseUrl();
 
   return (
     <>
-      <CollapsibleSection
+      <AdminExpandedPane
         id="admin-setup-scan-pane"
         title="Setup scan"
         subtitle={
@@ -167,8 +165,6 @@ export function SetupScanPane() {
             ? "Mock data (VITE_USE_MOCK_SETUP_SCAN or VITE_USE_MOCK_CANDLES)"
             : "D+1h preselection — refresh stale candles, then score full catalog"
         }
-        open={open}
-        onOpenChange={setOpen}
         className="min-w-0"
         headerExtra={
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -345,7 +341,7 @@ export function SetupScanPane() {
             )}
           </section>
         ))}
-      </CollapsibleSection>
+      </AdminExpandedPane>
 
       {ws.detail && (
         <DetailModal

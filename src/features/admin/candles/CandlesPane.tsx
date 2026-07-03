@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { cn } from "@/shared/lib/cn";
-import { CollapsibleSection } from "@/shared/components/CollapsibleSection";
+import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane";
 import { candlesApiBaseUrl, candlesApiUsesMock } from "./api/candles-client";
 import { CandlesBanner } from "./CandlesBanner";
 import { CandlesTable } from "./CandlesTable";
@@ -10,7 +9,6 @@ const TOOLBAR_BTN =
   "rounded px-2 py-1 text-xs font-medium disabled:opacity-50 transition-colors";
 
 export function CandlesPane() {
-  const [open, setOpen] = useState(true);
   const usesMock = candlesApiUsesMock();
   const apiBase = candlesApiBaseUrl();
   const {
@@ -25,10 +23,10 @@ export function CandlesPane() {
     refreshAll,
     refreshOne,
     resetCandles,
-  } = useCandlesPane(open);
+  } = useCandlesPane(true);
 
   return (
-    <CollapsibleSection
+    <AdminExpandedPane
       id="admin-candles-pane"
       title="Candles"
       subtitle={
@@ -36,8 +34,6 @@ export function CandlesPane() {
           ? "Mock data (VITE_USE_MOCK_CANDLES=true)"
           : `Live API${apiBase ? ` — ${apiBase}` : ""}`
       }
-      open={open}
-      onOpenChange={setOpen}
       className="min-w-0"
       headerExtra={
         <div className="flex flex-wrap justify-end gap-1.5">
@@ -106,6 +102,6 @@ export function CandlesPane() {
         rowPending={rowPending}
         onRefreshOne={refreshOne}
       />
-    </CollapsibleSection>
+    </AdminExpandedPane>
   );
 }
