@@ -95,6 +95,50 @@ export function defaultAssessmentTime(coverage: CandleCoverage): Date {
 /** `now` — assess at click time; `et` — user picks an Eastern datetime. */
 export type AssessmentTimeMode = "now" | "et";
 
+const REGULAR_SESSION_CLOSE_MINUTES = 16 * 60;
+
+function etWeekday(date: Date): number {
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: ET, weekday: "short" }).format(
+    date,
+  );
+  return { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[weekday] ?? 0;
+}
+
+function effectiveTradingDateEt(date: Date): string {
+  const p = etParts(date);
+  let cursor = parseEtDatetimeLocal(`${p.year}-${p.month}-${p.day}T12:00`);
+  if (!cursor) return `${p.year}-${p.month}-${p.day}`;
+  while (etWeekday(cursor) === 0 || etWeekday(cursor) === 6) {
+    cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000);
+  }
+  const cp = etParts(cursor);
+  return `${cp.year}-${cp.month}-${cp.day}`;
+}
+
+/** Now-mode Market assess: live clock in session; after close → 4:00 PM ET. */
+export function resolveMarketNowAssessmentMoment(now = new Date()): Date {
+  const p = etParts(now);
+  const minutes = Number(p.hour) * 60 + Number(p.minute);
+  const weekday = etWeekday(now);
+  const isTradingDay = weekday >= 1 && weekday <= 5;
+
+  if (!isTradingDay) {
+    const tradeDate = effectiveTradingDateEt(now);
+    return parseEtDatetimeLocal(`${tradeDate}T16:00`) ?? now;
+  }
+
+  if (minutes >= REGULAR_SESSION_CLOSE_MINUTES) {
+    return parseEtDatetimeLocal(`${p.year}-${p.month}-${p.day}T16:00`) ?? now;
+  }
+
+  return now;
+}
+
+/** Now-mode Premarket assess: current Eastern clock (extended-hours bars fetched live). */
+export function resolvePremarketNowAssessmentMoment(now = new Date()): Date {
+  return now;
+}
+
 export type AssessmentTimeValidation = {
   /** Hard failure — blocks Assess (before stored history). */
   error: string | null;
@@ -102,13 +146,26 @@ export type AssessmentTimeValidation = {
   notice: string | null;
 };
 
-export function blocksAssess(date: Date, coverage: CandleCoverage): boolean {
-  return date.getTime() < parseIsoToMs(coverage.earliestAt);
+export type AssessmentTimeOptions = {
+  /** ET mode — only stored candle history up to the chosen moment (no live refresh). */
+  historicalOnly?: boolean;
+};
+
+export function blocksAssess(
+  date: Date,
+  coverage: CandleCoverage,
+  options?: AssessmentTimeOptions,
+): boolean {
+  const ms = date.getTime();
+  if (ms < parseIsoToMs(coverage.earliestAt)) return true;
+  if (options?.historicalOnly && ms > parseIsoToMs(coverage.latestAt)) return true;
+  return false;
 }
 
 export function validateAssessmentTime(
   date: Date,
   coverage: CandleCoverage,
+  options?: AssessmentTimeOptions,
 ): AssessmentTimeValidation {
   const ms = date.getTime();
   const min = parseIsoToMs(coverage.earliestAt);
@@ -120,6 +177,12 @@ export function validateAssessmentTime(
     };
   }
   if (ms > max) {
+    if (options?.historicalOnly) {
+      return {
+        error: `After latest candle data (${formatAssessmentDisplay(new Date(max))}). Pick a time within stored history.`,
+        notice: null,
+      };
+    }
     return {
       error: null,
       notice: `Candle data ends ${formatAssessmentDisplay(new Date(max))}. Assess will refresh candles first.`,

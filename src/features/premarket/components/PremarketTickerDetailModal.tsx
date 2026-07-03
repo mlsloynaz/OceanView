@@ -66,7 +66,7 @@ export function PremarketTickerDetailModal({ group, ticker, threshold, onClose }
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
                 Rules
               </h3>
-              <RuleRequirementsList rules={rules} />
+              <RuleRequirementsList rules={rules} highlightPassedTime />
             </div>
           </>
         ) : (

@@ -83,6 +83,11 @@ export function PremarketPage() {
         stopPending={ws.stopPending}
         loading={ws.loading}
         threshold={ws.threshold}
+        assessmentMode={ws.assessmentMode}
+        assessmentAt={ws.assessmentAt}
+        assessmentError={ws.assessmentError}
+        onAssessmentModeChange={ws.setAssessmentMode}
+        onAssessmentTimeChange={ws.setAssessmentFromLocal}
         onStart={() => void ws.startEvaluate("strategies")}
         onStop={() => void ws.stopEvaluate()}
         onRefresh={() => void ws.refreshResult()}

@@ -102,7 +102,7 @@ export function AssessmentTimeControl({
   const { min, max } = coverageBoundsForInput(coverage);
   const inputValue = formatEtDatetimeLocal(value);
   const assessAt = mode === "now" ? new Date() : value;
-  const assessDisabled = pending || blocksAssess(assessAt, coverage);
+  const assessDisabled = pending || blocksAssess(assessAt, coverage, { historicalOnly: mode === "et" });
 
   return (
     <div className={cn("min-w-0", className)}>
@@ -144,8 +144,10 @@ export function AssessmentTimeControl({
           onClick={onAssess}
           disabled={assessDisabled}
           title={
-            blocksAssess(assessAt, coverage)
-              ? "Assessment time is before earliest candle data"
+            blocksAssess(assessAt, coverage, { historicalOnly: mode === "et" })
+              ? mode === "et"
+                ? "Assessment time is outside stored candle history"
+                : "Assessment time is before earliest candle data"
               : mode === "now"
                 ? "Run assessment at the current Eastern time"
                 : undefined
@@ -158,11 +160,11 @@ export function AssessmentTimeControl({
 
       {mode === "now" ? (
         <p className="mt-1 text-[10px] text-ocean-sand/70">
-          Now mode uses the clock when you click Assess — no time entry needed.
+          Now mode uses the current Eastern time during the session; after hours it assesses at 4:00 PM ET.
         </p>
       ) : (
         <p className="mt-1 text-[10px] text-ocean-sand/70">
-          ET mode evaluates at the date and time you enter (Eastern).
+          ET mode uses stored candle history only — bars through the time you enter.
         </p>
       )}
 

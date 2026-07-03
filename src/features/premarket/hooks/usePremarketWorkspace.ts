@@ -17,6 +17,13 @@ import {
   postPremarketStop,
 } from "../api/premarket-client";
 import type { PremarketResultResponse } from "../types";
+import {
+  formatSimulationTimeEt,
+  isAssessmentNow,
+  parseEtDatetimeLocal,
+  parseSimulationTimeEt,
+  type AssessmentTimeMode,
+} from "@/features/market/lib/assessment-time";
 
 const DEFAULT_THRESHOLD = 50;
 
@@ -63,6 +70,10 @@ export function usePremarketWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const evaluateInFlightRef = useRef(false);
+
+  const [assessmentMode, setAssessmentModeState] = useState<AssessmentTimeMode>("now");
+  const [assessmentAt, setAssessmentAt] = useState<Date>(() => new Date());
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
 
   const activeStrategies = useMemo(
     () => strategies.filter((s) => s.active),
@@ -123,7 +134,14 @@ export function usePremarketWorkspace() {
     void (async () => {
       try {
         const payload = await fetchPremarketResult();
-        if (!cancelled) setResult(payload);
+        if (!cancelled) {
+          setResult(payload);
+          const sim = parseSimulationTimeEt(payload?.simulationTimeEt);
+          if (sim && !isAssessmentNow(sim)) {
+            setAssessmentModeState("et");
+            setAssessmentAt(sim);
+          }
+        }
       } catch (err) {
         if (!cancelled) {
           if (err instanceof PremarketApiError && err.code === "PREMARKET_NOT_FOUND") {
@@ -252,20 +270,56 @@ export function usePremarketWorkspace() {
     [reloadCatalog],
   );
 
+  const resolveEvaluateRequest = useCallback(() => {
+    if (assessmentMode === "et") {
+      return {
+        assessmentTimeMode: "et" as const,
+        simulationTimeEt: formatSimulationTimeEt(assessmentAt),
+      };
+    }
+    return { assessmentTimeMode: "now" as const };
+  }, [assessmentAt, assessmentMode]);
+
+  const setAssessmentMode = useCallback((mode: AssessmentTimeMode) => {
+    setAssessmentModeState(mode);
+    setAssessmentError(null);
+    if (mode === "et") {
+      setAssessmentAt((prev) => prev);
+    }
+  }, []);
+
+  const setAssessmentFromLocal = useCallback((localValue: string) => {
+    const parsed = parseEtDatetimeLocal(localValue);
+    if (!parsed) {
+      setAssessmentError("Invalid date or time.");
+      return;
+    }
+    setAssessmentModeState("et");
+    setAssessmentAt(parsed);
+    setAssessmentError(null);
+  }, []);
+
   const startEvaluate = useCallback(
     async (mode: "strategies" | "rules" = "strategies", allowRetry = true) => {
       if (evaluateInFlightRef.current) return;
+      if (assessmentMode === "et" && assessmentError) return;
+
       evaluateInFlightRef.current = true;
       setStartPending(true);
       setError(null);
       setNotice(null);
+      const evaluateRequest = resolveEvaluateRequest();
+
       try {
         if (mode === "rules") {
           if (selectedRuleKeys.length === 0) {
             setError("Add at least one rule in the builder to preview.");
             return;
           }
-          const payload = await postDynamicEvaluate({ ruleKeys: selectedRuleKeys });
+          const payload = await postDynamicEvaluate({
+            ruleKeys: selectedRuleKeys,
+            ...evaluateRequest,
+          });
           setResult(payload);
           setNotice(payload.message ?? "Preview evaluate complete.");
           return;
@@ -276,7 +330,10 @@ export function usePremarketWorkspace() {
           setError("No active strategies — activate a dynamic strategy first.");
           return;
         }
-        const payload = await postDynamicEvaluate({ strategyIds: ids });
+        const payload = await postDynamicEvaluate({
+          strategyIds: ids,
+          ...evaluateRequest,
+        });
         setResult(payload);
         setNotice(payload.message ?? "Evaluate complete.");
       } catch (err) {
@@ -292,7 +349,7 @@ export function usePremarketWorkspace() {
         setStartPending(false);
       }
     },
-    [activeStrategies, selectedRuleKeys],
+    [activeStrategies, assessmentError, assessmentMode, resolveEvaluateRequest, selectedRuleKeys],
   );
 
   const stopEvaluate = useCallback(async () => {
@@ -356,6 +413,11 @@ export function usePremarketWorkspace() {
     error,
     notice,
     threshold: DEFAULT_THRESHOLD,
+    assessmentMode,
+    assessmentAt,
+    assessmentError,
+    setAssessmentMode,
+    setAssessmentFromLocal,
     startEvaluate,
     stopEvaluate,
     refreshResult,

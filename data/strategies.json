@@ -189,7 +189,7 @@
         {
           "id": "bb15-r1",
           "ruleKey": "vol_bb_expand_15m",
-          "label": "Vol BB expandiendo (15m)",
+          "label": "Volatilidad Bollinger abierta en 15M (disipadores expandiendo)",
           "type": "required",
           "timeframe": "15m"
         },

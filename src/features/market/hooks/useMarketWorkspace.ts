@@ -27,6 +27,7 @@ import {
   parseSimulationTimeEt,
   type AssessmentTimeMode,
   validateAssessmentTime,
+  resolveMarketNowAssessmentMoment,
 } from "../lib/assessment-time";
 import type {
   CandleCoverage,
@@ -136,8 +137,8 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   }, [useMock, snapshot, envelope]);
 
   const applyAssessmentValidation = useCallback(
-    (date: Date, coverage: CandleCoverage) => {
-      const validation = validateAssessmentTime(date, coverage);
+    (date: Date, coverage: CandleCoverage, historicalOnly = false) => {
+      const validation = validateAssessmentTime(date, coverage, { historicalOnly });
       setAssessmentError(validation.error);
       setAssessNotice(validation.notice);
       return validation;
@@ -164,7 +165,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   useEffect(() => {
     if (!candleCoverage) return;
     const at = assessmentMode === "now" ? new Date() : assessmentAt;
-    applyAssessmentValidation(at, candleCoverage);
+    applyAssessmentValidation(at, candleCoverage, assessmentMode === "et");
   }, [applyAssessmentValidation, assessmentAt, assessmentMode, candleCoverage]);
 
   const setAssessmentMode = useCallback(
@@ -251,13 +252,13 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       }
       setAssessmentModeState("et");
       setAssessmentAt(parsed);
-      applyAssessmentValidation(parsed, candleCoverage);
+      applyAssessmentValidation(parsed, candleCoverage, true);
     },
     [applyAssessmentValidation, candleCoverage],
   );
 
   const resolveAssessmentMoment = useCallback((): Date => {
-    return assessmentMode === "now" ? new Date() : assessmentAt;
+    return assessmentMode === "now" ? resolveMarketNowAssessmentMoment() : assessmentAt;
   }, [assessmentAt, assessmentMode]);
 
   const refreshAfterAssess = useCallback(
@@ -302,7 +303,8 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   const runAssessment = useCallback(() => {
     if (!candleCoverage) return;
     const at = resolveAssessmentMoment();
-    const validation = validateAssessmentTime(at, candleCoverage);
+    const historicalOnly = assessmentMode === "et";
+    const validation = validateAssessmentTime(at, candleCoverage, { historicalOnly });
     if (validation.error) {
       setAssessmentError(validation.error);
       setAssessNotice(null);
@@ -326,10 +328,16 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     setAssessNotice(validation.notice);
     setAssessPending(true);
     void postMarketEvaluate({
-      simulationTimeEt: formatSimulationTimeEt(at),
+      assessmentTimeMode: assessmentMode,
+      ...(historicalOnly ? { simulationTimeEt: formatSimulationTimeEt(at) } : {}),
       options: { signalThresholdPct: envelope?.signalThresholdPct ?? 50 },
     })
-      .then((result) => refreshAfterAssess(result.runId, formatSimulationTimeEt(at)))
+      .then((result) =>
+        refreshAfterAssess(
+          result.runId,
+          historicalOnly ? formatSimulationTimeEt(at) : null,
+        ),
+      )
       .catch((err) => {
         if (err instanceof MarketApiError) {
           const fallback = err.code ? MARKET_ERROR_MESSAGES[err.code] : undefined;
@@ -347,7 +355,14 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
         }
       })
       .finally(() => setAssessPending(false));
-  }, [candleCoverage, envelope, refreshAfterAssess, resolveAssessmentMoment, useMock]);
+  }, [
+    assessmentMode,
+    candleCoverage,
+    envelope,
+    refreshAfterAssess,
+    resolveAssessmentMoment,
+    useMock,
+  ]);
 
   const strategies = useMemo(
     () => activeCatalogStrategies(catalog?.strategies),

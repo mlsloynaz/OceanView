@@ -1,4 +1,5 @@
 import type { EntryWindow } from "./lib/entry-window";
+import type { AssessmentTimeMode } from "./lib/assessment-time";
 
 /** Rule definition in strategy catalog. */
 export type RuleType = "required" | "extra";
@@ -202,6 +203,7 @@ export type MarketEvaluateRequest = {
   symbols?: string[];
   strategyIds?: string[] | null;
   tradeDate?: string;
+  assessmentTimeMode?: AssessmentTimeMode;
   simulationTimeEt?: string;
   options?: { signalThresholdPct?: number };
 };

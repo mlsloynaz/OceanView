@@ -252,3 +252,33 @@ export function formatAchievedTimeEt(raw: string): string {
   if (/ET/i.test(trimmed)) return trimmed;
   return `${trimmed} ET`;
 }
+
+/** Clock time only (ET) for rule pass display — no date, no "ET" suffix. */
+export function formatRulePassedTimeOnly(raw: string | null | undefined): string | null {
+  if (!raw?.trim()) return null;
+  const trimmed = raw.trim();
+  const clock = trimmed.match(/^(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+  if (clock && !trimmed.includes("T")) {
+    return clock[1].replace(/\s+/g, " ").trim();
+  }
+  const parsed = new Date(trimmed);
+  if (!Number.isNaN(parsed.getTime())) {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(parsed);
+  }
+  return null;
+}
+
+export function extractTimeFromEvidence(evidence: string | null | undefined): string | null {
+  if (!evidence) return null;
+  const at = evidence.match(/@\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+  return at ? at[1].trim() : null;
+}
+
+export function resolveRulePassedTime(metAtEt?: string | null, evidence?: string | null): string | null {
+  return formatRulePassedTimeOnly(metAtEt) ?? extractTimeFromEvidence(evidence);
+}

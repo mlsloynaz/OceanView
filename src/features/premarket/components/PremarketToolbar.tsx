@@ -1,4 +1,6 @@
 import { cn } from "@/shared/lib/cn";
+import { SimulationTimeControl } from "@/shared/components/SimulationTimeControl";
+import type { AssessmentTimeMode } from "@/features/market/lib/assessment-time";
 import { formatPremarketStatus, formatSimTimeEt } from "../display";
 import type { PremarketResultResponse } from "../types";
 
@@ -13,6 +15,11 @@ type Props = {
   stopPending: boolean;
   loading: boolean;
   threshold: number;
+  assessmentMode: AssessmentTimeMode;
+  assessmentAt: Date;
+  assessmentError: string | null;
+  onAssessmentModeChange: (mode: AssessmentTimeMode) => void;
+  onAssessmentTimeChange: (localValue: string) => void;
   onStart: () => void;
   onStop: () => void;
   onRefresh: () => void;
@@ -26,11 +33,18 @@ export function PremarketToolbar({
   stopPending,
   loading,
   threshold,
+  assessmentMode,
+  assessmentAt,
+  assessmentError,
+  onAssessmentModeChange,
+  onAssessmentTimeChange,
   onStart,
   onStop,
   onRefresh,
 }: Props) {
   const busy = evaluateRunning || stopPending || loading;
+  const evaluateDisabled =
+    busy || activeStrategyCount === 0 || Boolean(assessmentError);
 
   return (
     <div className="space-y-3 rounded-xl border border-ocean-mid/50 bg-ocean-surface p-4">
@@ -43,17 +57,36 @@ export function PremarketToolbar({
           </p>
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+
+      <SimulationTimeControl
+        mode={assessmentMode}
+        value={assessmentAt}
+        disabled={busy}
+        inputId="premarket-evaluate-time"
+        onModeChange={onAssessmentModeChange}
+        onChange={onAssessmentTimeChange}
+      />
+      {assessmentError ? (
+        <p className="text-[11px] text-ocean-danger">{assessmentError}</p>
+      ) : (
+        <p className="text-[10px] text-ocean-sand/70">
+          {assessmentMode === "now"
+            ? "Now evaluates at the current Eastern time with live extended-hours bars (not stored in Admin candles)."
+            : "ET uses stored candle history only — bars through the time you enter."}
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105")}
-          disabled={busy || activeStrategyCount === 0}
+          disabled={evaluateDisabled}
           title={
             evaluateRunning
               ? "An evaluate run is already in progress"
               : activeStrategyCount === 0
-              ? "Activate at least one dynamic strategy first"
-              : `Evaluate ${activeStrategyCount} active strateg${activeStrategyCount === 1 ? "y" : "ies"}`
+                ? "Activate at least one dynamic strategy first"
+                : `Evaluate ${activeStrategyCount} active strateg${activeStrategyCount === 1 ? "y" : "ies"}`
           }
           onClick={onStart}
         >
@@ -101,16 +134,15 @@ export function PremarketToolbar({
           </span>
         )}
         {result?.simulationTimeEt && (
-          <span
-            title="Price bars are sliced to this Eastern time — not necessarily when you clicked Start"
-          >
+          <span title="Bars sliced to this Eastern time">
             Bars as of:{" "}
             <strong className="text-ocean-foam">{formatSimTimeEt(result.simulationTimeEt)}</strong>
           </span>
         )}
         {result?.runId && (
           <span className="truncate" title={result.runId}>
-            Run: <code className="text-[11px] text-ocean-teal-dim dark:text-ocean-teal">{result.runId}</code>
+            Run:{" "}
+            <code className="text-[11px] text-ocean-teal-dim dark:text-ocean-teal">{result.runId}</code>
           </span>
         )}
         {result?.stopped && (

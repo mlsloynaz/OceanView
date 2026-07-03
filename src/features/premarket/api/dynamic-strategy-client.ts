@@ -111,7 +111,7 @@ export type PatchDynamicStrategyRequest = {
 
 
 export type DynamicEvaluateRequest = {
-
+  assessmentTimeMode?: import("@/features/market/lib/assessment-time").AssessmentTimeMode;
   simulationTimeEt?: string;
 
   strategyIds?: string[];
@@ -315,19 +315,13 @@ export async function postDynamicEvaluate(
     method: "POST",
 
     body: JSON.stringify({
-
+      assessmentTimeMode: body.assessmentTimeMode ?? "now",
       options: { signalThresholdPct: 50, ...body.options },
-
-      simulationTimeEt: body.simulationTimeEt,
-
+      ...(body.simulationTimeEt ? { simulationTimeEt: body.simulationTimeEt } : {}),
       strategyIds: body.strategyIds,
-
       ruleKeys: body.ruleKeys,
-
       name: body.name,
-
       saveAs: body.saveAs,
-
     }),
 
   });

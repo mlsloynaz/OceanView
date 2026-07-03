@@ -51,6 +51,7 @@ export type PremarketResultResponse = {
 };
 
 export type PremarketStartRequest = {
+  assessmentTimeMode?: import("@/features/market/lib/assessment-time").AssessmentTimeMode;
   simulationTimeEt?: string;
   options?: { signalThresholdPct?: number };
 };
