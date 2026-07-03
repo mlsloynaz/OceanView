@@ -50,6 +50,7 @@ export type PreselectionResultResponse = {
   tradeDate?: string;
   evaluatedAt?: string;
   minScore?: number;
+  progress?: { done?: number; total?: number };
   candles?: PreselectionCandlesMeta;
   summary?: {
     symbolsTotal?: number;

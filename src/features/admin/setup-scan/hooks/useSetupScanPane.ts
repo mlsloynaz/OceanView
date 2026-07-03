@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { patchTickerActive } from "../../tickers/api/tickers-client";
-import { getSetupScanResult, postSetupScanRun } from "../api/preselection-client";
+import {
+  getSetupScanResult,
+  pollSetupScanResult,
+  postSetupScanRun,
+  SetupScanApiError,
+} from "../api/preselection-client";
 import type { PreselectionResultResponse, PreselectionTickerRow } from "../types";
 
 export function useSetupScanPane(open: boolean) {
@@ -42,10 +47,44 @@ export function useSetupScanPane(open: boolean) {
       setError(null);
       setMessage(null);
       try {
-        const payload = await postSetupScanRun({ minScore });
+        const ack = await postSetupScanRun({ minScore });
+        const runId = ack.runId;
+        if ((ack.status ?? "").toLowerCase() === "complete" && ack.strategies?.length) {
+          setResult(ack);
+          setMessage(ack.message ?? "Setup scan complete.");
+          return;
+        }
+        setMessage(ack.message ?? "Setup scan started…");
+        const payload = await pollSetupScanResult(runId, (progress) => {
+          const done = progress.progress?.done;
+          const total = progress.progress?.total;
+          if (done != null && total != null) {
+            setMessage(`Scanning… ${done}/${total}`);
+          }
+        });
         setResult(payload);
         setMessage(payload.message ?? "Setup scan complete.");
       } catch (err) {
+        if (err instanceof SetupScanApiError && err.status === 504) {
+          setMessage("Request timed out — scan may still be running. Loading result…");
+          try {
+            const payload = await pollSetupScanResult(undefined, (progress) => {
+              const done = progress.progress?.done;
+              const total = progress.progress?.total;
+              if (done != null && total != null) {
+                setMessage(`Scanning… ${done}/${total}`);
+              }
+            });
+            setResult(payload);
+            setMessage(payload.message ?? "Setup scan complete.");
+            return;
+          } catch (pollErr) {
+            setError(
+              pollErr instanceof Error ? pollErr.message : "Setup scan did not finish in time.",
+            );
+            return;
+          }
+        }
         setError(err instanceof Error ? err.message : "Setup scan failed.");
       }
     });

@@ -7,14 +7,30 @@ const USE_MOCK =
   import.meta.env.VITE_USE_MOCK_CANDLES === "true";
 
 const MOCK_DELAY_MS = 400;
+const POLL_INTERVAL_MS = 3000;
+const POLL_MAX_ATTEMPTS = 120;
 
 function delay(ms = MOCK_DELAY_MS) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+export class SetupScanApiError extends Error {
+  readonly status: number | undefined;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = "SetupScanApiError";
+    this.status = status;
+  }
+}
+
+async function fetchJson<T>(
+  path: string,
+  init?: RequestInit,
+  okStatuses: number[] = [200],
+): Promise<{ data: T; status: number }> {
   if (!API_BASE) {
-    throw new Error("VITE_API_BASE_URL is not set.");
+    throw new SetupScanApiError("VITE_API_BASE_URL is not set.");
   }
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -32,7 +48,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
       body = text;
     }
   }
-  if (!response.ok) {
+  if (!okStatuses.includes(response.status) && !response.ok) {
     const message =
       typeof body === "object" &&
       body !== null &&
@@ -40,9 +56,9 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
       typeof (body as { error: unknown }).error === "string"
         ? (body as { error: string }).error
         : `HTTP ${response.status}`;
-    throw new Error(message);
+    throw new SetupScanApiError(message, response.status);
   }
-  return body as T;
+  return { data: body as T, status: response.status };
 }
 
 export function setupScanUsesMock(): boolean {
@@ -61,13 +77,18 @@ export async function postSetupScanRun(body?: {
     await delay(1200);
     return { ...MOCK_SETUP_SCAN_RESULT, evaluatedAt: new Date().toISOString() };
   }
-  return fetchJson<PreselectionResultResponse>("/preselection/run", {
-    method: "POST",
-    body: JSON.stringify({
-      strategyIds: body?.strategyIds,
-      options: { minScore: body?.minScore ?? 0 },
-    }),
-  });
+  const { data } = await fetchJson<PreselectionResultResponse>(
+    "/preselection/run",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        strategyIds: body?.strategyIds,
+        options: { minScore: body?.minScore ?? 0 },
+      }),
+    },
+    [200, 202],
+  );
+  return data;
 }
 
 export async function getSetupScanResult(runId?: string): Promise<PreselectionResultResponse> {
@@ -76,5 +97,31 @@ export async function getSetupScanResult(runId?: string): Promise<PreselectionRe
     return { ...MOCK_SETUP_SCAN_RESULT };
   }
   const query = runId?.trim() ? `?runId=${encodeURIComponent(runId.trim())}` : "";
-  return fetchJson<PreselectionResultResponse>(`/preselection/result${query}`);
+  const { data } = await fetchJson<PreselectionResultResponse>(`/preselection/result${query}`);
+  return data;
+}
+
+function isTerminalStatus(status: string | undefined): boolean {
+  const value = (status ?? "").toLowerCase();
+  return value === "complete" || value === "completed" || value === "failed";
+}
+
+export async function pollSetupScanResult(
+  runId?: string,
+  onProgress?: (payload: PreselectionResultResponse) => void,
+): Promise<PreselectionResultResponse> {
+  for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) {
+      await delay(POLL_INTERVAL_MS);
+    }
+    const payload = await getSetupScanResult(runId);
+    onProgress?.(payload);
+    if (isTerminalStatus(payload.status)) {
+      if ((payload.status ?? "").toLowerCase() === "failed") {
+        throw new SetupScanApiError("Setup scan failed.", 500);
+      }
+      return payload;
+    }
+  }
+  throw new SetupScanApiError("Setup scan timed out while waiting for results.", 504);
 }
