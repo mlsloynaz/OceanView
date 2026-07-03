@@ -146,7 +146,7 @@ export function PremarketPage() {
 
       {hasResults && ws.threshold > 0 && (ws.result?.summary?.symbolsAboveThreshold ?? 0) === 0 && (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
-          No tickers reached ≥ {ws.threshold}% quality — expand tickers below to see per-rule
+          No tickers reached ≥ {ws.threshold}% quality — click a ticker chip below to see per-rule
           evidence. Volatility often reads <strong>not met</strong> at the open until BB width and
           ATR expand (need index ≥ 1.35 and ATR ratio ≥ 1.20 on 15m).
         </p>
