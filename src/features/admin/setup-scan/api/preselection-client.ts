@@ -130,10 +130,10 @@ export async function pollSetupScanResult(
     onProgress?.(payload);
     if (isTerminalStatus(payload.status)) {
       if ((payload.status ?? "").toLowerCase() === "failed") {
-        throw new SetupScanApiError("Setup scan failed.", 500);
+        throw new SetupScanApiError("Tickers SemiFinal failed.", 500);
       }
       return payload;
     }
   }
-  throw new SetupScanApiError("Setup scan timed out while waiting for results.", 504);
+  throw new SetupScanApiError("Tickers SemiFinal timed out while waiting for results.", 504);
 }

@@ -32,7 +32,7 @@ export function useSetupScanPane(open: boolean) {
       const payload = await getSetupScanResult();
       setResult(payload);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to load setup scan result.";
+      const msg = err instanceof Error ? err.message : "Failed to load Tickers SemiFinal result.";
       if (!msg.toLowerCase().includes("not found")) {
         setError(msg);
       }
@@ -62,10 +62,10 @@ export function useSetupScanPane(open: boolean) {
         const runId = ack.runId;
         if ((ack.status ?? "").toLowerCase() === "complete" && ack.strategies?.length) {
           setResult(ack);
-          setMessage(ack.message ?? "Setup scan complete.");
+          setMessage(ack.message ?? "Tickers SemiFinal complete.");
           return;
         }
-        setMessage(ack.message ?? "Setup scan started…");
+        setMessage(ack.message ?? "Tickers SemiFinal started…");
         const payload = await pollSetupScanResult(runId, (progress) => {
           const done = progress.progress?.done;
           const total = progress.progress?.total;
@@ -74,7 +74,7 @@ export function useSetupScanPane(open: boolean) {
           }
         });
         setResult(payload);
-        setMessage(payload.message ?? "Setup scan complete.");
+        setMessage(payload.message ?? "Tickers SemiFinal complete.");
       } catch (err) {
         if (err instanceof SetupScanApiError && err.status === 504) {
           setMessage("Request timed out — scan may still be running. Loading result…");
@@ -87,16 +87,16 @@ export function useSetupScanPane(open: boolean) {
               }
             });
             setResult(payload);
-            setMessage(payload.message ?? "Setup scan complete.");
+            setMessage(payload.message ?? "Tickers SemiFinal complete.");
             return;
           } catch (pollErr) {
             setError(
-              pollErr instanceof Error ? pollErr.message : "Setup scan did not finish in time.",
+              pollErr instanceof Error ? pollErr.message : "Tickers SemiFinal did not finish in time.",
             );
             return;
           }
         }
-        setError(err instanceof Error ? err.message : "Setup scan failed.");
+        setError(err instanceof Error ? err.message : "Tickers SemiFinal failed.");
       }
     });
   }, [minScore, scanMode, simulationDate]);

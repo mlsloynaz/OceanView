@@ -146,7 +146,7 @@ export function useCandlesPane(open: boolean) {
         setCatalog(tickers);
         const symbols = tickers.map((t) => t.symbol.trim().toUpperCase()).filter(Boolean);
         if (symbols.length === 0) {
-          setMessage("No active tickers — activate symbols in Ticker catalog first.");
+          setMessage("No active tickers — activate symbols in Tickers first.");
           return;
         }
         const pendingKeys = Object.fromEntries(symbols.map((s) => [s, true]));

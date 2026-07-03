@@ -87,7 +87,7 @@ export function CandlesPane() {
       )}
       <p className="mb-2 text-xs text-ocean-sand">
         Bulk actions use <strong className="font-medium text-ocean-foam">active</strong> tickers
-        from Ticker catalog ({rows.length} shown).
+        from Tickers ({rows.length} shown).
       </p>
       {message && (
         <p className="mb-2 text-ocean-teal-dim dark:text-ocean-teal">{message}</p>

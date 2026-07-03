@@ -68,7 +68,7 @@ export function TickerCatalogSearch({
           }
         }}
         placeholder="Search symbol or name…"
-        aria-label="Search ticker catalog"
+        aria-label="Search tickers"
         aria-autocomplete="list"
         aria-controls={showList ? listId : undefined}
         aria-expanded={showList}

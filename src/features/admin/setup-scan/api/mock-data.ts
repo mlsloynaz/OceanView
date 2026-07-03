@@ -3,7 +3,7 @@ import type { PreselectionResultResponse } from "../types";
 export const MOCK_SETUP_SCAN_RESULT: PreselectionResultResponse = {
   runId: "presel-mock-001",
   status: "complete",
-  message: "Mock setup scan complete.",
+  message: "Mock Tickers SemiFinal complete.",
   simulationTimeEt: "2026-07-02T16:00:00-04:00",
   tradeDate: "2026-07-02",
   evaluatedAt: new Date().toISOString(),

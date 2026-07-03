@@ -53,7 +53,7 @@ export function AdminPage() {
             className="text-ocean-teal hover:underline"
             onClick={() => selectPane("setup-scan")}
           >
-            Setup scan
+            Tickers SemiFinal
           </button>{" "}
           (preselection) ranks the full catalog — activate tickers from there before live evaluate.
         </p>

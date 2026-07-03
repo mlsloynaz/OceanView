@@ -48,7 +48,7 @@ export function TickersPane() {
   return (
     <AdminExpandedPane
       id="admin-tickers-pane"
-      title="Ticker catalog"
+      title="Tickers"
       subtitle={
         usesMock
           ? "Mock data (VITE_USE_MOCK_CANDLES=true)"

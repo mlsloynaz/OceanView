@@ -159,7 +159,7 @@ export function SetupScanPane() {
     <>
       <AdminExpandedPane
         id="admin-setup-scan-pane"
-        title="Setup scan"
+        title="Tickers SemiFinal"
         subtitle={
           usesMock
             ? "Mock data (VITE_USE_MOCK_SETUP_SCAN or VITE_USE_MOCK_CANDLES)"
@@ -223,7 +223,7 @@ export function SetupScanPane() {
               disabled={ws.runPending || ws.loading}
               onClick={() => ws.runScan()}
             >
-              {ws.runPending ? "Scanning…" : "Run setup scan"}
+              {ws.runPending ? "Scanning…" : "Run Tickers SemiFinal"}
             </button>
             <button
               type="button"
@@ -283,7 +283,7 @@ export function SetupScanPane() {
         )}
 
         {!ws.result && !ws.loading && !ws.runPending && (
-          <p className="text-sm text-ocean-sand">No setup scan result yet — run a scan to begin.</p>
+          <p className="text-sm text-ocean-sand">No Tickers SemiFinal result yet — run a scan to begin.</p>
         )}
 
         {(ws.result?.strategies ?? []).map((group) => (
