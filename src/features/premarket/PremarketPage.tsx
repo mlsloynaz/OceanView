@@ -84,7 +84,6 @@ export function PremarketPage() {
         startPending={ws.startPending}
         stopPending={ws.stopPending}
         loading={ws.loading}
-        threshold={ws.threshold}
         assessmentMode={ws.assessmentMode}
         assessmentAt={ws.assessmentAt}
         assessmentError={ws.assessmentError}
@@ -141,7 +140,7 @@ export function PremarketPage() {
 
       {!hasResults && ws.result && !ws.startPending && !ws.loading && (
         <p className="rounded-lg border border-ocean-mid/40 bg-ocean-surface px-4 py-3 text-sm text-ocean-sand">
-          Run complete — no tickers met ≥ {ws.threshold}% for the selected strategies.
+          Run complete — no tickers matched the selected strategies.
         </p>
       )}
 

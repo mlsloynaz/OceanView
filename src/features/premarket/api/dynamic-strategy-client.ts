@@ -1,6 +1,6 @@
 import type { PremarketResultResponse } from "../types";
 
-import { nextMockPremarketStart } from "./mock-data";
+import { MOCK_DYNAMIC_CATALOG, MOCK_DYNAMIC_RULES, nextMockPremarketStart } from "./mock-data";
 
 
 
@@ -236,17 +236,17 @@ export function dynamicStrategiesApiBaseUrl(): string | null {
 
 
 export async function fetchDynamicCatalog(): Promise<DynamicCatalogResponse> {
-
+  if (USE_MOCK) {
+    return MOCK_DYNAMIC_CATALOG;
+  }
   return fetchJson("/dynamic-strategies/catalog");
-
 }
 
-
-
 export async function fetchDynamicRules(): Promise<DynamicRulesResponse> {
-
+  if (USE_MOCK) {
+    return { rules: MOCK_DYNAMIC_RULES, count: MOCK_DYNAMIC_RULES.length };
+  }
   return fetchJson("/dynamic-strategies/rules");
-
 }
 
 
@@ -323,7 +323,7 @@ export async function postDynamicEvaluate(
 
     body: JSON.stringify({
       assessmentTimeMode: body.assessmentTimeMode ?? "now",
-      options: { signalThresholdPct: 50, ...body.options },
+      options: { signalThresholdPct: 0, ...body.options },
       ...(body.simulationTimeEt ? { simulationTimeEt: body.simulationTimeEt } : {}),
       strategyIds: body.strategyIds,
       ruleKeys: body.ruleKeys,

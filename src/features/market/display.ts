@@ -275,8 +275,12 @@ export function formatRulePassedTimeOnly(raw: string | null | undefined): string
 
 export function extractTimeFromEvidence(evidence: string | null | undefined): string | null {
   if (!evidence) return null;
-  const at = evidence.match(/@\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
-  return at ? at[1].trim() : null;
+  const isoAt = evidence.match(/@\s*(\d{4}-\d{2}-\d{2}[ T]\d{1,2}:\d{2}(?::\d{2})?)/i);
+  if (isoAt) {
+    return formatRulePassedTimeOnly(isoAt[1].replace(" ", "T"));
+  }
+  const clockAt = evidence.match(/@\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+  return clockAt ? clockAt[1].trim() : null;
 }
 
 export function resolveRulePassedTime(metAtEt?: string | null, evidence?: string | null): string | null {

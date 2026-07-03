@@ -4,8 +4,8 @@ export type TimeframeFilter = "all" | "D" | "1h" | "15m";
 
 export const TIMEFRAME_FILTERS: { id: TimeframeFilter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "1h", label: "1H" },
   { id: "15m", label: "15M" },
+  { id: "1h", label: "1H" },
   { id: "D", label: "Daily" },
 ];
 

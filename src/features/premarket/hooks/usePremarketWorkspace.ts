@@ -25,7 +25,7 @@ import {
   type AssessmentTimeMode,
 } from "@/features/market/lib/assessment-time";
 
-const DEFAULT_THRESHOLD = 50;
+const DEFAULT_THRESHOLD = 0;
 
 function resolveError(err: unknown): string {
   if (err instanceof DynamicStrategyApiError || err instanceof PremarketApiError) {
@@ -82,12 +82,6 @@ export function usePremarketWorkspace() {
   );
 
   const reloadCatalog = useCallback(async () => {
-    if (useMock) {
-      setStrategies([]);
-      setRules([]);
-      setCatalogLoading(false);
-      return;
-    }
     setCatalogLoading(true);
     setCatalogError(null);
     try {
@@ -107,7 +101,7 @@ export function usePremarketWorkspace() {
     } finally {
       setCatalogLoading(false);
     }
-  }, [useMock]);
+  }, []);
 
   const loadResult = useCallback(async (runId?: string | null) => {
     setError(null);
@@ -424,7 +418,7 @@ export function usePremarketWorkspace() {
     stopPending,
     error,
     notice,
-    threshold: DEFAULT_THRESHOLD,
+    threshold: result?.signalThresholdPct ?? DEFAULT_THRESHOLD,
     assessmentMode,
     assessmentAt,
     assessmentError,

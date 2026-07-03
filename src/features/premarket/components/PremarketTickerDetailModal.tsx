@@ -2,8 +2,7 @@ import { MarketDetailModal } from "@/features/market/components/MarketDetailModa
 import { RuleCheckStrip } from "@/features/market/components/RuleCheckStrip";
 import { RuleRequirementsList } from "@/features/market/components/RuleRequirementsList";
 import { StrategyAssessMeta } from "@/features/market/components/StrategyAssessMeta";
-import type { RuleDisplayRow } from "@/features/market/types";
-import { formatAchievedTimeEt } from "@/features/market/display";
+import { formatAchievedTimeEt, toPremarketDisplayRules } from "../display";
 import type { PremarketStrategyGroup, PremarketTickerHit } from "../types";
 
 type Props = {
@@ -13,21 +12,9 @@ type Props = {
   onClose: () => void;
 };
 
-function toDisplayRules(rules: PremarketTickerHit["rules"]): RuleDisplayRow[] {
-  if (!rules?.length) return [];
-  return rules.map((row) => ({
-    ruleKey: row.ruleKey,
-    label: row.label,
-    type: row.type as RuleDisplayRow["type"],
-    status: row.status as RuleDisplayRow["status"],
-    metAtEt: row.metAtEt,
-    evidence: row.evidence,
-  }));
-}
-
 export function PremarketTickerDetailModal({ group, ticker, threshold, onClose }: Props) {
   const strategyName = group.shortName || group.name || group.strategyId;
-  const rules = toDisplayRules(ticker.rules);
+  const rules = toPremarketDisplayRules(ticker.rules);
   const achieved = ticker.achievedAtEt?.trim()
     ? formatAchievedTimeEt(ticker.achievedAtEt)
     : null;
@@ -65,7 +52,12 @@ export function PremarketTickerDetailModal({ group, ticker, threshold, onClose }
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
                 Rules
               </h3>
-              <RuleRequirementsList rules={rules} highlightPassedTime />
+              <RuleRequirementsList
+                rules={rules}
+                highlightPassedTime
+                showMetrics
+                showPassedTime
+              />
             </div>
           </>
         ) : (

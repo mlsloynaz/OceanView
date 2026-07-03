@@ -121,8 +121,8 @@ export function DangersPanel({ dangers, className }: DangersPanelProps) {
                 {dangerStatusLabel(danger.status)}
               </span>
               <span className="font-medium text-ocean-foam">
-                {danger.dangerKey === "clear_path_4usd"
-                  ? "Camino libre ≥ $4"
+                {danger.dangerKey === "clear_path"
+                  ? "Camino libre ≥ $2"
                   : danger.dangerKey}
               </span>
               {danger.direction && (

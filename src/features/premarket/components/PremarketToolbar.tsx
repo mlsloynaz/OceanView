@@ -14,7 +14,6 @@ type Props = {
   startPending: boolean;
   stopPending: boolean;
   loading: boolean;
-  threshold: number;
   assessmentMode: AssessmentTimeMode;
   assessmentAt: Date;
   assessmentError: string | null;
@@ -32,7 +31,6 @@ export function PremarketToolbar({
   startPending,
   stopPending,
   loading,
-  threshold,
   assessmentMode,
   assessmentAt,
   assessmentError,
@@ -116,7 +114,7 @@ export function PremarketToolbar({
           {loading ? "Loading…" : "Refresh result"}
         </button>
         <span className="ml-auto text-xs text-ocean-sand">
-          {activeStrategyCount} active · threshold {threshold}%
+          {activeStrategyCount} active
         </span>
       </div>
 
