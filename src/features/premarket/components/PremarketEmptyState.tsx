@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 type Props = {
   threshold?: number;
   hasActiveStrategies?: boolean;
@@ -17,7 +19,11 @@ export function PremarketEmptyState({ hasActiveStrategies = false }: Props = {})
           </>
         ) : (
           <>
-            Activate a saved strategy in the catalog, then click{" "}
+            Activate a saved strategy in{" "}
+          <Link to="/admin" className="text-ocean-teal hover:underline">
+            Admin
+          </Link>
+          , then click{" "}
             <strong className="text-ocean-teal-dim dark:text-ocean-teal">Evaluate strategies</strong>.
           </>
         )}

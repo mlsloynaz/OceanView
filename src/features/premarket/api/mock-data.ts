@@ -180,7 +180,7 @@ export const MOCK_PREMARKET_RESULT: PremarketResultResponse = {
             },
             {
               ruleKey: "trend_cut_15m",
-              label: "Corte de Tendencia",
+              label: "Trend Cut",
               type: "required",
               status: "not_met",
               evidence: "15m trend cut pending confirm @ 2026-06-24 09:30:00.",

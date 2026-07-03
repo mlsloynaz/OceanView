@@ -38,7 +38,7 @@ export function DynamicStrategyCatalog({
           type="button"
           className="min-w-0 flex-1 text-left"
           aria-expanded={open}
-          aria-controls="premarket-saved-strategies-body"
+          aria-controls="dynamic-strategies-body"
           onClick={() => setOpen((prev) => !prev)}
         >
           <h2 className="font-display text-lg font-semibold text-ocean-foam">Dynamic strategies</h2>
@@ -59,7 +59,7 @@ export function DynamicStrategyCatalog({
           <button
             type="button"
             aria-expanded={open}
-            aria-controls="premarket-saved-strategies-body"
+            aria-controls="dynamic-strategies-body"
             onClick={() => setOpen((prev) => !prev)}
             className="rounded-md p-1 text-ocean-sand hover:bg-ocean-mid/30 hover:text-ocean-foam"
           >
@@ -83,7 +83,7 @@ export function DynamicStrategyCatalog({
       </header>
 
       {open ? (
-        <div id="premarket-saved-strategies-body" className="p-4">
+        <div id="dynamic-strategies-body" className="p-4">
           {strategies.length === 0 ? (
             <p className="rounded-md border border-dashed border-ocean-mid/40 px-4 py-8 text-center text-sm text-ocean-sand">
               No dynamic strategies yet. Click <strong className="text-ocean-foam">New</strong> to

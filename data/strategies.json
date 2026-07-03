@@ -203,7 +203,7 @@
         {
           "id": "bb15-r4",
           "ruleKey": "trend_cut_15m",
-          "label": "Corte de Tendencia",
+          "label": "Trend Cut",
           "type": "required",
           "timeframe": "15m"
         }

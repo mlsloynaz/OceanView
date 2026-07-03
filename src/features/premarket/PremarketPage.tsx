@@ -1,5 +1,4 @@
-import { DynamicStrategyCatalog } from "./components/DynamicStrategyCatalog";
-import { StrategyBuilderModal } from "./components/StrategyBuilderModal";
+import { Link } from "react-router-dom";
 import { PremarketBanner } from "./components/PremarketBanner";
 import { PremarketDiagnostics } from "./components/PremarketDiagnostics";
 import { PremarketEmptyState } from "./components/PremarketEmptyState";
@@ -20,59 +19,28 @@ export function PremarketPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam">Premarket</h1>
         <p className="mt-2 text-ocean-sand">
-          Manage dynamic strategies in Dynamo and evaluate all active tickers. Extended-hours bars
-          stay in memory only.
+          Evaluate active dynamic strategies against active tickers. Create and edit strategies in{" "}
+          <Link to="/admin" className="text-ocean-teal hover:underline">
+            Admin
+          </Link>
+          . Extended-hours bars stay in memory only.
         </p>
       </div>
 
-      {ws.useMock ? (
-        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-          Mock mode — use <code className="text-[11px]">npm run dev:local</code> for the strategy
-          builder and live evaluate.
+      {ws.catalogError && (
+        <p className="text-sm text-ocean-danger" role="alert">
+          {ws.catalogError}
         </p>
-      ) : ws.catalogLoading ? (
-        <p className="text-sm text-ocean-sand">Loading dynamic strategy catalog…</p>
-      ) : (
-        <>
-          {ws.catalogError && !ws.builderOpen && (
-            <p className="text-sm text-ocean-danger" role="alert">
-              {ws.catalogError}
-            </p>
-          )}
+      )}
 
-          <DynamicStrategyCatalog
-            strategies={ws.strategies}
-            saving={ws.catalogSaving}
-            onEdit={ws.loadStrategyForEdit}
-            onNew={ws.openBuilderForNew}
-            onToggleActive={(s) => void ws.toggleStrategyActive(s)}
-          />
-
-          {ws.builderOpen && (
-            <StrategyBuilderModal
-              rules={ws.rules}
-              selectedRuleKeys={ws.selectedRuleKeys}
-              name={ws.builderName}
-              shortName={ws.builderShortName}
-              description={ws.builderDescription}
-              direction={ws.builderDirection}
-              editingStrategyId={ws.editingStrategyId}
-              saving={ws.catalogSaving}
-              startPending={ws.startPending}
-              error={ws.catalogError}
-              onNameChange={ws.setBuilderName}
-              onShortNameChange={ws.setBuilderShortName}
-              onDescriptionChange={ws.setBuilderDescription}
-              onDirectionChange={ws.setBuilderDirection}
-              onAddRule={ws.addRuleToBuilder}
-              onRemoveRule={ws.removeRuleFromBuilder}
-              onMoveRule={ws.moveRuleInBuilder}
-              onSave={() => void ws.saveBuilder()}
-              onPreview={() => void ws.startEvaluate("rules")}
-              onClose={ws.closeBuilder}
-            />
-          )}
-        </>
+      {!ws.catalogLoading && ws.activeStrategies.length === 0 && (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+          No active strategies — create or activate one in{" "}
+          <Link to="/admin" className="font-medium underline hover:text-ocean-foam">
+            Admin → Dynamic strategies
+          </Link>
+          .
+        </p>
       )}
 
       <PremarketBanner />
@@ -91,7 +59,7 @@ export function PremarketPage() {
         assessmentError={ws.assessmentError}
         onAssessmentModeChange={ws.setAssessmentMode}
         onAssessmentTimeChange={ws.setAssessmentFromLocal}
-        onStart={() => void ws.startEvaluate("strategies")}
+        onStart={() => void ws.startEvaluate()}
         onStop={() => void ws.stopEvaluate()}
         onRefresh={() => void ws.refreshResult()}
       />

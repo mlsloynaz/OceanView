@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DynamicStrategyApiError,
-  createDynamicStrategy,
   fetchDynamicCatalog,
-  fetchDynamicRules,
-  patchDynamicStrategy,
   postDynamicEvaluate,
   dynamicStrategiesUseMock,
-  type DynamicRuleTemplate,
   type DynamicStrategy,
 } from "../api/dynamic-strategy-client";
 import {
@@ -50,18 +46,7 @@ export function usePremarketWorkspace() {
   const useMock = dynamicStrategiesUseMock();
 
   const [strategies, setStrategies] = useState<DynamicStrategy[]>([]);
-  const [rules, setRules] = useState<DynamicRuleTemplate[]>([]);
-
-  const [editingStrategyId, setEditingStrategyId] = useState<string | null>(null);
-  const [builderName, setBuilderName] = useState("");
-  const [builderShortName, setBuilderShortName] = useState("");
-  const [builderDescription, setBuilderDescription] = useState("");
-  const [builderDirection, setBuilderDirection] = useState<"" | "CALL" | "PUT">("");
-  const [selectedRuleKeys, setSelectedRuleKeys] = useState<string[]>([]);
-  const [builderOpen, setBuilderOpen] = useState(false);
-
   const [catalogLoading, setCatalogLoading] = useState(true);
-  const [catalogSaving, setCatalogSaving] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
   const [result, setResult] = useState<PremarketResultResponse | null>(null);
@@ -86,17 +71,13 @@ export function usePremarketWorkspace() {
     setCatalogLoading(true);
     setCatalogError(null);
     try {
-      const [catalog, rulesPayload] = await Promise.all([
-        fetchDynamicCatalog(),
-        fetchDynamicRules(),
-      ]);
+      const catalog = await fetchDynamicCatalog();
       const rows = (catalog.strategies ?? []).map((row) => ({
         ...row,
         active: row.active !== false,
         rules: row.rules ?? [],
       })) as DynamicStrategy[];
       setStrategies(rows);
-      setRules(rulesPayload.rules ?? []);
     } catch (err) {
       setCatalogError(err instanceof Error ? err.message : "Failed to load dynamic catalog.");
     } finally {
@@ -161,126 +142,6 @@ export function usePremarketWorkspace() {
     };
   }, []);
 
-  const clearBuilder = useCallback(() => {
-    setEditingStrategyId(null);
-    setBuilderName("");
-    setBuilderShortName("");
-    setBuilderDescription("");
-    setBuilderDirection("");
-    setSelectedRuleKeys([]);
-    setCatalogError(null);
-    setNotice(null);
-  }, []);
-
-  const closeBuilder = useCallback(() => {
-    clearBuilder();
-    setBuilderOpen(false);
-  }, [clearBuilder]);
-
-  const openBuilderForNew = useCallback(() => {
-    clearBuilder();
-    setBuilderOpen(true);
-  }, [clearBuilder]);
-
-  const loadStrategyForEdit = useCallback((strategy: DynamicStrategy) => {
-    setEditingStrategyId(strategy.id);
-    setBuilderName(strategy.name);
-    setBuilderShortName(strategy.shortName ?? "");
-    setBuilderDescription(strategy.description ?? "");
-    setBuilderDirection(strategy.direction ?? "");
-    setSelectedRuleKeys(strategy.rules.map((r) => r.ruleKey));
-    setCatalogError(null);
-    setBuilderOpen(true);
-  }, []);
-
-  const addRuleToBuilder = useCallback((ruleKey: string) => {
-    setSelectedRuleKeys((prev) => (prev.includes(ruleKey) ? prev : [...prev, ruleKey]));
-  }, []);
-
-  const removeRuleFromBuilder = useCallback((ruleKey: string) => {
-    setSelectedRuleKeys((prev) => prev.filter((k) => k !== ruleKey));
-  }, []);
-
-  const moveRuleInBuilder = useCallback((ruleKey: string, direction: "up" | "down") => {
-    setSelectedRuleKeys((prev) => {
-      const index = prev.indexOf(ruleKey);
-      if (index < 0) return prev;
-      const next = [...prev];
-      const swap = direction === "up" ? index - 1 : index + 1;
-      if (swap < 0 || swap >= next.length) return prev;
-      [next[index], next[swap]] = [next[swap], next[index]];
-      return next;
-    });
-  }, []);
-
-  const saveBuilder = useCallback(async () => {
-    const name = builderName.trim();
-    if (!name || selectedRuleKeys.length === 0) {
-      setCatalogError("Name and at least one rule are required.");
-      return null;
-    }
-    setCatalogSaving(true);
-    setCatalogError(null);
-    try {
-      const wasEdit = editingStrategyId != null;
-      const directionPayload = wasEdit
-        ? { direction: builderDirection || ("" as const) }
-        : builderDirection
-          ? { direction: builderDirection }
-          : {};
-      const payload = {
-        name,
-        shortName: builderShortName.trim() || undefined,
-        description: builderDescription.trim() || undefined,
-        ...directionPayload,
-        ruleKeys: selectedRuleKeys,
-        active: true,
-      };
-      const saved = wasEdit
-        ? await patchDynamicStrategy(editingStrategyId, payload)
-        : await createDynamicStrategy(payload);
-      clearBuilder();
-      setBuilderOpen(false);
-      await reloadCatalog();
-      setNotice(
-        wasEdit
-          ? `Strategy "${saved.name}" updated.`
-          : `Strategy "${saved.name}" saved to Dynamo.`,
-      );
-      return saved;
-    } catch (err) {
-      setCatalogError(resolveError(err));
-      return null;
-    } finally {
-      setCatalogSaving(false);
-    }
-  }, [
-    builderDescription,
-    builderDirection,
-    builderName,
-    builderShortName,
-    clearBuilder,
-    editingStrategyId,
-    reloadCatalog,
-    selectedRuleKeys,
-  ]);
-
-  const toggleStrategyActive = useCallback(
-    async (strategy: DynamicStrategy) => {
-      setCatalogSaving(true);
-      setCatalogError(null);
-      try {
-        await patchDynamicStrategy(strategy.id, { active: !strategy.active });
-        await reloadCatalog();
-      } catch (err) {
-        setCatalogError(resolveError(err));
-      } finally {
-        setCatalogSaving(false);
-      }
-    },
-    [reloadCatalog],
-  );
-
   const resolveEvaluateRequest = useCallback(() => {
     if (assessmentMode === "et") {
       return {
@@ -316,7 +177,7 @@ export function usePremarketWorkspace() {
   }, []);
 
   const startEvaluate = useCallback(
-    async (mode: "strategies" | "rules" = "strategies", allowRetry = true) => {
+    async (allowRetry = true) => {
       if (evaluateInFlightRef.current) return;
       if (assessmentMode === "et" && assessmentError) return;
 
@@ -330,23 +191,9 @@ export function usePremarketWorkspace() {
       };
 
       try {
-        if (mode === "rules") {
-          if (selectedRuleKeys.length === 0) {
-            setError("Add at least one rule in the builder to preview.");
-            return;
-          }
-          const payload = await postDynamicEvaluate({
-            ruleKeys: selectedRuleKeys,
-            ...evaluateRequest,
-          });
-          setResult(payload);
-          setNotice(payload.message ?? "Preview evaluate complete.");
-          return;
-        }
-
         const ids = activeStrategies.map((s) => s.id);
         if (ids.length === 0) {
-          setError("No active strategies — activate a dynamic strategy first.");
+          setError("No active strategies — activate a dynamic strategy in Admin first.");
           return;
         }
         const payload = await postDynamicEvaluate({
@@ -360,7 +207,7 @@ export function usePremarketWorkspace() {
           await new Promise((resolve) => window.setTimeout(resolve, 400));
           evaluateInFlightRef.current = false;
           setStartPending(false);
-          return startEvaluate(mode, false);
+          return startEvaluate(false);
         }
         setError(resolveError(err));
       } finally {
@@ -368,7 +215,7 @@ export function usePremarketWorkspace() {
         setStartPending(false);
       }
     },
-    [activeStrategies, assessmentError, assessmentMode, resolveEvaluateRequest, selectedRuleKeys, threshold],
+    [activeStrategies, assessmentError, assessmentMode, resolveEvaluateRequest, threshold],
   );
 
   const stopEvaluate = useCallback(async () => {
@@ -400,32 +247,10 @@ export function usePremarketWorkspace() {
   return {
     useMock,
     strategies,
-    rules,
     activeStrategies,
-    editingStrategyId,
-    builderName,
-    builderShortName,
-    builderDescription,
-    builderDirection,
-    selectedRuleKeys,
-    setBuilderName,
-    setBuilderShortName,
-    setBuilderDescription,
-    setBuilderDirection,
-    addRuleToBuilder,
-    removeRuleFromBuilder,
-    moveRuleInBuilder,
-    clearBuilder,
-    closeBuilder,
-    openBuilderForNew,
-    loadStrategyForEdit,
-    saveBuilder,
-    toggleStrategyActive,
     reloadCatalog,
     catalogLoading,
-    catalogSaving,
     catalogError,
-    builderOpen,
     result,
     loading: catalogLoading || resultLoading,
     startPending,

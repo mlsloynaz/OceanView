@@ -1,7 +1,7 @@
 import { cn } from "@/shared/lib/cn";
+import { formatCalcResult } from "@/shared/lib/price-calc";
 import type { DangerEval, TradeDirection } from "../types";
 import { directionBadgeClass, qualityBadgeClass } from "../display";
-
 type QualityDisplayProps = {
   qualityPct: number;
   threshold: number;
@@ -79,7 +79,12 @@ type DangersPanelProps = {
   className?: string;
 };
 
-function dangerStatusClass(status: DangerEval["status"]): string {
+function formatGapUsd(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  return formatCalcResult(n);
+}
   if (status === "passed") return "text-ocean-teal-dim dark:text-ocean-teal";
   if (status === "failed") return "text-ocean-danger";
   return "text-ocean-sand";
@@ -109,7 +114,9 @@ export function DangersPanel({ dangers, className }: DangersPanelProps) {
         )}
       </div>
       <ul className="divide-y divide-ocean-mid/20">
-        {dangers.map((danger) => (
+        {dangers.map((danger) => {
+          const gapLabel = formatGapUsd(danger.gapUsd);
+          return (
           <li key={danger.dangerKey} className="px-3 py-2.5 text-sm">
             <div className="flex flex-wrap items-center gap-2">
               <span
@@ -137,13 +144,14 @@ export function DangersPanel({ dangers, className }: DangersPanelProps) {
             {danger.evidence && (
               <p className="mt-1 text-xs leading-relaxed text-ocean-sand">{danger.evidence}</p>
             )}
-            {danger.gapUsd != null && danger.status === "failed" && (
+            {gapLabel != null && danger.status === "failed" && (
               <p className="mt-0.5 text-[11px] tabular-nums text-ocean-sand">
-                Room: ${danger.gapUsd.toFixed(2)}
+                Room: ${gapLabel}
               </p>
             )}
           </li>
-        ))}
+          );
+        })}
       </ul>
     </div>
   );
