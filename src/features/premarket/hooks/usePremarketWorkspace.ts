@@ -75,6 +75,7 @@ export function usePremarketWorkspace() {
   const [assessmentMode, setAssessmentModeState] = useState<AssessmentTimeMode>("now");
   const [assessmentAt, setAssessmentAt] = useState<Date>(() => new Date());
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
+  const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
 
   const activeStrategies = useMemo(
     () => strategies.filter((s) => s.active),
@@ -108,6 +109,9 @@ export function usePremarketWorkspace() {
     try {
       const payload = await fetchPremarketResult(runId ?? result?.runId);
       setResult(payload);
+      if (payload?.signalThresholdPct != null) {
+        setThreshold(payload.signalThresholdPct);
+      }
       return payload;
     } catch (err) {
       if (err instanceof PremarketApiError && err.code === "PREMARKET_NOT_FOUND") {
@@ -131,6 +135,9 @@ export function usePremarketWorkspace() {
         const payload = await fetchPremarketResult();
         if (!cancelled) {
           setResult(payload);
+          if (payload?.signalThresholdPct != null) {
+            setThreshold(payload.signalThresholdPct);
+          }
           const sim = parseSimulationTimeEt(payload?.simulationTimeEt);
           if (sim && !isAssessmentNow(sim)) {
             setAssessmentModeState("et");
@@ -303,6 +310,11 @@ export function usePremarketWorkspace() {
     setAssessmentError(null);
   }, []);
 
+  const setThresholdPct = useCallback((value: number) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(value)));
+    setThreshold(clamped);
+  }, []);
+
   const startEvaluate = useCallback(
     async (mode: "strategies" | "rules" = "strategies", allowRetry = true) => {
       if (evaluateInFlightRef.current) return;
@@ -312,7 +324,10 @@ export function usePremarketWorkspace() {
       setStartPending(true);
       setError(null);
       setNotice(null);
-      const evaluateRequest = resolveEvaluateRequest();
+      const evaluateRequest = {
+        ...resolveEvaluateRequest(),
+        options: { signalThresholdPct: threshold },
+      };
 
       try {
         if (mode === "rules") {
@@ -353,7 +368,7 @@ export function usePremarketWorkspace() {
         setStartPending(false);
       }
     },
-    [activeStrategies, assessmentError, assessmentMode, resolveEvaluateRequest, selectedRuleKeys],
+    [activeStrategies, assessmentError, assessmentMode, resolveEvaluateRequest, selectedRuleKeys, threshold],
   );
 
   const stopEvaluate = useCallback(async () => {
@@ -418,7 +433,9 @@ export function usePremarketWorkspace() {
     stopPending,
     error,
     notice,
-    threshold: result?.signalThresholdPct ?? DEFAULT_THRESHOLD,
+    threshold: result?.signalThresholdPct ?? threshold,
+    thresholdInput: threshold,
+    setThresholdPct,
     assessmentMode,
     assessmentAt,
     assessmentError,

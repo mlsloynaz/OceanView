@@ -323,7 +323,7 @@ export async function postDynamicEvaluate(
 
     body: JSON.stringify({
       assessmentTimeMode: body.assessmentTimeMode ?? "now",
-      options: { signalThresholdPct: 0, ...body.options },
+      ...(body.options ? { options: body.options } : {}),
       ...(body.simulationTimeEt ? { simulationTimeEt: body.simulationTimeEt } : {}),
       strategyIds: body.strategyIds,
       ruleKeys: body.ruleKeys,

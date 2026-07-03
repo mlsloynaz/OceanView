@@ -47,6 +47,10 @@ export function RuleRequirementsList({
         const suffix = suffixForRow(row);
         const passedTime = passedTimeForRow(row);
         const metrics = showMetrics ? formatRuleThresholdSummary(row.evidence) : null;
+        const showEvidence =
+          Boolean(row.evidence?.trim()) &&
+          row.status !== "pending" &&
+          (row.status === "not_met" || !metrics || row.status === "met");
         const showTime = passedTime && (highlightPassedTime || showPassedTime);
 
         return (
@@ -107,7 +111,7 @@ export function RuleRequirementsList({
                 {metrics}
               </p>
             )}
-            {row.evidence && row.status !== "pending" && !metrics && (
+            {showEvidence && !metrics && (
               <p
                 className={cn(
                   "leading-snug",
@@ -120,7 +124,7 @@ export function RuleRequirementsList({
                 {row.evidence}
               </p>
             )}
-            {row.evidence && row.status !== "pending" && metrics && (
+            {showEvidence && metrics && (
               <p
                 className={cn(
                   "leading-snug text-ocean-sand/60",

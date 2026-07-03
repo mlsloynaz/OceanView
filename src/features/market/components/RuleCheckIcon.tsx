@@ -54,9 +54,24 @@ export function RuleCheckIcon({ status, title, className }: Props) {
     );
   }
 
+  if (status === "not_met") {
+    return (
+      <span
+        className={cn(
+          "inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center",
+          className,
+        )}
+        title={tip}
+        aria-label={tip}
+      >
+        <span className="h-2.5 w-2.5 rounded-full bg-orange-500 dark:bg-orange-400" />
+      </span>
+    );
+  }
+
   return (
-    <span className={cn("inline-flex w-3.5 leading-none text-orange-600 dark:text-orange-400", className)} title={tip} aria-label={tip}>
-      ○
+    <span className={cn("inline-flex w-3.5 leading-none text-ocean-sand", className)} title={tip} aria-label={tip}>
+      ·
     </span>
   );
 }

@@ -1,5 +1,5 @@
 import type { RuleDisplayRow } from "@/features/market/types";
-import { qualityBadgeClass } from "@/features/market/display";
+import { qualityBadgeClass, normalizeRuleStatus } from "@/features/market/display";
 import { formatAchievedTimeEt } from "@/features/market/display";
 import type { PremarketRuleRow } from "./types";
 
@@ -51,7 +51,7 @@ export function toPremarketDisplayRules(
     ruleKey: row.ruleKey,
     label: row.label,
     type: row.type as RuleDisplayRow["type"],
-    status: row.status as RuleDisplayRow["status"],
+    status: normalizeRuleStatus(row.status),
     metAtEt: row.metAtEt,
     evidence: row.evidence,
   }));

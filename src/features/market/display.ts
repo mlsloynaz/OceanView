@@ -66,6 +66,24 @@ export function ruleStatusClass(status: RuleStatus): string {
   );
 }
 
+/** Map API / legacy statuses to UI rule icons. */
+export function normalizeRuleStatus(status: string | undefined | null): RuleStatus {
+  const value = (status ?? "pending").toLowerCase();
+  if (
+    value === "met" ||
+    value === "partial" ||
+    value === "not_met" ||
+    value === "pending" ||
+    value === "about_to_cross"
+  ) {
+    return value;
+  }
+  if (value === "unknown" || value === "failed" || value === "skipped") {
+    return "not_met";
+  }
+  return "pending";
+}
+
 export function buildStrategyCards(
   catalog: StrategyCatalogItem[],
   snapshot: MarketSnapshotFile,
@@ -203,7 +221,7 @@ export function mergeRuleDisplay(
       ruleKey: rule.ruleKey,
       label: rule.label,
       type: rule.type,
-      status: ev?.status ?? "pending",
+      status: normalizeRuleStatus(ev?.status),
       metAtEt: ev?.metAtEt,
       evidence: ev?.evidence,
     };
@@ -285,4 +303,30 @@ export function extractTimeFromEvidence(evidence: string | null | undefined): st
 
 export function resolveRulePassedTime(metAtEt?: string | null, evidence?: string | null): string | null {
   return formatRulePassedTimeOnly(metAtEt) ?? extractTimeFromEvidence(evidence);
+}
+
+/** Compact measured vs threshold line for rule detail rows. */
+export function formatRuleThresholdSummary(evidence: string | null | undefined): string | null {
+  if (!evidence?.trim()) return null;
+  const parts: string[] = [];
+  const indexVal = evidence.match(/\bindex ([\d.]+)/i);
+  const atrVal = evidence.match(/ATR ratio ([\d.]+)/i);
+  const needClause = evidence.match(/\(need ([^)]+)\)/i);
+  const slopePct = evidence.match(/([+-][\d.]+)% en \d+ velas/i);
+  const openInside = evidence.match(/Open ([\d.]+) (inside|outside) BB/i);
+  const bbWidth = evidence.match(/BB width ([\d.]+)%/i);
+
+  if (bbWidth) parts.push(`BB width ${bbWidth[1]}%`);
+  if (indexVal) parts.push(`index ${indexVal[1]}`);
+  if (atrVal) parts.push(`ATR ${atrVal[1]}`);
+  if (openInside) parts.push(`open ${openInside[1]} ${openInside[2]}`);
+  if (slopePct) parts.push(`slope ${slopePct[1]}%`);
+  if (needClause) parts.push(`need ${needClause[1]}`);
+
+  if (parts.length > 0) return parts.join(" · ");
+
+  const afterColon = evidence.match(/:\s*(.{12,120})/);
+  if (afterColon) return afterColon[1].trim();
+
+  return evidence.length > 120 ? `${evidence.slice(0, 117)}…` : evidence;
 }

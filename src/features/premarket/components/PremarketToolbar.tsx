@@ -14,6 +14,8 @@ type Props = {
   startPending: boolean;
   stopPending: boolean;
   loading: boolean;
+  threshold: number;
+  onThresholdChange: (value: number) => void;
   assessmentMode: AssessmentTimeMode;
   assessmentAt: Date;
   assessmentError: string | null;
@@ -24,6 +26,8 @@ type Props = {
   onRefresh: () => void;
 };
 
+const THRESHOLD_PRESETS = [0, 50, 75] as const;
+
 export function PremarketToolbar({
   result,
   activeStrategyCount,
@@ -31,6 +35,8 @@ export function PremarketToolbar({
   startPending,
   stopPending,
   loading,
+  threshold,
+  onThresholdChange,
   assessmentMode,
   assessmentAt,
   assessmentError,
@@ -69,10 +75,63 @@ export function PremarketToolbar({
       ) : (
         <p className="text-[10px] text-ocean-sand/70">
           {assessmentMode === "now"
-            ? "Now evaluates at the current Eastern time with live extended-hours bars (not stored in Admin candles)."
-            : "ET uses stored candle history only — bars through the time you enter."}
+            ? "Now — live Schwab bars including pre/post market (in memory only, never saved to Admin candles)."
+            : "ET — stored regular-session candles from Dynamo only (9:30 AM–4:00 PM, no pre/post data)."}
         </p>
       )}
+
+      <div className="rounded-lg border border-ocean-mid/40 bg-ocean-deep/20 px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <label htmlFor="premarket-quality-threshold" className="text-xs font-medium text-ocean-foam">
+            Quality threshold
+          </label>
+          <div className="flex items-center gap-1.5">
+            <input
+              id="premarket-quality-threshold"
+              type="number"
+              min={0}
+              max={100}
+              step={5}
+              value={threshold}
+              disabled={busy}
+              onChange={(e) => {
+                const next = Number.parseInt(e.target.value, 10);
+                if (!Number.isNaN(next)) onThresholdChange(next);
+              }}
+              className="w-16 rounded-md border border-ocean-mid/50 bg-ocean-deep px-2 py-1 text-xs tabular-nums text-ocean-foam focus:border-ocean-teal/60 focus:outline-none disabled:opacity-50"
+            />
+            <span className="text-xs text-ocean-sand">%</span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {THRESHOLD_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                disabled={busy}
+                onClick={() => onThresholdChange(preset)}
+                className={cn(
+                  "rounded px-2 py-0.5 text-[10px] font-semibold transition-colors disabled:opacity-50",
+                  threshold === preset
+                    ? "bg-ocean-teal/20 text-ocean-teal-dim dark:text-ocean-teal"
+                    : "border border-ocean-mid/50 text-ocean-sand hover:border-ocean-teal/40 hover:text-ocean-foam",
+                )}
+              >
+                {preset === 0 ? "All" : `${preset}%`}
+              </button>
+            ))}
+          </div>
+          {result?.signalThresholdPct != null && result.signalThresholdPct !== threshold && (
+            <span className="text-[10px] text-ocean-sand">
+              Last run used {result.signalThresholdPct}%
+            </span>
+          )}
+        </div>
+        <p className="mt-1.5 text-[10px] text-ocean-sand/70">
+          {threshold === 0
+            ? "0% lists every evaluated ticker. Raise the threshold to hide tickers below that quality score."
+            : `Only tickers with quality ≥ ${threshold}% appear in results. Green badges use this threshold.`}
+        </p>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <button
@@ -135,6 +194,12 @@ export function PremarketToolbar({
           <span title="Bars sliced to this Eastern time">
             Bars as of:{" "}
             <strong className="text-ocean-foam">{formatSimTimeEt(result.simulationTimeEt)}</strong>
+          </span>
+        )}
+        {result?.signalThresholdPct != null && (
+          <span>
+            Threshold:{" "}
+            <strong className="text-ocean-foam">{result.signalThresholdPct}%</strong>
           </span>
         )}
         {result?.runId && (

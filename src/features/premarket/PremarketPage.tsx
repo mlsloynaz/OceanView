@@ -84,6 +84,8 @@ export function PremarketPage() {
         startPending={ws.startPending}
         stopPending={ws.stopPending}
         loading={ws.loading}
+        threshold={ws.thresholdInput}
+        onThresholdChange={ws.setThresholdPct}
         assessmentMode={ws.assessmentMode}
         assessmentAt={ws.assessmentAt}
         assessmentError={ws.assessmentError}
@@ -120,10 +122,12 @@ export function PremarketPage() {
         <div className="space-y-4">
           {ws.result?.summary && (
             <p className="text-xs text-ocean-sand">
-              {ws.result.summary.symbolsAboveThreshold ?? 0} hit(s) across{" "}
+              {ws.result.summary.symbolsAboveThreshold ?? 0} hit(s) at ≥ {ws.threshold}%
+              {" · "}
               {ws.result.summary.strategyCount ?? resultStrategies.length} strateg
-              {(ws.result.summary.strategyCount ?? resultStrategies.length) === 1 ? "y" : "ies"}{" "}
-              · {ws.result.summary.symbolsTotal ?? "—"} symbols evaluated
+              {(ws.result.summary.strategyCount ?? resultStrategies.length) === 1 ? "y" : "ies"}
+              {" · "}
+              {ws.result.summary.symbolsTotal ?? "—"} symbols evaluated
             </p>
           )}
           {resultStrategies.map((group) => (
@@ -136,11 +140,22 @@ export function PremarketPage() {
         </div>
       )}
 
-      {showEmpty && <PremarketEmptyState threshold={ws.threshold} />}
+      {showEmpty && (
+        <PremarketEmptyState hasActiveStrategies={ws.activeStrategies.length > 0} />
+      )}
+
+      {hasResults && ws.threshold > 0 && (ws.result?.summary?.symbolsAboveThreshold ?? 0) === 0 && (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+          No tickers reached ≥ {ws.threshold}% quality — expand tickers below to see per-rule
+          evidence. Volatility often reads <strong>not met</strong> at the open until BB width and
+          ATR expand (need index ≥ 1.35 and ATR ratio ≥ 1.20 on 15m).
+        </p>
+      )}
 
       {!hasResults && ws.result && !ws.startPending && !ws.loading && (
         <p className="rounded-lg border border-ocean-mid/40 bg-ocean-surface px-4 py-3 text-sm text-ocean-sand">
-          Run complete — no tickers matched the selected strategies.
+          Run finished but no strategy groups were returned. Confirm the strategy is{" "}
+          <strong className="text-ocean-foam">active</strong> and was included in the evaluate request.
         </p>
       )}
 
