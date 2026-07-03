@@ -1,13 +1,16 @@
 import { Link } from "react-router-dom";
+import { useStrategiesPane } from "@/features/admin/strategies/hooks/useStrategiesPane";
 import { PremarketBanner } from "./components/PremarketBanner";
 import { PremarketDiagnostics } from "./components/PremarketDiagnostics";
 import { PremarketEmptyState } from "./components/PremarketEmptyState";
 import { PremarketStrategySection } from "./components/PremarketStrategySection";
 import { PremarketToolbar } from "./components/PremarketToolbar";
+import { StrategyBuilderModal } from "./components/StrategyBuilderModal";
 import { usePremarketWorkspace } from "./hooks/usePremarketWorkspace";
 
 export function PremarketPage() {
   const ws = usePremarketWorkspace();
+  const builder = useStrategiesPane();
 
   const resultStrategies = ws.result?.strategies ?? [];
   const hasResults = resultStrategies.length > 0;
@@ -19,7 +22,9 @@ export function PremarketPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam">Premarket</h1>
         <p className="mt-2 text-ocean-sand">
-          Evaluate active dynamic strategies against active tickers. Create and edit strategies in{" "}
+          Evaluate active dynamic strategies against active tickers. Use{" "}
+          <strong className="font-medium text-ocean-foam">Strategy builder</strong> below or manage
+          screens in{" "}
           <Link to="/admin" className="text-ocean-teal hover:underline">
             Admin
           </Link>
@@ -62,11 +67,41 @@ export function PremarketPage() {
         onStart={() => void ws.startEvaluate()}
         onStop={() => void ws.stopEvaluate()}
         onRefresh={() => void ws.refreshResult()}
+        onOpenStrategyBuilder={builder.openBuilderForNew}
+        strategyBuilderDisabled={builder.loading}
       />
 
-      {ws.notice && (
+      {builder.builderOpen && (
+        <StrategyBuilderModal
+          rules={builder.rules}
+          selectedRuleKeys={builder.selectedRuleKeys}
+          name={builder.builderName}
+          shortName={builder.builderShortName}
+          description={builder.builderDescription}
+          direction={builder.builderDirection}
+          editingStrategyId={builder.editingStrategyId}
+          saving={builder.saving}
+          startPending={builder.previewPending}
+          error={builder.error}
+          onNameChange={builder.setBuilderName}
+          onShortNameChange={builder.setBuilderShortName}
+          onDescriptionChange={builder.setBuilderDescription}
+          onDirectionChange={builder.setBuilderDirection}
+          onAddRule={builder.addRuleToBuilder}
+          onRemoveRule={builder.removeRuleFromBuilder}
+          onMoveRule={builder.moveRuleInBuilder}
+          onSave={async () => {
+            const saved = await builder.saveBuilder();
+            if (saved) void ws.reloadCatalog();
+          }}
+          onPreview={() => void builder.previewBuilder()}
+          onClose={builder.closeBuilder}
+        />
+      )}
+
+      {(ws.notice || builder.notice) && (
         <p className="text-sm text-ocean-teal-dim dark:text-ocean-teal" role="status">
-          {ws.notice}
+          {builder.notice ?? ws.notice}
         </p>
       )}
       {ws.error && (

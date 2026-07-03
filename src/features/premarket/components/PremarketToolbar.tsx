@@ -24,6 +24,8 @@ type Props = {
   onStart: () => void;
   onStop: () => void;
   onRefresh: () => void;
+  onOpenStrategyBuilder: () => void;
+  strategyBuilderDisabled?: boolean;
 };
 
 const THRESHOLD_PRESETS = [0, 50, 75] as const;
@@ -45,6 +47,8 @@ export function PremarketToolbar({
   onStart,
   onStop,
   onRefresh,
+  onOpenStrategyBuilder,
+  strategyBuilderDisabled = false,
 }: Props) {
   const busy = evaluateRunning || stopPending || loading;
   const evaluateDisabled =
@@ -60,6 +64,17 @@ export function PremarketToolbar({
             only.
           </p>
         </div>
+        <button
+          type="button"
+          className={cn(
+            BTN,
+            "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-ocean-teal/50",
+          )}
+          disabled={busy || strategyBuilderDisabled}
+          onClick={onOpenStrategyBuilder}
+        >
+          Strategy builder
+        </button>
       </div>
 
       <SimulationTimeControl
