@@ -3,8 +3,13 @@ import { cn } from "@/shared/lib/cn";
 import { CollapsibleSection } from "@/shared/components/CollapsibleSection";
 import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
 import { setupScanApiBaseUrl, setupScanUsesMock } from "./api/preselection-client";
+import {
+  helpForCriterion,
+  SETUP_SCAN_TIER_HELP,
+  criterionKeyFromReason,
+} from "./criterion-help";
 import { useSetupScanPane } from "./hooks/useSetupScanPane";
-import type { PreselectionTickerRow } from "./types";
+import type { PreselectionBreakdownRow, PreselectionTickerRow } from "./types";
 
 const TIER_CLASS: Record<string, string> = {
   excellent: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200",
@@ -16,6 +21,58 @@ const TIER_CLASS: Record<string, string> = {
 
 function tierLabel(tier: string) {
   return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
+
+function BreakdownRow({ row }: { row: PreselectionBreakdownRow }) {
+  const help = helpForCriterion(row.key);
+  return (
+    <li className="rounded border border-ocean-mid/40 bg-ocean-deep/40 px-3 py-2 text-xs">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <span className="font-medium text-ocean-foam">{help?.title ?? row.key}</span>
+          {help && (
+            <p className="mt-1 leading-relaxed text-ocean-sand/90">{help.description}</p>
+          )}
+        </div>
+        <span className={cn("shrink-0 tabular-nums", row.met ? "text-ocean-teal" : "text-ocean-sand")}>
+          {row.points}/{row.maxPoints}
+        </span>
+      </div>
+      <p className="mt-2 border-t border-ocean-mid/30 pt-2 text-ocean-sand">
+        <span className="font-medium text-ocean-foam/90">{row.met ? "Met:" : "Not met:"}</span>{" "}
+        {row.label}
+      </p>
+    </li>
+  );
+}
+
+function ReasonLine({ line }: { line: string }) {
+  const key = criterionKeyFromReason(line);
+  const help = key ? helpForCriterion(key) : null;
+  return (
+    <li className="leading-relaxed">
+      <span className="text-ocean-foam">{line}</span>
+      {help && (
+        <p className="mt-0.5 text-[11px] text-ocean-sand/85">{help.description}</p>
+      )}
+    </li>
+  );
+}
+
+function AvoidLine({ line }: { line: string }) {
+  const key = criterionKeyFromReason(line);
+  const help = key ? helpForCriterion(key) : null;
+  return (
+    <li className="leading-relaxed">
+      <span className="font-medium text-amber-900 dark:text-amber-100">
+        {help?.title ?? line.split(":")[0]}
+      </span>
+      {help ? (
+        <p className="mt-0.5 text-[11px] text-amber-900/90 dark:text-amber-100/90">{help.description}</p>
+      ) : null}
+      <p className="mt-0.5 text-xs text-amber-800/80 dark:text-amber-100/80">{line}</p>
+    </li>
+  );
 }
 
 function DetailModal({
@@ -47,12 +104,18 @@ function DetailModal({
           </span>
         </div>
 
+        <p className="rounded-lg border border-ocean-mid/35 bg-ocean-deep/25 px-3 py-2 text-[11px] leading-relaxed text-ocean-sand">
+          {SETUP_SCAN_TIER_HELP}
+        </p>
+
         {ticker.reasons.length > 0 && (
           <div>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ocean-sand">Reasons</h3>
-            <ul className="list-inside list-disc space-y-1 text-ocean-foam">
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
+              Points earned
+            </h3>
+            <ul className="list-none space-y-2 pl-0">
               {ticker.reasons.map((line) => (
-                <li key={line}>{line}</li>
+                <ReasonLine key={line} line={line} />
               ))}
             </ul>
           </div>
@@ -60,10 +123,12 @@ function DetailModal({
 
         {ticker.avoidReasons.length > 0 && (
           <div>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ocean-sand">Avoid flags</h3>
-            <ul className="list-inside list-disc space-y-1 text-amber-800 dark:text-amber-100">
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
+              Avoid flags
+            </h3>
+            <ul className="list-none space-y-2 pl-0">
               {ticker.avoidReasons.map((line) => (
-                <li key={line}>{line}</li>
+                <AvoidLine key={line} line={line} />
               ))}
             </ul>
           </div>
@@ -71,21 +136,12 @@ function DetailModal({
 
         {ticker.breakdown.length > 0 && (
           <div>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ocean-sand">Breakdown</h3>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
+              Full checklist
+            </h3>
             <ul className="space-y-2">
               {ticker.breakdown.map((row) => (
-                <li
-                  key={row.key}
-                  className="rounded border border-ocean-mid/40 bg-ocean-deep/40 px-3 py-2 text-xs"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-ocean-foam">{row.key}</span>
-                    <span className={row.met ? "text-ocean-teal" : "text-ocean-sand"}>
-                      {row.points}/{row.maxPoints}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-ocean-sand">{row.label}</p>
-                </li>
+                <BreakdownRow key={row.key} row={row} />
               ))}
             </ul>
           </div>
@@ -116,6 +172,44 @@ export function SetupScanPane() {
         className="min-w-0"
         headerExtra={
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex items-center gap-1 rounded border border-ocean-mid/50 bg-ocean-deep/60 p-0.5 text-[11px]">
+              <button
+                type="button"
+                className={cn(
+                  "rounded px-2 py-0.5 font-medium transition-colors",
+                  ws.scanMode === "live"
+                    ? "bg-ocean-teal/20 text-ocean-foam"
+                    : "text-ocean-sand hover:text-ocean-foam",
+                )}
+                onClick={() => ws.setScanMode("live")}
+              >
+                Live
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "rounded px-2 py-0.5 font-medium transition-colors",
+                  ws.scanMode === "simulate"
+                    ? "bg-ocean-teal/20 text-ocean-foam"
+                    : "text-ocean-sand hover:text-ocean-foam",
+                )}
+                onClick={() => ws.setScanMode("simulate")}
+              >
+                Simulate
+              </button>
+            </div>
+            {ws.scanMode === "simulate" && (
+              <label className="flex items-center gap-1 text-[11px] text-ocean-sand">
+                Session
+                <input
+                  type="date"
+                  value={ws.simulationDate}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => ws.setSimulationDate(e.target.value)}
+                  className="rounded border border-ocean-mid/60 bg-ocean-deep px-1 py-0.5 text-ocean-foam"
+                />
+              </label>
+            )}
             <label className="flex items-center gap-1 text-[11px] text-ocean-sand">
               Min score
               <input
@@ -153,10 +247,24 @@ export function SetupScanPane() {
         )}
 
         <p className="mb-3 text-xs text-ocean-sand">
-          Scans all catalog tickers (active and inactive). Refreshes candles when data is older than
-          the last RTH session. Does not run during Market or Premarket evaluate — use this to pick
-          which tickers to activate.
+          Scans all catalog tickers (active and inactive). Live mode refreshes stale candles through
+          the last completed session. Simulate mode scores post-market of a chosen session day using
+          stored bars only — no candle refresh.
         </p>
+
+        {ws.scanMode === "simulate" && (
+          <p className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
+            Simulation uses session close (4:00 PM ET, or 1:00 PM on early-close days). Pick a NYSE
+            market day — weekends and holidays are rejected.
+          </p>
+        )}
+
+        {ws.result?.simulated && (
+          <p className="mb-3 rounded-lg border border-ocean-teal/40 bg-ocean-teal/10 px-3 py-2 text-xs text-ocean-foam">
+            Simulated post-market scan for {ws.result.simulationDate ?? ws.result.tradeDate}
+            {ws.result.simulationTimeEt ? ` · anchor ${ws.result.simulationTimeEt}` : ""}.
+          </p>
+        )}
 
         {ws.message && (
           <p className="mb-2 text-sm text-ocean-teal-dim dark:text-ocean-teal" role="status">
@@ -173,7 +281,7 @@ export function SetupScanPane() {
           <p className="mb-3 rounded-lg border border-ocean-mid/40 bg-ocean-deep/30 px-3 py-2 text-xs text-ocean-sand">
             Candles: {ws.result.candles.symbolsRefreshed ?? 0} refreshed of{" "}
             {ws.result.candles.symbolsStale ?? 0} stale / {ws.result.candles.symbolsTotal ?? 0} total
-            {ws.result.candles.skippedRefresh ? " (already current)" : ""}.
+            {ws.result.candles.skippedRefresh ? " (refresh skipped)" : ""}.
             {ws.result.tradeDate ? ` Trade date ${ws.result.tradeDate}.` : ""}
           </p>
         )}

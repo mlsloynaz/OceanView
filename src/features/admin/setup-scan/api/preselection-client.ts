@@ -69,13 +69,24 @@ export function setupScanApiBaseUrl(): string | null {
   return API_BASE || null;
 }
 
-export async function postSetupScanRun(body?: {
+export type SetupScanRunOptions = {
   strategyIds?: string[];
   minScore?: number;
-}): Promise<PreselectionResultResponse> {
+  simulationDate?: string;
+};
+
+export async function postSetupScanRun(body?: SetupScanRunOptions): Promise<PreselectionResultResponse> {
   if (USE_MOCK) {
     await delay(1200);
-    return { ...MOCK_SETUP_SCAN_RESULT, evaluatedAt: new Date().toISOString() };
+    const simDate = body?.simulationDate;
+    return {
+      ...MOCK_SETUP_SCAN_RESULT,
+      evaluatedAt: new Date().toISOString(),
+      simulated: Boolean(simDate),
+      simulationDate: simDate ?? null,
+      tradeDate: simDate ?? MOCK_SETUP_SCAN_RESULT.tradeDate,
+      simulationTimeEt: simDate ? `${simDate}T16:00:00-04:00` : MOCK_SETUP_SCAN_RESULT.simulationTimeEt,
+    };
   }
   const { data } = await fetchJson<PreselectionResultResponse>(
     "/preselection/run",
@@ -83,6 +94,7 @@ export async function postSetupScanRun(body?: {
       method: "POST",
       body: JSON.stringify({
         strategyIds: body?.strategyIds,
+        simulationDate: body?.simulationDate,
         options: { minScore: body?.minScore ?? 0 },
       }),
     },

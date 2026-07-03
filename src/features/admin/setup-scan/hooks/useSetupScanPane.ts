@@ -8,9 +8,13 @@ import {
 } from "../api/preselection-client";
 import type { PreselectionResultResponse, PreselectionTickerRow } from "../types";
 
+export type SetupScanMode = "live" | "simulate";
+
 export function useSetupScanPane(open: boolean) {
   const [result, setResult] = useState<PreselectionResultResponse | null>(null);
   const [minScore, setMinScore] = useState(0);
+  const [scanMode, setScanMode] = useState<SetupScanMode>("live");
+  const [simulationDate, setSimulationDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [runPending, startRunTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -46,8 +50,15 @@ export function useSetupScanPane(open: boolean) {
     startRunTransition(async () => {
       setError(null);
       setMessage(null);
+      if (scanMode === "simulate" && !simulationDate.trim()) {
+        setError("Pick a session date for simulation.");
+        return;
+      }
       try {
-        const ack = await postSetupScanRun({ minScore });
+        const ack = await postSetupScanRun({
+          minScore,
+          simulationDate: scanMode === "simulate" ? simulationDate.trim() : undefined,
+        });
         const runId = ack.runId;
         if ((ack.status ?? "").toLowerCase() === "complete" && ack.strategies?.length) {
           setResult(ack);
@@ -88,7 +99,7 @@ export function useSetupScanPane(open: boolean) {
         setError(err instanceof Error ? err.message : "Setup scan failed.");
       }
     });
-  }, [minScore]);
+  }, [minScore, scanMode, simulationDate]);
 
   const setActive = useCallback(async (symbol: string, active: boolean) => {
     const upper = symbol.trim().toUpperCase();
@@ -124,6 +135,10 @@ export function useSetupScanPane(open: boolean) {
     result,
     minScore,
     setMinScore,
+    scanMode,
+    setScanMode,
+    simulationDate,
+    setSimulationDate,
     loading,
     runPending,
     error,

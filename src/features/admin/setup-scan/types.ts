@@ -34,6 +34,8 @@ export type PreselectionStrategyGroup = {
 export type PreselectionCandlesMeta = {
   referenceThroughEt?: string;
   tradeDate?: string;
+  simulationDate?: string | null;
+  simulated?: boolean;
   symbolsTotal?: number;
   symbolsStale?: number;
   symbolsRefreshed?: number;
@@ -47,6 +49,8 @@ export type PreselectionResultResponse = {
   status: string;
   message?: string;
   simulationTimeEt?: string;
+  simulationDate?: string | null;
+  simulated?: boolean;
   tradeDate?: string;
   evaluatedAt?: string;
   minScore?: number;
