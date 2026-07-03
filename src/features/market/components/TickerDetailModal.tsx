@@ -4,15 +4,19 @@ import type { EntryWindow } from "../lib/entry-window";
 import { formatEntryWindow } from "../lib/entry-window";
 import type { StrategyCatalogItem, TickerEvalResult } from "../types";
 import {
-  directionBadgeClass,
   isSignal,
   mergeRuleDisplay,
-  qualityBadgeClass,
 } from "../display";
 import { MarketDetailModal } from "./MarketDetailModal";
 import { RuleCheckStrip } from "./RuleCheckStrip";
 import { RuleRequirementsList } from "./RuleRequirementsList";
+import {
+  DirectionDisplay,
+  DangersPanel,
+  QualityDisplay,
+} from "./StrategyAssessMeta";
 import { cn } from "@/shared/lib/cn";
+import type { StrategyAssessExtras } from "../types";
 
 type Props = {
   symbol: string;
@@ -24,12 +28,11 @@ type Props = {
   onClose: () => void;
 };
 
-type StrategyRow = {
+type StrategyRow = StrategyAssessExtras & {
   strategyId: string;
   name: string;
   entryWindow?: EntryWindow;
   qualityPct: number;
-  direction: TickerEvalResult["strategies"][0]["direction"];
   rules: ReturnType<typeof mergeRuleDisplay>;
 };
 
@@ -60,6 +63,11 @@ export function TickerDetailModal({
             entryWindow: catalog?.entryWindow,
             qualityPct: ev.qualityPct,
             direction: ev.direction,
+            directionEvidence: ev.directionEvidence,
+            directionConfidence: ev.directionConfidence,
+            qualityPctRaw: ev.qualityPctRaw,
+            dangerPenaltyPct: ev.dangerPenaltyPct,
+            dangers: ev.dangers,
             rules: catalog ? mergeRuleDisplay(catalog.rules, ev.rules) : [],
           };
         }),
@@ -103,6 +111,11 @@ export function TickerDetailModal({
               entryWindow: catalog?.entryWindow,
               qualityPct: ev.qualityPct,
               direction: ev.direction,
+              directionEvidence: ev.directionEvidence,
+              directionConfidence: ev.directionConfidence,
+              qualityPctRaw: ev.qualityPctRaw,
+              dangerPenaltyPct: ev.dangerPenaltyPct,
+              dangers: ev.dangers,
               rules,
             };
           }),
@@ -171,29 +184,23 @@ export function TickerDetailModal({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-ocean-foam">{ev.name}</span>
-                      {ev.direction && (
-                        <span
-                          className={cn(
-                            "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
-                            directionBadgeClass(ev.direction),
-                          )}
-                        >
-                          {ev.direction}
-                        </span>
-                      )}
+                      <DirectionDisplay
+                        direction={ev.direction}
+                        directionEvidence={ev.directionEvidence}
+                        directionConfidence={ev.directionConfidence}
+                        compact
+                      />
                     </div>
                     {entryWindowLabel && (
                       <p className="mt-0.5 text-[11px] text-ocean-sand">{entryWindowLabel}</p>
                     )}
                   </div>
-                  <span
-                    className={cn(
-                      "shrink-0 rounded px-2 py-0.5 text-xs font-semibold tabular-nums",
-                      qualityBadgeClass(ev.qualityPct, threshold),
-                    )}
-                  >
-                    {ev.qualityPct}%
-                  </span>
+                  <QualityDisplay
+                    qualityPct={ev.qualityPct}
+                    threshold={threshold}
+                    qualityPctRaw={ev.qualityPctRaw}
+                    dangerPenaltyPct={ev.dangerPenaltyPct}
+                  />
                   <RuleCheckStrip rules={ev.rules} />
                   <svg
                     viewBox="0 0 20 20"
@@ -209,12 +216,20 @@ export function TickerDetailModal({
                   </svg>
                 </button>
 
-                {expanded && ev.rules.length > 0 && (
-                  <div className="border-t border-ocean-mid/30 bg-ocean-deep/30 px-3 py-3">
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">
-                      Strategy criteria
-                    </p>
-                    <RuleRequirementsList rules={ev.rules} />
+                {expanded && (
+                  <div className="border-t border-ocean-mid/30 bg-ocean-deep/30 px-3 py-3 space-y-3">
+                    {ev.directionEvidence && (
+                      <p className="text-xs leading-relaxed text-ocean-sand">{ev.directionEvidence}</p>
+                    )}
+                    <DangersPanel dangers={ev.dangers} />
+                    {ev.rules.length > 0 && (
+                      <>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">
+                          Strategy criteria
+                        </p>
+                        <RuleRequirementsList rules={ev.rules} />
+                      </>
+                    )}
                   </div>
                 )}
               </li>

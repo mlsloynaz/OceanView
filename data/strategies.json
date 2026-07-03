@@ -182,7 +182,7 @@
         {
           "id": "bb15-r2",
           "ruleKey": "open_inside_bb_15m",
-          "label": "Open dentro BB 15m (9:30)",
+          "label": "Apertura dentro de Bollinger (15M)",
           "type": "gate",
           "timeframe": "15m"
         },

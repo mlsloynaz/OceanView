@@ -10,13 +10,14 @@ import {
   formatEntryWindow,
   isSignal,
   mergeRuleDisplay,
-  qualityBadgeClass,
   strategyAchievedAtEt,
   tickersForStrategy,
 } from "../display";
 import { MarketDetailModal } from "./MarketDetailModal";
 import { RuleCheckStrip } from "./RuleCheckStrip";
 import { RuleRequirementsList } from "./RuleRequirementsList";
+import { DirectionDisplay, DangersPanel, QualityDisplay } from "./StrategyAssessMeta";
+import type { StrategyAssessExtras } from "../types";
 import { cn } from "@/shared/lib/cn";
 
 type Props = {
@@ -28,7 +29,7 @@ type Props = {
   onClose: () => void;
 };
 
-type RowModel = {
+type RowModel = StrategyAssessExtras & {
   symbol: string;
   name: string | null;
   qualityPct: number;
@@ -71,6 +72,12 @@ function mapDetailRow(
     symbol: row.symbol,
     name: row.name,
     qualityPct: row.qualityPct,
+    direction: row.direction,
+    directionEvidence: row.directionEvidence,
+    directionConfidence: row.directionConfidence,
+    qualityPctRaw: row.qualityPctRaw,
+    dangerPenaltyPct: row.dangerPenaltyPct,
+    dangers: row.dangers,
     metCount: row.metCount,
     totalCount: row.totalCount,
     achievedAt,
@@ -102,6 +109,12 @@ export function StrategyDetailModal({
             symbol: row.symbol,
             name: row.name,
             qualityPct: row.eval.qualityPct,
+            direction: row.eval.direction,
+            directionEvidence: row.eval.directionEvidence,
+            directionConfidence: row.eval.directionConfidence,
+            qualityPctRaw: row.eval.qualityPctRaw,
+            dangerPenaltyPct: row.eval.dangerPenaltyPct,
+            dangers: row.eval.dangers,
             metCount: row.eval.metCount,
             totalCount: row.eval.totalCount,
             achievedAt: signal ? strategyAchievedAtEt(row.eval, strategy.rules) : null,
@@ -175,6 +188,7 @@ export function StrategyDetailModal({
             <thead>
               <tr className="border-b border-ocean-mid/40 bg-ocean-deep/40 text-[11px] uppercase tracking-wide text-ocean-sand">
                 <th className="px-3 py-2 font-semibold">Ticker</th>
+                <th className="px-3 py-2 font-semibold">Dir</th>
                 <th className="px-3 py-2 font-semibold">Quality</th>
                 <th className="px-3 py-2 font-semibold">Criteria</th>
                 <th className="px-3 py-2 font-semibold">Achieved</th>
@@ -201,14 +215,20 @@ export function StrategyDetailModal({
                         )}
                       </td>
                       <td className="px-3 py-2.5">
-                        <span
-                          className={cn(
-                            "inline-block rounded px-2 py-0.5 text-xs font-semibold tabular-nums",
-                            qualityBadgeClass(row.qualityPct, threshold),
-                          )}
-                        >
-                          {row.qualityPct}%
-                        </span>
+                        <DirectionDisplay
+                          direction={row.direction}
+                          directionEvidence={row.directionEvidence}
+                          directionConfidence={row.directionConfidence}
+                          compact
+                        />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <QualityDisplay
+                          qualityPct={row.qualityPct}
+                          threshold={threshold}
+                          qualityPctRaw={row.qualityPctRaw}
+                          dangerPenaltyPct={row.dangerPenaltyPct}
+                        />
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -256,7 +276,11 @@ export function StrategyDetailModal({
                     </tr>
                     {expanded && (
                       <tr key={`${row.symbol}-detail`} className="border-b border-ocean-mid/30 bg-ocean-deep/30">
-                        <td colSpan={5} className="px-3 py-3">
+                        <td colSpan={6} className="px-3 py-3 space-y-3">
+                          {row.directionEvidence && (
+                            <p className="text-xs leading-relaxed text-ocean-sand">{row.directionEvidence}</p>
+                          )}
+                          <DangersPanel dangers={row.dangers} />
                           <RuleRequirementsList rules={row.rules} />
                         </td>
                       </tr>

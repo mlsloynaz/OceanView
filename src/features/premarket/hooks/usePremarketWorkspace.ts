@@ -56,6 +56,7 @@ export function usePremarketWorkspace() {
   const [builderName, setBuilderName] = useState("");
   const [builderShortName, setBuilderShortName] = useState("");
   const [builderDescription, setBuilderDescription] = useState("");
+  const [builderDirection, setBuilderDirection] = useState<"" | "CALL" | "PUT">("");
   const [selectedRuleKeys, setSelectedRuleKeys] = useState<string[]>([]);
   const [builderOpen, setBuilderOpen] = useState(false);
 
@@ -164,6 +165,7 @@ export function usePremarketWorkspace() {
     setBuilderName("");
     setBuilderShortName("");
     setBuilderDescription("");
+    setBuilderDirection("");
     setSelectedRuleKeys([]);
     setCatalogError(null);
     setNotice(null);
@@ -184,6 +186,7 @@ export function usePremarketWorkspace() {
     setBuilderName(strategy.name);
     setBuilderShortName(strategy.shortName ?? "");
     setBuilderDescription(strategy.description ?? "");
+    setBuilderDirection(strategy.direction ?? "");
     setSelectedRuleKeys(strategy.rules.map((r) => r.ruleKey));
     setCatalogError(null);
     setBuilderOpen(true);
@@ -218,14 +221,20 @@ export function usePremarketWorkspace() {
     setCatalogSaving(true);
     setCatalogError(null);
     try {
+      const wasEdit = editingStrategyId != null;
+      const directionPayload = wasEdit
+        ? { direction: builderDirection || ("" as const) }
+        : builderDirection
+          ? { direction: builderDirection }
+          : {};
       const payload = {
         name,
         shortName: builderShortName.trim() || undefined,
         description: builderDescription.trim() || undefined,
+        ...directionPayload,
         ruleKeys: selectedRuleKeys,
         active: true,
       };
-      const wasEdit = editingStrategyId != null;
       const saved = wasEdit
         ? await patchDynamicStrategy(editingStrategyId, payload)
         : await createDynamicStrategy(payload);
@@ -246,6 +255,7 @@ export function usePremarketWorkspace() {
     }
   }, [
     builderDescription,
+    builderDirection,
     builderName,
     builderShortName,
     clearBuilder,
@@ -387,10 +397,12 @@ export function usePremarketWorkspace() {
     builderName,
     builderShortName,
     builderDescription,
+    builderDirection,
     selectedRuleKeys,
     setBuilderName,
     setBuilderShortName,
     setBuilderDescription,
+    setBuilderDirection,
     addRuleToBuilder,
     removeRuleFromBuilder,
     moveRuleInBuilder,

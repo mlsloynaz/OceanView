@@ -1,9 +1,9 @@
 import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
 import { RuleCheckStrip } from "@/features/market/components/RuleCheckStrip";
 import { RuleRequirementsList } from "@/features/market/components/RuleRequirementsList";
+import { StrategyAssessMeta } from "@/features/market/components/StrategyAssessMeta";
 import type { RuleDisplayRow } from "@/features/market/types";
-import { formatAchievedTimeEt, qualityBadgeClass } from "@/features/market/display";
-import { cn } from "@/shared/lib/cn";
+import { formatAchievedTimeEt } from "@/features/market/display";
 import type { PremarketStrategyGroup, PremarketTickerHit } from "../types";
 
 type Props = {
@@ -36,22 +36,21 @@ export function PremarketTickerDetailModal({ group, ticker, threshold, onClose }
     <MarketDetailModal
       open
       onClose={onClose}
-      title={
-        <span className="inline-flex flex-wrap items-center gap-2">
-          <span>{ticker.symbol}</span>
-          <span
-            className={cn(
-              "rounded-md px-2 py-0.5 text-sm font-semibold tabular-nums",
-              qualityBadgeClass(ticker.qualityPct, threshold),
-            )}
-          >
-            {ticker.qualityPct}%
-          </span>
-        </span>
-      }
+      title={ticker.symbol}
       subtitle={[ticker.name, strategyName].filter(Boolean).join(" · ")}
     >
       <div className="space-y-4">
+        <StrategyAssessMeta
+          direction={ticker.direction}
+          directionEvidence={ticker.directionEvidence}
+          directionConfidence={ticker.directionConfidence}
+          qualityPct={ticker.qualityPct}
+          threshold={threshold}
+          qualityPctRaw={ticker.qualityPctRaw}
+          dangerPenaltyPct={ticker.dangerPenaltyPct}
+          dangers={ticker.dangers}
+        />
+
         {achieved && (
           <p className="text-xs text-ocean-sand">
             Signal achieved at{" "}

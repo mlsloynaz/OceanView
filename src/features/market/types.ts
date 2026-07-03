@@ -41,10 +41,46 @@ export type RuleEval = {
 
 export type TradeDirection = "CALL" | "PUT";
 
-export type TickerStrategyEval = {
+export type DirectionConfidence = "high" | "medium" | "low";
+
+export type DirectionSource =
+  | "strategy_config"
+  | "playbook_e01"
+  | "playbook_e02"
+  | "playbook_e03"
+  | "playbook_e04"
+  | "playbook_e05"
+  | "inferred_rules"
+  | "inferred_trend1h"
+  | "unknown";
+
+export type DangerStatus = "passed" | "failed" | "unknown";
+
+export type DangerEval = {
+  dangerKey: string;
+  status: DangerStatus;
+  penaltyPct?: number;
+  evidence?: string | null;
+  direction?: TradeDirection | null;
+  gapUsd?: number | null;
+  obstacles?: Array<{ key?: string; label?: string; level?: number }>;
+};
+
+export type StrategyAssessExtras = {
+  direction?: TradeDirection | null;
+  directionSource?: DirectionSource | null;
+  directionConfidence?: DirectionConfidence | null;
+  directionEvidence?: string | null;
+  qualityPctRaw?: number | null;
+  adjustedQualityPct?: number | null;
+  dangerPenaltyPct?: number | null;
+  qualityInvalidated?: boolean;
+  dangers?: DangerEval[];
+};
+
+export type TickerStrategyEval = StrategyAssessExtras & {
   strategyId: string;
   qualityPct: number;
-  direction: TradeDirection | null;
   metCount: number;
   totalCount: number;
   metRequired: number;
@@ -169,11 +205,10 @@ export type TickerSnapshotItem = {
 
 export type RuleSnapshotItem = RuleCardModel;
 
-export type StrategyDetailRow = {
+export type StrategyDetailRow = StrategyAssessExtras & {
   symbol: string;
   name: string | null;
   qualityPct: number;
-  direction: TradeDirection | null;
   metCount: number;
   totalCount: number;
   metRequired?: number;

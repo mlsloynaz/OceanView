@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { DirectionDisplay } from "@/features/market/components/StrategyAssessMeta";
 import { cn } from "@/shared/lib/cn";
 import type { DynamicStrategy } from "../api/dynamic-strategy-client";
 import { normalizeTimeframe } from "../lib/builder-utils";
@@ -114,6 +115,9 @@ export function DynamicStrategyCatalog({
                       >
                         {strategy.active ? "active" : "inactive"}
                       </span>
+                      {strategy.direction && (
+                        <DirectionDisplay direction={strategy.direction} compact />
+                      )}
                       {strategy.description && (
                         <p className="mt-1 text-xs text-ocean-sand">{strategy.description}</p>
                       )}

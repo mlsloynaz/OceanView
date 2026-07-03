@@ -23,8 +23,23 @@ export const MOCK_PREMARKET_RESULT: PremarketResultResponse = {
         {
           symbol: "AAPL",
           name: "Apple Inc.",
-          qualityPct: 67,
+          qualityPct: 61,
+          qualityPctRaw: 67,
+          dangerPenaltyPct: -5.5,
+          direction: "CALL",
+          directionEvidence: "E01: tendencia HORA bajista previa → ruptura al alza → CALL.",
+          directionConfidence: "high",
           achievedAtEt: "09:22 AM",
+          dangers: [
+            {
+              dangerKey: "clear_path_4usd",
+              status: "failed",
+              penaltyPct: 5.5,
+              direction: "CALL",
+              evidence: "Camino libre CALL: $2.40 antes de MA40 1h ($182.50).",
+              gapUsd: 2.4,
+            },
+          ],
           rules: [
             {
               ruleKey: "trendline_1h",

@@ -55,6 +55,7 @@ export function PremarketPage() {
               name={ws.builderName}
               shortName={ws.builderShortName}
               description={ws.builderDescription}
+              direction={ws.builderDirection}
               editingStrategyId={ws.editingStrategyId}
               saving={ws.catalogSaving}
               startPending={ws.startPending}
@@ -62,6 +63,7 @@ export function PremarketPage() {
               onNameChange={ws.setBuilderName}
               onShortNameChange={ws.setBuilderShortName}
               onDescriptionChange={ws.setBuilderDescription}
+              onDirectionChange={ws.setBuilderDirection}
               onAddRule={ws.addRuleToBuilder}
               onRemoveRule={ws.removeRuleFromBuilder}
               onMoveRule={ws.moveRuleInBuilder}

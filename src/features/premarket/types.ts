@@ -1,3 +1,5 @@
+import type { StrategyAssessExtras } from "@/features/market/types";
+
 export type PremarketRuleRow = {
   ruleKey: string;
   label: string;
@@ -7,7 +9,7 @@ export type PremarketRuleRow = {
   evidence?: string | null;
 };
 
-export type PremarketTickerHit = {
+export type PremarketTickerHit = StrategyAssessExtras & {
   symbol: string;
   name?: string | null;
   qualityPct: number;

@@ -115,8 +115,8 @@ export function buildTickerCards(
             strategyId: best.strategyId,
             strategyName: catalogById.get(best.strategyId)?.name ?? best.strategyId,
             qualityPct: best.qualityPct,
-            direction: best.direction,
-          }
+            direction: best.direction ?? null,
+          } satisfies TickerCardModel["bestSignal"] & object
         : null,
       topStrategyEval: top,
     };

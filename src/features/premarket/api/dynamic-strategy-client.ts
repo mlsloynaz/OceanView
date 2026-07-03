@@ -40,6 +40,9 @@ export type DynamicStrategy = {
 
   description?: string;
 
+  /** Explicit CALL/PUT when playbook inference is not used. */
+  direction?: "CALL" | "PUT" | null;
+
   active: boolean;
 
   rules: Array<{
@@ -86,6 +89,8 @@ export type CreateDynamicStrategyRequest = {
 
   description?: string;
 
+  direction?: "CALL" | "PUT" | "";
+
   active?: boolean;
 
   ruleKeys: string[];
@@ -101,6 +106,8 @@ export type PatchDynamicStrategyRequest = {
   shortName?: string;
 
   description?: string;
+
+  direction?: "CALL" | "PUT" | "";
 
   active?: boolean;
 

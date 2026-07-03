@@ -21,6 +21,7 @@ type Props = {
   name: string;
   shortName: string;
   description: string;
+  direction: "" | "CALL" | "PUT";
   editingStrategyId: string | null;
   saving: boolean;
   startPending: boolean;
@@ -28,6 +29,7 @@ type Props = {
   onNameChange: (value: string) => void;
   onShortNameChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
+  onDirectionChange: (value: "" | "CALL" | "PUT") => void;
   onAddRule: (ruleKey: string) => void;
   onRemoveRule: (ruleKey: string) => void;
   onMoveRule: (ruleKey: string, direction: "up" | "down") => void;
@@ -42,6 +44,7 @@ export function DynamicStrategyBuilder({
   name,
   shortName,
   description,
+  direction,
   editingStrategyId,
   saving,
   startPending,
@@ -49,6 +52,7 @@ export function DynamicStrategyBuilder({
   onNameChange,
   onShortNameChange,
   onDescriptionChange,
+  onDirectionChange,
   onAddRule,
   onRemoveRule,
   onMoveRule,
@@ -195,6 +199,23 @@ export function DynamicStrategyBuilder({
               placeholder="What this screen looks for…"
               className={cn(INPUT, "mt-0.5 resize-none")}
             />
+          </label>
+          <label className="block">
+            <span className="text-[11px] text-ocean-sand">
+              Trade direction (optional)
+            </span>
+            <select
+              value={direction}
+              onChange={(e) => onDirectionChange(e.target.value as "" | "CALL" | "PUT")}
+              className={cn(INPUT, "mt-0.5")}
+            >
+              <option value="">Auto (playbook / rules / trend)</option>
+              <option value="CALL">CALL</option>
+              <option value="PUT">PUT</option>
+            </select>
+            <span className="mt-0.5 block text-[10px] text-ocean-sand/80">
+              Used for danger checks (clear path) when not inferred from playbook.
+            </span>
           </label>
         </div>
 
