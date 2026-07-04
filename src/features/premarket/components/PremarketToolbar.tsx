@@ -76,8 +76,8 @@ export function PremarketToolbar({
       ) : (
         <p className="text-[10px] text-ocean-sand/70">
           {assessmentMode === "now"
-            ? "Now — live Schwab bars including pre/post market (in memory only, never saved to Admin candles)."
-            : "ET — stored regular-session candles from Dynamo only (9:30 AM–4:00 PM, no pre/post data)."}
+            ? "Live — Schwab bars including pre/post market (in memory only, never saved to Admin candles)."
+            : "Simulate — stored regular-session candles from Dynamo only (9:30 AM–4:00 PM, no pre/post data)."}
         </p>
       )}
 

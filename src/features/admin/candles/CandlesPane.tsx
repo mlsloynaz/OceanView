@@ -46,7 +46,7 @@ export function CandlesPane() {
             disabled={bulkPending || loading || rows.length === 0}
             onClick={refreshStatus}
           >
-            {bulkPending ? "…" : "Refresh status"}
+            {bulkPending ? "…" : "Reload Result"}
           </button>
           <button
             type="button"

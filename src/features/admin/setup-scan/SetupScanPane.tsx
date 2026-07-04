@@ -1,5 +1,6 @@
 import { cn } from "@/shared/lib/cn";
 import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane";
+import { LiveSimulateControl } from "@/shared/components/LiveSimulateControl";
 import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
 import { setupScanApiBaseUrl, setupScanUsesMock } from "./api/preselection-client";
 import {
@@ -18,6 +19,16 @@ const TIER_CLASS: Record<string, string> = {
   caution: "bg-orange-500/15 text-orange-900 dark:text-orange-100",
   skip: "bg-ocean-mid/30 text-ocean-sand",
 };
+
+const BTN =
+  "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+
+const BTN_PRIMARY = cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105");
+
+const BTN_SECONDARY = cn(
+  BTN,
+  "border-2 border-ocean-teal bg-ocean-deep text-ocean-foam hover:bg-ocean-teal/10",
+);
 
 function tierLabel(tier: string) {
   return tier.charAt(0).toUpperCase() + tier.slice(1);
@@ -169,44 +180,20 @@ export function SetupScanPane() {
         className="min-w-0"
         headerExtra={
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className="flex items-center gap-1 rounded border border-ocean-mid/50 bg-ocean-deep/60 p-0.5 text-[11px]">
-              <button
-                type="button"
-                className={cn(
-                  "rounded px-2 py-0.5 font-medium transition-colors",
-                  ws.scanMode === "live"
-                    ? "bg-ocean-teal/20 text-ocean-foam"
-                    : "text-ocean-sand hover:text-ocean-foam",
-                )}
-                onClick={() => ws.setScanMode("live")}
-              >
-                Live
-              </button>
-              <button
-                type="button"
-                className={cn(
-                  "rounded px-2 py-0.5 font-medium transition-colors",
-                  ws.scanMode === "simulate"
-                    ? "bg-ocean-teal/20 text-ocean-foam"
-                    : "text-ocean-sand hover:text-ocean-foam",
-                )}
-                onClick={() => ws.setScanMode("simulate")}
-              >
-                Simulate
-              </button>
-            </div>
-            {ws.scanMode === "simulate" && (
-              <label className="flex items-center gap-1 text-[11px] text-ocean-sand">
-                Session
-                <input
-                  type="date"
-                  value={ws.simulationDate}
-                  max={new Date().toISOString().slice(0, 10)}
-                  onChange={(e) => ws.setSimulationDate(e.target.value)}
-                  className="rounded border border-ocean-mid/60 bg-ocean-deep px-1 py-0.5 text-ocean-foam"
-                />
-              </label>
-            )}
+            <LiveSimulateControl
+              mode={ws.scanMode}
+              onModeChange={ws.setScanMode}
+              disabled={ws.runPending || ws.loading}
+              variant="compact"
+              simulateInput="date"
+              simulateValue={ws.simulationDate}
+              onSimulateChange={ws.setSimulationDate}
+              simulateInputId="setup-scan-session-date"
+              simulateLabel="Session"
+              simulateMax={new Date().toISOString().slice(0, 10)}
+              showLiveClock={false}
+              ariaLabel="Tickers SemiFinal mode"
+            />
             <label className="flex items-center gap-1 text-[11px] text-ocean-sand">
               Min score
               <input
@@ -220,7 +207,7 @@ export function SetupScanPane() {
             </label>
             <button
               type="button"
-              className="rounded border border-ocean-mid/60 bg-ocean-deep px-2 py-1 text-xs font-medium text-ocean-foam hover:border-ocean-teal/50 disabled:opacity-50"
+              className={BTN_PRIMARY}
               disabled={ws.runPending || ws.loading}
               onClick={() => ws.runScan()}
             >
@@ -228,7 +215,7 @@ export function SetupScanPane() {
             </button>
             <button
               type="button"
-              className="rounded border border-ocean-mid/60 bg-ocean-deep px-2 py-1 text-xs font-medium text-ocean-foam hover:border-ocean-teal/50 disabled:opacity-50"
+              className={BTN_SECONDARY}
               disabled={ws.loading || ws.runPending}
               onClick={() => void ws.loadResult()}
             >
