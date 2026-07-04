@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useStrategiesPane } from "@/features/admin/strategies/hooks/useStrategiesPane";
+import { PremarketAuxPanels } from "./components/PremarketAuxPanels";
 import { PremarketBanner } from "./components/PremarketBanner";
-import { PremarketDiagnostics } from "./components/PremarketDiagnostics";
 import { PremarketEmptyState } from "./components/PremarketEmptyState";
 import { PremarketStrategySection } from "./components/PremarketStrategySection";
 import { PremarketToolbar } from "./components/PremarketToolbar";
@@ -21,8 +21,9 @@ export function PremarketPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam">Premarket</h1>
         <p className="mt-2 text-ocean-sand">
-          Evaluate active dynamic strategies against active tickers. Create and edit strategies in the
-          evaluate pane below, or manage full catalog in{" "}
+          Evaluate active dynamic strategies against active tickers. Open{" "}
+          <strong className="font-medium text-ocean-foam">Strategy builder</strong> from the
+          thumbnails below, or manage the full catalog in{" "}
           <Link to="/admin" className="text-ocean-teal hover:underline">
             Admin
           </Link>
@@ -38,8 +39,8 @@ export function PremarketPage() {
 
       {!ws.catalogLoading && ws.activeStrategies.length === 0 && (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
-          No active strategies — create or activate one in the{" "}
-          <strong className="font-medium">Strategies</strong> section below or in{" "}
+          No active strategies — create or activate one in{" "}
+          <strong className="font-medium">Strategy builder</strong> below or in{" "}
           <Link to="/admin" className="font-medium underline hover:text-ocean-foam">
             Admin → Dynamic strategies
           </Link>
@@ -49,10 +50,17 @@ export function PremarketPage() {
 
       <PremarketBanner />
 
+      <PremarketAuxPanels
+        ws={ws}
+        builder={builder}
+        onStrategyMutated={() => void ws.reloadCatalog()}
+      />
+
       <PremarketToolbar
         result={ws.result}
         activeStrategyCount={ws.activeStrategies.length}
         evaluateRunning={ws.evaluateRunning}
+        canStopEvaluate={ws.canStopEvaluate}
         startPending={ws.startPending}
         stopPending={ws.stopPending}
         loading={ws.loading}
@@ -66,8 +74,6 @@ export function PremarketPage() {
         onStart={() => void ws.startEvaluate()}
         onStop={() => void ws.stopEvaluate()}
         onRefresh={() => void ws.refreshResult()}
-        builder={builder}
-        onStrategyMutated={() => void ws.reloadCatalog()}
       />
 
       {(ws.notice || builder.notice) && (
@@ -131,10 +137,6 @@ export function PremarketPage() {
           Run finished but no strategy groups were returned. Confirm the strategy is{" "}
           <strong className="text-ocean-foam">active</strong> and was included in the evaluate request.
         </p>
-      )}
-
-      {ws.result?.symbolOutcomes && ws.result.symbolOutcomes.length > 0 && (
-        <PremarketDiagnostics outcomes={ws.result.symbolOutcomes} />
       )}
     </div>
   );

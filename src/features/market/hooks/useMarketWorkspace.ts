@@ -11,6 +11,7 @@ import {
   MarketApiError,
   fetchMarketEnvelope,
   postMarketEvaluate,
+  pollMarketEvaluate,
 } from "../api/market-client";
 import { buildRuleCards, buildStrategyCards, buildTickerCards } from "../display";
 import {
@@ -84,6 +85,8 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
   const [assessNotice, setAssessNotice] = useState<string | null>(null);
   const [assessPending, setAssessPending] = useState(false);
+  const [refreshPending, setRefreshPending] = useState(false);
+  const [pendingRunId, setPendingRunId] = useState<string | null>(null);
   const [coverageInitialized, setCoverageInitialized] = useState(false);
 
   const catalogRef = useRef<StrategiesCatalogFile | null>(null);
@@ -332,12 +335,13 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       ...(historicalOnly ? { simulationTimeEt: formatSimulationTimeEt(at) } : {}),
       options: { signalThresholdPct: envelope?.signalThresholdPct ?? 50 },
     })
-      .then((result) =>
-        refreshAfterAssess(
-          result.runId,
-          historicalOnly ? formatSimulationTimeEt(at) : null,
-        ),
-      )
+      .then(async (start) => {
+        setPendingRunId(start.runId);
+        await pollMarketEvaluate(start.runId);
+        setAssessNotice(
+          start.message ?? "Assessment started. Use Refresh result to load results.",
+        );
+      })
       .catch((err) => {
         if (err instanceof MarketApiError) {
           const fallback = err.code ? MARKET_ERROR_MESSAGES[err.code] : undefined;
@@ -361,6 +365,38 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     envelope,
     refreshAfterAssess,
     resolveAssessmentMoment,
+    useMock,
+  ]);
+
+  const refreshResult = useCallback(async () => {
+    if (useMock) return;
+    const activeRunId = pendingRunId ?? runId;
+    if (!activeRunId) {
+      setAssessNotice("No assessment run yet — click Assess first.");
+      return;
+    }
+    setRefreshPending(true);
+    setError(null);
+    try {
+      const historicalOnly = assessmentMode === "et";
+      const at = resolveAssessmentMoment();
+      await refreshAfterAssess(
+        activeRunId,
+        historicalOnly ? formatSimulationTimeEt(at) : null,
+      );
+      setPendingRunId(null);
+      setAssessNotice(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to refresh assessment results.");
+    } finally {
+      setRefreshPending(false);
+    }
+  }, [
+    assessmentMode,
+    pendingRunId,
+    refreshAfterAssess,
+    resolveAssessmentMoment,
+    runId,
     useMock,
   ]);
 
@@ -523,9 +559,11 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     assessmentError,
     assessNotice,
     assessPending,
+    refreshPending,
     setAssessmentMode,
     setAssessmentFromLocal,
     runAssessment,
+    refreshResult,
     assessmentLabel,
   };
 }

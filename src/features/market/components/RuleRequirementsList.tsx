@@ -20,6 +20,7 @@ type Props = {
 };
 
 function suffixForRow(row: RuleDisplayRow): string | null {
+  if (row.type === "extra") return null;
   if (row.status === "partial") return "near";
   if (row.status === "not_met") return "confirm";
   return null;
@@ -77,7 +78,10 @@ export function RuleRequirementsList({
                   {row.label}
                 </span>
                 {row.type === "extra" && (
-                  <span className="ml-1 text-[10px] uppercase tracking-wide text-ocean-sand">
+                  <span
+                    className="ml-1 text-[10px] uppercase tracking-wide text-ocean-sand"
+                    title="Informational only — does not affect quality %"
+                  >
                     extra
                   </span>
                 )}

@@ -27,6 +27,19 @@ export function formatPremarketStatus(status: string | undefined): string {
   }
 }
 
+export function isPremarketEvaluateActive(status: string | undefined): boolean {
+  const value = (status ?? "").toLowerCase();
+  return value === "running" || value === "stopping";
+}
+
+export function canStopPremarketEvaluate(
+  status: string | undefined,
+  startPending: boolean,
+): boolean {
+  if (startPending) return true;
+  return (status ?? "").toLowerCase() === "running";
+}
+
 export function formatSimTimeEt(iso: string | undefined): string {
   if (!iso) return "—";
   try {

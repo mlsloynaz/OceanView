@@ -10,6 +10,7 @@ import {
   PREMARKET_ERROR_MESSAGES,
   PremarketApiError,
   fetchPremarketResult,
+  pollPremarketEvaluate,
   postPremarketStop,
 } from "../api/premarket-client";
 import type { PremarketResultResponse } from "../types";
@@ -20,6 +21,7 @@ import {
   parseSimulationTimeEt,
   type AssessmentTimeMode,
 } from "@/features/market/lib/assessment-time";
+import { canStopPremarketEvaluate, isPremarketEvaluateActive } from "../display";
 
 const DEFAULT_THRESHOLD = 0;
 
@@ -200,8 +202,20 @@ export function usePremarketWorkspace() {
           strategyIds: ids,
           ...evaluateRequest,
         });
-        setResult(payload);
-        setNotice(payload.message ?? "Evaluate complete.");
+        setResult((prev) => ({
+          ...(prev ?? { strategies: [] }),
+          runId: payload.runId,
+          status: payload.status ?? "running",
+          simulationTimeEt: payload.simulationTimeEt,
+          tradeDate: payload.tradeDate,
+          signalThresholdPct: payload.signalThresholdPct ?? threshold,
+        }));
+        await pollPremarketEvaluate(payload.runId, (progress) => {
+          setResult(progress);
+        });
+        setNotice(
+          payload.message ?? "Evaluate started. Use Refresh result to load results.",
+        );
       } catch (err) {
         if (allowRetry && isEvaluateConflict(err)) {
           await new Promise((resolve) => window.setTimeout(resolve, 400));
@@ -224,6 +238,9 @@ export function usePremarketWorkspace() {
     try {
       const payload = await postPremarketStop();
       setNotice(payload.message ?? "Stop requested.");
+      setResult((prev) =>
+        prev ? { ...prev, status: payload.status ?? "stopping", stopped: true } : prev,
+      );
     } catch (err) {
       setError(resolveError(err));
     } finally {
@@ -241,8 +258,8 @@ export function usePremarketWorkspace() {
     }
   }, [loadResult, result?.runId]);
 
-  const evaluateRunning =
-    startPending || (result?.status ?? "").toLowerCase() === "running";
+  const evaluateRunning = startPending || isPremarketEvaluateActive(result?.status);
+  const canStopEvaluate = canStopPremarketEvaluate(result?.status, startPending);
 
   return {
     useMock,
@@ -255,6 +272,7 @@ export function usePremarketWorkspace() {
     loading: catalogLoading || resultLoading,
     startPending,
     evaluateRunning,
+    canStopEvaluate,
     stopPending,
     error,
     notice,

@@ -113,3 +113,41 @@ export async function fetchPremarketResult(
   }
   return fetchJson<PremarketResultResponse>(withRunId("/premarket/evaluate/result", runId));
 }
+
+const POLL_INTERVAL_MS = 2000;
+const POLL_MAX_DURATION_MS = 10_000;
+
+function delay(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isEvaluateUsable(status: string | undefined): boolean {
+  const value = (status ?? "").toLowerCase();
+  return value === "ready" || value === "complete" || value === "partial";
+}
+
+function isEvaluateTerminal(status: string | undefined): boolean {
+  const value = (status ?? "").toLowerCase();
+  return value === "complete" || value === "partial" || value === "failed" || value === "stopped";
+}
+
+/** Poll up to 10s after start — does not throw on timeout. */
+export async function pollPremarketEvaluate(
+  runId?: string | null,
+  onProgress?: (payload: PremarketResultResponse) => void,
+): Promise<PremarketResultResponse | null> {
+  const deadline = Date.now() + POLL_MAX_DURATION_MS;
+  let last: PremarketResultResponse | null = null;
+  while (Date.now() < deadline) {
+    last = await fetchPremarketResult(runId);
+    onProgress?.(last);
+    if (isEvaluateUsable(last.status) && isEvaluateTerminal(last.status)) {
+      return last;
+    }
+    if (Date.now() + POLL_INTERVAL_MS >= deadline) {
+      break;
+    }
+    await delay(POLL_INTERVAL_MS);
+  }
+  return last;
+}

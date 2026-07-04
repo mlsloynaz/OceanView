@@ -133,6 +133,44 @@ export async function postMarketEvaluate(
   });
 }
 
+const POLL_INTERVAL_MS = 2000;
+const POLL_MAX_DURATION_MS = 10_000;
+
+function delay(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isAssessUsable(status: string | undefined): boolean {
+  const value = (status ?? "").toLowerCase();
+  return value === "ready" || value === "complete" || value === "partial";
+}
+
+function isAssessTerminal(status: string | undefined): boolean {
+  const value = (status ?? "").toLowerCase();
+  return value === "complete" || value === "partial" || value === "failed";
+}
+
+/** Poll up to 10s after start — does not throw on timeout. */
+export async function pollMarketEvaluate(
+  runId: string,
+  onProgress?: (payload: MarketEvaluateStatusResponse) => void,
+): Promise<MarketEvaluateStatusResponse | null> {
+  const deadline = Date.now() + POLL_MAX_DURATION_MS;
+  let last: MarketEvaluateStatusResponse | null = null;
+  while (Date.now() < deadline) {
+    last = await fetchEvaluateStatus(runId);
+    onProgress?.(last);
+    if (isAssessUsable(last.status) && isAssessTerminal(last.status)) {
+      return last;
+    }
+    if (Date.now() + POLL_INTERVAL_MS >= deadline) {
+      break;
+    }
+    await delay(POLL_INTERVAL_MS);
+  }
+  return last;
+}
+
 export async function fetchEvaluateStatus(
   runId: string,
 ): Promise<MarketEvaluateStatusResponse> {

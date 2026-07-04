@@ -39,6 +39,18 @@ export const MOCK_DYNAMIC_RULES: DynamicRuleTemplate[] = [
     defaultType: "required",
     timeframe: "15m",
   },
+  {
+    ruleKey: "volume_stoch_15m",
+    label: "Volumen en 15M cruza la línea roja (Worden Stochastics)",
+    defaultType: "required",
+    timeframe: "15m",
+  },
+  {
+    ruleKey: "volume_stoch_1h",
+    label: "Volumen en HORA cruza la línea roja (Worden Stochastics)",
+    defaultType: "required",
+    timeframe: "1h",
+  },
 ];
 
 export const MOCK_DYNAMIC_CATALOG: DynamicCatalogResponse = {

@@ -72,9 +72,11 @@ export function MarketPage() {
     assessmentError,
     assessNotice,
     assessPending,
+    refreshPending,
     setAssessmentMode,
     setAssessmentFromLocal,
     runAssessment,
+    refreshResult,
     assessmentLabel,
   } = useMarketWorkspace(viewMode);
 
@@ -122,9 +124,11 @@ export function MarketPage() {
             error={assessmentError}
             notice={assessNotice}
             pending={assessPending}
+            refreshPending={refreshPending}
             onModeChange={setAssessmentMode}
             onChange={setAssessmentFromLocal}
             onAssess={runAssessment}
+            onRefreshResult={() => void refreshResult()}
             className="sm:flex-1 sm:max-w-lg"
           />
         )}

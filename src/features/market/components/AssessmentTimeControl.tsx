@@ -16,9 +16,11 @@ type Props = {
   error: string | null;
   notice: string | null;
   pending: boolean;
+  refreshPending: boolean;
   onModeChange: (mode: AssessmentTimeMode) => void;
   onChange: (value: string) => void;
   onAssess: () => void;
+  onRefreshResult: () => void;
   className?: string;
 };
 
@@ -94,9 +96,11 @@ export function AssessmentTimeControl({
   error,
   notice,
   pending,
+  refreshPending,
   onModeChange,
   onChange,
   onAssess,
+  onRefreshResult,
   className,
 }: Props) {
   const { min, max } = coverageBoundsForInput(coverage);
@@ -155,6 +159,14 @@ export function AssessmentTimeControl({
           className="rounded-md bg-ocean-teal px-2.5 py-1 text-[11px] font-semibold text-ocean-deep transition-colors hover:brightness-105 disabled:opacity-40"
         >
           {pending ? "…" : "Assess"}
+        </button>
+        <button
+          type="button"
+          onClick={onRefreshResult}
+          disabled={refreshPending}
+          className="rounded-md border border-ocean-mid/60 bg-ocean-deep px-2.5 py-1 text-[11px] font-semibold text-ocean-foam transition-colors hover:border-ocean-teal/50 disabled:opacity-40"
+        >
+          {refreshPending ? "Loading…" : "Refresh result"}
         </button>
       </div>
 

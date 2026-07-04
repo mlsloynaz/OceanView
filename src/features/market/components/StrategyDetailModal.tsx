@@ -35,6 +35,8 @@ type RowModel = StrategyAssessExtras & {
   qualityPct: number;
   metCount: number;
   totalCount: number;
+  metRequired: number;
+  totalRequired: number;
   achievedAt: string | null;
   rules: ReturnType<typeof mergeRuleDisplay>;
 };
@@ -80,6 +82,8 @@ function mapDetailRow(
     dangers: row.dangers,
     metCount: row.metCount,
     totalCount: row.totalCount,
+    metRequired: row.metRequired ?? 0,
+    totalRequired: row.totalRequired ?? 0,
     achievedAt,
     rules,
   };
@@ -117,6 +121,8 @@ export function StrategyDetailModal({
             dangers: row.eval.dangers,
             metCount: row.eval.metCount,
             totalCount: row.eval.totalCount,
+            metRequired: row.eval.metRequired ?? 0,
+            totalRequired: row.eval.totalRequired ?? 0,
             achievedAt: signal ? strategyAchievedAtEt(row.eval, strategy.rules) : null,
             rules,
           };
@@ -232,8 +238,13 @@ export function StrategyDetailModal({
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="tabular-nums text-ocean-foam">
-                            {row.metCount}/{row.totalCount}
+                          <span
+                            className="tabular-nums text-ocean-foam"
+                            title="Required rules met (extra rules excluded from score)"
+                          >
+                            {row.totalRequired != null && row.totalRequired > 0
+                              ? `${row.metRequired ?? row.metCount}/${row.totalRequired}`
+                              : `${row.metCount}/${row.totalCount}`}
                           </span>
                           <RuleCheckStrip rules={row.rules} />
                         </div>

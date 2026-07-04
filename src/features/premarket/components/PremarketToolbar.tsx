@@ -1,21 +1,17 @@
 import { cn } from "@/shared/lib/cn";
 import { SimulationTimeControl } from "@/shared/components/SimulationTimeControl";
 import type { AssessmentTimeMode } from "@/features/market/lib/assessment-time";
-import type { useStrategiesPane } from "@/features/admin/strategies/hooks/useStrategiesPane";
 import { formatPremarketStatus, formatSimTimeEt } from "../display";
 import type { PremarketResultResponse } from "../types";
-import { DynamicStrategyCatalog } from "./DynamicStrategyCatalog";
-import { StrategyBuilderModal } from "./StrategyBuilderModal";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
-
-type BuilderState = ReturnType<typeof useStrategiesPane>;
 
 type Props = {
   result: PremarketResultResponse | null;
   activeStrategyCount: number;
   evaluateRunning: boolean;
+  canStopEvaluate: boolean;
   startPending: boolean;
   stopPending: boolean;
   loading: boolean;
@@ -29,8 +25,6 @@ type Props = {
   onStart: () => void;
   onStop: () => void;
   onRefresh: () => void;
-  builder: BuilderState;
-  onStrategyMutated: () => void;
 };
 
 const THRESHOLD_PRESETS = [0, 50, 75] as const;
@@ -39,6 +33,7 @@ export function PremarketToolbar({
   result,
   activeStrategyCount,
   evaluateRunning,
+  canStopEvaluate,
   startPending,
   stopPending,
   loading,
@@ -52,10 +47,9 @@ export function PremarketToolbar({
   onStart,
   onStop,
   onRefresh,
-  builder,
-  onStrategyMutated,
 }: Props) {
   const busy = evaluateRunning || stopPending || loading;
+  const refreshDisabled = stopPending || loading;
   const evaluateDisabled =
     busy || activeStrategyCount === 0 || Boolean(assessmentError);
 
@@ -64,8 +58,8 @@ export function PremarketToolbar({
       <div>
         <h2 className="font-display text-lg font-semibold text-ocean-foam">Evaluate strategies</h2>
         <p className="mt-0.5 text-xs text-ocean-sand">
-          Run all active dynamic strategies against active tickers. Edit screens below, then evaluate.
-          Extended-hours bars stay in memory only.
+          Run all active dynamic strategies against active tickers. Use the Strategy builder thumbnail
+          above to edit screens. Extended-hours bars stay in memory only.
         </p>
       </div>
 
@@ -162,7 +156,7 @@ export function PremarketToolbar({
             BTN,
             "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-ocean-teal/50",
           )}
-          disabled={!startPending || stopPending}
+          disabled={!canStopEvaluate || stopPending}
           onClick={onStop}
           title="Request stop after the current symbol"
         >
@@ -174,7 +168,7 @@ export function PremarketToolbar({
             BTN,
             "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-ocean-teal/50",
           )}
-          disabled={busy}
+          disabled={refreshDisabled}
           onClick={onRefresh}
         >
           {loading ? "Loading…" : "Refresh result"}
@@ -188,7 +182,9 @@ export function PremarketToolbar({
         <span>
           Status:{" "}
           <strong className="text-ocean-foam">
-            {startPending ? "Running" : formatPremarketStatus(result?.status)}
+            {startPending || (result?.status ?? "").toLowerCase() === "running"
+              ? "Running"
+              : formatPremarketStatus(result?.status)}
           </strong>
         </span>
         {result?.evaluatedAt && (
@@ -219,57 +215,6 @@ export function PremarketToolbar({
           <span className="text-amber-600 dark:text-amber-400">Stopped early — partial results</span>
         )}
       </div>
-
-      {builder.error && !builder.builderOpen && (
-        <p className="text-sm text-ocean-danger" role="alert">
-          {builder.error}
-        </p>
-      )}
-
-      {builder.loading ? (
-        <p className="text-sm text-ocean-sand">Loading strategy catalog…</p>
-      ) : (
-        <DynamicStrategyCatalog
-          title="Strategies"
-          defaultOpen
-          strategies={builder.strategies}
-          saving={builder.saving}
-          onEdit={builder.loadStrategyForEdit}
-          onNew={builder.openBuilderForNew}
-          onToggleActive={async (strategy) => {
-            await builder.toggleStrategyActive(strategy);
-            onStrategyMutated();
-          }}
-        />
-      )}
-
-      {builder.builderOpen && (
-        <StrategyBuilderModal
-          rules={builder.rules}
-          selectedRuleKeys={builder.selectedRuleKeys}
-          name={builder.builderName}
-          shortName={builder.builderShortName}
-          description={builder.builderDescription}
-          direction={builder.builderDirection}
-          editingStrategyId={builder.editingStrategyId}
-          saving={builder.saving}
-          startPending={builder.previewPending}
-          error={builder.error}
-          onNameChange={builder.setBuilderName}
-          onShortNameChange={builder.setBuilderShortName}
-          onDescriptionChange={builder.setBuilderDescription}
-          onDirectionChange={builder.setBuilderDirection}
-          onAddRule={builder.addRuleToBuilder}
-          onRemoveRule={builder.removeRuleFromBuilder}
-          onMoveRule={builder.moveRuleInBuilder}
-          onSave={async () => {
-            const saved = await builder.saveBuilder();
-            if (saved) onStrategyMutated();
-          }}
-          onPreview={() => void builder.previewBuilder()}
-          onClose={builder.closeBuilder}
-        />
-      )}
     </div>
   );
 }
