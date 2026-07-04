@@ -8,6 +8,7 @@ import {
   criterionKeyFromReason,
 } from "./criterion-help";
 import { useSetupScanPane } from "./hooks/useSetupScanPane";
+import { SemiFinalTickerSearch } from "./SemiFinalTickerSearch";
 import type { PreselectionBreakdownRow, PreselectionTickerRow } from "./types";
 
 const TIER_CLASS: Record<string, string> = {
@@ -282,11 +283,44 @@ export function SetupScanPane() {
           </p>
         )}
 
+        {ws.result && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <SemiFinalTickerSearch
+              value={ws.search}
+              suggestions={ws.searchSuggestions}
+              disabled={ws.loading || ws.runPending}
+              onChange={ws.setSearch}
+              onSelect={ws.selectSearchTicker}
+            />
+            {ws.search.trim() ? (
+              <button
+                type="button"
+                disabled={ws.loading || ws.runPending}
+                onClick={() => ws.setSearch("")}
+                className="rounded px-2 py-1 text-xs font-medium text-ocean-sand hover:text-ocean-foam"
+              >
+                Clear
+              </button>
+            ) : null}
+            {ws.search.trim() ? (
+              <span className="text-[11px] text-ocean-sand/80">
+                {ws.searchMatchCount} match{ws.searchMatchCount === 1 ? "" : "es"}
+              </span>
+            ) : null}
+          </div>
+        )}
+
         {!ws.result && !ws.loading && !ws.runPending && (
           <p className="text-sm text-ocean-sand">No Tickers SemiFinal result yet — run a scan to begin.</p>
         )}
 
-        {(ws.result?.strategies ?? []).map((group) => (
+        {ws.result && ws.search.trim() && (ws.filteredResult?.strategies.length ?? 0) === 0 && (
+          <p className="mb-3 text-sm text-ocean-sand">
+            No tickers match “{ws.search.trim()}”.
+          </p>
+        )}
+
+        {(ws.filteredResult?.strategies ?? []).map((group) => (
           <section key={group.strategyId} className="mb-6 last:mb-0">
             <h3 className="mb-2 font-display text-lg text-ocean-foam">
               {group.shortName || group.name}

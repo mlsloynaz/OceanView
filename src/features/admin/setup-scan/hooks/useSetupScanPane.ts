@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { getTickersCatalog, patchTickerActive } from "../../tickers/api/tickers-client";
 import {
   getSetupScanResult,
@@ -7,6 +7,11 @@ import {
   SetupScanApiError,
 } from "../api/preselection-client";
 import { mergePreselectionWithCatalogActive } from "../merge-catalog-active";
+import {
+  filterSemiFinalResult,
+  semiFinalMatchCount,
+  semiFinalSearchSuggestions,
+} from "../search";
 import type { PreselectionResultResponse, PreselectionTickerRow } from "../types";
 
 export type SetupScanMode = "live" | "simulate";
@@ -16,6 +21,7 @@ export function useSetupScanPane(open: boolean) {
   const [minScore, setMinScore] = useState(0);
   const [scanMode, setScanMode] = useState<SetupScanMode>("live");
   const [simulationDate, setSimulationDate] = useState("");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [runPending, startRunTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +55,25 @@ export function useSetupScanPane(open: boolean) {
     if (!open) return;
     void loadResult();
   }, [open, loadResult]);
+
+  const filteredResult = useMemo(
+    () => filterSemiFinalResult(result, search),
+    [result, search],
+  );
+
+  const searchSuggestions = useMemo(
+    () => semiFinalSearchSuggestions(result, search),
+    [result, search],
+  );
+
+  const searchMatchCount = useMemo(
+    () => semiFinalMatchCount(result, search),
+    [result, search],
+  );
+
+  const selectSearchTicker = useCallback((symbol: string) => {
+    setSearch(symbol);
+  }, []);
 
   const applyCatalogActive = useCallback(
     async (payload: PreselectionResultResponse) => {
@@ -152,6 +177,12 @@ export function useSetupScanPane(open: boolean) {
 
   return {
     result,
+    filteredResult,
+    search,
+    setSearch,
+    searchSuggestions,
+    searchMatchCount,
+    selectSearchTicker,
     minScore,
     setMinScore,
     scanMode,
