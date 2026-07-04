@@ -1,4 +1,6 @@
 import { MOCK_SETUP_SCAN_RESULT } from "./mock-data";
+import { mergePreselectionWithCatalogActive } from "../merge-catalog-active";
+import { getTickersCatalog } from "../../tickers/api/tickers-client";
 import type { PreselectionResultResponse } from "../types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "/api";
@@ -106,7 +108,8 @@ export async function postSetupScanRun(body?: SetupScanRunOptions): Promise<Pres
 export async function getSetupScanResult(runId?: string): Promise<PreselectionResultResponse> {
   if (USE_MOCK) {
     await delay();
-    return { ...MOCK_SETUP_SCAN_RESULT };
+    const { tickers } = await getTickersCatalog();
+    return mergePreselectionWithCatalogActive({ ...MOCK_SETUP_SCAN_RESULT }, tickers);
   }
   const query = runId?.trim() ? `?runId=${encodeURIComponent(runId.trim())}` : "";
   const { data } = await fetchJson<PreselectionResultResponse>(`/preselection/result${query}`);

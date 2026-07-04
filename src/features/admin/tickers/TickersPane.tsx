@@ -27,7 +27,7 @@ export function TickersPane() {
     filter,
     setFilter,
     counts,
-    pageCounts,
+    pageActiveState,
     loading,
     error,
     message,
@@ -36,6 +36,8 @@ export function TickersPane() {
     reload,
     activatePage,
     deactivatePage,
+    activateAll,
+    deactivateAll,
     setActive,
   } = useTickersPane(true);
 
@@ -83,8 +85,9 @@ export function TickersPane() {
       )}
 
       <p className="mb-3 text-xs text-ocean-sand">
-        Tickers are sorted A–Z, {pageSize} per page. Page actions apply to the current page only.
-        Active tickers are included in Market Assess and Candles bulk refresh.
+        Tickers are sorted A–Z, {pageSize} per page. Use the header checkbox to activate or
+        deactivate the current page. Active tickers are included in Market Assess and Candles bulk
+        refresh.
       </p>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -132,25 +135,25 @@ export function TickersPane() {
         <span className="mx-1 hidden h-4 w-px bg-ocean-mid/50 sm:inline" aria-hidden />
         <button
           type="button"
-          disabled={loading || isPending || pageCounts.inactive === 0}
-          onClick={activatePage}
+          disabled={loading || isPending || counts.inactive === 0}
+          onClick={activateAll}
           className={cn(
             FILTER_BTN,
             "border border-ocean-teal/40 text-ocean-teal-dim hover:bg-ocean-teal/10 dark:text-ocean-teal",
           )}
         >
-          Activate page
+          Activate all
         </button>
         <button
           type="button"
-          disabled={loading || isPending || pageCounts.active === 0}
-          onClick={deactivatePage}
+          disabled={loading || isPending || counts.active === 0}
+          onClick={deactivateAll}
           className={cn(
             FILTER_BTN,
             "border border-ocean-danger-border/60 text-ocean-danger hover:bg-ocean-danger-muted/50",
           )}
         >
-          Deactivate page
+          Deactivate all
         </button>
       </div>
 
@@ -164,6 +167,8 @@ export function TickersPane() {
         loading={loading}
         pending={pending}
         bulkPending={isPending}
+        pageActiveState={pageActiveState}
+        onPageActiveChange={(active) => (active ? activatePage() : deactivatePage())}
         onToggleActive={setActive}
         emptyMessage={
           search.trim()

@@ -146,21 +146,35 @@ export function useTickersPane(open: boolean) {
     });
   }, []);
 
-  const setPageActive = useCallback(
-    (nextActive: boolean) => {
-      const targets = pageTickers.filter((row) => row.active !== nextActive);
+  const pageActiveState = useMemo((): "all" | "none" | "mixed" => {
+    if (pageTickers.length === 0) return "none";
+    if (pageCounts.active === pageTickers.length) return "all";
+    if (pageCounts.active === 0) return "none";
+    return "mixed";
+  }, [pageCounts.active, pageTickers.length]);
+
+  const bulkSetActive = useCallback(
+    (nextActive: boolean, scope: "page" | "all") => {
+      const source = scope === "page" ? pageTickers : tickers;
+      const targets = source.filter((row) => row.active !== nextActive);
       if (targets.length === 0) {
         setMessage(
           nextActive
-            ? "All tickers on this page are already active."
-            : "No active tickers on this page.",
+            ? scope === "page"
+              ? "All tickers on this page are already active."
+              : "All tickers are already active."
+            : scope === "page"
+              ? "No active tickers on this page."
+              : "No active tickers in the catalog.",
         );
         return;
       }
 
       if (!nextActive) {
         const ok = window.confirm(
-          `Deactivate ${targets.length} ticker(s) on this page? They will be excluded from Market Assess and Candles bulk actions.`,
+          scope === "page"
+            ? `Deactivate ${targets.length} ticker(s) on this page? They will be excluded from Market Assess and Candles bulk actions.`
+            : `Deactivate all ${targets.length} active ticker(s)? They will be excluded from Market Assess and Candles bulk actions.`,
         );
         if (!ok) return;
       }
@@ -184,8 +198,12 @@ export function useTickersPane(open: boolean) {
           );
           setMessage(
             nextActive
-              ? `Activated ${updated.length} ticker(s) on this page.`
-              : `Deactivated ${updated.length} ticker(s) on this page.`,
+              ? scope === "page"
+                ? `Activated ${updated.length} ticker(s) on this page.`
+                : `Activated ${updated.length} ticker(s) across the catalog.`
+              : scope === "page"
+                ? `Deactivated ${updated.length} ticker(s) on this page.`
+                : `Deactivated ${updated.length} ticker(s) across the catalog.`,
           );
         } catch (err) {
           setError(err instanceof Error ? err.message : "Bulk update failed.");
@@ -195,11 +213,18 @@ export function useTickersPane(open: boolean) {
         }
       });
     },
-    [pageTickers, loadCatalog],
+    [loadCatalog, pageTickers, tickers],
+  );
+
+  const setPageActive = useCallback(
+    (nextActive: boolean) => bulkSetActive(nextActive, "page"),
+    [bulkSetActive],
   );
 
   const activatePage = useCallback(() => setPageActive(true), [setPageActive]);
   const deactivatePage = useCallback(() => setPageActive(false), [setPageActive]);
+  const activateAll = useCallback(() => bulkSetActive(true, "all"), [bulkSetActive]);
+  const deactivateAll = useCallback(() => bulkSetActive(false, "all"), [bulkSetActive]);
 
   return {
     pageTickers,
@@ -216,6 +241,7 @@ export function useTickersPane(open: boolean) {
     setFilter: setFilterAndResetPage,
     counts,
     pageCounts,
+    pageActiveState,
     loading,
     error,
     message,
@@ -225,5 +251,7 @@ export function useTickersPane(open: boolean) {
     setActive,
     activatePage,
     deactivatePage,
+    activateAll,
+    deactivateAll,
   };
 }

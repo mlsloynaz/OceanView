@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
-import { patchTickerActive } from "../../tickers/api/tickers-client";
+import { getTickersCatalog, patchTickerActive } from "../../tickers/api/tickers-client";
 import {
   getSetupScanResult,
   pollSetupScanResult,
   postSetupScanRun,
   SetupScanApiError,
 } from "../api/preselection-client";
+import { mergePreselectionWithCatalogActive } from "../merge-catalog-active";
 import type { PreselectionResultResponse, PreselectionTickerRow } from "../types";
 
 export type SetupScanMode = "live" | "simulate";
@@ -29,8 +30,11 @@ export function useSetupScanPane(open: boolean) {
     setLoading(true);
     setError(null);
     try {
-      const payload = await getSetupScanResult();
-      setResult(payload);
+      const [payload, catalog] = await Promise.all([
+        getSetupScanResult(),
+        getTickersCatalog(),
+      ]);
+      setResult(mergePreselectionWithCatalogActive(payload, catalog.tickers));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load Tickers SemiFinal result.";
       if (!msg.toLowerCase().includes("not found")) {
@@ -45,6 +49,14 @@ export function useSetupScanPane(open: boolean) {
     if (!open) return;
     void loadResult();
   }, [open, loadResult]);
+
+  const applyCatalogActive = useCallback(
+    async (payload: PreselectionResultResponse) => {
+      const { tickers } = await getTickersCatalog();
+      return mergePreselectionWithCatalogActive(payload, tickers);
+    },
+    [],
+  );
 
   const runScan = useCallback(() => {
     startRunTransition(async () => {
@@ -61,7 +73,7 @@ export function useSetupScanPane(open: boolean) {
         });
         const runId = ack.runId;
         if ((ack.status ?? "").toLowerCase() === "complete" && ack.strategies?.length) {
-          setResult(ack);
+          setResult(await applyCatalogActive(ack));
           setMessage(ack.message ?? "Tickers SemiFinal complete.");
           return;
         }
@@ -73,7 +85,7 @@ export function useSetupScanPane(open: boolean) {
             setMessage(`Scanning… ${done}/${total}`);
           }
         });
-        setResult(payload);
+        setResult(await applyCatalogActive(payload));
         setMessage(payload.message ?? "Tickers SemiFinal complete.");
       } catch (err) {
         if (err instanceof SetupScanApiError && err.status === 504) {
@@ -86,7 +98,7 @@ export function useSetupScanPane(open: boolean) {
                 setMessage(`Scanning… ${done}/${total}`);
               }
             });
-            setResult(payload);
+            setResult(await applyCatalogActive(payload));
             setMessage(payload.message ?? "Tickers SemiFinal complete.");
             return;
           } catch (pollErr) {
@@ -99,14 +111,14 @@ export function useSetupScanPane(open: boolean) {
         setError(err instanceof Error ? err.message : "Tickers SemiFinal failed.");
       }
     });
-  }, [minScore, scanMode, simulationDate]);
+  }, [applyCatalogActive, minScore, scanMode, simulationDate]);
 
   const setActive = useCallback(async (symbol: string, active: boolean) => {
     const upper = symbol.trim().toUpperCase();
     setTickerPending((prev) => ({ ...prev, [upper]: true }));
     setError(null);
     try {
-      await patchTickerActive(upper, active);
+      const updated = await patchTickerActive(upper, active);
       setResult((prev) => {
         if (!prev) return prev;
         return {
@@ -114,12 +126,19 @@ export function useSetupScanPane(open: boolean) {
           strategies: prev.strategies.map((group) => ({
             ...group,
             tickers: group.tickers.map((row) =>
-              row.symbol === upper ? { ...row, currentlyActive: active } : row,
+              row.symbol.toUpperCase() === upper
+                ? { ...row, currentlyActive: updated.active }
+                : row,
             ),
           })),
         };
       });
-      setMessage(`${upper} ${active ? "activated" : "deactivated"}.`);
+      setDetail((prev) =>
+        prev && prev.ticker.symbol.toUpperCase() === upper
+          ? { ...prev, ticker: { ...prev.ticker, currentlyActive: updated.active } }
+          : prev,
+      );
+      setMessage(`${updated.symbol} ${updated.active ? "activated" : "deactivated"}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ticker update failed.");
     } finally {
