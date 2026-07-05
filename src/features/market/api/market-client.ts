@@ -10,8 +10,9 @@ import type {
   TickerDetailResponse,
   TickerSnapshotItem,
 } from "../types";
+import { apiFetch, getApiBaseUrl, readResponseBody } from "@/shared/api/api-fetch";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "/api";
+const API_BASE = getApiBaseUrl();
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_MARKET === "true";
 
 export class MarketApiError extends Error {
@@ -36,22 +37,8 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_BASE) {
     throw new MarketApiError("VITE_API_BASE_URL is not set.");
   }
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
-  const text = await response.text();
-  let body: unknown = null;
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      body = text;
-    }
-  }
+  const response = await apiFetch(path, init);
+  const body = await readResponseBody(response);
   if (!response.ok) {
     const record = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : null;
     const message =

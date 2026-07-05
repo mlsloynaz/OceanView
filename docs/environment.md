@@ -33,6 +33,9 @@ Current values are non-secret: `VITE_API_BASE_URL=/api`, `VITE_USE_MOCK_CANDLES=
 | `VITE_USE_MOCK_MARKET` | [market-page.md](./market-page.md) |
 | `VITE_USE_MOCK_CANDLES` | [candles-pane.md](./candles-pane.md) |
 | `VITE_USE_MOCK_PREMARKET` | [premarket-page.md](./premarket-page.md) |
+| `VITE_COGNITO_USER_POOL_ID` | Cognito user pool (from `oceanview-api` stack output) |
+| `VITE_COGNITO_CLIENT_ID` | Cognito app client id (public SPA) |
+| `VITE_AWS_REGION` | Cognito region (usually `us-east-1`) |
 
 ### Gitignored (personal / machine-specific)
 

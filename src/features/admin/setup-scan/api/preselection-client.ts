@@ -2,8 +2,9 @@ import { MOCK_SETUP_SCAN_RESULT } from "./mock-data";
 import { mergePreselectionWithCatalogActive } from "../merge-catalog-active";
 import { getTickersCatalog } from "../../tickers/api/tickers-client";
 import type { PreselectionResultResponse } from "../types";
+import { apiFetch, getApiBaseUrl, readResponseBody } from "@/shared/api/api-fetch";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "/api";
+const API_BASE = getApiBaseUrl();
 const USE_MOCK =
   import.meta.env.VITE_USE_MOCK_SETUP_SCAN === "true" ||
   import.meta.env.VITE_USE_MOCK_CANDLES === "true";
@@ -34,22 +35,8 @@ async function fetchJson<T>(
   if (!API_BASE) {
     throw new SetupScanApiError("VITE_API_BASE_URL is not set.");
   }
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
-  const text = await response.text();
-  let body: unknown = null;
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      body = text;
-    }
-  }
+  const response = await apiFetch(path, init);
+  const body = await readResponseBody(response);
   if (!okStatuses.includes(response.status) && !response.ok) {
     const message =
       typeof body === "object" &&

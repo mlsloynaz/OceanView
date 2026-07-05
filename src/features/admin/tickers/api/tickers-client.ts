@@ -1,8 +1,9 @@
 import type { CatalogTicker, CatalogTickersResponse } from "../types";
+import { apiFetch, errorMessageFromBody, getApiBaseUrl, readResponseBody } from "@/shared/api/api-fetch";
 
 const MOCK_DELAY_MS = 200;
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "/api";
+const API_BASE = getApiBaseUrl();
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_CANDLES === "true";
 
 let mockCatalog: CatalogTicker[] = [
@@ -21,31 +22,10 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_BASE) {
     throw new Error("VITE_API_BASE_URL is not set.");
   }
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
-  const text = await response.text();
-  let body: unknown = null;
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      body = text;
-    }
-  }
+  const response = await apiFetch(path, init);
+  const body = await readResponseBody(response);
   if (!response.ok) {
-    const message =
-      typeof body === "object" &&
-      body !== null &&
-      "error" in body &&
-      typeof (body as { error: unknown }).error === "string"
-        ? (body as { error: string }).error
-        : `HTTP ${response.status}`;
-    throw new Error(message);
+    throw new Error(errorMessageFromBody(body, `HTTP ${response.status}`));
   }
   return body as T;
 }

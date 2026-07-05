@@ -1,5 +1,6 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { defaultMarketMode, marketPath } from "@/features/market/lib/market-routes";
+import { useAuth } from "@/shared/auth/AuthProvider";
 import { ThemeToggle } from "@/shared/components/ThemeToggle";
 import { cn } from "@/shared/lib/cn";
 
@@ -20,6 +21,13 @@ function navClass({ isActive }: { isActive: boolean }) {
 
 export function TopNav() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { authRequired, username, signOut } = useAuth();
+
+  function handleSignOut() {
+    signOut();
+    navigate("/login", { replace: true });
+  }
 
   return (
     <header className="shrink-0 border-b border-ocean-mid/60 bg-ocean-surface/90 backdrop-blur-sm">
@@ -51,7 +59,19 @@ export function TopNav() {
           ))}
         </nav>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
+          {authRequired && username ? (
+            <div className="flex items-center gap-2">
+              <span className="hidden text-xs text-ocean-sand/70 sm:inline">{username}</span>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="rounded-md border border-ocean-mid/50 px-3 py-1.5 text-xs font-semibold text-ocean-sand hover:bg-ocean-mid/40"
+              >
+                Sign out
+              </button>
+            </div>
+          ) : null}
           <ThemeToggle />
         </div>
       </div>

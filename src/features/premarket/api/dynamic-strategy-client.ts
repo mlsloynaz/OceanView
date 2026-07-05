@@ -1,4 +1,5 @@
 import type { PremarketResultResponse } from "../types";
+import { apiFetch, getApiBaseUrl, readResponseBody } from "@/shared/api/api-fetch";
 
 import { MOCK_DYNAMIC_CATALOG, MOCK_DYNAMIC_RULES, nextMockPremarketStart } from "./mock-data";
 
@@ -135,7 +136,7 @@ export type DynamicEvaluateRequest = {
 
 
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "/api";
+const API_BASE = getApiBaseUrl();
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_PREMARKET === "true";
 
@@ -165,31 +166,9 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!API_BASE) throw new DynamicStrategyApiError("VITE_API_BASE_URL is not set.");
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await apiFetch(path, init);
 
-    ...init,
-
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-
-  });
-
-  const text = await response.text();
-
-  let body: unknown = null;
-
-  if (text) {
-
-    try {
-
-      body = JSON.parse(text);
-
-    } catch {
-
-      body = text;
-
-    }
-
-  }
+  const body = await readResponseBody(response);
 
   if (!response.ok) {
 
