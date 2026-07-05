@@ -36,8 +36,8 @@ export const ADMIN_PANES: Record<AdminPaneId, AdminPaneMeta> = {
   strategies: {
     id: "strategies",
     anchorId: "admin-strategies-pane",
-    title: "Dynamic strategies",
-    description: "Create and manage rule-based screens for evaluate",
+    title: "Strategies",
+    description: "Activate standard playbooks and manage dynamic screens",
   },
 };
 

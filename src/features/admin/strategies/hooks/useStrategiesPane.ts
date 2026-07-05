@@ -1,4 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import type { StrategyCatalogItem } from "@/features/market/types";
+import {
+  fetchStandardStrategiesCatalog,
+  patchStandardStrategyActive,
+  standardStrategiesUseMock,
+} from "../api/standard-strategies-client";
 import {
   DynamicStrategyApiError,
   createDynamicStrategy,
@@ -26,8 +32,9 @@ function resolveError(err: unknown): string {
 
 export function useStrategiesPane(options?: { enabled?: boolean }) {
   const enabled = options?.enabled !== false;
-  const useMock = dynamicStrategiesUseMock();
+  const useMock = dynamicStrategiesUseMock() || standardStrategiesUseMock();
 
+  const [standardStrategies, setStandardStrategies] = useState<StrategyCatalogItem[]>([]);
   const [strategies, setStrategies] = useState<DynamicStrategy[]>([]);
   const [rules, setRules] = useState<DynamicRuleTemplate[]>([]);
 
@@ -47,6 +54,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
 
   const reload = useCallback(async () => {
     if (!enabled) {
+      setStandardStrategies([]);
       setStrategies([]);
       setRules([]);
       setLoading(false);
@@ -55,10 +63,12 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setLoading(true);
     setError(null);
     try {
-      const [catalog, rulesPayload] = await Promise.all([
+      const [standardCatalog, catalog, rulesPayload] = await Promise.all([
+        fetchStandardStrategiesCatalog(),
         fetchDynamicCatalog(),
         fetchDynamicRules(),
       ]);
+      setStandardStrategies(standardCatalog.strategies ?? []);
       const rows = (catalog.strategies ?? []).map((row) => ({
         ...row,
         active: row.active !== false,
@@ -197,6 +207,26 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     [reload],
   );
 
+  const toggleStandardStrategyActive = useCallback(
+    async (strategy: StrategyCatalogItem) => {
+      setSaving(true);
+      setError(null);
+      try {
+        const currentlyActive = strategy.active !== false;
+        const updated = await patchStandardStrategyActive(strategy.id, !currentlyActive);
+        setStandardStrategies((prev) =>
+          prev.map((row) => (row.id === updated.id ? updated : row)),
+        );
+        setNotice(`${updated.name} ${updated.active ? "activated" : "deactivated"} for Market.`);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Standard strategy update failed.");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [],
+  );
+
   const previewBuilder = useCallback(async () => {
     if (selectedRuleKeys.length === 0) {
       setError("Add at least one rule to preview.");
@@ -221,6 +251,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
 
   return {
     useMock,
+    standardStrategies,
     strategies,
     rules,
     editingStrategyId,
@@ -247,6 +278,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     loadStrategyForEdit,
     saveBuilder,
     toggleStrategyActive,
+    toggleStandardStrategyActive,
     previewBuilder,
     reload,
   };

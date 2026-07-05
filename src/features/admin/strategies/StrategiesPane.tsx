@@ -3,6 +3,7 @@ import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane
 import { cn } from "@/shared/lib/cn";
 import { DynamicStrategyCatalog } from "@/features/premarket/components/DynamicStrategyCatalog";
 import { StrategyBuilderModal } from "@/features/premarket/components/StrategyBuilderModal";
+import { StandardStrategyCatalog } from "./components/StandardStrategyCatalog";
 import { useStrategiesPane } from "./hooks/useStrategiesPane";
 
 const BTN =
@@ -10,15 +11,16 @@ const BTN =
 
 export function StrategiesPane() {
   const ws = useStrategiesPane();
-  const activeCount = ws.strategies.filter((s) => s.active).length;
-  const summary = `${ws.strategies.length} in Dynamo · ${activeCount} active for evaluate`;
+  const standardActiveCount = ws.standardStrategies.filter((s) => s.active !== false).length;
+  const dynamicActiveCount = ws.strategies.filter((s) => s.active).length;
+  const summary = `${standardActiveCount} standard · ${dynamicActiveCount} dynamic active`;
 
   return (
     <>
       {ws.useMock ? (
         <AdminExpandedPane
           id="admin-strategies-pane"
-          title="Dynamic strategies"
+          title="Strategies"
           subtitle="Mock mode — strategy builder unavailable"
         >
           <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
@@ -27,17 +29,13 @@ export function StrategiesPane() {
           </p>
         </AdminExpandedPane>
       ) : ws.loading ? (
-        <AdminExpandedPane
-          id="admin-strategies-pane"
-          title="Dynamic strategies"
-          subtitle="Loading catalog…"
-        >
-          <p className="text-sm text-ocean-sand">Loading dynamic strategy catalog…</p>
+        <AdminExpandedPane id="admin-strategies-pane" title="Strategies" subtitle="Loading catalog…">
+          <p className="text-sm text-ocean-sand">Loading strategy catalogs…</p>
         </AdminExpandedPane>
       ) : (
         <AdminExpandedPane
           id="admin-strategies-pane"
-          title="Dynamic strategies"
+          title="Strategies"
           subtitle={summary}
           headerExtra={
             <button
@@ -63,6 +61,25 @@ export function StrategiesPane() {
               </Link>
             </p>
           )}
+
+          <StandardStrategyCatalog
+            strategies={ws.standardStrategies}
+            saving={ws.saving}
+            onToggleActive={(s) => void ws.toggleStandardStrategyActive(s)}
+          />
+
+          <div
+            className="my-6 border-t border-ocean-mid/50"
+            role="separator"
+            aria-label="Dynamic strategies"
+          />
+
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold text-ocean-foam">Dynamic strategies</h3>
+            <p className="mt-0.5 text-[11px] text-ocean-sand">
+              User-built screens in Dynamo — create, edit, and activate for Premarket evaluate.
+            </p>
+          </div>
 
           <DynamicStrategyCatalog
             embedded

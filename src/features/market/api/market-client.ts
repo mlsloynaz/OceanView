@@ -5,6 +5,7 @@ import type {
   MarketEvaluateStatusResponse,
   RuleSnapshotItem,
   StrategiesCatalogFile,
+  StrategyCatalogItem,
   StrategyDetailResponse,
   StrategySnapshotItem,
   TickerDetailResponse,
@@ -73,6 +74,20 @@ export async function fetchMarketEnvelope(): Promise<MarketEnvelope> {
 
 export async function fetchStrategiesCatalog(): Promise<StrategiesCatalogFile> {
   return fetchJson<StrategiesCatalogFile>("/market/strategies");
+}
+
+export async function patchMarketStrategyActive(
+  strategyId: string,
+  active: boolean,
+): Promise<StrategyCatalogItem> {
+  const id = strategyId.trim();
+  if (!id) {
+    throw new MarketApiError("Strategy id is required.");
+  }
+  return fetchJson(`/market/strategies/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ active }),
+  });
 }
 
 export async function fetchStrategiesSnapshot(runId?: string | null) {

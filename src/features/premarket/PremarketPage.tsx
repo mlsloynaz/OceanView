@@ -53,7 +53,7 @@ export function PremarketPage() {
               No active strategies — create or activate one in{" "}
               <strong className="font-medium">Strategy builder</strong> below or in{" "}
               <Link to="/admin" className="font-medium underline hover:text-ocean-foam">
-                Admin → Dynamic strategies
+                Admin → Strategies
               </Link>
               .
             </>
