@@ -10,9 +10,9 @@ export type LiveSimulateMode = "live" | "simulate";
 type Props = {
   mode: LiveSimulateMode;
   onModeChange: (mode: LiveSimulateMode) => void;
-  /** Disables Live/Simulate toggle buttons. */
+  /** Disables Live/Simulate toggle buttons only. */
   disabled?: boolean;
-  /** Disables the simulate date/time input (defaults to `disabled`). */
+  /** Disables simulate date/time inputs (default: never — inputs stay editable). */
   inputDisabled?: boolean;
   liveEnabled?: boolean;
   simulateEnabled?: boolean;
@@ -31,6 +31,26 @@ type Props = {
   ariaLabel?: string;
 };
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{2}:\d{2}$/;
+
+function splitDatetimeLocal(value: string): { date: string; time: string } {
+  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+  return {
+    date: match?.[1] ?? "",
+    time: match?.[2] ?? "09:30",
+  };
+}
+
+function joinDatetimeLocal(date: string, time: string): string {
+  return `${date}T${time}`;
+}
+
+function boundDate(bound: string | undefined): string | undefined {
+  if (!bound) return undefined;
+  return bound.length >= 10 ? bound.slice(0, 10) : bound;
+}
+
 function LiveEtClock() {
   const [now, setNow] = useState(() => new Date());
 
@@ -48,11 +68,21 @@ function LiveEtClock() {
   );
 }
 
+/** Compact picker styling — same pattern as Tickers SemiFinal (editable on Windows). */
+const pickerClass = (error: boolean, fieldDisabled: boolean) =>
+  cn(
+    "relative z-10 min-w-[7.5rem] rounded border border-ocean-mid/60 bg-ocean-deep px-1 py-0.5 text-ocean-foam",
+    "focus:border-ocean-teal/50 focus:outline-none",
+    "[color-scheme:dark]",
+    error && "border-ocean-danger-border",
+    fieldDisabled && "cursor-not-allowed opacity-50",
+  );
+
 export function LiveSimulateControl({
   mode,
   onModeChange,
   disabled = false,
-  inputDisabled,
+  inputDisabled = false,
   liveEnabled = true,
   simulateEnabled = true,
   variant = "default",
@@ -69,13 +99,7 @@ export function LiveSimulateControl({
   className,
   ariaLabel = "Live or simulate mode",
 }: Props) {
-  const simulateFieldDisabled = inputDisabled ?? disabled;
-  const [draftValue, setDraftValue] = useState(simulateValue);
-
-  useEffect(() => {
-    setDraftValue(simulateValue);
-  }, [simulateValue, mode]);
-
+  const parsed = splitDatetimeLocal(simulateValue);
   const isCompact = variant === "compact";
   const toggleWrap = cn(
     "inline-flex shrink-0 items-center gap-1",
@@ -94,6 +118,16 @@ export function LiveSimulateControl({
   const btnInactive = "text-ocean-sand hover:text-ocean-foam";
 
   const showSimulateInput = mode === "simulate" && simulateInput && onSimulateChange;
+  const dateMin = boundDate(simulateMin);
+  const dateMax = boundDate(simulateMax);
+
+  const commitDatetime = (date: string, time: string) => {
+    if (!DATE_RE.test(date) || !TIME_RE.test(time)) return;
+    const combined = joinDatetimeLocal(date, time);
+    if (parseEtDatetimeLocal(combined)) {
+      onSimulateChange?.(combined);
+    }
+  };
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
@@ -136,59 +170,73 @@ export function LiveSimulateControl({
       ) : null}
 
       {showSimulateInput ? (
-        <label
-          className={cn(
-            "flex items-center gap-1",
-            isCompact ? "text-[11px] text-ocean-sand" : "contents",
-          )}
-        >
-          {simulateLabel ? (
-            <span className={isCompact ? undefined : "sr-only"}>{simulateLabel}</span>
-          ) : (
-            <span className="sr-only">Simulation time (Eastern)</span>
-          )}
-          <input
-            id={simulateInputId}
-            type={simulateInput}
-            value={draftValue}
-            min={simulateMin}
-            max={simulateMax}
-            disabled={simulateFieldDisabled}
-            onChange={(e) => {
-              const next = e.target.value;
-              setDraftValue(next);
-              onSimulateChange?.(next);
-            }}
-            onBlur={() => {
-              const trimmed = draftValue.trim();
-              if (!trimmed) {
-                setDraftValue(simulateValue);
-                return;
-              }
-              if (simulateInput === "datetime" && parseEtDatetimeLocal(trimmed)) {
-                return;
-              }
-              if (simulateInput === "date" && /^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-                return;
-              }
-              setDraftValue(simulateValue);
-            }}
+        simulateInput === "datetime" ? (
+          <div
             className={cn(
-              isCompact
-                ? "rounded border border-ocean-mid/60 bg-ocean-deep px-1 py-0.5 text-ocean-foam"
-                : cn(
-                    "min-w-[11rem] rounded-md border bg-ocean-surface py-1.5 pl-2 pr-1 text-sm text-ocean-foam tabular-nums",
-                    "focus:border-ocean-teal/40 focus:outline-none focus:ring-1 focus:ring-ocean-teal/20",
-                    simulateInputError ? "border-ocean-danger-border" : "border-ocean-mid/40",
-                  ),
-              simulateFieldDisabled && "opacity-50",
+              "relative flex flex-wrap items-center gap-1",
+              isCompact ? "text-[11px] text-ocean-sand" : "text-[11px] text-ocean-sand",
             )}
-            aria-invalid={simulateInputError || undefined}
-          />
-          {simulateInput === "datetime" && !isCompact ? (
-            <span className="text-[11px] text-ocean-sand">ET</span>
-          ) : null}
-        </label>
+          >
+            <label htmlFor={simulateInputId} className="shrink-0">
+              Session
+            </label>
+            <input
+              id={simulateInputId}
+              type="date"
+              value={parsed.date}
+              min={dateMin}
+              max={dateMax}
+              disabled={inputDisabled}
+              aria-invalid={simulateInputError || undefined}
+              className={pickerClass(simulateInputError, inputDisabled)}
+              onChange={(e) => {
+                const date = e.target.value;
+                if (!DATE_RE.test(date)) return;
+                commitDatetime(date, parsed.time);
+              }}
+            />
+            <label htmlFor={`${simulateInputId}-time`} className="shrink-0">
+              Time
+            </label>
+            <input
+              id={`${simulateInputId}-time`}
+              type="time"
+              value={parsed.time}
+              step={60}
+              disabled={inputDisabled}
+              aria-invalid={simulateInputError || undefined}
+              className={cn(pickerClass(simulateInputError, inputDisabled), "min-w-[6.5rem]")}
+              onChange={(e) => {
+                const time = e.target.value;
+                if (!TIME_RE.test(time) || !parsed.date) return;
+                commitDatetime(parsed.date, time);
+              }}
+            />
+            <span className="shrink-0">ET</span>
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "relative flex items-center gap-1",
+              isCompact ? "text-[11px] text-ocean-sand" : "text-[11px] text-ocean-sand",
+            )}
+          >
+            <label htmlFor={simulateInputId} className="shrink-0">
+              {simulateLabel ?? "Session"}
+            </label>
+            <input
+              id={simulateInputId}
+              type="date"
+              value={simulateValue}
+              min={dateMin}
+              max={dateMax}
+              disabled={inputDisabled}
+              aria-invalid={simulateInputError || undefined}
+              className={pickerClass(simulateInputError, inputDisabled)}
+              onChange={(e) => onSimulateChange?.(e.target.value)}
+            />
+          </div>
+        )
       ) : null}
     </div>
   );

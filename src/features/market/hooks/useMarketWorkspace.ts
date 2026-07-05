@@ -30,6 +30,7 @@ import {
   validateAssessmentTime,
   resolveMarketNowAssessmentMoment,
 } from "../lib/assessment-time";
+import { defaultSimulationSessionDate } from "@/shared/lib/market-calendar";
 import type {
   CandleCoverage,
   MarketEnvelope,
@@ -181,7 +182,8 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       }
       const historical =
         lastAssessedAt && !isAssessmentNow(lastAssessedAt) ? lastAssessedAt : null;
-      const et = clampAssessmentTime(historical ?? new Date(), candleCoverage);
+      const fallbackSession = parseEtDatetimeLocal(`${defaultSimulationSessionDate()}T09:30`);
+      const et = clampAssessmentTime(historical ?? fallbackSession ?? new Date(), candleCoverage);
       setAssessmentAt(et);
       applyAssessmentValidation(et, candleCoverage);
     },

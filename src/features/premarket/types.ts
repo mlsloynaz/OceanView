@@ -50,6 +50,10 @@ export type PremarketResultResponse = {
   progress?: { completed?: number; total?: number };
   strategies: PremarketStrategyGroup[];
   symbolOutcomes?: PremarketSymbolOutcome[];
+  /** Server hint — job still running (includes early `ready`). */
+  jobActive?: boolean;
+  /** Server hint — Stop endpoint will accept this run. */
+  canStop?: boolean;
 };
 
 export type PremarketStartRequest = {

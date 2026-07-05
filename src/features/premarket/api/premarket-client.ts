@@ -118,6 +118,11 @@ function isEvaluateTerminal(status: string | undefined): boolean {
   return value === "complete" || value === "partial" || value === "failed" || value === "stopped";
 }
 
+export function isPremarketJobActive(status: string | undefined): boolean {
+  const value = (status ?? "").toLowerCase();
+  return value === "running" || value === "ready" || value === "stopping";
+}
+
 /** Poll up to 10s after start — does not throw on timeout. */
 export async function pollPremarketEvaluate(
   runId?: string | null,
@@ -128,7 +133,10 @@ export async function pollPremarketEvaluate(
   while (Date.now() < deadline) {
     last = await fetchPremarketResult(runId);
     onProgress?.(last);
-    if (isEvaluateUsable(last.status) && isEvaluateTerminal(last.status)) {
+    if (isEvaluateTerminal(last.status)) {
+      return last;
+    }
+    if (isEvaluateUsable(last.status) && !isPremarketJobActive(last.status)) {
       return last;
     }
     if (Date.now() + POLL_INTERVAL_MS >= deadline) {

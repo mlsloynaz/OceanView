@@ -15,15 +15,49 @@ import {
 } from "../api/premarket-client";
 import type { PremarketResultResponse } from "../types";
 import {
+  formatEtDatetimeLocal,
   formatSimulationTimeEt,
   isAssessmentNow,
   parseEtDatetimeLocal,
   parseSimulationTimeEt,
   type AssessmentTimeMode,
 } from "@/features/market/lib/assessment-time";
-import { canStopPremarketEvaluate, isPremarketEvaluateActive } from "../display";
+import { defaultSimulationSessionDate } from "@/shared/lib/market-calendar";
+import { canStopPremarketEvaluate, isPremarketEvaluateActive, isPremarketEvaluateTerminal } from "../display";
 
 const DEFAULT_THRESHOLD = 0;
+const BACKGROUND_POLL_MS = 2000;
+const START_NOTICE_PREFIX = "Premarket evaluate started";
+
+function isStartBoilerplateMessage(message: string | undefined): boolean {
+  return Boolean(message?.trim().startsWith(START_NOTICE_PREFIX));
+}
+
+/** Single source of truth for the green status line under the toolbar. */
+export function syncNoticeFromResult(payload: PremarketResultResponse | null): string | null {
+  if (!payload || isPremarketEvaluateTerminal(payload.status)) {
+    return null;
+  }
+  if (!isPremarketEvaluateActive(payload.status)) {
+    return null;
+  }
+  return activeJobNotice(payload);
+}
+
+function activeJobNotice(payload: PremarketResultResponse | null): string | null {
+  if (!payload || !isPremarketEvaluateActive(payload.status)) return null;
+  const apiMessage = payload.message?.trim();
+  if (apiMessage && !isStartBoilerplateMessage(apiMessage)) {
+    return apiMessage;
+  }
+  const completed = payload.progress?.completed ?? 0;
+  const total = payload.progress?.total ?? 0;
+  const progress = total > 0 ? ` (${completed}/${total} symbols)` : "";
+  if ((payload.status ?? "").toLowerCase() === "ready") {
+    return `Early results available${progress}. Evaluate still running — Stop to cancel or Refresh for updates.`;
+  }
+  return `Evaluate in progress${progress}. Stop to cancel or Refresh for partial results.`;
+}
 
 function resolveError(err: unknown): string {
   if (err instanceof DynamicStrategyApiError || err instanceof PremarketApiError) {
@@ -95,10 +129,12 @@ export function usePremarketWorkspace() {
       if (payload?.signalThresholdPct != null) {
         setThreshold(payload.signalThresholdPct);
       }
+      setNotice(syncNoticeFromResult(payload));
       return payload;
     } catch (err) {
       if (err instanceof PremarketApiError && err.code === "PREMARKET_NOT_FOUND") {
         setResult(null);
+        setNotice(null);
         return null;
       }
       setError(resolveError(err));
@@ -126,11 +162,13 @@ export function usePremarketWorkspace() {
             setAssessmentModeState("et");
             setAssessmentAt(sim);
           }
+          setNotice(syncNoticeFromResult(payload));
         }
       } catch (err) {
         if (!cancelled) {
           if (err instanceof PremarketApiError && err.code === "PREMARKET_NOT_FOUND") {
             setResult(null);
+            setNotice(null);
           } else {
             setError(resolveError(err));
           }
@@ -143,6 +181,30 @@ export function usePremarketWorkspace() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (startPending || !isPremarketEvaluateActive(result?.status)) {
+      return;
+    }
+    const runId = result?.runId;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const payload = await fetchPremarketResult(runId);
+        if (cancelled) return;
+        setResult(payload);
+        setNotice(syncNoticeFromResult(payload));
+      } catch {
+        /* keep last result; user can Refresh manually */
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), BACKGROUND_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [result?.runId, result?.status, startPending]);
 
   const resolveEvaluateRequest = useCallback(() => {
     if (assessmentMode === "et") {
@@ -158,7 +220,11 @@ export function usePremarketWorkspace() {
     setAssessmentModeState(mode);
     setAssessmentError(null);
     if (mode === "et") {
-      setAssessmentAt((prev) => prev);
+      const session = defaultSimulationSessionDate();
+      const parsed =
+        parseEtDatetimeLocal(`${session}T09:30`) ??
+        parseEtDatetimeLocal(formatEtDatetimeLocal(new Date()));
+      if (parsed) setAssessmentAt(parsed);
     }
   }, []);
 
@@ -183,7 +249,7 @@ export function usePremarketWorkspace() {
   }, []);
 
   const startEvaluate = useCallback(
-    async (allowRetry = true) => {
+    async () => {
       if (evaluateInFlightRef.current) return;
       if (assessmentMode === "et" && assessmentError) return;
 
@@ -213,19 +279,24 @@ export function usePremarketWorkspace() {
           simulationTimeEt: payload.simulationTimeEt,
           tradeDate: payload.tradeDate,
           signalThresholdPct: payload.signalThresholdPct ?? threshold,
+          jobActive: true,
+          canStop: true,
         }));
-        await pollPremarketEvaluate(payload.runId, (progress) => {
+        const polled = await pollPremarketEvaluate(payload.runId, (progress) => {
           setResult(progress);
+          setNotice(syncNoticeFromResult(progress));
         });
-        setNotice(
-          payload.message ?? "Evaluate started. Use Refresh result to load results.",
-        );
+        if (polled) {
+          setResult(polled);
+          setNotice(syncNoticeFromResult(polled));
+        }
       } catch (err) {
-        if (allowRetry && isEvaluateConflict(err)) {
-          await new Promise((resolve) => window.setTimeout(resolve, 400));
-          evaluateInFlightRef.current = false;
-          setStartPending(false);
-          return startEvaluate(false);
+        if (isEvaluateConflict(err)) {
+          const existing = await loadResult();
+          if (existing && isPremarketEvaluateActive(existing.status)) {
+            setNotice(syncNoticeFromResult(existing));
+            return;
+          }
         }
         setError(resolveError(err));
       } finally {
@@ -233,7 +304,7 @@ export function usePremarketWorkspace() {
         setStartPending(false);
       }
     },
-    [activeStrategies, assessmentError, assessmentMode, resolveEvaluateRequest, threshold],
+    [activeStrategies, assessmentError, assessmentMode, loadResult, resolveEvaluateRequest, threshold],
   );
 
   const stopEvaluate = useCallback(async () => {
@@ -263,7 +334,11 @@ export function usePremarketWorkspace() {
   }, [loadResult, result?.runId]);
 
   const evaluateRunning = startPending || isPremarketEvaluateActive(result?.status);
-  const canStopEvaluate = canStopPremarketEvaluate(result?.status, startPending);
+  const canStopEvaluate = canStopPremarketEvaluate(
+    result?.status,
+    startPending,
+    result?.canStop,
+  );
 
   return {
     useMock,

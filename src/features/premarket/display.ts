@@ -18,6 +18,8 @@ export function formatPremarketStatus(status: string | undefined): string {
       return "Failed";
     case "running":
       return "Running";
+    case "ready":
+      return "Early results";
     case "stopping":
       return "Stopping";
     case "idle":
@@ -29,15 +31,23 @@ export function formatPremarketStatus(status: string | undefined): string {
 
 export function isPremarketEvaluateActive(status: string | undefined): boolean {
   const value = (status ?? "").toLowerCase();
-  return value === "running" || value === "stopping";
+  return value === "running" || value === "ready" || value === "stopping";
+}
+
+export function isPremarketEvaluateTerminal(status: string | undefined): boolean {
+  const value = (status ?? "").toLowerCase();
+  return value === "complete" || value === "partial" || value === "failed" || value === "stopped";
 }
 
 export function canStopPremarketEvaluate(
   status: string | undefined,
   startPending: boolean,
+  canStopFromApi?: boolean,
 ): boolean {
   if (startPending) return true;
-  return (status ?? "").toLowerCase() === "running";
+  if (canStopFromApi === true) return true;
+  if (canStopFromApi === false) return false;
+  return isPremarketEvaluateActive(status);
 }
 
 export function formatSimTimeEt(iso: string | undefined): string {

@@ -20,6 +20,7 @@ type Props = {
   simulateEnabled?: boolean;
   liveHint?: string;
   showLiveClock?: boolean;
+  simulateInputError?: boolean;
   onModeChange: (mode: AssessmentTimeMode) => void;
   onChange: (localValue: string) => void;
   className?: string;
@@ -36,6 +37,7 @@ export function SimulationTimeControl({
   simulateEnabled = true,
   liveHint = "at evaluate",
   showLiveClock = true,
+  simulateInputError = false,
   onModeChange,
   onChange,
   className,
@@ -53,6 +55,7 @@ export function SimulationTimeControl({
       simulateValue={formatEtDatetimeLocal(value)}
       onSimulateChange={onChange}
       simulateInputId={inputId}
+      simulateInputError={simulateInputError}
       showLiveClock={showLiveClock}
       liveHint={liveHint}
       className={className}

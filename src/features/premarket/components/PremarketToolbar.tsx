@@ -73,6 +73,8 @@ export function PremarketToolbar({
         mode={assessmentMode}
         value={assessmentAt}
         disabled={evaluateControlsBusy}
+        inputDisabled={false}
+        simulateInputError={Boolean(assessmentError)}
         inputId="premarket-evaluate-time"
         onModeChange={onAssessmentModeChange}
         onChange={onAssessmentTimeChange}
@@ -188,11 +190,19 @@ export function PremarketToolbar({
         <span>
           Status:{" "}
           <strong className="text-ocean-foam">
-            {startPending || (result?.status ?? "").toLowerCase() === "running"
-              ? "Running"
+            {startPending
+              ? "Starting…"
               : formatPremarketStatus(result?.status)}
           </strong>
         </span>
+        {result?.progress?.total != null && result.progress.total > 0 && (
+          <span>
+            Progress:{" "}
+            <strong className="text-ocean-foam">
+              {result.progress.completed ?? 0}/{result.progress.total}
+            </strong>
+          </span>
+        )}
         {result?.evaluatedAt && (
           <span>
             Ran:{" "}

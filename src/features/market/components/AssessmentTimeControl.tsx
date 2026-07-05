@@ -54,6 +54,8 @@ export function AssessmentTimeControl({
         <LiveSimulateControl
           mode={assessmentToLiveSimulate(mode)}
           onModeChange={(next) => onModeChange(liveSimulateToAssessment(next))}
+          disabled={false}
+          inputDisabled={false}
           liveEnabled={liveEnabled}
           simulateEnabled={simulateEnabled}
           variant="default"
