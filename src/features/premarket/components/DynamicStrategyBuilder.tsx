@@ -75,9 +75,15 @@ export function DynamicStrategyBuilder({
 
   const composedRules = useMemo(
     () =>
-      selectedRuleKeys
-        .map((key) => ruleMap.get(key))
-        .filter((r): r is DynamicRuleTemplate => r != null),
+      selectedRuleKeys.map((key) => {
+        const template = ruleMap.get(key);
+        if (template) return template;
+        return {
+          ruleKey: key,
+          label: `${key} (not in library — remove or replace)`,
+          defaultType: "required" as const,
+        };
+      }),
     [selectedRuleKeys, ruleMap],
   );
 

@@ -1,4 +1,4 @@
-import { cognitoIdpEndpoint, getCognitoConfig } from "./cognito-config";
+import { cognitoIdpEndpoint, getCognitoConfig, isAuthConfigured } from "./cognito-config";
 import {
   clearAuthSession,
   loadAuthSession,
@@ -25,6 +25,36 @@ function usernameFromIdToken(idToken: string): string {
   const payload = parseJwtPayload(idToken);
   const username = payload["cognito:username"] ?? payload.username ?? payload.sub;
   return typeof username === "string" ? username : "user";
+}
+
+function groupsFromIdToken(idToken: string): string[] {
+  const payload = parseJwtPayload(idToken);
+  return parseCognitoGroups(payload["cognito:groups"]);
+}
+
+export function parseCognitoGroups(raw: unknown): string[] {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) {
+    return raw.map((item) => String(item).trim()).filter(Boolean);
+  }
+  const text = String(raw).trim();
+  if (!text) return [];
+  if (text.startsWith("[") && text.endsWith("]")) {
+    const inner = text.slice(1, -1).trim();
+    if (!inner) return [];
+    return inner.split(",").map((part) => part.trim().replace(/^['"]|['"]$/g, "")).filter(Boolean);
+  }
+  if (text.includes(" ")) {
+    return text.split(/\s+/).map((part) => part.trim()).filter(Boolean);
+  }
+  if (text.includes(",")) {
+    return text.split(",").map((part) => part.trim()).filter(Boolean);
+  }
+  return [text];
+}
+
+export function isAdminFromIdToken(idToken: string): boolean {
+  return groupsFromIdToken(idToken).includes("admin");
 }
 
 async function cognitoRequest<T>(target: string, body: Record<string, unknown>): Promise<T> {
@@ -155,6 +185,17 @@ export async function getValidIdToken(): Promise<string | null> {
 
 export function getStoredUsername(): string | null {
   return loadAuthSession()?.username ?? null;
+}
+
+export function getStoredIsAdmin(): boolean {
+  if (!isAuthConfigured()) {
+    return true;
+  }
+  const session = loadAuthSession();
+  if (!session?.idToken) {
+    return false;
+  }
+  return isAdminFromIdToken(session.idToken);
 }
 
 export function signOut(): void {

@@ -3,6 +3,7 @@ import { AppShell } from "@/shared/components/layout/AppShell";
 import { RouteErrorFallback } from "@/shared/components/RouteErrorFallback";
 import { RouteNotFound } from "@/shared/components/RouteNotFound";
 import { LoginPage } from "@/shared/auth/LoginPage";
+import { RequireAdmin } from "@/shared/auth/RequireAdmin";
 import { RequireAuth } from "@/shared/auth/RequireAuth";
 import { MarketPage } from "@/features/market/MarketPage";
 import { MarketRedirect } from "@/features/market/MarketRedirect";
@@ -25,7 +26,7 @@ export const router = createBrowserRouter([
       { path: "market", element: <MarketRedirect /> },
       { path: "market/:mode", element: <MarketPage /> },
       { path: "premarket", element: <PremarketPage /> },
-      { path: "admin", element: <AdminPage /> },
+      { path: "admin", element: <RequireAdmin><AdminPage /></RequireAdmin> },
       { path: "*", element: <RouteNotFound /> },
     ],
   },

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useStrategiesPane } from "@/features/admin/strategies/hooks/useStrategiesPane";
+import { useAuth } from "@/shared/auth/AuthProvider";
 import { PremarketAuxPanels } from "./components/PremarketAuxPanels";
 import { PremarketBanner } from "./components/PremarketBanner";
 import { PremarketEmptyState } from "./components/PremarketEmptyState";
@@ -8,8 +9,9 @@ import { PremarketToolbar } from "./components/PremarketToolbar";
 import { usePremarketWorkspace } from "./hooks/usePremarketWorkspace";
 
 export function PremarketPage() {
+  const { isAdmin } = useAuth();
   const ws = usePremarketWorkspace();
-  const builder = useStrategiesPane();
+  const builder = useStrategiesPane({ enabled: isAdmin });
 
   const resultStrategies = ws.result?.strategies ?? [];
   const hasResults = resultStrategies.length > 0;
@@ -21,13 +23,20 @@ export function PremarketPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam">Premarket</h1>
         <p className="mt-2 text-ocean-sand">
-          Evaluate active dynamic strategies against active tickers. Open{" "}
-          <strong className="font-medium text-ocean-foam">Strategy builder</strong> from the
-          thumbnails below, or manage the full catalog in{" "}
-          <Link to="/admin" className="text-ocean-teal hover:underline">
-            Admin
-          </Link>
-          . Extended-hours bars stay in memory only.
+          Evaluate active dynamic strategies against active tickers.
+          {isAdmin ? (
+            <>
+              {" "}
+              Open{" "}
+              <strong className="font-medium text-ocean-foam">Strategy builder</strong> from the
+              thumbnails below, or manage the full catalog in{" "}
+              <Link to="/admin" className="text-ocean-teal hover:underline">
+                Admin
+              </Link>
+              .
+            </>
+          ) : null}{" "}
+          Extended-hours bars stay in memory only.
         </p>
       </div>
 
@@ -39,12 +48,18 @@ export function PremarketPage() {
 
       {!ws.catalogLoading && ws.activeStrategies.length === 0 && (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
-          No active strategies — create or activate one in{" "}
-          <strong className="font-medium">Strategy builder</strong> below or in{" "}
-          <Link to="/admin" className="font-medium underline hover:text-ocean-foam">
-            Admin → Dynamic strategies
-          </Link>
-          .
+          {isAdmin ? (
+            <>
+              No active strategies — create or activate one in{" "}
+              <strong className="font-medium">Strategy builder</strong> below or in{" "}
+              <Link to="/admin" className="font-medium underline hover:text-ocean-foam">
+                Admin → Dynamic strategies
+              </Link>
+              .
+            </>
+          ) : (
+            <>No active strategies are configured yet. Ask an admin to activate a dynamic strategy.</>
+          )}
         </p>
       )}
 
@@ -52,11 +67,13 @@ export function PremarketPage() {
 
       <PremarketAuxPanels
         ws={ws}
+        isAdmin={isAdmin}
         builder={builder}
         onStrategyMutated={() => void ws.reloadCatalog()}
       />
 
       <PremarketToolbar
+        isAdmin={isAdmin}
         result={ws.result}
         activeStrategyCount={ws.activeStrategies.length}
         evaluateRunning={ws.evaluateRunning}
@@ -76,9 +93,9 @@ export function PremarketPage() {
         onRefresh={() => void ws.refreshResult()}
       />
 
-      {(ws.notice || builder.notice) && (
+      {(ws.notice || (isAdmin && builder.notice)) && (
         <p className="text-sm text-ocean-teal-dim dark:text-ocean-teal" role="status">
-          {builder.notice ?? ws.notice}
+          {(isAdmin && builder.notice) ?? ws.notice}
         </p>
       )}
       {ws.error && (
@@ -121,7 +138,10 @@ export function PremarketPage() {
       )}
 
       {showEmpty && (
-        <PremarketEmptyState hasActiveStrategies={ws.activeStrategies.length > 0} />
+        <PremarketEmptyState
+          isAdmin={isAdmin}
+          hasActiveStrategies={ws.activeStrategies.length > 0}
+        />
       )}
 
       {hasResults && ws.threshold > 0 && (ws.result?.summary?.symbolsAboveThreshold ?? 0) === 0 && (

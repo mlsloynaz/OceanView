@@ -24,7 +24,8 @@ function resolveError(err: unknown): string {
   return "Strategy request failed.";
 }
 
-export function useStrategiesPane() {
+export function useStrategiesPane(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled !== false;
   const useMock = dynamicStrategiesUseMock();
 
   const [strategies, setStrategies] = useState<DynamicStrategy[]>([]);
@@ -45,6 +46,12 @@ export function useStrategiesPane() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
+    if (!enabled) {
+      setStrategies([]);
+      setRules([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -64,7 +71,7 @@ export function useStrategiesPane() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     void reload();

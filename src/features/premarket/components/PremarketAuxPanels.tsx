@@ -18,6 +18,7 @@ const BTN =
 
 type Props = {
   ws: WorkspaceState;
+  isAdmin: boolean;
   builder: BuilderState;
   onStrategyMutated: () => void;
 };
@@ -46,7 +47,7 @@ function IconDiagnostics() {
   );
 }
 
-export function PremarketAuxPanels({ ws, builder, onStrategyMutated }: Props) {
+export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: Props) {
   const [activePane, setActivePane] = useState<AuxPaneId | null>(null);
 
   const outcomes = ws.result?.symbolOutcomes ?? [];
@@ -70,14 +71,16 @@ export function PremarketAuxPanels({ ws, builder, onStrategyMutated }: Props) {
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3">
-        <AdminPaneThumbnail
-          title="Strategy builder"
-          description={strategySummary}
-          icon={<IconStrategy />}
-          active={activePane === "strategies"}
-          onClick={() => selectPane("strategies")}
-        />
+      <div className={cn("grid gap-3", isAdmin ? "grid-cols-2" : "grid-cols-1")}>
+        {isAdmin && (
+          <AdminPaneThumbnail
+            title="Strategy builder"
+            description={strategySummary}
+            icon={<IconStrategy />}
+            active={activePane === "strategies"}
+            onClick={() => selectPane("strategies")}
+          />
+        )}
         <AdminPaneThumbnail
           title="Symbol diagnostics"
           description={diagnosticsSummary}
@@ -87,7 +90,7 @@ export function PremarketAuxPanels({ ws, builder, onStrategyMutated }: Props) {
         />
       </div>
 
-      {activePane === "strategies" && (
+      {isAdmin && activePane === "strategies" && (
         <AdminExpandedPane
           id="premarket-strategy-builder-pane"
           title="Strategy builder"
@@ -143,7 +146,7 @@ export function PremarketAuxPanels({ ws, builder, onStrategyMutated }: Props) {
         </AdminExpandedPane>
       )}
 
-      {builder.builderOpen && (
+      {isAdmin && builder.builderOpen && (
         <StrategyBuilderModal
           rules={builder.rules}
           selectedRuleKeys={builder.selectedRuleKeys}

@@ -7,13 +7,19 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getStoredUsername, signInWithPassword, signOut as clearSession } from "./cognito-client";
+import {
+  getStoredIsAdmin,
+  getStoredUsername,
+  signInWithPassword,
+  signOut as clearSession,
+} from "./cognito-client";
 import { isAuthConfigured } from "./cognito-config";
 import { loadAuthSession } from "./auth-storage";
 
 type AuthContextValue = {
   authRequired: boolean;
   username: string | null;
+  isAdmin: boolean;
   loading: boolean;
   signIn: (username: string, password: string) => Promise<void>;
   signOut: () => void;
@@ -26,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [username, setUsername] = useState<string | null>(() =>
     authRequired ? getStoredUsername() : "dev",
   );
+  const [isAdmin, setIsAdmin] = useState(() => (authRequired ? getStoredIsAdmin() : true));
   const [loading, setLoading] = useState(authRequired);
 
   useEffect(() => {
@@ -35,28 +42,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const session = loadAuthSession();
     setUsername(session?.username ?? null);
+    setIsAdmin(getStoredIsAdmin());
     setLoading(false);
   }, [authRequired]);
 
   const signIn = useCallback(async (user: string, password: string) => {
     const session = await signInWithPassword(user, password);
     setUsername(session.username);
+    setIsAdmin(getStoredIsAdmin());
   }, []);
 
   const signOut = useCallback(() => {
     clearSession();
     setUsername(null);
+    setIsAdmin(false);
   }, []);
 
   const value = useMemo(
     () => ({
       authRequired,
       username,
+      isAdmin,
       loading,
       signIn,
       signOut,
     }),
-    [authRequired, username, loading, signIn, signOut],
+    [authRequired, username, isAdmin, loading, signIn, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

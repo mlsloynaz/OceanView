@@ -22,7 +22,9 @@ function navClass({ isActive }: { isActive: boolean }) {
 export function TopNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { authRequired, username, signOut } = useAuth();
+  const { authRequired, username, isAdmin, signOut } = useAuth();
+
+  const visibleNavItems = navItems.filter((item) => item.match !== "/admin" || isAdmin);
 
   function handleSignOut() {
     signOut();
@@ -48,7 +50,7 @@ export function TopNav() {
         </div>
 
         <nav className="flex items-center gap-1" aria-label="Main navigation">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

@@ -8,6 +8,7 @@ const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
 type Props = {
+  isAdmin?: boolean;
   result: PremarketResultResponse | null;
   activeStrategyCount: number;
   evaluateRunning: boolean;
@@ -30,6 +31,7 @@ type Props = {
 const THRESHOLD_PRESETS = [0, 50, 75] as const;
 
 export function PremarketToolbar({
+  isAdmin = false,
   result,
   activeStrategyCount,
   evaluateRunning,
@@ -58,8 +60,11 @@ export function PremarketToolbar({
       <div>
         <h2 className="font-display text-lg font-semibold text-ocean-foam">Evaluate strategies</h2>
         <p className="mt-0.5 text-xs text-ocean-sand">
-          Run all active dynamic strategies against active tickers. Use the Strategy builder thumbnail
-          above to edit screens. Extended-hours bars stay in memory only.
+          Run all active dynamic strategies against active tickers.
+          {isAdmin
+            ? " Use the Strategy builder thumbnail above to edit screens."
+            : null}{" "}
+          Extended-hours bars stay in memory only.
         </p>
       </div>
 
