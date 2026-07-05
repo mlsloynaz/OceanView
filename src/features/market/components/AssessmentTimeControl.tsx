@@ -1,7 +1,6 @@
 import type { CandleCoverage } from "../types";
 import {
   blocksAssess,
-  coverageBoundsForInput,
   formatAssessmentDisplay,
   formatEtDatetimeLocal,
   type AssessmentTimeMode,
@@ -46,7 +45,6 @@ export function AssessmentTimeControl({
   onRefreshResult,
   className,
 }: Props) {
-  const { min, max } = coverageBoundsForInput(coverage);
   const assessAt = mode === "now" ? new Date() : value;
   const assessDisabled = pending || blocksAssess(assessAt, coverage, { historicalOnly: mode === "et" });
 
@@ -63,8 +61,6 @@ export function AssessmentTimeControl({
           simulateValue={formatEtDatetimeLocal(value)}
           onSimulateChange={onChange}
           simulateInputId="market-assessment-time"
-          simulateMin={min}
-          simulateMax={max}
           simulateInputError={Boolean(error)}
           showLiveClock
           liveHint="at assess"

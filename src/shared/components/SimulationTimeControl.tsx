@@ -14,6 +14,7 @@ type Props = {
   mode: AssessmentTimeMode;
   value: Date;
   disabled?: boolean;
+  inputDisabled?: boolean;
   inputId?: string;
   liveEnabled?: boolean;
   simulateEnabled?: boolean;
@@ -29,6 +30,7 @@ export function SimulationTimeControl({
   mode,
   value,
   disabled,
+  inputDisabled,
   inputId = "simulation-time",
   liveEnabled = true,
   simulateEnabled = true,
@@ -43,6 +45,7 @@ export function SimulationTimeControl({
       mode={assessmentToLiveSimulate(mode)}
       onModeChange={(next) => onModeChange(liveSimulateToAssessment(next))}
       disabled={disabled}
+      inputDisabled={inputDisabled}
       liveEnabled={liveEnabled}
       simulateEnabled={simulateEnabled}
       variant="default"

@@ -1,13 +1,19 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/shared/lib/cn";
-import { formatAssessmentDisplay } from "@/features/market/lib/assessment-time";
+import {
+  formatAssessmentDisplay,
+  parseEtDatetimeLocal,
+} from "@/features/market/lib/assessment-time";
 
 export type LiveSimulateMode = "live" | "simulate";
 
 type Props = {
   mode: LiveSimulateMode;
   onModeChange: (mode: LiveSimulateMode) => void;
+  /** Disables Live/Simulate toggle buttons. */
   disabled?: boolean;
+  /** Disables the simulate date/time input (defaults to `disabled`). */
+  inputDisabled?: boolean;
   liveEnabled?: boolean;
   simulateEnabled?: boolean;
   variant?: "compact" | "default";
@@ -46,6 +52,7 @@ export function LiveSimulateControl({
   mode,
   onModeChange,
   disabled = false,
+  inputDisabled,
   liveEnabled = true,
   simulateEnabled = true,
   variant = "default",
@@ -62,6 +69,13 @@ export function LiveSimulateControl({
   className,
   ariaLabel = "Live or simulate mode",
 }: Props) {
+  const simulateFieldDisabled = inputDisabled ?? disabled;
+  const [draftValue, setDraftValue] = useState(simulateValue);
+
+  useEffect(() => {
+    setDraftValue(simulateValue);
+  }, [simulateValue, mode]);
+
   const isCompact = variant === "compact";
   const toggleWrap = cn(
     "inline-flex shrink-0 items-center gap-1",
@@ -136,11 +150,29 @@ export function LiveSimulateControl({
           <input
             id={simulateInputId}
             type={simulateInput}
-            value={simulateValue}
+            value={draftValue}
             min={simulateMin}
             max={simulateMax}
-            disabled={disabled}
-            onChange={(e) => onSimulateChange(e.target.value)}
+            disabled={simulateFieldDisabled}
+            onChange={(e) => {
+              const next = e.target.value;
+              setDraftValue(next);
+              onSimulateChange?.(next);
+            }}
+            onBlur={() => {
+              const trimmed = draftValue.trim();
+              if (!trimmed) {
+                setDraftValue(simulateValue);
+                return;
+              }
+              if (simulateInput === "datetime" && parseEtDatetimeLocal(trimmed)) {
+                return;
+              }
+              if (simulateInput === "date" && /^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                return;
+              }
+              setDraftValue(simulateValue);
+            }}
             className={cn(
               isCompact
                 ? "rounded border border-ocean-mid/60 bg-ocean-deep px-1 py-0.5 text-ocean-foam"
@@ -149,10 +181,9 @@ export function LiveSimulateControl({
                     "focus:border-ocean-teal/40 focus:outline-none focus:ring-1 focus:ring-ocean-teal/20",
                     simulateInputError ? "border-ocean-danger-border" : "border-ocean-mid/40",
                   ),
-              disabled && "opacity-50",
+              simulateFieldDisabled && "opacity-50",
             )}
             aria-invalid={simulateInputError || undefined}
-            required
           />
           {simulateInput === "datetime" && !isCompact ? (
             <span className="text-[11px] text-ocean-sand">ET</span>

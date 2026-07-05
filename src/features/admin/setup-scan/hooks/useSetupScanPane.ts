@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import {
+  defaultSimulationSessionDate,
+  validateSimulationSessionDate,
+} from "@/shared/lib/market-calendar";
 import { getTickersCatalog, patchTickerActive } from "../../tickers/api/tickers-client";
 import {
   getSetupScanResult,
@@ -19,8 +23,8 @@ export type SetupScanMode = "live" | "simulate";
 export function useSetupScanPane(open: boolean) {
   const [result, setResult] = useState<PreselectionResultResponse | null>(null);
   const [minScore, setMinScore] = useState(0);
-  const [scanMode, setScanMode] = useState<SetupScanMode>("live");
-  const [simulationDate, setSimulationDate] = useState("");
+  const [scanMode, setScanModeState] = useState<SetupScanMode>("live");
+  const [simulationDate, setSimulationDateState] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [runPending, startRunTransition] = useTransition();
@@ -31,6 +35,32 @@ export function useSetupScanPane(open: boolean) {
     strategyName: string;
     ticker: PreselectionTickerRow;
   } | null>(null);
+
+  const setScanMode = useCallback((mode: SetupScanMode) => {
+    setScanModeState(mode);
+    setError(null);
+    if (mode === "simulate") {
+      setSimulationDateState((prev) =>
+        prev && !validateSimulationSessionDate(prev) ? prev : defaultSimulationSessionDate(),
+      );
+    }
+  }, []);
+
+  const setSimulationDate = useCallback((dateStr: string) => {
+    setSimulationDateState(dateStr);
+    if (!dateStr.trim()) {
+      setError(null);
+      return;
+    }
+    setError(validateSimulationSessionDate(dateStr.trim()));
+  }, []);
+
+  useEffect(() => {
+    if (scanMode !== "simulate") return;
+    setSimulationDateState((prev) =>
+      prev && !validateSimulationSessionDate(prev) ? prev : defaultSimulationSessionDate(),
+    );
+  }, [scanMode]);
 
   const loadResult = useCallback(async () => {
     setLoading(true);
@@ -87,9 +117,16 @@ export function useSetupScanPane(open: boolean) {
     startRunTransition(async () => {
       setError(null);
       setMessage(null);
-      if (scanMode === "simulate" && !simulationDate.trim()) {
-        setError("Pick a session date for simulation.");
-        return;
+      if (scanMode === "simulate") {
+        if (!simulationDate.trim()) {
+          setError("Pick a session date for simulation.");
+          return;
+        }
+        const dateError = validateSimulationSessionDate(simulationDate.trim());
+        if (dateError) {
+          setError(dateError);
+          return;
+        }
       }
       try {
         const ack = await postSetupScanRun({

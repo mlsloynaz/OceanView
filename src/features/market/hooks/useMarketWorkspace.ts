@@ -246,6 +246,11 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
 
   const setAssessmentFromLocal = useCallback(
     (localValue: string) => {
+      if (!localValue.trim()) {
+        setAssessmentError(null);
+        setAssessNotice(null);
+        return;
+      }
       if (!candleCoverage) return;
       const parsed = parseEtDatetimeLocal(localValue);
       if (!parsed) {

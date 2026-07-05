@@ -1,6 +1,7 @@
 import { cn } from "@/shared/lib/cn";
 import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane";
 import { LiveSimulateControl } from "@/shared/components/LiveSimulateControl";
+import { maxSimulationSessionDate } from "@/shared/lib/market-calendar";
 import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
 import { setupScanApiBaseUrl, setupScanUsesMock } from "./api/preselection-client";
 import {
@@ -190,7 +191,7 @@ export function SetupScanPane() {
               onSimulateChange={ws.setSimulationDate}
               simulateInputId="setup-scan-session-date"
               simulateLabel="Session"
-              simulateMax={new Date().toISOString().slice(0, 10)}
+              simulateMax={maxSimulationSessionDate()}
               showLiveClock={false}
               ariaLabel="Tickers SemiFinal mode"
             />
@@ -238,8 +239,9 @@ export function SetupScanPane() {
 
         {ws.scanMode === "simulate" && (
           <p className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
-            Simulation uses session close (4:00 PM ET, or 1:00 PM on early-close days). Pick a NYSE
-            market day — weekends and holidays are rejected.
+            Simulation uses session close (4:00 PM ET, or 1:00 PM on early-close days). Pick a
+            NYSE market day — weekends and holidays are rejected. On weekends, the default is the
+            last session (e.g. {maxSimulationSessionDate()}).
           </p>
         )}
 

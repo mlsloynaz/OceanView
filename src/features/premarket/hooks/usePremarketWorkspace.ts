@@ -163,6 +163,10 @@ export function usePremarketWorkspace() {
   }, []);
 
   const setAssessmentFromLocal = useCallback((localValue: string) => {
+    if (!localValue.trim()) {
+      setAssessmentError(null);
+      return;
+    }
     const parsed = parseEtDatetimeLocal(localValue);
     if (!parsed) {
       setAssessmentError("Invalid date or time.");

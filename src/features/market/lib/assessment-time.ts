@@ -6,11 +6,11 @@ export function parseIsoToMs(iso: string): number {
   return new Date(iso).getTime();
 }
 
-/** `datetime-local` value interpreted as Eastern Time (YYYY-MM-DDTHH:mm). */
+/** `datetime-local` value interpreted as Eastern Time (YYYY-MM-DDTHH:mm or with :ss). */
 export function parseEtDatetimeLocal(value: string): Date | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
-  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
   if (!match) return null;
 
   const [, y, mo, d, h, mi] = match;

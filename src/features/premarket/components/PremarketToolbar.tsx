@@ -51,6 +51,7 @@ export function PremarketToolbar({
   onRefresh,
 }: Props) {
   const busy = evaluateRunning || stopPending || loading;
+  const evaluateControlsBusy = evaluateRunning || stopPending;
   const refreshDisabled = stopPending || loading;
   const evaluateDisabled =
     busy || activeStrategyCount === 0 || Boolean(assessmentError);
@@ -71,7 +72,7 @@ export function PremarketToolbar({
       <SimulationTimeControl
         mode={assessmentMode}
         value={assessmentAt}
-        disabled={busy}
+        disabled={evaluateControlsBusy}
         inputId="premarket-evaluate-time"
         onModeChange={onAssessmentModeChange}
         onChange={onAssessmentTimeChange}
