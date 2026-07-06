@@ -21,6 +21,8 @@ type Props = {
   liveHint?: string;
   showLiveClock?: boolean;
   simulateInputError?: boolean;
+  simulateMin?: string;
+  simulateMax?: string;
   onModeChange: (mode: AssessmentTimeMode) => void;
   onChange: (localValue: string) => void;
   className?: string;
@@ -38,6 +40,8 @@ export function SimulationTimeControl({
   liveHint = "at evaluate",
   showLiveClock = true,
   simulateInputError = false,
+  simulateMin,
+  simulateMax,
   onModeChange,
   onChange,
   className,
@@ -56,6 +60,8 @@ export function SimulationTimeControl({
       onSimulateChange={onChange}
       simulateInputId={inputId}
       simulateInputError={simulateInputError}
+      simulateMin={simulateMin}
+      simulateMax={simulateMax}
       showLiveClock={showLiveClock}
       liveHint={liveHint}
       className={className}

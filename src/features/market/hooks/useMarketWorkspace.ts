@@ -21,12 +21,14 @@ import {
 } from "../lib/catalog";
 import {
   clampAssessmentTime,
+  coverageBoundsForInput,
   formatAssessmentDisplay,
   formatSimulationTimeEt,
   isAssessmentNow,
   parseEtDatetimeLocal,
   parseSimulationTimeEt,
   type AssessmentTimeMode,
+  blocksAssess,
   validateAssessmentTime,
   resolveMarketNowAssessmentMoment,
 } from "../lib/assessment-time";
@@ -140,6 +142,11 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     return null;
   }, [useMock, snapshot, envelope]);
 
+  const coverageBounds = useMemo(
+    () => (candleCoverage ? coverageBoundsForInput(candleCoverage) : null),
+    [candleCoverage],
+  );
+
   const applyAssessmentValidation = useCallback(
     (date: Date, coverage: CandleCoverage, historicalOnly = false) => {
       const validation = validateAssessmentTime(date, coverage, { historicalOnly });
@@ -156,7 +163,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       const historical = clampAssessmentTime(lastAssessedAt, candleCoverage);
       setAssessmentModeState("et");
       setAssessmentAt(historical);
-      applyAssessmentValidation(historical, candleCoverage);
+      applyAssessmentValidation(historical, candleCoverage, true);
     } else {
       const initial = new Date();
       setAssessmentAt(initial);
@@ -185,7 +192,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       const fallbackSession = parseEtDatetimeLocal(`${defaultSimulationSessionDate()}T09:30`);
       const et = clampAssessmentTime(historical ?? fallbackSession ?? new Date(), candleCoverage);
       setAssessmentAt(et);
-      applyAssessmentValidation(et, candleCoverage);
+      applyAssessmentValidation(et, candleCoverage, true);
     },
     [applyAssessmentValidation, candleCoverage, lastAssessedAt],
   );
@@ -291,7 +298,8 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
 
       if (env.candleCoverage) {
         const at = sim ?? resolveAssessmentMoment();
-        applyAssessmentValidation(at, env.candleCoverage);
+        const historicalOnly = sim != null && !isAssessmentNow(sim);
+        applyAssessmentValidation(at, env.candleCoverage, historicalOnly);
       }
 
       const cat = catalogRef.current;
@@ -315,7 +323,10 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     const at = resolveAssessmentMoment();
     const historicalOnly = assessmentMode === "et";
     const validation = validateAssessmentTime(at, candleCoverage, { historicalOnly });
-    if (validation.error) {
+    if (
+      validation.error ||
+      (historicalOnly && blocksAssess(at, candleCoverage, { historicalOnly: true }))
+    ) {
       setAssessmentError(validation.error);
       setAssessNotice(null);
       return;
@@ -335,7 +346,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     }
 
     setAssessmentError(null);
-    setAssessNotice(validation.notice);
+    setAssessNotice(historicalOnly ? null : validation.notice);
     setAssessPending(true);
     void postMarketEvaluate({
       assessmentTimeMode: assessmentMode,
@@ -561,6 +572,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     ruleCount,
     strategyById,
     candleCoverage,
+    coverageBounds,
     assessmentMode,
     assessmentAt,
     assessmentError,

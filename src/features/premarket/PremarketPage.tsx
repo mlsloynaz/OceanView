@@ -95,6 +95,9 @@ export function PremarketPage() {
         assessmentMode={ws.assessmentMode}
         assessmentAt={ws.assessmentAt}
         assessmentError={ws.assessmentError}
+        assessmentNotice={ws.assessmentNotice}
+        coverageMin={ws.coverageBounds?.min}
+        coverageMax={ws.coverageBounds?.max}
         onAssessmentModeChange={ws.setAssessmentMode}
         onAssessmentTimeChange={ws.setAssessmentFromLocal}
         onStart={() => void ws.startEvaluate()}

@@ -1,6 +1,7 @@
 import type { CandleCoverage } from "../types";
 import {
   blocksAssess,
+  coverageBoundsForInput,
   formatAssessmentDisplay,
   formatEtDatetimeLocal,
   type AssessmentTimeMode,
@@ -47,6 +48,7 @@ export function AssessmentTimeControl({
 }: Props) {
   const assessAt = mode === "now" ? new Date() : value;
   const assessDisabled = pending || blocksAssess(assessAt, coverage, { historicalOnly: mode === "et" });
+  const bounds = coverageBoundsForInput(coverage);
 
   return (
     <div className={cn("min-w-0", className)}>
@@ -64,6 +66,8 @@ export function AssessmentTimeControl({
           onSimulateChange={onChange}
           simulateInputId="market-assessment-time"
           simulateInputError={Boolean(error)}
+          simulateMin={bounds.min}
+          simulateMax={bounds.max}
           showLiveClock
           liveHint="at assess"
           ariaLabel="Assessment time mode"
@@ -99,11 +103,12 @@ export function AssessmentTimeControl({
       {mode === "now" ? (
         <p className="mt-1 text-[10px] text-ocean-sand/70">
           Live mode uses the current Eastern time during the session; after hours it assesses at 4:00
-          PM ET.
+          PM ET. Candles refresh from Schwab when stored data is behind.
         </p>
       ) : (
         <p className="mt-1 text-[10px] text-ocean-sand/70">
-          Simulate mode uses stored candle history only — bars through the time you enter.
+          Simulate — stored regular-session candles from Dynamo only, sliced through the selected
+          time (9:30 AM–4:00 PM ET, no refresh).
         </p>
       )}
 

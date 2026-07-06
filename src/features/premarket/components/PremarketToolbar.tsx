@@ -23,6 +23,9 @@ type Props = {
   assessmentMode: AssessmentTimeMode;
   assessmentAt: Date;
   assessmentError: string | null;
+  assessmentNotice: string | null;
+  coverageMin?: string;
+  coverageMax?: string;
   onAssessmentModeChange: (mode: AssessmentTimeMode) => void;
   onAssessmentTimeChange: (localValue: string) => void;
   onStart: () => void;
@@ -47,6 +50,9 @@ export function PremarketToolbar({
   assessmentMode,
   assessmentAt,
   assessmentError,
+  assessmentNotice,
+  coverageMin,
+  coverageMax,
   onAssessmentModeChange,
   onAssessmentTimeChange,
   onStart,
@@ -87,17 +93,21 @@ export function PremarketToolbar({
         disabled={evaluateControlsBusy}
         inputDisabled={false}
         simulateInputError={Boolean(assessmentError)}
+        simulateMin={coverageMin}
+        simulateMax={coverageMax}
         inputId="premarket-evaluate-time"
         onModeChange={onAssessmentModeChange}
         onChange={onAssessmentTimeChange}
       />
       {assessmentError ? (
         <p className="text-[11px] text-ocean-danger">{assessmentError}</p>
+      ) : assessmentNotice ? (
+        <p className="text-[11px] text-amber-700 dark:text-amber-300">{assessmentNotice}</p>
       ) : (
         <p className="text-[10px] text-ocean-sand/70">
           {assessmentMode === "now"
             ? "Live — Schwab bars including pre/post market (in memory only, never saved to Admin candles)."
-            : "Simulate — stored regular-session candles from Dynamo only (9:30 AM–4:00 PM, no pre/post data)."}
+            : "Simulate — stored regular-session candles from Dynamo only, sliced through the selected time (9:30 AM–4:00 PM ET, no refresh)."}
         </p>
       )}
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DynamicStrategyApiError,
   fetchDynamicCatalog,
@@ -17,14 +17,19 @@ import {
   postPremarketStop,
 } from "../api/premarket-client";
 import type { PremarketResultResponse } from "../types";
+import { fetchMarketEnvelope } from "@/features/market/api/market-client";
 import {
-  formatEtDatetimeLocal,
+  blocksAssess,
+  clampAssessmentTime,
+  coverageBoundsForInput,
   formatSimulationTimeEt,
   isAssessmentNow,
   parseEtDatetimeLocal,
   parseSimulationTimeEt,
   type AssessmentTimeMode,
+  validateAssessmentTime,
 } from "@/features/market/lib/assessment-time";
+import type { CandleCoverage } from "@/features/market/types";
 import { defaultSimulationSessionDate } from "@/shared/lib/market-calendar";
 import { canStopPremarketEvaluate, isPremarketEvaluateActive, isPremarketEvaluateTerminal } from "../display";
 import {
@@ -106,7 +111,25 @@ export function usePremarketWorkspace() {
   const [assessmentMode, setAssessmentModeState] = useState<AssessmentTimeMode>("now");
   const [assessmentAt, setAssessmentAt] = useState<Date>(() => new Date());
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
+  const [assessmentNotice, setAssessmentNotice] = useState<string | null>(null);
+  const [candleCoverage, setCandleCoverage] = useState<CandleCoverage | null>(null);
+  const [coverageInitialized, setCoverageInitialized] = useState(false);
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
+
+  const applyAssessmentValidation = useCallback(
+    (date: Date, coverage: CandleCoverage, historicalOnly = false) => {
+      const validation = validateAssessmentTime(date, coverage, { historicalOnly });
+      setAssessmentError(validation.error);
+      setAssessmentNotice(validation.notice);
+      return validation;
+    },
+    [],
+  );
+
+  const coverageBounds = useMemo(
+    () => (candleCoverage ? coverageBoundsForInput(candleCoverage) : null),
+    [candleCoverage],
+  );
 
   const applyDynamicCatalog = useCallback((strategies: DynamicStrategy[]) => {
     const rows = strategies.map((row) => ({
@@ -156,6 +179,23 @@ export function usePremarketWorkspace() {
   useEffect(() => {
     void reloadCatalog();
   }, [reloadCatalog]);
+
+  useEffect(() => {
+    if (useMock) return;
+    let cancelled = false;
+    void fetchMarketEnvelope()
+      .then((env) => {
+        if (!cancelled && env.candleCoverage) {
+          setCandleCoverage(env.candleCoverage);
+        }
+      })
+      .catch(() => {
+        /* evaluate still works; simulate bounds may be unavailable */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [useMock]);
 
   useEffect(() => {
     let cancelled = false;
@@ -217,6 +257,37 @@ export function usePremarketWorkspace() {
     };
   }, [result?.runId, result?.status, startPending]);
 
+  useEffect(() => {
+    if (!candleCoverage || coverageInitialized) return;
+    if (assessmentMode === "et") {
+      const clamped = clampAssessmentTime(assessmentAt, candleCoverage);
+      if (clamped.getTime() !== assessmentAt.getTime()) {
+        setAssessmentAt(clamped);
+      }
+      applyAssessmentValidation(clamped, candleCoverage, true);
+    } else {
+      setAssessmentError(null);
+      setAssessmentNotice(null);
+    }
+    setCoverageInitialized(true);
+  }, [
+    applyAssessmentValidation,
+    assessmentAt,
+    assessmentMode,
+    candleCoverage,
+    coverageInitialized,
+  ]);
+
+  useEffect(() => {
+    if (!candleCoverage) return;
+    if (assessmentMode === "now") {
+      setAssessmentError(null);
+      setAssessmentNotice(null);
+      return;
+    }
+    applyAssessmentValidation(assessmentAt, candleCoverage, true);
+  }, [applyAssessmentValidation, assessmentAt, assessmentMode, candleCoverage]);
+
   const resolveEvaluateRequest = useCallback(() => {
     if (assessmentMode === "et") {
       return {
@@ -251,32 +322,57 @@ export function usePremarketWorkspace() {
     [followEvaluateRun, threshold],
   );
 
-  const setAssessmentMode = useCallback((mode: AssessmentTimeMode) => {
-    setAssessmentModeState(mode);
-    setAssessmentError(null);
-    if (mode === "et") {
-      const session = defaultSimulationSessionDate();
-      const parsed =
-        parseEtDatetimeLocal(`${session}T09:30`) ??
-        parseEtDatetimeLocal(formatEtDatetimeLocal(new Date()));
-      if (parsed) setAssessmentAt(parsed);
-    }
-  }, []);
+  const setAssessmentMode = useCallback(
+    (mode: AssessmentTimeMode) => {
+      setAssessmentModeState(mode);
+      if (mode === "now") {
+        if (candleCoverage) {
+          applyAssessmentValidation(new Date(), candleCoverage);
+        } else {
+          setAssessmentError(null);
+          setAssessmentNotice(null);
+        }
+        return;
+      }
+      const fallbackSession = parseEtDatetimeLocal(`${defaultSimulationSessionDate()}T09:30`);
+      const parsed = candleCoverage
+        ? clampAssessmentTime(fallbackSession ?? new Date(), candleCoverage)
+        : fallbackSession ?? new Date();
+      setAssessmentAt(parsed);
+      if (candleCoverage) {
+        applyAssessmentValidation(parsed, candleCoverage, true);
+      } else {
+        setAssessmentError(null);
+        setAssessmentNotice(null);
+      }
+    },
+    [applyAssessmentValidation, candleCoverage],
+  );
 
-  const setAssessmentFromLocal = useCallback((localValue: string) => {
-    if (!localValue.trim()) {
-      setAssessmentError(null);
-      return;
-    }
-    const parsed = parseEtDatetimeLocal(localValue);
-    if (!parsed) {
-      setAssessmentError("Invalid date or time.");
-      return;
-    }
-    setAssessmentModeState("et");
-    setAssessmentAt(parsed);
-    setAssessmentError(null);
-  }, []);
+  const setAssessmentFromLocal = useCallback(
+    (localValue: string) => {
+      if (!localValue.trim()) {
+        setAssessmentError(null);
+        setAssessmentNotice(null);
+        return;
+      }
+      const parsed = parseEtDatetimeLocal(localValue);
+      if (!parsed) {
+        setAssessmentError("Invalid date or time.");
+        setAssessmentNotice(null);
+        return;
+      }
+      setAssessmentModeState("et");
+      setAssessmentAt(parsed);
+      if (candleCoverage) {
+        applyAssessmentValidation(parsed, candleCoverage, true);
+      } else {
+        setAssessmentError(null);
+        setAssessmentNotice(null);
+      }
+    },
+    [applyAssessmentValidation, candleCoverage],
+  );
 
   const setThresholdPct = useCallback((value: number) => {
     const clamped = Math.max(0, Math.min(100, Math.round(value)));
@@ -291,6 +387,14 @@ export function usePremarketWorkspace() {
     ) => {
       if (ruleKeys.length === 0) {
         setError("Add at least one rule to preview.");
+        return false;
+      }
+      if (
+        assessmentMode === "et" &&
+        (assessmentError ||
+          (candleCoverage &&
+            blocksAssess(assessmentAt, candleCoverage, { historicalOnly: true })))
+      ) {
         return false;
       }
       if (evaluateInFlightRef.current) return false;
@@ -316,12 +420,27 @@ export function usePremarketWorkspace() {
         setStartPending(false);
       }
     },
-    [resolveEvaluateRequest, runEvaluateRequest, threshold],
+    [
+      assessmentAt,
+      assessmentError,
+      assessmentMode,
+      candleCoverage,
+      resolveEvaluateRequest,
+      runEvaluateRequest,
+      threshold,
+    ],
   );
 
   const startEvaluate = useCallback(async () => {
     if (evaluateInFlightRef.current) return;
     if (assessmentMode === "et" && assessmentError) return;
+    if (
+      assessmentMode === "et" &&
+      candleCoverage &&
+      blocksAssess(assessmentAt, candleCoverage, { historicalOnly: true })
+    ) {
+      return;
+    }
 
     evaluateInFlightRef.current = true;
     setStartPending(true);
@@ -354,8 +473,10 @@ export function usePremarketWorkspace() {
       setStartPending(false);
     }
   }, [
+    assessmentAt,
     assessmentError,
     assessmentMode,
+    candleCoverage,
     evaluateGroupLabel,
     activeStrategyIds,
     loadResult,
@@ -422,6 +543,9 @@ export function usePremarketWorkspace() {
     assessmentMode,
     assessmentAt,
     assessmentError,
+    assessmentNotice,
+    candleCoverage,
+    coverageBounds,
     setAssessmentMode,
     setAssessmentFromLocal,
     startEvaluate,
