@@ -28,7 +28,7 @@ function StrategyCatalogBody({
     return (
       <p className="rounded-md border border-dashed border-ocean-mid/40 px-4 py-8 text-center text-sm text-ocean-sand">
         No dynamic strategies yet. Click <strong className="text-ocean-foam">New</strong> to open
-        the strategy builder and save your first screen.
+        the strategy builder and save a screen for Premarket evaluate.
       </p>
     );
   }

@@ -13,7 +13,7 @@ export function StrategiesPane() {
   const ws = useStrategiesPane();
   const standardActiveCount = ws.standardStrategies.filter((s) => s.active !== false).length;
   const dynamicActiveCount = ws.strategies.filter((s) => s.active).length;
-  const summary = `${standardActiveCount} standard · ${dynamicActiveCount} dynamic active`;
+  const summary = `${standardActiveCount} standard (Market) · ${dynamicActiveCount} dynamic (Premarket)`;
 
   return (
     <>
@@ -77,7 +77,10 @@ export function StrategiesPane() {
           <div className="mb-3">
             <h3 className="text-sm font-semibold text-ocean-foam">Dynamic strategies</h3>
             <p className="mt-0.5 text-[11px] text-ocean-sand">
-              User-built screens in Dynamo — create, edit, and activate for Premarket evaluate.
+              User-built rule screens in Dynamo —{" "}
+              <strong className="font-medium text-ocean-foam">Premarket evaluate only</strong>.
+              Separate from standard playbooks above. Promotion to standard catalog may come later;
+              not available yet.
             </p>
           </div>
 
@@ -96,6 +99,7 @@ export function StrategiesPane() {
         <StrategyBuilderModal
           rules={ws.rules}
           selectedRuleKeys={ws.selectedRuleKeys}
+          rulePathVariants={ws.rulePathVariants}
           name={ws.builderName}
           shortName={ws.builderShortName}
           description={ws.builderDescription}
@@ -108,6 +112,7 @@ export function StrategiesPane() {
           onShortNameChange={ws.setBuilderShortName}
           onDescriptionChange={ws.setBuilderDescription}
           onDirectionChange={ws.setBuilderDirection}
+          onPathVariantChange={ws.setRulePathVariant}
           onAddRule={ws.addRuleToBuilder}
           onRemoveRule={ws.removeRuleFromBuilder}
           onMoveRule={ws.moveRuleInBuilder}

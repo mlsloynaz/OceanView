@@ -137,8 +137,9 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
         >
           {outcomes.length === 0 ? (
             <p className="text-sm text-ocean-sand">
-              No symbol outcomes yet. Run <strong className="text-ocean-foam">Evaluate strategies</strong>{" "}
-              to see per-symbol readiness and errors.
+              No symbol outcomes yet. Run{" "}
+              <strong className="text-ocean-foam">Evaluate strategies</strong> to see per-symbol
+              readiness and errors.
             </p>
           ) : (
             <PremarketDiagnostics embedded outcomes={outcomes} />
@@ -150,6 +151,7 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
         <StrategyBuilderModal
           rules={builder.rules}
           selectedRuleKeys={builder.selectedRuleKeys}
+          rulePathVariants={builder.rulePathVariants}
           name={builder.builderName}
           shortName={builder.builderShortName}
           description={builder.builderDescription}
@@ -162,6 +164,7 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
           onShortNameChange={builder.setBuilderShortName}
           onDescriptionChange={builder.setBuilderDescription}
           onDirectionChange={builder.setBuilderDirection}
+          onPathVariantChange={builder.setRulePathVariant}
           onAddRule={builder.addRuleToBuilder}
           onRemoveRule={builder.removeRuleFromBuilder}
           onMoveRule={builder.moveRuleInBuilder}
@@ -169,7 +172,13 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
             const saved = await builder.saveBuilder();
             if (saved) onStrategyMutated();
           }}
-          onPreview={() => void builder.previewBuilder()}
+          onPreview={() =>
+            void ws.previewRuleKeys(
+              builder.selectedRuleKeys,
+              builder.rulePathVariants,
+              builder.builderDirection,
+            )
+          }
           onClose={builder.closeBuilder}
         />
       )}

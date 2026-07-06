@@ -31,107 +31,73 @@ export type DynamicRulesResponse = {
 
 
 
-export type DynamicStrategy = {
+export type RulePathVariant = "" | "CALL" | "PUT";
 
+export type DynamicStrategyRule = {
   id: string;
-
-  name: string;
-
-  shortName?: string | null;
-
-  description?: string;
-
-  /** Explicit CALL/PUT when playbook inference is not used. */
-  direction?: "CALL" | "PUT" | null;
-
-  active: boolean;
-
-  rules: Array<{
-
-    id: string;
-
-    ruleKey: string;
-
-    label: string;
-
-    type: string;
-
-    timeframe?: string;
-
-    when?: Record<string, unknown>;
-
-  }>;
-
+  ruleKey: string;
+  label: string;
+  type: string;
+  timeframe?: string;
+  /** Strategy path (CALL/PUT) when rule key has no _call/_put suffix. */
+  pathVariant?: "CALL" | "PUT";
+  when?: Record<string, unknown>;
 };
 
+export type DynamicStrategy = {
+  id: string;
+  name: string;
+  shortName?: string | null;
+  description?: string;
+  /** Fallback CALL/PUT for dangers when path cannot be inferred from rules. */
+  direction?: "CALL" | "PUT" | null;
+  active: boolean;
+  rules: DynamicStrategyRule[];
+};
 
+export type DynamicStrategyRuleInput = {
+  ruleKey: string;
+  pathVariant?: "CALL" | "PUT";
+};
 
 export type DynamicCatalogResponse = {
-
   version?: string;
-
   updatedAt?: string;
-
   catalogKind?: string;
-
   description?: string;
-
   strategies?: DynamicStrategy[];
-
 };
-
-
 
 export type CreateDynamicStrategyRequest = {
-
   name: string;
-
   shortName?: string;
-
   description?: string;
-
   direction?: "CALL" | "PUT" | "";
-
   active?: boolean;
-
-  ruleKeys: string[];
-
+  ruleKeys?: string[];
+  rules?: DynamicStrategyRuleInput[];
 };
-
-
 
 export type PatchDynamicStrategyRequest = {
-
   name?: string;
-
   shortName?: string;
-
   description?: string;
-
   direction?: "CALL" | "PUT" | "";
-
   active?: boolean;
-
   ruleKeys?: string[];
-
+  rules?: DynamicStrategyRuleInput[];
 };
-
-
 
 export type DynamicEvaluateRequest = {
   assessmentTimeMode?: import("@/features/market/lib/assessment-time").AssessmentTimeMode;
   simulationTimeEt?: string;
-
   strategyIds?: string[];
-
   ruleKeys?: string[];
-
+  rules?: DynamicStrategyRuleInput[];
+  direction?: "CALL" | "PUT";
   name?: string;
-
   saveAs?: { name: string; active?: boolean };
-
   options?: { signalThresholdPct?: number };
-
 };
 
 
@@ -280,7 +246,7 @@ export async function deleteDynamicStrategy(strategyId: string): Promise<void> {
 
 
 
-/** Run premarket evaluate using the dynamic strategy catalog (Dynamo). */
+/** Premarket evaluate — dynamic strategyIds (default) or ruleKeys (preview). */
 
 export async function postDynamicEvaluate(
 
@@ -304,10 +270,12 @@ export async function postDynamicEvaluate(
       assessmentTimeMode: body.assessmentTimeMode ?? "now",
       ...(body.options ? { options: body.options } : {}),
       ...(body.simulationTimeEt ? { simulationTimeEt: body.simulationTimeEt } : {}),
-      strategyIds: body.strategyIds,
-      ruleKeys: body.ruleKeys,
-      name: body.name,
-      saveAs: body.saveAs,
+      ...(body.name ? { name: body.name } : {}),
+      ...(body.ruleKeys ? { ruleKeys: body.ruleKeys } : {}),
+      ...(body.rules ? { rules: body.rules } : {}),
+      ...(body.strategyIds ? { strategyIds: body.strategyIds } : {}),
+      ...(body.direction ? { direction: body.direction } : {}),
+      ...(body.saveAs ? { saveAs: body.saveAs } : {}),
     }),
 
   });

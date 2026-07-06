@@ -4,6 +4,7 @@ import {
   formatRulePassedTimeOnly,
   formatRuleThresholdSummary,
   ruleStatusClass,
+  ruleStatusTitle,
 } from "../display";
 import { RuleCheckIcon } from "./RuleCheckIcon";
 import { cn } from "@/shared/lib/cn";
@@ -22,7 +23,7 @@ type Props = {
 function suffixForRow(row: RuleDisplayRow): string | null {
   if (row.type === "extra") return null;
   if (row.status === "partial") return "near";
-  if (row.status === "not_met") return "confirm";
+  if (row.status === "not_met") return ruleStatusTitle("not_met").toLowerCase();
   return null;
 }
 

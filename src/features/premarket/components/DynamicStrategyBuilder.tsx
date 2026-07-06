@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/shared/lib/cn";
-import type { DynamicRuleTemplate } from "../api/dynamic-strategy-client";
+import type { DynamicRuleTemplate, RulePathVariant } from "../api/dynamic-strategy-client";
 import {
   TIMEFRAME_FILTERS,
   filterRules,
+  inferPathFromRuleKey,
   normalizeTimeframe,
+  pathVariantHint,
   ruleTypeLabel,
   type TimeframeFilter,
 } from "../lib/builder-utils";
@@ -18,6 +20,7 @@ const INPUT =
 type Props = {
   rules: DynamicRuleTemplate[];
   selectedRuleKeys: string[];
+  rulePathVariants: Record<string, RulePathVariant>;
   name: string;
   shortName: string;
   description: string;
@@ -30,6 +33,7 @@ type Props = {
   onShortNameChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
   onDirectionChange: (value: "" | "CALL" | "PUT") => void;
+  onPathVariantChange: (ruleKey: string, path: RulePathVariant) => void;
   onAddRule: (ruleKey: string) => void;
   onRemoveRule: (ruleKey: string) => void;
   onMoveRule: (ruleKey: string, direction: "up" | "down") => void;
@@ -41,6 +45,7 @@ type Props = {
 export function DynamicStrategyBuilder({
   rules,
   selectedRuleKeys,
+  rulePathVariants,
   name,
   shortName,
   description,
@@ -53,6 +58,7 @@ export function DynamicStrategyBuilder({
   onShortNameChange,
   onDescriptionChange,
   onDirectionChange,
+  onPathVariantChange,
   onAddRule,
   onRemoveRule,
   onMoveRule,
@@ -208,19 +214,20 @@ export function DynamicStrategyBuilder({
           </label>
           <label className="block">
             <span className="text-[11px] text-ocean-sand">
-              Trade direction (optional)
+              Default trade path (optional)
             </span>
             <select
               value={direction}
               onChange={(e) => onDirectionChange(e.target.value as "" | "CALL" | "PUT")}
               className={cn(INPUT, "mt-0.5")}
             >
-              <option value="">Auto (playbook / rules / trend)</option>
+              <option value="">None — infer from rule paths</option>
               <option value="CALL">CALL</option>
               <option value="PUT">PUT</option>
             </select>
             <span className="mt-0.5 block text-[10px] text-ocean-sand/80">
-              Used for danger checks (clear path) when not inferred from playbook.
+              Fallback for danger checks when a rule has no path. Trend rules use alcista/bajista;
+              set path per rule below.
             </span>
           </label>
         </div>
@@ -235,12 +242,15 @@ export function DynamicStrategyBuilder({
             </p>
           ) : (
             <ol className="mt-2 space-y-1.5">
-              {composedRules.map((rule, index) => (
+              {composedRules.map((rule, index) => {
+                const explicitPath = rulePathVariants[rule.ruleKey] ?? "";
+                const inferred = inferPathFromRuleKey(rule.ruleKey);
+                return (
                 <li
                   key={rule.ruleKey}
-                  className="flex items-center gap-2 rounded-md border border-ocean-mid/30 bg-ocean-deep/30 px-2 py-1.5"
+                  className="flex flex-col gap-1.5 rounded-md border border-ocean-mid/30 bg-ocean-deep/30 px-2 py-1.5 sm:flex-row sm:items-center"
                 >
-                  <span className="w-4 shrink-0 text-center text-[10px] tabular-nums text-ocean-sand">
+                  <span className="w-4 shrink-0 text-center text-[10px] tabular-nums text-ocean-sand sm:self-start sm:pt-1">
                     {index + 1}
                   </span>
                   <span className="min-w-0 flex-1 text-xs">
@@ -251,7 +261,24 @@ export function DynamicStrategyBuilder({
                       </span>
                     )}
                   </span>
-                  <div className="flex shrink-0 gap-0.5">
+                  <label className="flex shrink-0 items-center gap-1.5 text-[10px] text-ocean-sand">
+                    <span className="whitespace-nowrap">Path</span>
+                    <select
+                      value={explicitPath}
+                      onChange={(e) =>
+                        onPathVariantChange(rule.ruleKey, e.target.value as RulePathVariant)
+                      }
+                      className="rounded border border-ocean-mid/40 bg-ocean-deep px-1.5 py-0.5 text-[10px] text-ocean-foam"
+                      title={pathVariantHint(explicitPath, rule.ruleKey)}
+                    >
+                      <option value="">
+                        {inferred ? `Auto (${inferred})` : "Auto"}
+                      </option>
+                      <option value="CALL">CALL</option>
+                      <option value="PUT">PUT</option>
+                    </select>
+                  </label>
+                  <div className="flex shrink-0 gap-0.5 sm:self-start sm:pt-0.5">
                     <button
                       type="button"
                       title="Move up"
@@ -280,7 +307,8 @@ export function DynamicStrategyBuilder({
                     </button>
                   </div>
                 </li>
-              ))}
+              );
+              })}
             </ol>
           )}
         </div>

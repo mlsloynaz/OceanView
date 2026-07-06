@@ -165,27 +165,8 @@
       "id": "estrategia-05",
       "name": "Inside Bollinger 15M",
       "shortName": "Inside BB 15M",
-      "description": "Fast 15m opening move inside Bollinger bands: 9:30 open gate, then vol expansion, midpoint and trend cuts through 10:30 ET.",
-      "entryWindow": {
-        "startEt": "09:30",
-        "endEt": "10:30",
-        "timezone": "America/New_York"
-      },
-      "gates": [
-        {
-          "ruleKey": "open_inside_bb_15m",
-          "when": "not_met",
-          "skipRemaining": true
-        }
-      ],
+      "description": "15m opening inside Bollinger: vol expansion, session open inside bands, on-spot BB mid trend.",
       "rules": [
-        {
-          "id": "bb15-r2",
-          "ruleKey": "open_inside_bb_15m",
-          "label": "Apertura dentro de Bollinger (15M)",
-          "type": "gate",
-          "timeframe": "15m"
-        },
         {
           "id": "bb15-r1",
           "ruleKey": "vol_bb_expand_15m",
@@ -194,16 +175,16 @@
           "timeframe": "15m"
         },
         {
-          "id": "bb15-r3",
-          "ruleKey": "bb_mid_cut_15m",
-          "label": "Corte punto medio BB",
+          "id": "bb15-r2",
+          "ruleKey": "open_inside_bb_15m",
+          "label": "Apertura dentro de Bollinger (15M)",
           "type": "required",
           "timeframe": "15m"
         },
         {
-          "id": "bb15-r4",
-          "ruleKey": "trend_cut_15m",
-          "label": "Trend Cut",
+          "id": "bb15-r3",
+          "ruleKey": "bb_mid_trend_onspot_15m",
+          "label": "Bollinger mid trend on the candle (15M)",
           "type": "required",
           "timeframe": "15m"
         }

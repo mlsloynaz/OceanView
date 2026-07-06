@@ -1,4 +1,4 @@
-import type { DynamicRuleTemplate } from "../api/dynamic-strategy-client";
+import type { DynamicRuleTemplate, RulePathVariant } from "../api/dynamic-strategy-client";
 
 export type TimeframeFilter = "all" | "D" | "1h" | "15m";
 
@@ -42,4 +42,42 @@ export function ruleTypeLabel(type: string | undefined): string {
   if (t === "extra") return "Extra";
   if (t === "gate") return "Gate";
   return "Required";
+}
+
+export function inferPathFromRuleKey(ruleKey: string): "CALL" | "PUT" | null {
+  if (ruleKey.endsWith("_call")) return "CALL";
+  if (ruleKey.endsWith("_put")) return "PUT";
+  return null;
+}
+
+export function pathVariantHint(explicit: RulePathVariant, ruleKey: string): string {
+  const inferred = inferPathFromRuleKey(ruleKey);
+  if (explicit === "CALL" || explicit === "PUT") return explicit;
+  if (inferred) return `Auto (${inferred} from key)`;
+  return "Auto";
+}
+
+export function buildRulesPayload(
+  selectedRuleKeys: string[],
+  rulePathVariants: Record<string, RulePathVariant>,
+): Array<{ ruleKey: string; pathVariant?: "CALL" | "PUT" }> {
+  return selectedRuleKeys.map((ruleKey) => {
+    const path = rulePathVariants[ruleKey];
+    if (path === "CALL" || path === "PUT") {
+      return { ruleKey, pathVariant: path };
+    }
+    return { ruleKey };
+  });
+}
+
+export function pathVariantsFromStrategyRules(
+  rules: Array<{ ruleKey: string; pathVariant?: "CALL" | "PUT" }>,
+): Record<string, RulePathVariant> {
+  const out: Record<string, RulePathVariant> = {};
+  for (const rule of rules) {
+    if (rule.pathVariant === "CALL" || rule.pathVariant === "PUT") {
+      out[rule.ruleKey] = rule.pathVariant;
+    }
+  }
+  return out;
 }

@@ -1,5 +1,3 @@
-import { Link } from "react-router-dom";
-
 type Props = {
   isAdmin?: boolean;
   threshold?: number;
@@ -23,11 +21,8 @@ export function PremarketEmptyState({
           </>
         ) : isAdmin ? (
           <>
-            Activate a saved strategy in{" "}
-            <Link to="/admin" className="text-ocean-teal hover:underline">
-              Admin
-            </Link>
-            , then click{" "}
+            Save a <strong className="text-ocean-foam">dynamic strategy</strong> in Strategy builder
+            below, activate it, then click{" "}
             <strong className="text-ocean-teal-dim dark:text-ocean-teal">Evaluate strategies</strong>.
           </>
         ) : (
@@ -38,7 +33,8 @@ export function PremarketEmptyState({
         )}
       </p>
       <p className="mx-auto mt-3 max-w-md text-xs text-ocean-sand/80">
-        Strategies and rules live in Dynamo. This run does not update Admin candles.
+        Premarket uses extended-hours bars; Market uses regular session bars. Rule evaluators are
+        shared — strategy ids resolve from the dynamic catalog (and standard JSON when needed).
       </p>
     </div>
   );

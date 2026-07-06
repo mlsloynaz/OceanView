@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DynamicStrategyApiError,
   fetchDynamicCatalog,
   postDynamicEvaluate,
   dynamicStrategiesUseMock,
+  type DynamicEvaluateRequest,
   type DynamicStrategy,
+  type RulePathVariant,
 } from "../api/dynamic-strategy-client";
+import { buildRulesPayload } from "../lib/builder-utils";
 import {
   PREMARKET_ERROR_MESSAGES,
   PremarketApiError,
@@ -24,6 +27,11 @@ import {
 } from "@/features/market/lib/assessment-time";
 import { defaultSimulationSessionDate } from "@/shared/lib/market-calendar";
 import { canStopPremarketEvaluate, isPremarketEvaluateActive, isPremarketEvaluateTerminal } from "../display";
+import {
+  activeDynamicStrategyIds,
+  activeDynamicStrategyLabel,
+  countActiveDynamicStrategies,
+} from "../lib/dynamic-strategies";
 
 const DEFAULT_THRESHOLD = 0;
 const BACKGROUND_POLL_MS = 2000;
@@ -81,7 +89,9 @@ function isEvaluateConflict(err: unknown): boolean {
 export function usePremarketWorkspace() {
   const useMock = dynamicStrategiesUseMock();
 
-  const [strategies, setStrategies] = useState<DynamicStrategy[]>([]);
+  const [dynamicStrategies, setDynamicStrategies] = useState<DynamicStrategy[]>([]);
+  const [activeStrategyIds, setActiveStrategyIds] = useState<string[]>([]);
+  const [evaluateGroupLabel, setEvaluateGroupLabel] = useState("Dynamic strategies");
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
@@ -98,28 +108,29 @@ export function usePremarketWorkspace() {
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
 
-  const activeStrategies = useMemo(
-    () => strategies.filter((s) => s.active),
-    [strategies],
-  );
+  const applyDynamicCatalog = useCallback((strategies: DynamicStrategy[]) => {
+    const rows = strategies.map((row) => ({
+      ...row,
+      active: row.active !== false,
+      rules: row.rules ?? [],
+    }));
+    setDynamicStrategies(rows);
+    setActiveStrategyIds(activeDynamicStrategyIds(rows));
+    setEvaluateGroupLabel(activeDynamicStrategyLabel(rows));
+  }, []);
 
   const reloadCatalog = useCallback(async () => {
     setCatalogLoading(true);
     setCatalogError(null);
     try {
       const catalog = await fetchDynamicCatalog();
-      const rows = (catalog.strategies ?? []).map((row) => ({
-        ...row,
-        active: row.active !== false,
-        rules: row.rules ?? [],
-      })) as DynamicStrategy[];
-      setStrategies(rows);
+      applyDynamicCatalog((catalog.strategies ?? []) as DynamicStrategy[]);
     } catch (err) {
-      setCatalogError(err instanceof Error ? err.message : "Failed to load dynamic catalog.");
+      setCatalogError(err instanceof Error ? err.message : "Failed to load dynamic strategies.");
     } finally {
       setCatalogLoading(false);
     }
-  }, []);
+  }, [applyDynamicCatalog]);
 
   const loadResult = useCallback(async (runId?: string | null) => {
     setError(null);
@@ -216,6 +227,30 @@ export function usePremarketWorkspace() {
     return { assessmentTimeMode: "now" as const };
   }, [assessmentAt, assessmentMode]);
 
+  const followEvaluateRun = useCallback(
+    async (payload: PremarketResultResponse, thresholdPct: number) => {
+      setResult(payload);
+      setThreshold(thresholdPct);
+      setNotice(syncNoticeFromResult(payload));
+      if (isPremarketEvaluateTerminal(payload.status)) {
+        return payload;
+      }
+      const polled = await pollPremarketEvaluate(payload.runId);
+      setResult(polled);
+      setNotice(syncNoticeFromResult(polled));
+      return polled;
+    },
+    [],
+  );
+
+  const runEvaluateRequest = useCallback(
+    async (body: DynamicEvaluateRequest) => {
+      const payload = await postDynamicEvaluate(body);
+      return followEvaluateRun(payload, body.options?.signalThresholdPct ?? threshold);
+    },
+    [followEvaluateRun, threshold],
+  );
+
   const setAssessmentMode = useCallback((mode: AssessmentTimeMode) => {
     setAssessmentModeState(mode);
     setAssessmentError(null);
@@ -248,64 +283,86 @@ export function usePremarketWorkspace() {
     setThreshold(clamped);
   }, []);
 
-  const startEvaluate = useCallback(
-    async () => {
-      if (evaluateInFlightRef.current) return;
-      if (assessmentMode === "et" && assessmentError) return;
-
+  const previewRuleKeys = useCallback(
+    async (
+      ruleKeys: string[],
+      rulePathVariants: Record<string, RulePathVariant> = {},
+      direction?: "CALL" | "PUT" | "",
+    ) => {
+      if (ruleKeys.length === 0) {
+        setError("Add at least one rule to preview.");
+        return false;
+      }
+      if (evaluateInFlightRef.current) return false;
       evaluateInFlightRef.current = true;
       setStartPending(true);
       setError(null);
       setNotice(null);
-      const evaluateRequest = {
-        ...resolveEvaluateRequest(),
-        options: { signalThresholdPct: threshold },
-      };
-
       try {
-        const ids = activeStrategies.map((s) => s.id);
-        if (ids.length === 0) {
-          setError("No active strategies — activate a dynamic strategy in Admin first.");
-          return;
-        }
-        const payload = await postDynamicEvaluate({
-          strategyIds: ids,
-          ...evaluateRequest,
+        await runEvaluateRequest({
+          rules: buildRulesPayload(ruleKeys, rulePathVariants),
+          name: "Preview",
+          ...(direction ? { direction } : {}),
+          ...resolveEvaluateRequest(),
+          options: { signalThresholdPct: threshold },
         });
-        setResult((prev) => ({
-          ...(prev ?? { strategies: [] }),
-          runId: payload.runId,
-          status: payload.status ?? "running",
-          simulationTimeEt: payload.simulationTimeEt,
-          tradeDate: payload.tradeDate,
-          signalThresholdPct: payload.signalThresholdPct ?? threshold,
-          jobActive: true,
-          canStop: true,
-        }));
-        const polled = await pollPremarketEvaluate(payload.runId, (progress) => {
-          setResult(progress);
-          setNotice(syncNoticeFromResult(progress));
-        });
-        if (polled) {
-          setResult(polled);
-          setNotice(syncNoticeFromResult(polled));
-        }
+        setNotice("Preview complete — results are shown below.");
+        return true;
       } catch (err) {
-        if (isEvaluateConflict(err)) {
-          const existing = await loadResult();
-          if (existing && isPremarketEvaluateActive(existing.status)) {
-            setNotice(syncNoticeFromResult(existing));
-            return;
-          }
-        }
         setError(resolveError(err));
+        return false;
       } finally {
         evaluateInFlightRef.current = false;
         setStartPending(false);
       }
     },
-    [activeStrategies, assessmentError, assessmentMode, loadResult, resolveEvaluateRequest, threshold],
+    [resolveEvaluateRequest, runEvaluateRequest, threshold],
   );
+
+  const startEvaluate = useCallback(async () => {
+    if (evaluateInFlightRef.current) return;
+    if (assessmentMode === "et" && assessmentError) return;
+
+    evaluateInFlightRef.current = true;
+    setStartPending(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      if (activeStrategyIds.length === 0) {
+        setError(
+          "No active dynamic strategies — save a screen in Strategy builder and activate it.",
+        );
+        return;
+      }
+      await runEvaluateRequest({
+        strategyIds: activeStrategyIds,
+        ...resolveEvaluateRequest(),
+        options: { signalThresholdPct: threshold },
+      });
+    } catch (err) {
+      if (isEvaluateConflict(err)) {
+        const existing = await loadResult();
+        if (existing && isPremarketEvaluateActive(existing.status)) {
+          setNotice(syncNoticeFromResult(existing));
+          return;
+        }
+      }
+      setError(resolveError(err));
+    } finally {
+      evaluateInFlightRef.current = false;
+      setStartPending(false);
+    }
+  }, [
+    assessmentError,
+    assessmentMode,
+    evaluateGroupLabel,
+    activeStrategyIds,
+    loadResult,
+    resolveEvaluateRequest,
+    runEvaluateRequest,
+    threshold,
+  ]);
 
   const stopEvaluate = useCallback(async () => {
     setStopPending(true);
@@ -340,10 +397,14 @@ export function usePremarketWorkspace() {
     result?.canStop,
   );
 
+  const activeStrategyCount = countActiveDynamicStrategies(dynamicStrategies);
+
   return {
     useMock,
-    strategies,
-    activeStrategies,
+    dynamicStrategies,
+    activeStrategyIds,
+    evaluateGroupLabel,
+    activeStrategyCount,
     reloadCatalog,
     catalogLoading,
     catalogError,
@@ -364,6 +425,7 @@ export function usePremarketWorkspace() {
     setAssessmentMode,
     setAssessmentFromLocal,
     startEvaluate,
+    previewRuleKeys,
     stopEvaluate,
     refreshResult,
   };

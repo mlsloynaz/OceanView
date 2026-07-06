@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { cn } from "@/shared/lib/cn";
 import { SimulationTimeControl } from "@/shared/components/SimulationTimeControl";
 import type { AssessmentTimeMode } from "@/features/market/lib/assessment-time";
@@ -11,6 +12,7 @@ type Props = {
   isAdmin?: boolean;
   result: PremarketResultResponse | null;
   activeStrategyCount: number;
+  evaluateGroupLabel: string;
   evaluateRunning: boolean;
   canStopEvaluate: boolean;
   startPending: boolean;
@@ -34,6 +36,7 @@ export function PremarketToolbar({
   isAdmin = false,
   result,
   activeStrategyCount,
+  evaluateGroupLabel,
   evaluateRunning,
   canStopEvaluate,
   startPending,
@@ -53,19 +56,28 @@ export function PremarketToolbar({
   const busy = evaluateRunning || stopPending || loading;
   const evaluateControlsBusy = evaluateRunning || stopPending;
   const refreshDisabled = stopPending || loading;
-  const evaluateDisabled =
-    busy || activeStrategyCount === 0 || Boolean(assessmentError);
+  const evaluateDisabled = busy || activeStrategyCount === 0 || Boolean(assessmentError);
 
   return (
     <div className="space-y-3 rounded-xl border border-ocean-mid/50 bg-ocean-surface p-4">
       <div>
         <h2 className="font-display text-lg font-semibold text-ocean-foam">Evaluate strategies</h2>
         <p className="mt-0.5 text-xs text-ocean-sand">
-          Run all active dynamic strategies against active tickers.
-          {isAdmin
-            ? " Use the Strategy builder thumbnail above to edit screens."
-            : null}{" "}
-          Extended-hours bars stay in memory only.
+          Run active <strong className="text-ocean-foam">dynamic strategies</strong> against all
+          active tickers
+          {activeStrategyCount > 0 ? (
+            <>
+              {" "}
+              — {evaluateGroupLabel}
+            </>
+          ) : null}
+          . Standard playbooks are evaluated on{" "}
+          <Link to="/market" className="text-ocean-teal hover:underline">
+            Market
+          </Link>{" "}
+          only.
+          {isAdmin ? " Manage dynamic screens in Strategy builder below." : null} Extended-hours
+          bars stay in memory only.
         </p>
       </div>
 
@@ -152,7 +164,7 @@ export function PremarketToolbar({
               ? "An evaluate run is already in progress"
               : activeStrategyCount === 0
                 ? "Activate at least one dynamic strategy first"
-                : `Evaluate ${activeStrategyCount} active strateg${activeStrategyCount === 1 ? "y" : "ies"}`
+                : `Evaluate ${activeStrategyCount} dynamic strateg${activeStrategyCount === 1 ? "y" : "ies"}`
           }
           onClick={onStart}
         >
@@ -182,7 +194,7 @@ export function PremarketToolbar({
           {loading ? "Loading…" : "Refresh result"}
         </button>
         <span className="ml-auto text-xs text-ocean-sand">
-          {activeStrategyCount} active
+          {activeStrategyCount} active dynamic strateg{activeStrategyCount === 1 ? "y" : "ies"}
         </span>
       </div>
 
@@ -190,9 +202,7 @@ export function PremarketToolbar({
         <span>
           Status:{" "}
           <strong className="text-ocean-foam">
-            {startPending
-              ? "Starting…"
-              : formatPremarketStatus(result?.status)}
+            {startPending ? "Starting…" : formatPremarketStatus(result?.status)}
           </strong>
         </span>
         {result?.progress?.total != null && result.progress.total > 0 && (

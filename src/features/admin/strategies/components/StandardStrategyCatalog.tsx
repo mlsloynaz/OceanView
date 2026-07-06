@@ -23,8 +23,9 @@ export function StandardStrategyCatalog({ strategies, saving, onToggleActive }: 
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-ocean-foam">Standard strategies</h3>
         <p className="mt-0.5 text-[11px] text-ocean-sand">
-          Built-in playbooks from the market catalog — activate or deactivate only ({activeCount} of{" "}
-          {strategies.length} active for Market assess).
+          Built-in playbooks from <code className="text-[10px]">strategies.json</code> —{" "}
+          <strong className="font-medium text-ocean-foam">Market evaluate only</strong> (
+          {activeCount} of {strategies.length} active). Dynamic screens are not evaluated here.
         </p>
       </div>
       <ul className="space-y-2">

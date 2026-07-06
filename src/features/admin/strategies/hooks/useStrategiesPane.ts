@@ -15,8 +15,13 @@ import {
   dynamicStrategiesUseMock,
   type DynamicRuleTemplate,
   type DynamicStrategy,
+  type RulePathVariant,
 } from "@/features/premarket/api/dynamic-strategy-client";
 import { PREMARKET_ERROR_MESSAGES } from "@/features/premarket/api/premarket-client";
+import {
+  buildRulesPayload,
+  pathVariantsFromStrategyRules,
+} from "@/features/premarket/lib/builder-utils";
 
 function resolveError(err: unknown): string {
   if (err instanceof DynamicStrategyApiError) {
@@ -44,6 +49,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   const [builderDescription, setBuilderDescription] = useState("");
   const [builderDirection, setBuilderDirection] = useState<"" | "CALL" | "PUT">("");
   const [selectedRuleKeys, setSelectedRuleKeys] = useState<string[]>([]);
+  const [rulePathVariants, setRulePathVariants] = useState<Record<string, RulePathVariant>>({});
   const [builderOpen, setBuilderOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -94,6 +100,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setBuilderDescription("");
     setBuilderDirection("");
     setSelectedRuleKeys([]);
+    setRulePathVariants({});
     setError(null);
     setNotice(null);
   }, []);
@@ -115,6 +122,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setBuilderDescription(strategy.description ?? "");
     setBuilderDirection(strategy.direction ?? "");
     setSelectedRuleKeys(strategy.rules.map((r) => r.ruleKey));
+    setRulePathVariants(pathVariantsFromStrategyRules(strategy.rules));
     setError(null);
     setBuilderOpen(true);
   }, []);
@@ -125,6 +133,23 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
 
   const removeRuleFromBuilder = useCallback((ruleKey: string) => {
     setSelectedRuleKeys((prev) => prev.filter((k) => k !== ruleKey));
+    setRulePathVariants((prev) => {
+      const next = { ...prev };
+      delete next[ruleKey];
+      return next;
+    });
+  }, []);
+
+  const setRulePathVariant = useCallback((ruleKey: string, path: RulePathVariant) => {
+    setRulePathVariants((prev) => {
+      const next = { ...prev };
+      if (path === "CALL" || path === "PUT") {
+        next[ruleKey] = path;
+      } else {
+        delete next[ruleKey];
+      }
+      return next;
+    });
   }, []);
 
   const moveRuleInBuilder = useCallback((ruleKey: string, direction: "up" | "down") => {
@@ -159,7 +184,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
         shortName: builderShortName.trim() || undefined,
         description: builderDescription.trim() || undefined,
         ...directionPayload,
-        ruleKeys: selectedRuleKeys,
+        rules: buildRulesPayload(selectedRuleKeys, rulePathVariants),
         active: true,
       };
       const saved = wasEdit
@@ -188,6 +213,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     clearBuilder,
     editingStrategyId,
     reload,
+    rulePathVariants,
     selectedRuleKeys,
   ]);
 
@@ -198,6 +224,9 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       try {
         await patchDynamicStrategy(strategy.id, { active: !strategy.active });
         await reload();
+        setNotice(
+          `${strategy.name} ${!strategy.active ? "activated" : "Deactivated"} for Premarket.`,
+        );
       } catch (err) {
         setError(resolveError(err));
       } finally {
@@ -237,9 +266,10 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setNotice(null);
     try {
       const payload = await postDynamicEvaluate({
-        ruleKeys: selectedRuleKeys,
+        rules: buildRulesPayload(selectedRuleKeys, rulePathVariants),
         assessmentTimeMode: "now",
         options: { signalThresholdPct: 50 },
+        ...(builderDirection ? { direction: builderDirection } : {}),
       });
       setNotice(payload.message ?? "Preview evaluate complete. Open Premarket for full results.");
     } catch (err) {
@@ -247,7 +277,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     } finally {
       setPreviewPending(false);
     }
-  }, [selectedRuleKeys]);
+  }, [builderDirection, rulePathVariants, selectedRuleKeys]);
 
   return {
     useMock,
@@ -260,6 +290,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     builderDescription,
     builderDirection,
     selectedRuleKeys,
+    rulePathVariants,
     builderOpen,
     loading,
     saving,
@@ -270,6 +301,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setBuilderShortName,
     setBuilderDescription,
     setBuilderDirection,
+    setRulePathVariant,
     addRuleToBuilder,
     removeRuleFromBuilder,
     moveRuleInBuilder,

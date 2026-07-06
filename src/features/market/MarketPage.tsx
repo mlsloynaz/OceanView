@@ -94,6 +94,9 @@ export function MarketPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="font-display text-xl font-semibold text-ocean-foam sm:text-2xl">Market</h1>
+          <p className="mt-1 text-sm text-ocean-sand">
+            Standard strategy playbooks only — activate in Admin. Dynamic screens run on Premarket.
+          </p>
           {catalog && (snapshot || !useMock) && (
             <div className="mt-1">
               <MarketSummaryStrip

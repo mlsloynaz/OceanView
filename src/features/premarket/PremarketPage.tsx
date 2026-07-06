@@ -7,6 +7,7 @@ import { PremarketEmptyState } from "./components/PremarketEmptyState";
 import { PremarketStrategySection } from "./components/PremarketStrategySection";
 import { PremarketToolbar } from "./components/PremarketToolbar";
 import { usePremarketWorkspace } from "./hooks/usePremarketWorkspace";
+import { isPremarketEvaluateTerminal } from "./display";
 
 export function PremarketPage() {
   const { isAdmin } = useAuth();
@@ -15,21 +16,28 @@ export function PremarketPage() {
 
   const resultStrategies = ws.result?.strategies ?? [];
   const hasResults = resultStrategies.length > 0;
+  const hasCompletedRun =
+    Boolean(ws.result?.runId) &&
+    (Boolean(ws.result?.evaluatedAt) || isPremarketEvaluateTerminal(ws.result?.status));
   const showEmpty =
-    !ws.loading && !ws.startPending && !hasResults && !ws.error && !ws.useMock;
+    !ws.loading && !ws.startPending && !hasResults && !hasCompletedRun && !ws.error && !ws.useMock;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam">Premarket</h1>
         <p className="mt-2 text-ocean-sand">
-          Evaluate active dynamic strategies against active tickers.
+          Evaluate saved strategies against extended-hours bars. Rules are shared with{" "}
+          <Link to="/market" className="text-ocean-teal hover:underline">
+            Market
+          </Link>{" "}
+          (regular session bars). Manage screens in Strategy builder / Admin.
           {isAdmin ? (
             <>
               {" "}
               Open{" "}
-              <strong className="font-medium text-ocean-foam">Strategy builder</strong> from the
-              thumbnails below, or manage the full catalog in{" "}
+              <strong className="font-medium text-ocean-foam">Strategy builder</strong> below, or
+              manage screens in{" "}
               <Link to="/admin" className="text-ocean-teal hover:underline">
                 Admin
               </Link>
@@ -46,19 +54,19 @@ export function PremarketPage() {
         </p>
       )}
 
-      {!ws.catalogLoading && ws.activeStrategies.length === 0 && (
+      {!ws.catalogLoading && ws.activeStrategyCount === 0 && (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
           {isAdmin ? (
             <>
-              No active strategies — create or activate one in{" "}
-              <strong className="font-medium">Strategy builder</strong> below or in{" "}
+              No active dynamic strategies — save and activate a screen in{" "}
+              <strong className="font-medium">Strategy builder</strong> below, or create one in{" "}
               <Link to="/admin" className="font-medium underline hover:text-ocean-foam">
                 Admin → Strategies
               </Link>
               .
             </>
           ) : (
-            <>No active strategies are configured yet. Ask an admin to activate a dynamic strategy.</>
+            <>No active dynamic strategies yet. Ask an admin to activate a saved screen.</>
           )}
         </p>
       )}
@@ -75,7 +83,8 @@ export function PremarketPage() {
       <PremarketToolbar
         isAdmin={isAdmin}
         result={ws.result}
-        activeStrategyCount={ws.activeStrategies.length}
+        activeStrategyCount={ws.activeStrategyCount}
+        evaluateGroupLabel={ws.evaluateGroupLabel}
         evaluateRunning={ws.evaluateRunning}
         canStopEvaluate={ws.canStopEvaluate}
         startPending={ws.startPending}
@@ -110,8 +119,8 @@ export function PremarketPage() {
 
       {ws.startPending && (
         <p className="text-sm text-ocean-sand">
-          Evaluating active tickers against {ws.activeStrategies.length} active strateg
-          {ws.activeStrategies.length === 1 ? "y" : "ies"}…
+          Evaluating against {ws.activeStrategyCount} dynamic strateg
+          {ws.activeStrategyCount === 1 ? "y" : "ies"} ({ws.evaluateGroupLabel})…
         </p>
       )}
 
@@ -140,7 +149,7 @@ export function PremarketPage() {
       {showEmpty && (
         <PremarketEmptyState
           isAdmin={isAdmin}
-          hasActiveStrategies={ws.activeStrategies.length > 0}
+          hasActiveStrategies={ws.activeStrategyCount > 0}
         />
       )}
 
@@ -152,11 +161,21 @@ export function PremarketPage() {
         </p>
       )}
 
-      {!hasResults && ws.result && !ws.startPending && !ws.loading && (
-        <p className="rounded-lg border border-ocean-mid/40 bg-ocean-surface px-4 py-3 text-sm text-ocean-sand">
-          Run finished but no strategy groups were returned. Confirm the strategy is{" "}
-          <strong className="text-ocean-foam">active</strong> and was included in the evaluate request.
-        </p>
+      {!hasResults && hasCompletedRun && !ws.startPending && !ws.loading && (
+        <div className="space-y-3 rounded-lg border border-ocean-mid/40 bg-ocean-surface px-4 py-3 text-sm text-ocean-sand">
+          <p>
+            Evaluate finished ({ws.result?.summary?.symbolsTotal ?? 0} symbols) but no strategy
+            groups were built for the response. Open{" "}
+            <strong className="text-ocean-foam">Symbol diagnostics</strong> above to see per-symbol
+            readiness.
+          </p>
+          {(ws.result?.symbolOutcomes?.length ?? 0) > 0 && (
+            <p className="text-xs">
+              {(ws.result?.symbolOutcomes ?? []).filter((row) => row.ready).length} ready ·{" "}
+              {(ws.result?.symbolOutcomes ?? []).filter((row) => row.error).length} errors
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
