@@ -6,9 +6,8 @@ import {
   dynamicStrategiesUseMock,
   type DynamicEvaluateRequest,
   type DynamicStrategy,
-  type RulePathVariant,
 } from "../api/dynamic-strategy-client";
-import { buildRulesPayload } from "../lib/builder-utils";
+import { buildRulesPayload, type BuilderRuleRow } from "../lib/builder-utils";
 import {
   PREMARKET_ERROR_MESSAGES,
   PremarketApiError,
@@ -379,14 +378,9 @@ export function usePremarketWorkspace() {
     setThreshold(clamped);
   }, []);
 
-  const previewRuleKeys = useCallback(
-    async (
-      ruleKeys: string[],
-      rulePathVariants: Record<string, RulePathVariant> = {},
-      direction?: "CALL" | "PUT" | "",
-      ruleTypes: Record<string, import("../api/dynamic-strategy-client").RuleType> = {},
-    ) => {
-      if (ruleKeys.length === 0) {
+  const previewBuilderRules = useCallback(
+    async (rows: BuilderRuleRow[]) => {
+      if (rows.length === 0) {
         setError("Add at least one rule to preview.");
         return false;
       }
@@ -405,15 +399,8 @@ export function usePremarketWorkspace() {
       setNotice(null);
       try {
         await runEvaluateRequest({
-          rules: buildRulesPayload(
-            ruleKeys,
-            rulePathVariants,
-            Object.fromEntries(
-              ruleKeys.map((key) => [key, ruleTypes[key] ?? "required"]),
-            ),
-          ),
+          rules: buildRulesPayload(rows),
           name: "Preview",
-          ...(direction ? { direction } : {}),
           ...resolveEvaluateRequest(),
           options: { signalThresholdPct: threshold },
         });
@@ -556,7 +543,7 @@ export function usePremarketWorkspace() {
     setAssessmentMode,
     setAssessmentFromLocal,
     startEvaluate,
-    previewRuleKeys,
+    previewBuilderRules,
     stopEvaluate,
     refreshResult,
   };

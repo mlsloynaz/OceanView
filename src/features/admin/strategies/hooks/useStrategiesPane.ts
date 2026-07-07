@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   buildRulesPayload,
-  normalizeRuleType,
-  pathVariantsFromStrategyRules,
-  ruleTypesFromStrategyRules,
+  builderRowsFromStrategyRules,
+  moveBuilderRow,
+  newBuilderRow,
+  removeBuilderRow,
+  setRowOperation,
+  setRowTrend,
+  setRowType,
+  type BuilderRuleRow,
 } from "@/features/premarket/lib/builder-utils";
 import {
   DynamicStrategyApiError,
@@ -19,7 +24,8 @@ import {
   resolveStrategyTier,
   type DynamicRuleTemplate,
   type DynamicStrategy,
-  type RulePathVariant,
+  type RuleOperationValue,
+  type RuleTrendValue,
   type RuleType,
   type StrategyTier,
 } from "@/features/premarket/api/dynamic-strategy-client";
@@ -61,11 +67,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   const [builderName, setBuilderName] = useState("");
   const [builderShortName, setBuilderShortName] = useState("");
   const [builderDescription, setBuilderDescription] = useState("");
-  const [builderDirection, setBuilderDirection] = useState<"" | "CALL" | "PUT">("");
-  const [selectedRuleKeys, setSelectedRuleKeys] = useState<string[]>([]);
-  const [rulePathVariants, setRulePathVariants] = useState<Record<string, RulePathVariant>>({});
-  const [ruleTypes, setRuleTypes] = useState<Record<string, RuleType>>({});
-  const [builderOpen, setBuilderOpen] = useState(false);
+  const [builderRows, setBuilderRows] = useState<BuilderRuleRow[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -112,91 +114,55 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setBuilderName("");
     setBuilderShortName("");
     setBuilderDescription("");
-    setBuilderDirection("");
-    setSelectedRuleKeys([]);
-    setRulePathVariants({});
-    setRuleTypes({});
+    setBuilderRows([]);
     setError(null);
     setNotice(null);
   }, []);
 
-  const closeBuilder = useCallback(() => {
+  const resetBuilder = useCallback(() => {
     clearBuilder();
-    setBuilderOpen(false);
   }, [clearBuilder]);
 
-  const openBuilderForNew = useCallback(() => {
-    clearBuilder();
-    setBuilderOpen(true);
-  }, [clearBuilder]);
-
-  const loadStrategyForEdit = useCallback((strategy: DynamicStrategy) => {
+  const hydrateBuilderFromStrategy = useCallback((strategy: DynamicStrategy) => {
     setEditingStrategyId(strategy.id);
     setBuilderName(strategy.name);
     setBuilderShortName(strategy.shortName ?? "");
     setBuilderDescription(strategy.description ?? "");
-    setBuilderDirection(strategy.direction ?? "");
-    setSelectedRuleKeys(strategy.rules.map((r) => r.ruleKey));
-    setRulePathVariants(pathVariantsFromStrategyRules(strategy.rules));
-    setRuleTypes(ruleTypesFromStrategyRules(strategy.rules));
+    setBuilderRows(builderRowsFromStrategyRules(strategy.rules));
     setError(null);
-    setBuilderOpen(true);
   }, []);
 
-  const addRuleToBuilder = useCallback((ruleKey: string) => {
-    setSelectedRuleKeys((prev) => (prev.includes(ruleKey) ? prev : [...prev, ruleKey]));
-    setRuleTypes((prev) => {
-      if (prev[ruleKey]) return prev;
+  const addRuleToBuilder = useCallback(
+    (ruleKey: string) => {
       const template = rules.find((r) => r.ruleKey === ruleKey);
-      return { ...prev, [ruleKey]: normalizeRuleType(template?.defaultType) };
-    });
-  }, [rules]);
+      setBuilderRows((prev) => [...prev, newBuilderRow(ruleKey, template)]);
+    },
+    [rules],
+  );
 
-  const removeRuleFromBuilder = useCallback((ruleKey: string) => {
-    setSelectedRuleKeys((prev) => prev.filter((k) => k !== ruleKey));
-    setRulePathVariants((prev) => {
-      const next = { ...prev };
-      delete next[ruleKey];
-      return next;
-    });
-    setRuleTypes((prev) => {
-      const next = { ...prev };
-      delete next[ruleKey];
-      return next;
-    });
+  const removeRuleFromBuilder = useCallback((rowId: string) => {
+    setBuilderRows((prev) => removeBuilderRow(prev, rowId));
   }, []);
 
-  const setRulePathVariant = useCallback((ruleKey: string, path: RulePathVariant) => {
-    setRulePathVariants((prev) => {
-      const next = { ...prev };
-      if (path === "CALL" || path === "PUT") {
-        next[ruleKey] = path;
-      } else {
-        delete next[ruleKey];
-      }
-      return next;
-    });
+  const setRuleTrend = useCallback((rowId: string, trend: RuleTrendValue) => {
+    setBuilderRows((prev) => setRowTrend(prev, rowId, trend));
   }, []);
 
-  const setRuleType = useCallback((ruleKey: string, ruleType: RuleType) => {
-    setRuleTypes((prev) => ({ ...prev, [ruleKey]: ruleType }));
+  const setRuleOperation = useCallback((rowId: string, operation: RuleOperationValue) => {
+    setBuilderRows((prev) => setRowOperation(prev, rowId, operation));
   }, []);
 
-  const moveRuleInBuilder = useCallback((ruleKey: string, direction: "up" | "down") => {
-    setSelectedRuleKeys((prev) => {
-      const index = prev.indexOf(ruleKey);
-      if (index < 0) return prev;
-      const next = [...prev];
-      const swap = direction === "up" ? index - 1 : index + 1;
-      if (swap < 0 || swap >= next.length) return prev;
-      [next[index], next[swap]] = [next[swap], next[index]];
-      return next;
-    });
+  const setRuleType = useCallback((rowId: string, ruleType: RuleType) => {
+    setBuilderRows((prev) => setRowType(prev, rowId, ruleType));
+  }, []);
+
+  const moveRuleInBuilder = useCallback((rowId: string, direction: "up" | "down") => {
+    setBuilderRows((prev) => moveBuilderRow(prev, rowId, direction));
   }, []);
 
   const saveBuilder = useCallback(async () => {
     const name = builderName.trim();
-    if (!name || selectedRuleKeys.length === 0) {
+    if (!name || builderRows.length === 0) {
       setError("Name and at least one rule are required.");
       return null;
     }
@@ -204,24 +170,17 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setError(null);
     try {
       const wasEdit = editingStrategyId != null;
-      const directionPayload = wasEdit
-        ? { direction: builderDirection || ("" as const) }
-        : builderDirection
-          ? { direction: builderDirection }
-          : {};
       const payload = {
         name,
         shortName: builderShortName.trim(),
         description: builderDescription.trim(),
-        ...directionPayload,
-        rules: buildRulesPayload(selectedRuleKeys, rulePathVariants, ruleTypes),
+        rules: buildRulesPayload(builderRows),
         active: true,
       };
       const saved = wasEdit
         ? await patchDynamicStrategy(editingStrategyId, payload)
         : await createDynamicStrategy(payload);
       clearBuilder();
-      setBuilderOpen(false);
       await reload();
       setNotice(
         wasEdit
@@ -237,15 +196,12 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     }
   }, [
     builderDescription,
-    builderDirection,
     builderName,
+    builderRows,
     builderShortName,
     clearBuilder,
     editingStrategyId,
     reload,
-    rulePathVariants,
-    ruleTypes,
-    selectedRuleKeys,
   ]);
 
   const toggleStrategyActive = useCallback(
@@ -285,7 +241,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       try {
         await deleteDynamicStrategy(strategy.id);
         if (editingStrategyId === strategy.id) {
-          closeBuilder();
+          clearBuilder();
         }
         await reload();
         setNotice(`Strategy "${strategy.name}" deleted.`);
@@ -297,7 +253,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
         setSaving(false);
       }
     },
-    [closeBuilder, editingStrategyId, reload],
+    [clearBuilder, editingStrategyId, reload],
   );
 
   const deleteEditingStrategy = useCallback(async () => {
@@ -322,7 +278,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       try {
         const saved = await promoteDynamicStrategy(strategy.id);
         if (editingStrategyId === strategy.id) {
-          closeBuilder();
+          clearBuilder();
         }
         await reload();
         setNotice(`"${saved.name}" promoted to standard — active for Market evaluate.`);
@@ -334,7 +290,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
         setSaving(false);
       }
     },
-    [closeBuilder, editingStrategyId, reload],
+    [clearBuilder, editingStrategyId, reload],
   );
 
   const demoteStrategy = useCallback(
@@ -349,7 +305,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       try {
         const saved = await demoteDynamicStrategy(strategy.id);
         if (editingStrategyId === strategy.id) {
-          closeBuilder();
+          clearBuilder();
         }
         await reload();
         setNotice(`"${saved.name}" demoted — standard deactivated, dynamic copy saved for Premarket.`);
@@ -361,11 +317,11 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
         setSaving(false);
       }
     },
-    [closeBuilder, editingStrategyId, reload],
+    [clearBuilder, editingStrategyId, reload],
   );
 
   const previewBuilder = useCallback(async () => {
-    if (selectedRuleKeys.length === 0) {
+    if (builderRows.length === 0) {
       setError("Add at least one rule to preview.");
       return;
     }
@@ -374,10 +330,9 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setNotice(null);
     try {
       const payload = await postDynamicEvaluate({
-        rules: buildRulesPayload(selectedRuleKeys, rulePathVariants, ruleTypes),
+        rules: buildRulesPayload(builderRows),
         assessmentTimeMode: "now",
         options: { signalThresholdPct: 50 },
-        ...(builderDirection ? { direction: builderDirection } : {}),
       });
       setNotice(payload.message ?? "Preview evaluate complete. Open Premarket for full results.");
     } catch (err) {
@@ -385,7 +340,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     } finally {
       setPreviewPending(false);
     }
-  }, [builderDirection, rulePathVariants, ruleTypes, selectedRuleKeys]);
+  }, [builderRows]);
 
   const standardStrategies = strategies.filter((s) => resolveStrategyTier(s) === "standard");
   const dynamicStrategies = strategies.filter((s) => resolveStrategyTier(s) === "dynamic");
@@ -400,11 +355,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     builderName,
     builderShortName,
     builderDescription,
-    builderDirection,
-    selectedRuleKeys,
-    rulePathVariants,
-    ruleTypes,
-    builderOpen,
+    builderRows,
     loading,
     saving,
     previewPending,
@@ -413,15 +364,14 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setBuilderName,
     setBuilderShortName,
     setBuilderDescription,
-    setBuilderDirection,
-    setRulePathVariant,
+    setRuleTrend,
+    setRuleOperation,
     setRuleType,
     addRuleToBuilder,
     removeRuleFromBuilder,
     moveRuleInBuilder,
-    closeBuilder,
-    openBuilderForNew,
-    loadStrategyForEdit,
+    resetBuilder,
+    hydrateBuilderFromStrategy,
     saveBuilder,
     toggleStrategyActive,
     deleteStrategy,

@@ -6,17 +6,16 @@ import { MOCK_DYNAMIC_CATALOG, MOCK_DYNAMIC_RULES, nextMockPremarketStart } from
 
 
 export type DynamicRuleTemplate = {
-
   ruleKey: string;
-
   label: string;
-
   defaultType?: string;
-
   timeframe?: string;
-
   when?: Record<string, unknown>;
-
+  /** Catalog: off | auto | set */
+  trend?: "off" | "auto" | "set";
+  /** Catalog: off | auto | set */
+  operation?: "off" | "auto" | "set";
+  defaultTrend?: "up" | "down" | "lateral";
 };
 
 
@@ -33,6 +32,9 @@ export type DynamicRulesResponse = {
 
 export type StrategyTier = "standard" | "dynamic";
 
+export type RuleTrendValue = "" | "up" | "down" | "lateral";
+export type RuleOperationValue = "" | "call" | "put";
+
 export type RulePathVariant = "" | "CALL" | "PUT";
 
 export type RuleType = "required" | "extra" | "gate";
@@ -43,7 +45,11 @@ export type DynamicStrategyRule = {
   label: string;
   type: string;
   timeframe?: string;
-  /** Strategy path (CALL/PUT) when rule key has no _call/_put suffix. */
+  /** Market trend when catalog trend is set. */
+  trend?: "up" | "down" | "lateral";
+  /** Trade operation when catalog operation is set. */
+  operation?: "call" | "put";
+  /** Legacy — normalized from operation on save. */
   pathVariant?: "CALL" | "PUT";
   when?: Record<string, unknown>;
 };
@@ -69,8 +75,12 @@ export function resolveStrategyTier(strategy: Pick<DynamicStrategy, "id" | "tier
 }
 
 export type DynamicStrategyRuleInput = {
+  /** Stable row id — required when the same ruleKey appears more than once. */
+  id?: string;
   ruleKey: string;
   type?: RuleType;
+  trend?: "up" | "down" | "lateral";
+  operation?: "call" | "put";
   pathVariant?: "CALL" | "PUT";
 };
 

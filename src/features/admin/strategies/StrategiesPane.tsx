@@ -1,18 +1,37 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane";
 import { cn } from "@/shared/lib/cn";
 import { DynamicStrategyCatalog } from "@/features/premarket/components/DynamicStrategyCatalog";
-import { StrategyBuilderModal } from "@/features/premarket/components/StrategyBuilderModal";
+import type { DynamicStrategy } from "@/features/premarket/api/dynamic-strategy-client";
+import {
+  DEFAULT_STRATEGY_BUILDER_RETURN,
+  STRATEGY_BUILDER_NEW_PATH,
+  strategyBuilderEditPath,
+  type StrategyBuilderLocationState,
+} from "@/features/premarket/lib/strategy-builder-routes";
 import { useStrategiesPane } from "./hooks/useStrategiesPane";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
+const ADMIN_BUILDER_STATE: StrategyBuilderLocationState = {
+  returnTo: DEFAULT_STRATEGY_BUILDER_RETURN,
+};
+
 export function StrategiesPane() {
+  const navigate = useNavigate();
   const ws = useStrategiesPane();
   const standardActiveCount = ws.standardStrategies.filter((s) => s.active).length;
   const dynamicActiveCount = ws.dynamicStrategies.filter((s) => s.active).length;
   const summary = `${standardActiveCount} standard active (Market) · ${dynamicActiveCount} dynamic active (Premarket)`;
+
+  const openNewStrategy = () => {
+    navigate(STRATEGY_BUILDER_NEW_PATH, { state: ADMIN_BUILDER_STATE });
+  };
+
+  const openEditStrategy = (strategy: DynamicStrategy) => {
+    navigate(strategyBuilderEditPath(strategy.id), { state: ADMIN_BUILDER_STATE });
+  };
 
   return (
     <>
@@ -41,13 +60,13 @@ export function StrategiesPane() {
               type="button"
               className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105")}
               disabled={ws.saving}
-              onClick={ws.openBuilderForNew}
+              onClick={openNewStrategy}
             >
               New
             </button>
           }
         >
-          {ws.error && !ws.builderOpen && (
+          {ws.error && (
             <p className="mb-3 text-sm text-ocean-danger" role="alert">
               {ws.error}
             </p>
@@ -75,51 +94,14 @@ export function StrategiesPane() {
             embedded
             strategies={ws.strategies}
             saving={ws.saving}
-            onEdit={ws.loadStrategyForEdit}
-            onNew={ws.openBuilderForNew}
+            onEdit={openEditStrategy}
+            onNew={openNewStrategy}
             onToggleActive={(s) => void ws.toggleStrategyActive(s)}
             onDelete={(s) => void ws.deleteStrategy(s)}
             onPromote={(s) => void ws.promoteStrategy(s)}
             onDemote={(s) => void ws.demoteStrategy(s)}
           />
         </AdminExpandedPane>
-      )}
-
-      {ws.builderOpen && (
-        <StrategyBuilderModal
-          rules={ws.rules}
-          selectedRuleKeys={ws.selectedRuleKeys}
-          rulePathVariants={ws.rulePathVariants}
-          ruleTypes={ws.ruleTypes}
-          name={ws.builderName}
-          shortName={ws.builderShortName}
-          description={ws.builderDescription}
-          direction={ws.builderDirection}
-          editingStrategyId={ws.editingStrategyId}
-          saving={ws.saving}
-          startPending={ws.previewPending}
-          error={ws.error}
-          onNameChange={ws.setBuilderName}
-          onShortNameChange={ws.setBuilderShortName}
-          onDescriptionChange={ws.setBuilderDescription}
-          onDirectionChange={ws.setBuilderDirection}
-          onPathVariantChange={ws.setRulePathVariant}
-          onRuleTypeChange={ws.setRuleType}
-          onAddRule={ws.addRuleToBuilder}
-          onRemoveRule={ws.removeRuleFromBuilder}
-          onMoveRule={ws.moveRuleInBuilder}
-          onSave={() => void ws.saveBuilder()}
-          onPreview={() => void ws.previewBuilder()}
-          onDelete={
-            ws.editingStrategyId &&
-            ws.strategies.some(
-              (row) => row.id === ws.editingStrategyId && ws.resolveStrategyTier(row) === "dynamic",
-            )
-              ? () => void ws.deleteEditingStrategy()
-              : undefined
-          }
-          onClose={ws.closeBuilder}
-        />
       )}
     </>
   );

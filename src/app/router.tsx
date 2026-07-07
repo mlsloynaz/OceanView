@@ -8,6 +8,7 @@ import { RequireAuth } from "@/shared/auth/RequireAuth";
 import { MarketPage } from "@/features/market/MarketPage";
 import { MarketRedirect } from "@/features/market/MarketRedirect";
 import { PremarketPage } from "@/features/premarket/PremarketPage";
+import { StrategyBuilderPage } from "@/features/premarket/StrategyBuilderPage";
 import { AdminPage } from "@/features/admin/AdminPage";
 import { defaultMarketMode, marketPath } from "@/features/market/lib/market-routes";
 
@@ -26,6 +27,22 @@ export const router = createBrowserRouter([
       { path: "market", element: <MarketRedirect /> },
       { path: "market/:mode", element: <MarketPage /> },
       { path: "premarket", element: <PremarketPage /> },
+      {
+        path: "strategies/new",
+        element: (
+          <RequireAdmin>
+            <StrategyBuilderPage />
+          </RequireAdmin>
+        ),
+      },
+      {
+        path: "strategies/:strategyId/edit",
+        element: (
+          <RequireAdmin>
+            <StrategyBuilderPage />
+          </RequireAdmin>
+        ),
+      },
       { path: "admin", element: <RequireAdmin><AdminPage /></RequireAdmin> },
       { path: "*", element: <RouteNotFound /> },
     ],

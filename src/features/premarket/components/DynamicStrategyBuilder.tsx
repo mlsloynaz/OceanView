@@ -1,14 +1,23 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { cn } from "@/shared/lib/cn";
-import type { DynamicRuleTemplate, RulePathVariant, RuleType } from "../api/dynamic-strategy-client";
+import type { DynamicRuleTemplate, RuleOperationValue, RuleTrendValue, RuleType } from "../api/dynamic-strategy-client";
 import {
   TIMEFRAME_FILTERS,
   filterRules,
-  inferPathFromRuleKey,
-  normalizeRuleType,
+  formatOperationLabel,
+  formatTrendLabel,
+  inferOperationFromRuleKey,
+  libraryParamHint,
   normalizeTimeframe,
-  pathVariantHint,
+  operationHint,
+  rowInstanceMeta,
+  rowMissingRequiredFields,
+  rowOperationValue,
+  rowSummaryParts,
+  rowTrendValue,
   ruleTypeLabel,
+  trendHint,
+  type BuilderRuleRow,
   type TimeframeFilter,
 } from "../lib/builder-utils";
 
@@ -18,15 +27,18 @@ const BTN =
 const INPUT =
   "w-full rounded-md border border-ocean-mid/40 bg-ocean-deep px-3 py-2 text-sm text-ocean-foam placeholder:text-ocean-sand/50 focus:border-ocean-teal/50 focus:outline-none";
 
+const SELECT =
+  "w-full rounded-md border border-ocean-mid/40 bg-ocean-deep px-2 py-1.5 text-xs text-ocean-foam focus:border-ocean-teal/50 focus:outline-none";
+
+const FIELD_LABEL = "mb-1 block text-[10px] font-medium uppercase tracking-wide text-ocean-sand/90";
+
 type Props = {
+  layout?: "modal" | "page";
   rules: DynamicRuleTemplate[];
-  selectedRuleKeys: string[];
-  rulePathVariants: Record<string, RulePathVariant>;
-  ruleTypes: Record<string, RuleType>;
+  builderRows: BuilderRuleRow[];
   name: string;
   shortName: string;
   description: string;
-  direction: "" | "CALL" | "PUT";
   editingStrategyId: string | null;
   saving: boolean;
   startPending: boolean;
@@ -34,27 +46,230 @@ type Props = {
   onNameChange: (value: string) => void;
   onShortNameChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
-  onDirectionChange: (value: "" | "CALL" | "PUT") => void;
-  onPathVariantChange: (ruleKey: string, path: RulePathVariant) => void;
-  onRuleTypeChange: (ruleKey: string, ruleType: RuleType) => void;
+  onTrendChange: (rowId: string, trend: RuleTrendValue) => void;
+  onOperationChange: (rowId: string, operation: RuleOperationValue) => void;
+  onRuleTypeChange: (rowId: string, ruleType: RuleType) => void;
   onAddRule: (ruleKey: string) => void;
-  onRemoveRule: (ruleKey: string) => void;
-  onMoveRule: (ruleKey: string, direction: "up" | "down") => void;
+  onRemoveRule: (rowId: string) => void;
+  onMoveRule: (rowId: string, direction: "up" | "down") => void;
   onCancel: () => void;
   onSave: () => void;
   onPreview: () => void;
   onDelete?: () => void;
 };
 
+function SummaryChip({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "call" | "put" | "warn" }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
+        tone === "call" && "bg-emerald-500/15 text-emerald-300",
+        tone === "put" && "bg-amber-500/15 text-amber-200",
+        tone === "warn" && "bg-ocean-danger/15 text-ocean-danger",
+        tone === "neutral" && "bg-ocean-mid/35 text-ocean-sand",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function BuilderRuleRowCard({
+  row,
+  template,
+  rowNumber,
+  instance,
+  onTrendChange,
+  onOperationChange,
+  onRuleTypeChange,
+  onRemoveRule,
+  onMoveRule,
+  isFirst,
+  isLast,
+}: {
+  row: BuilderRuleRow;
+  template: DynamicRuleTemplate & { ruleKey: string; label: string };
+  rowNumber: number;
+  instance: { index: number; total: number };
+  onTrendChange: (rowId: string, trend: RuleTrendValue) => void;
+  onOperationChange: (rowId: string, operation: RuleOperationValue) => void;
+  onRuleTypeChange: (rowId: string, ruleType: RuleType) => void;
+  onRemoveRule: (rowId: string) => void;
+  onMoveRule: (rowId: string, direction: "up" | "down") => void;
+  isFirst: boolean;
+  isLast: boolean;
+}) {
+  const explicitTrend = rowTrendValue(row);
+  const explicitOperation = rowOperationValue(row);
+  const inferredOp = inferOperationFromRuleKey(row.ruleKey);
+  const showTrend = template.trend === "set" || template.trend === "auto";
+  const showOperation = template.operation === "set" || template.operation === "auto";
+  const missing = rowMissingRequiredFields(row, template);
+  const summaryParts = rowSummaryParts(row, template);
+
+  const operationTone =
+    row.operation === "call" ? "call" : row.operation === "put" ? "put" : "neutral";
+
+  return (
+    <li
+      className={cn(
+        "rounded-lg border bg-ocean-deep/40",
+        missing.length > 0 ? "border-amber-500/40" : "border-ocean-mid/35",
+      )}
+    >
+      <div className="flex items-start gap-2 border-b border-ocean-mid/25 px-3 py-2">
+        <span
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ocean-mid/40 text-[10px] font-bold tabular-nums text-ocean-foam"
+          title={`Row ${rowNumber}`}
+        >
+          {rowNumber}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="text-xs font-semibold text-ocean-foam">{template.label}</span>
+            {template.timeframe && (
+              <span className="text-[10px] text-ocean-sand/70">{normalizeTimeframe(template.timeframe)}</span>
+            )}
+            {instance.total > 1 && (
+              <span className="rounded bg-ocean-teal/15 px-1.5 py-px text-[10px] font-medium text-ocean-teal">
+                Instance {instance.index} of {instance.total}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 font-mono text-[10px] text-ocean-sand/55">{row.ruleKey}</p>
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {summaryParts.map((part) => (
+              <SummaryChip
+                key={part}
+                tone={
+                  part === "CALL" ? "call" : part === "PUT" ? "put" : "neutral"
+                }
+              >
+                {part}
+              </SummaryChip>
+            ))}
+            {missing.map((field) => (
+              <SummaryChip key={field} tone="warn">
+                Set {field}
+              </SummaryChip>
+            ))}
+          </div>
+        </div>
+        <div className="flex shrink-0 gap-0.5">
+          <button
+            type="button"
+            title="Move row up"
+            disabled={isFirst}
+            onClick={() => onMoveRule(row.id, "up")}
+            className="rounded px-1.5 py-0.5 text-ocean-sand hover:bg-ocean-mid/40 disabled:opacity-30"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            title="Move row down"
+            disabled={isLast}
+            onClick={() => onMoveRule(row.id, "down")}
+            className="rounded px-1.5 py-0.5 text-ocean-sand hover:bg-ocean-mid/40 disabled:opacity-30"
+          >
+            ↓
+          </button>
+          <button
+            type="button"
+            title="Remove this row"
+            onClick={() => onRemoveRule(row.id)}
+            className="rounded px-1.5 py-0.5 text-ocean-danger hover:bg-ocean-danger/10"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          "grid gap-3 px-3 py-2.5",
+          showTrend && showOperation ? "sm:grid-cols-3" : showTrend || showOperation ? "sm:grid-cols-2" : "sm:grid-cols-1",
+        )}
+      >
+        <label className="block min-w-0">
+          <span className={FIELD_LABEL}>Role</span>
+          <select
+            value={row.type}
+            onChange={(e) => onRuleTypeChange(row.id, e.target.value as RuleType)}
+            className={SELECT}
+          >
+            <option value="required">Required — counts toward score</option>
+            <option value="extra">Extra — evaluated, optional</option>
+            <option value="gate">Gate — must pass to qualify</option>
+          </select>
+        </label>
+
+        {showTrend && (
+          <label className="block min-w-0">
+            <span className={FIELD_LABEL}>
+              Trend {template.trend === "set" ? "(required)" : "(optional)"}
+            </span>
+            <select
+              value={explicitTrend}
+              onChange={(e) => onTrendChange(row.id, e.target.value as RuleTrendValue)}
+              className={cn(SELECT, missing.includes("trend") && "border-amber-500/50")}
+              title={trendHint(explicitTrend, template)}
+            >
+              <option value="">
+                {template.defaultTrend
+                  ? `Auto — ${formatTrendLabel(template.defaultTrend)}`
+                  : "Auto — from market"}
+              </option>
+              <option value="up">Up — bullish / alcista</option>
+              <option value="down">Down — bearish / bajista</option>
+              <option value="lateral">Lateral — sideways</option>
+            </select>
+          </label>
+        )}
+
+        {showOperation && (
+          <label className="block min-w-0">
+            <span className={FIELD_LABEL}>
+              Operation {template.operation === "set" ? "(required)" : "(optional)"}
+            </span>
+            <select
+              value={explicitOperation}
+              onChange={(e) => onOperationChange(row.id, e.target.value as RuleOperationValue)}
+              className={cn(SELECT, missing.includes("operation") && "border-amber-500/50")}
+              title={operationHint(explicitOperation, row.ruleKey)}
+            >
+              <option value="">
+                {inferredOp ? `Auto — ${formatOperationLabel(inferredOp)}` : "Auto — from market"}
+              </option>
+              <option value="call">CALL</option>
+              <option value="put">PUT</option>
+            </select>
+            {row.operation && (
+              <span className={cn("mt-1 inline-block text-[10px]", operationTone === "call" ? "text-emerald-300/80" : "text-amber-200/80")}>
+                Trade path for this row: {formatOperationLabel(row.operation)}
+              </span>
+            )}
+          </label>
+        )}
+
+        {!showTrend && !showOperation && (
+          <p className="text-[11px] leading-relaxed text-ocean-sand/80 sm:col-span-full">
+            This rule does not use row-level trend or operation — direction is inferred at evaluate time
+            from the rule itself or market context.
+          </p>
+        )}
+      </div>
+    </li>
+  );
+}
+
 export function DynamicStrategyBuilder({
+  layout = "modal",
   rules,
-  selectedRuleKeys,
-  rulePathVariants,
-  ruleTypes,
+  builderRows,
   name,
   shortName,
   description,
-  direction,
   editingStrategyId,
   saving,
   startPending,
@@ -62,8 +277,8 @@ export function DynamicStrategyBuilder({
   onNameChange,
   onShortNameChange,
   onDescriptionChange,
-  onDirectionChange,
-  onPathVariantChange,
+  onTrendChange,
+  onOperationChange,
   onRuleTypeChange,
   onAddRule,
   onRemoveRule,
@@ -88,25 +303,52 @@ export function DynamicStrategyBuilder({
 
   const composedRules = useMemo(
     () =>
-      selectedRuleKeys.map((key) => {
-        const template = ruleMap.get(key);
-        const type = normalizeRuleType(ruleTypes[key] ?? template?.defaultType);
-        if (template) return { ...template, type };
+      builderRows.map((row) => {
+        const template = ruleMap.get(row.ruleKey);
+        if (template) return { row, template };
         return {
-          ruleKey: key,
-          label: `${key} (not in library — remove or replace)`,
-          defaultType: "required" as const,
-          type,
+          row,
+          template: {
+            ruleKey: row.ruleKey,
+            label: `${row.ruleKey} (not in library)`,
+            defaultType: "required" as const,
+          },
         };
       }),
-    [selectedRuleKeys, ruleMap, ruleTypes],
+    [builderRows, ruleMap],
   );
 
-  const canSave = name.trim().length > 0 && selectedRuleKeys.length > 0;
+  const ruleKeyCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of builderRows) {
+      counts.set(row.ruleKey, (counts.get(row.ruleKey) ?? 0) + 1);
+    }
+    return counts;
+  }, [builderRows]);
+
+  const instanceMeta = useMemo(() => rowInstanceMeta(builderRows), [builderRows]);
+
+  const incompleteRows = useMemo(
+    () =>
+      composedRules.filter(({ row, template }) =>
+        rowMissingRequiredFields(row, template).length > 0,
+      ).length,
+    [composedRules],
+  );
+
+  const canSave = name.trim().length > 0 && builderRows.length > 0;
   const isEditing = editingStrategyId != null;
+  const isPage = layout === "page";
+  const libraryMaxHeight = isPage ? "max-h-[min(42rem,70vh)]" : "max-h-72";
+  const rowsMaxHeight = isPage ? "max-h-[min(42rem,70vh)]" : "max-h-[min(24rem,50vh)]";
 
   return (
-    <div className="grid gap-0 divide-y divide-ocean-mid/30 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+    <div
+      className={cn(
+        "grid gap-0 divide-y divide-ocean-mid/30 lg:grid-cols-2 lg:divide-x lg:divide-y-0",
+        isPage && "min-h-[min(48rem,80vh)]",
+      )}
+    >
       {error && (
         <p className="col-span-full border-b border-ocean-danger/30 bg-ocean-danger/10 px-4 py-2 text-sm text-ocean-danger" role="alert">
           {error}
@@ -117,6 +359,10 @@ export function DynamicStrategyBuilder({
         <h3 className="text-xs font-semibold uppercase tracking-wide text-ocean-sand">
           Rule library
         </h3>
+        <p className="mt-1 text-[11px] leading-relaxed text-ocean-sand/85">
+          Click <span className="text-ocean-teal">Add row</span> to place a rule in your strategy.
+          Click again for the same rule — each row can have its own trend and operation (e.g. E01 CALL vs PUT path).
+        </p>
         <input
           type="search"
           placeholder="Search rules…"
@@ -142,34 +388,41 @@ export function DynamicStrategyBuilder({
             </button>
           ))}
         </div>
-        <ul className="mt-3 max-h-64 space-y-1 overflow-y-auto pr-1">
+        <ul className={cn("mt-3 space-y-1.5 overflow-y-auto pr-1", libraryMaxHeight)}>
           {filteredLibrary.map((rule) => {
-            const added = selectedRuleKeys.includes(rule.ruleKey);
+            const inStrategy = ruleKeyCounts.get(rule.ruleKey) ?? 0;
+            const paramHint = libraryParamHint(rule);
             return (
               <li key={rule.ruleKey}>
                 <button
                   type="button"
-                  disabled={added}
                   onClick={() => onAddRule(rule.ruleKey)}
-                  className={cn(
-                    "flex w-full items-start gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors",
-                    added
-                      ? "cursor-default border-ocean-teal/30 bg-ocean-teal/5 opacity-60"
-                      : "border-ocean-mid/30 hover:border-ocean-teal/40 hover:bg-ocean-deep/50",
-                  )}
+                  className="group flex w-full items-start gap-2 rounded-lg border border-ocean-mid/30 px-2.5 py-2 text-left text-xs transition-colors hover:border-ocean-teal/50 hover:bg-ocean-deep/50"
                 >
-                  <span className="mt-0.5 text-ocean-teal">{added ? "✓" : "+"}</span>
+                  <span className="mt-0.5 rounded bg-ocean-teal/15 px-1.5 py-0.5 text-[10px] font-semibold text-ocean-teal group-hover:bg-ocean-teal/25">
+                    + Add row
+                  </span>
                   <span className="min-w-0 flex-1">
                     <span className="font-medium text-ocean-foam">{rule.label}</span>
-                    <span className="mt-0.5 flex flex-wrap gap-1.5 text-[10px] text-ocean-sand">
+                    <span className="mt-1 flex flex-wrap gap-1.5 text-[10px] text-ocean-sand">
                       {rule.timeframe && (
                         <span className="rounded bg-ocean-mid/40 px-1 py-px">
                           {normalizeTimeframe(rule.timeframe)}
                         </span>
                       )}
                       <span className="rounded bg-ocean-mid/40 px-1 py-px">
-                        {ruleTypeLabel(rule.defaultType)}
+                        Default {ruleTypeLabel(rule.defaultType)}
                       </span>
+                      {paramHint && (
+                        <span className="rounded bg-ocean-mid/25 px-1 py-px text-ocean-sand/90">
+                          {paramHint}
+                        </span>
+                      )}
+                      {inStrategy > 0 && (
+                        <span className="rounded bg-ocean-teal/20 px-1 py-px font-medium text-ocean-teal">
+                          {inStrategy} row{inStrategy === 1 ? "" : "s"} in strategy
+                        </span>
+                      )}
                     </span>
                   </span>
                 </button>
@@ -197,7 +450,7 @@ export function DynamicStrategyBuilder({
               type="text"
               value={name}
               onChange={(e) => onNameChange(e.target.value)}
-              placeholder="e.g. Premarket BB touch"
+              placeholder="e.g. Hourly trend change"
               className={cn(INPUT, "mt-0.5")}
             />
           </label>
@@ -221,119 +474,50 @@ export function DynamicStrategyBuilder({
               className={cn(INPUT, "mt-0.5 resize-none")}
             />
           </label>
-          <label className="block">
-            <span className="text-[11px] text-ocean-sand">
-              Default trade path (optional)
-            </span>
-            <select
-              value={direction}
-              onChange={(e) => onDirectionChange(e.target.value as "" | "CALL" | "PUT")}
-              className={cn(INPUT, "mt-0.5")}
-            >
-              <option value="">None — infer from rule paths</option>
-              <option value="CALL">CALL</option>
-              <option value="PUT">PUT</option>
-            </select>
-            <span className="mt-0.5 block text-[10px] text-ocean-sand/80">
-              Fallback for danger checks when a rule has no path. Trend rules use alcista/bajista;
-              set path per rule below.
-            </span>
-          </label>
         </div>
 
         <div className="mt-4">
-          <p className="text-[11px] font-medium text-ocean-sand">
-            Rules ({composedRules.length})
-          </p>
-          {composedRules.length === 0 ? (
-            <p className="mt-2 rounded-md border border-dashed border-ocean-mid/40 px-3 py-6 text-center text-xs text-ocean-sand">
-              Click rules in the library to add them here.
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-[11px] font-medium text-ocean-sand">
+              Rule rows ({composedRules.length})
             </p>
+            {incompleteRows > 0 && (
+              <p className="text-[10px] text-amber-200/90">
+                {incompleteRows} row{incompleteRows === 1 ? "" : "s"} need trend or operation
+              </p>
+            )}
+          </div>
+
+          {composedRules.length === 0 ? (
+            <div className="mt-2 rounded-lg border border-dashed border-ocean-mid/40 bg-ocean-deep/20 px-3 py-5 text-xs text-ocean-sand">
+              <p className="font-medium text-ocean-foam">No rows yet</p>
+              <p className="mt-1 leading-relaxed">
+                Pick rules from the library. Each click creates a <strong className="font-medium text-ocean-foam">new row</strong> —
+                not a checkbox. Dual-path strategies (like E01) use two rows for the same rule with different settings.
+              </p>
+              <p className="mt-2 rounded-md bg-ocean-mid/20 px-2 py-1.5 font-mono text-[10px] leading-relaxed text-ocean-sand/90">
+                Row A: prior BB · trend Down · operation CALL<br />
+                Row B: prior BB · trend Up · operation PUT
+              </p>
+            </div>
           ) : (
-            <ol className="mt-2 space-y-1.5">
-              {composedRules.map((rule, index) => {
-                const explicitPath = rulePathVariants[rule.ruleKey] ?? "";
-                const inferred = inferPathFromRuleKey(rule.ruleKey);
-                const ruleType = normalizeRuleType(ruleTypes[rule.ruleKey] ?? rule.defaultType);
-                return (
-                <li
-                  key={rule.ruleKey}
-                  className="flex flex-col gap-1.5 rounded-md border border-ocean-mid/30 bg-ocean-deep/30 px-2 py-1.5 sm:flex-row sm:items-center"
-                >
-                  <span className="w-4 shrink-0 text-center text-[10px] tabular-nums text-ocean-sand sm:self-start sm:pt-1">
-                    {index + 1}
-                  </span>
-                  <span className="min-w-0 flex-1 text-xs">
-                    <span className="font-medium text-ocean-foam">{rule.label}</span>
-                    {rule.timeframe && (
-                      <span className="ml-1 text-ocean-sand/70">
-                        · {normalizeTimeframe(rule.timeframe)}
-                      </span>
-                    )}
-                  </span>
-                  <label className="flex shrink-0 items-center gap-1.5 text-[10px] text-ocean-sand">
-                    <span className="whitespace-nowrap">Role</span>
-                    <select
-                      value={ruleType}
-                      onChange={(e) =>
-                        onRuleTypeChange(rule.ruleKey, e.target.value as RuleType)
-                      }
-                      className="rounded border border-ocean-mid/40 bg-ocean-deep px-1.5 py-0.5 text-[10px] text-ocean-foam"
-                      title="Required rules count toward quality %; Extra rules are evaluated but optional"
-                    >
-                      <option value="required">Required</option>
-                      <option value="extra">Extra</option>
-                      <option value="gate">Gate</option>
-                    </select>
-                  </label>
-                  <label className="flex shrink-0 items-center gap-1.5 text-[10px] text-ocean-sand">
-                    <span className="whitespace-nowrap">Path</span>
-                    <select
-                      value={explicitPath}
-                      onChange={(e) =>
-                        onPathVariantChange(rule.ruleKey, e.target.value as RulePathVariant)
-                      }
-                      className="rounded border border-ocean-mid/40 bg-ocean-deep px-1.5 py-0.5 text-[10px] text-ocean-foam"
-                      title={pathVariantHint(explicitPath, rule.ruleKey)}
-                    >
-                      <option value="">
-                        {inferred ? `Auto (${inferred})` : "Auto"}
-                      </option>
-                      <option value="CALL">CALL</option>
-                      <option value="PUT">PUT</option>
-                    </select>
-                  </label>
-                  <div className="flex shrink-0 gap-0.5 sm:self-start sm:pt-0.5">
-                    <button
-                      type="button"
-                      title="Move up"
-                      disabled={index === 0}
-                      onClick={() => onMoveRule(rule.ruleKey, "up")}
-                      className="rounded px-1 text-ocean-sand hover:bg-ocean-mid/40 disabled:opacity-30"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      title="Move down"
-                      disabled={index === composedRules.length - 1}
-                      onClick={() => onMoveRule(rule.ruleKey, "down")}
-                      className="rounded px-1 text-ocean-sand hover:bg-ocean-mid/40 disabled:opacity-30"
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      title="Remove"
-                      onClick={() => onRemoveRule(rule.ruleKey)}
-                      className="rounded px-1 text-ocean-danger hover:bg-ocean-danger/10"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </li>
-              );
-              })}
+            <ol className={cn("mt-2 space-y-2 overflow-y-auto pr-0.5", rowsMaxHeight)}>
+              {composedRules.map(({ row, template }, index) => (
+                <BuilderRuleRowCard
+                  key={row.id}
+                  row={row}
+                  template={template}
+                  rowNumber={index + 1}
+                  instance={instanceMeta.get(row.id) ?? { index: 1, total: 1 }}
+                  onTrendChange={onTrendChange}
+                  onOperationChange={onOperationChange}
+                  onRuleTypeChange={onRuleTypeChange}
+                  onRemoveRule={onRemoveRule}
+                  onMoveRule={onMoveRule}
+                  isFirst={index === 0}
+                  isLast={index === composedRules.length - 1}
+                />
+              ))}
             </ol>
           )}
         </div>
@@ -353,7 +537,7 @@ export function DynamicStrategyBuilder({
               BTN,
               "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-ocean-teal/50",
             )}
-            disabled={startPending || selectedRuleKeys.length === 0}
+            disabled={startPending || builderRows.length === 0}
             onClick={onPreview}
           >
             {startPending ? "Running…" : "Preview on tickers"}

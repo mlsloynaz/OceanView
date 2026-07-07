@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { DirectionDisplay } from "@/features/market/components/StrategyAssessMeta";
 import { cn } from "@/shared/lib/cn";
 import {
   resolveStrategyTier,
@@ -100,7 +99,6 @@ function StrategyCatalogBody({
                 >
                   {strategy.active ? "active" : "inactive"}
                 </span>
-                {strategy.direction && <DirectionDisplay direction={strategy.direction} compact />}
                 <p className="mt-1 text-[10px] text-ocean-sand/80">{tierEvaluateHint(tier)}</p>
                 {strategy.description && (
                   <p className="mt-1 text-xs text-ocean-sand">{strategy.description}</p>

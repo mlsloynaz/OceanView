@@ -56,7 +56,7 @@
       "rules": [
         {
           "id": "estrategia-02-a-rebote-al-alza-req1",
-          "ruleKey": "bb_mid_d",
+          "ruleKey": "bb_mid_cut_d",
           "label": "DÍA alcista claro (Bollinger)",
           "type": "required",
           "timeframe": "D"

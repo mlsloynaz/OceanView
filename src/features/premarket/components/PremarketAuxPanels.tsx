@@ -1,12 +1,18 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { useStrategiesPane } from "@/features/admin/strategies/hooks/useStrategiesPane";
 import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane";
 import { AdminPaneThumbnail } from "@/features/admin/components/AdminPaneThumbnail";
 import { cn } from "@/shared/lib/cn";
 import type { usePremarketWorkspace } from "../hooks/usePremarketWorkspace";
+import type { DynamicStrategy } from "../api/dynamic-strategy-client";
+import {
+  STRATEGY_BUILDER_NEW_PATH,
+  strategyBuilderEditPath,
+  type StrategyBuilderLocationState,
+} from "../lib/strategy-builder-routes";
 import { DynamicStrategyCatalog } from "./DynamicStrategyCatalog";
 import { PremarketDiagnostics } from "./PremarketDiagnostics";
-import { StrategyBuilderModal } from "./StrategyBuilderModal";
 
 type AuxPaneId = "strategies" | "diagnostics";
 
@@ -15,6 +21,8 @@ type WorkspaceState = ReturnType<typeof usePremarketWorkspace>;
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+
+const PREMARKET_BUILDER_STATE: StrategyBuilderLocationState = { returnTo: "/premarket" };
 
 type Props = {
   ws: WorkspaceState;
@@ -48,7 +56,16 @@ function IconDiagnostics() {
 }
 
 export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: Props) {
+  const navigate = useNavigate();
   const [activePane, setActivePane] = useState<AuxPaneId | null>(null);
+
+  const openNewStrategy = () => {
+    navigate(STRATEGY_BUILDER_NEW_PATH, { state: PREMARKET_BUILDER_STATE });
+  };
+
+  const openEditStrategy = (strategy: DynamicStrategy) => {
+    navigate(strategyBuilderEditPath(strategy.id), { state: PREMARKET_BUILDER_STATE });
+  };
 
   const outcomes = ws.result?.symbolOutcomes ?? [];
   const issueCount = outcomes.filter((row) => !row.ready || row.error).length;
@@ -100,13 +117,13 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
               type="button"
               className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105")}
               disabled={builder.saving || builder.loading}
-              onClick={builder.openBuilderForNew}
+              onClick={openNewStrategy}
             >
               New
             </button>
           }
         >
-          {builder.error && !builder.builderOpen && (
+          {builder.error && (
             <p className="mb-3 text-sm text-ocean-danger" role="alert">
               {builder.error}
             </p>
@@ -118,8 +135,8 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
               embedded
               strategies={builder.strategies}
               saving={builder.saving}
-              onEdit={builder.loadStrategyForEdit}
-              onNew={builder.openBuilderForNew}
+              onEdit={openEditStrategy}
+              onNew={openNewStrategy}
               onToggleActive={async (strategy) => {
                 await builder.toggleStrategyActive(strategy);
                 onStrategyMutated();
@@ -157,56 +174,6 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
             <PremarketDiagnostics embedded outcomes={outcomes} />
           )}
         </AdminExpandedPane>
-      )}
-
-      {isAdmin && builder.builderOpen && (
-        <StrategyBuilderModal
-          rules={builder.rules}
-          selectedRuleKeys={builder.selectedRuleKeys}
-          rulePathVariants={builder.rulePathVariants}
-          ruleTypes={builder.ruleTypes}
-          name={builder.builderName}
-          shortName={builder.builderShortName}
-          description={builder.builderDescription}
-          direction={builder.builderDirection}
-          editingStrategyId={builder.editingStrategyId}
-          saving={builder.saving}
-          startPending={builder.previewPending}
-          error={builder.error}
-          onNameChange={builder.setBuilderName}
-          onShortNameChange={builder.setBuilderShortName}
-          onDescriptionChange={builder.setBuilderDescription}
-          onDirectionChange={builder.setBuilderDirection}
-          onPathVariantChange={builder.setRulePathVariant}
-          onRuleTypeChange={builder.setRuleType}
-          onAddRule={builder.addRuleToBuilder}
-          onRemoveRule={builder.removeRuleFromBuilder}
-          onMoveRule={builder.moveRuleInBuilder}
-          onSave={async () => {
-            const saved = await builder.saveBuilder();
-            if (saved) onStrategyMutated();
-          }}
-          onPreview={() =>
-            void ws.previewRuleKeys(
-              builder.selectedRuleKeys,
-              builder.rulePathVariants,
-              builder.builderDirection,
-              builder.ruleTypes,
-            )
-          }
-          onClose={builder.closeBuilder}
-          onDelete={
-            builder.editingStrategyId &&
-            builder.strategies.some(
-              (row) =>
-                row.id === builder.editingStrategyId &&
-                builder.resolveStrategyTier(row) === "dynamic",
-            )
-              ? () =>
-                  void builder.deleteEditingStrategy().then((deleted) => deleted && onStrategyMutated())
-              : undefined
-          }
-        />
       )}
     </>
   );
