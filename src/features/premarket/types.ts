@@ -21,6 +21,7 @@ export type PremarketStrategyGroup = {
   strategyId: string;
   name?: string | null;
   shortName?: string | null;
+  description?: string | null;
   tickers: PremarketTickerHit[];
 };
 

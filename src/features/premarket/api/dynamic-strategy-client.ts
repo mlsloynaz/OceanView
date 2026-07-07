@@ -31,7 +31,11 @@ export type DynamicRulesResponse = {
 
 
 
+export type StrategyTier = "standard" | "dynamic";
+
 export type RulePathVariant = "" | "CALL" | "PUT";
+
+export type RuleType = "required" | "extra" | "gate";
 
 export type DynamicStrategyRule = {
   id: string;
@@ -49,14 +53,24 @@ export type DynamicStrategy = {
   name: string;
   shortName?: string | null;
   description?: string;
+  /** standard = Market evaluate; dynamic = Premarket evaluate. */
+  tier?: StrategyTier;
   /** Fallback CALL/PUT for dangers when path cannot be inferred from rules. */
   direction?: "CALL" | "PUT" | null;
   active: boolean;
   rules: DynamicStrategyRule[];
 };
 
+export function resolveStrategyTier(strategy: Pick<DynamicStrategy, "id" | "tier">): StrategyTier {
+  if (strategy.tier === "standard" || strategy.tier === "dynamic") {
+    return strategy.tier;
+  }
+  return strategy.id.startsWith("dyn-") ? "dynamic" : "standard";
+}
+
 export type DynamicStrategyRuleInput = {
   ruleKey: string;
+  type?: RuleType;
   pathVariant?: "CALL" | "PUT";
 };
 
@@ -239,6 +253,30 @@ export async function deleteDynamicStrategy(strategyId: string): Promise<void> {
   await fetchJson(`/dynamic-strategies/${encodeURIComponent(strategyId)}`, {
 
     method: "DELETE",
+
+  });
+
+}
+
+
+
+export async function promoteDynamicStrategy(strategyId: string): Promise<DynamicStrategy> {
+
+  return fetchJson(`/dynamic-strategies/${encodeURIComponent(strategyId)}/promote`, {
+
+    method: "POST",
+
+  });
+
+}
+
+
+
+export async function demoteDynamicStrategy(strategyId: string): Promise<DynamicStrategy> {
+
+  return fetchJson(`/dynamic-strategies/${encodeURIComponent(strategyId)}/demote`, {
+
+    method: "POST",
 
   });
 

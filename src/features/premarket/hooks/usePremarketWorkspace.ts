@@ -384,6 +384,7 @@ export function usePremarketWorkspace() {
       ruleKeys: string[],
       rulePathVariants: Record<string, RulePathVariant> = {},
       direction?: "CALL" | "PUT" | "",
+      ruleTypes: Record<string, import("../api/dynamic-strategy-client").RuleType> = {},
     ) => {
       if (ruleKeys.length === 0) {
         setError("Add at least one rule to preview.");
@@ -404,7 +405,13 @@ export function usePremarketWorkspace() {
       setNotice(null);
       try {
         await runEvaluateRequest({
-          rules: buildRulesPayload(ruleKeys, rulePathVariants),
+          rules: buildRulesPayload(
+            ruleKeys,
+            rulePathVariants,
+            Object.fromEntries(
+              ruleKeys.map((key) => [key, ruleTypes[key] ?? "required"]),
+            ),
+          ),
           name: "Preview",
           ...(direction ? { direction } : {}),
           ...resolveEvaluateRequest(),

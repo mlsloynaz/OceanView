@@ -52,15 +52,15 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
 
   const outcomes = ws.result?.symbolOutcomes ?? [];
   const issueCount = outcomes.filter((row) => !row.ready || row.error).length;
-  const activeStrategyCount = builder.strategies.filter((s) => s.active).length;
+  const standardActive = builder.standardStrategies.filter((s) => s.active).length;
+  const dynamicActive = builder.dynamicStrategies.filter((s) => s.active).length;
+  const strategySummary = builder.loading
+    ? "Loading catalog…"
+    : `${builder.strategies.length} saved · ${standardActive} standard · ${dynamicActive} dynamic active`;
 
   const selectPane = (id: AuxPaneId) => {
     setActivePane((current) => (current === id ? null : id));
   };
-
-  const strategySummary = builder.loading
-    ? "Loading catalog…"
-    : `${builder.strategies.length} saved · ${activeStrategyCount} active`;
 
   const diagnosticsSummary =
     outcomes.length === 0
@@ -124,6 +124,18 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
                 await builder.toggleStrategyActive(strategy);
                 onStrategyMutated();
               }}
+              onDelete={async (strategy) => {
+                const deleted = await builder.deleteStrategy(strategy);
+                if (deleted) onStrategyMutated();
+              }}
+              onPromote={async (strategy) => {
+                const promoted = await builder.promoteStrategy(strategy);
+                if (promoted) onStrategyMutated();
+              }}
+              onDemote={async (strategy) => {
+                const demoted = await builder.demoteStrategy(strategy);
+                if (demoted) onStrategyMutated();
+              }}
             />
           )}
         </AdminExpandedPane>
@@ -152,6 +164,7 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
           rules={builder.rules}
           selectedRuleKeys={builder.selectedRuleKeys}
           rulePathVariants={builder.rulePathVariants}
+          ruleTypes={builder.ruleTypes}
           name={builder.builderName}
           shortName={builder.builderShortName}
           description={builder.builderDescription}
@@ -165,6 +178,7 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
           onDescriptionChange={builder.setBuilderDescription}
           onDirectionChange={builder.setBuilderDirection}
           onPathVariantChange={builder.setRulePathVariant}
+          onRuleTypeChange={builder.setRuleType}
           onAddRule={builder.addRuleToBuilder}
           onRemoveRule={builder.removeRuleFromBuilder}
           onMoveRule={builder.moveRuleInBuilder}
@@ -177,9 +191,21 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
               builder.selectedRuleKeys,
               builder.rulePathVariants,
               builder.builderDirection,
+              builder.ruleTypes,
             )
           }
           onClose={builder.closeBuilder}
+          onDelete={
+            builder.editingStrategyId &&
+            builder.strategies.some(
+              (row) =>
+                row.id === builder.editingStrategyId &&
+                builder.resolveStrategyTier(row) === "dynamic",
+            )
+              ? () =>
+                  void builder.deleteEditingStrategy().then((deleted) => deleted && onStrategyMutated())
+              : undefined
+          }
         />
       )}
     </>

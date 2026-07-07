@@ -6,9 +6,10 @@ type BuilderProps = ComponentProps<typeof DynamicStrategyBuilder>;
 
 type Props = Omit<BuilderProps, "onCancel"> & {
   onClose: () => void;
+  onDelete?: () => void;
 };
 
-export function StrategyBuilderModal({ onClose, editingStrategyId, ...rest }: Props) {
+export function StrategyBuilderModal({ onClose, onDelete, editingStrategyId, ...rest }: Props) {
   const isEditing = editingStrategyId != null;
 
   return (
@@ -23,6 +24,7 @@ export function StrategyBuilderModal({ onClose, editingStrategyId, ...rest }: Pr
         editingStrategyId={editingStrategyId}
         {...rest}
         onCancel={onClose}
+        onDelete={onDelete}
       />
     </MarketDetailModal>
   );

@@ -1,27 +1,29 @@
 import { useCallback, useEffect, useState } from "react";
-import type { StrategyCatalogItem } from "@/features/market/types";
 import {
-  fetchStandardStrategiesCatalog,
-  patchStandardStrategyActive,
-  standardStrategiesUseMock,
-} from "../api/standard-strategies-client";
+  buildRulesPayload,
+  normalizeRuleType,
+  pathVariantsFromStrategyRules,
+  ruleTypesFromStrategyRules,
+} from "@/features/premarket/lib/builder-utils";
 import {
   DynamicStrategyApiError,
   createDynamicStrategy,
+  deleteDynamicStrategy,
+  demoteDynamicStrategy,
   fetchDynamicCatalog,
   fetchDynamicRules,
   patchDynamicStrategy,
   postDynamicEvaluate,
+  promoteDynamicStrategy,
   dynamicStrategiesUseMock,
+  resolveStrategyTier,
   type DynamicRuleTemplate,
   type DynamicStrategy,
   type RulePathVariant,
+  type RuleType,
+  type StrategyTier,
 } from "@/features/premarket/api/dynamic-strategy-client";
 import { PREMARKET_ERROR_MESSAGES } from "@/features/premarket/api/premarket-client";
-import {
-  buildRulesPayload,
-  pathVariantsFromStrategyRules,
-} from "@/features/premarket/lib/builder-utils";
 
 function resolveError(err: unknown): string {
   if (err instanceof DynamicStrategyApiError) {
@@ -35,11 +37,23 @@ function resolveError(err: unknown): string {
   return "Strategy request failed.";
 }
 
+function normalizeStrategy(row: DynamicStrategy): DynamicStrategy {
+  return {
+    ...row,
+    tier: resolveStrategyTier(row),
+    active: row.active !== false,
+    rules: row.rules ?? [],
+  };
+}
+
+function evaluateSurfaceLabel(tier: StrategyTier): string {
+  return tier === "standard" ? "Market" : "Premarket";
+}
+
 export function useStrategiesPane(options?: { enabled?: boolean }) {
   const enabled = options?.enabled !== false;
-  const useMock = dynamicStrategiesUseMock() || standardStrategiesUseMock();
+  const useMock = dynamicStrategiesUseMock();
 
-  const [standardStrategies, setStandardStrategies] = useState<StrategyCatalogItem[]>([]);
   const [strategies, setStrategies] = useState<DynamicStrategy[]>([]);
   const [rules, setRules] = useState<DynamicRuleTemplate[]>([]);
 
@@ -50,6 +64,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   const [builderDirection, setBuilderDirection] = useState<"" | "CALL" | "PUT">("");
   const [selectedRuleKeys, setSelectedRuleKeys] = useState<string[]>([]);
   const [rulePathVariants, setRulePathVariants] = useState<Record<string, RulePathVariant>>({});
+  const [ruleTypes, setRuleTypes] = useState<Record<string, RuleType>>({});
   const [builderOpen, setBuilderOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -60,7 +75,6 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
 
   const reload = useCallback(async () => {
     if (!enabled) {
-      setStandardStrategies([]);
       setStrategies([]);
       setRules([]);
       setLoading(false);
@@ -69,17 +83,17 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setLoading(true);
     setError(null);
     try {
-      const [standardCatalog, catalog, rulesPayload] = await Promise.all([
-        fetchStandardStrategiesCatalog(),
+      const [catalog, rulesPayload] = await Promise.all([
         fetchDynamicCatalog(),
         fetchDynamicRules(),
       ]);
-      setStandardStrategies(standardCatalog.strategies ?? []);
-      const rows = (catalog.strategies ?? []).map((row) => ({
-        ...row,
-        active: row.active !== false,
-        rules: row.rules ?? [],
-      })) as DynamicStrategy[];
+      const rows = (catalog.strategies ?? []).map((row) => normalizeStrategy(row as DynamicStrategy));
+      rows.sort((a, b) => {
+        const tierOrder = resolveStrategyTier(a) === "standard" ? 0 : 1;
+        const tierOrderB = resolveStrategyTier(b) === "standard" ? 0 : 1;
+        if (tierOrder !== tierOrderB) return tierOrder - tierOrderB;
+        return a.name.localeCompare(b.name);
+      });
       setStrategies(rows);
       setRules(rulesPayload.rules ?? []);
     } catch (err) {
@@ -101,6 +115,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setBuilderDirection("");
     setSelectedRuleKeys([]);
     setRulePathVariants({});
+    setRuleTypes({});
     setError(null);
     setNotice(null);
   }, []);
@@ -123,17 +138,28 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setBuilderDirection(strategy.direction ?? "");
     setSelectedRuleKeys(strategy.rules.map((r) => r.ruleKey));
     setRulePathVariants(pathVariantsFromStrategyRules(strategy.rules));
+    setRuleTypes(ruleTypesFromStrategyRules(strategy.rules));
     setError(null);
     setBuilderOpen(true);
   }, []);
 
   const addRuleToBuilder = useCallback((ruleKey: string) => {
     setSelectedRuleKeys((prev) => (prev.includes(ruleKey) ? prev : [...prev, ruleKey]));
-  }, []);
+    setRuleTypes((prev) => {
+      if (prev[ruleKey]) return prev;
+      const template = rules.find((r) => r.ruleKey === ruleKey);
+      return { ...prev, [ruleKey]: normalizeRuleType(template?.defaultType) };
+    });
+  }, [rules]);
 
   const removeRuleFromBuilder = useCallback((ruleKey: string) => {
     setSelectedRuleKeys((prev) => prev.filter((k) => k !== ruleKey));
     setRulePathVariants((prev) => {
+      const next = { ...prev };
+      delete next[ruleKey];
+      return next;
+    });
+    setRuleTypes((prev) => {
       const next = { ...prev };
       delete next[ruleKey];
       return next;
@@ -150,6 +176,10 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       }
       return next;
     });
+  }, []);
+
+  const setRuleType = useCallback((ruleKey: string, ruleType: RuleType) => {
+    setRuleTypes((prev) => ({ ...prev, [ruleKey]: ruleType }));
   }, []);
 
   const moveRuleInBuilder = useCallback((ruleKey: string, direction: "up" | "down") => {
@@ -181,10 +211,10 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
           : {};
       const payload = {
         name,
-        shortName: builderShortName.trim() || undefined,
-        description: builderDescription.trim() || undefined,
+        shortName: builderShortName.trim(),
+        description: builderDescription.trim(),
         ...directionPayload,
-        rules: buildRulesPayload(selectedRuleKeys, rulePathVariants),
+        rules: buildRulesPayload(selectedRuleKeys, rulePathVariants, ruleTypes),
         active: true,
       };
       const saved = wasEdit
@@ -198,7 +228,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
           ? `Strategy "${saved.name}" updated.`
           : `Strategy "${saved.name}" saved to Dynamo.`,
       );
-      return saved;
+      return normalizeStrategy(saved);
     } catch (err) {
       setError(resolveError(err));
       return null;
@@ -214,18 +244,20 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     editingStrategyId,
     reload,
     rulePathVariants,
+    ruleTypes,
     selectedRuleKeys,
   ]);
 
   const toggleStrategyActive = useCallback(
     async (strategy: DynamicStrategy) => {
+      const tier = resolveStrategyTier(strategy);
       setSaving(true);
       setError(null);
       try {
         await patchDynamicStrategy(strategy.id, { active: !strategy.active });
         await reload();
         setNotice(
-          `${strategy.name} ${!strategy.active ? "activated" : "Deactivated"} for Premarket.`,
+          `${strategy.name} ${!strategy.active ? "activated" : "deactivated"} for ${evaluateSurfaceLabel(tier)}.`,
         );
       } catch (err) {
         setError(resolveError(err));
@@ -236,24 +268,100 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     [reload],
   );
 
-  const toggleStandardStrategyActive = useCallback(
-    async (strategy: StrategyCatalogItem) => {
+  const deleteStrategy = useCallback(
+    async (strategy: DynamicStrategy) => {
+      const tier = resolveStrategyTier(strategy);
+      if (tier === "standard") {
+        setError("Standard playbooks cannot be deleted. Demote to dynamic or deactivate instead.");
+        return false;
+      }
+      const ok = window.confirm(
+        `Delete "${strategy.name}"?\n\nThis permanently removes the strategy from Dynamo. It will no longer appear in Premarket evaluate.`,
+      );
+      if (!ok) return false;
+
       setSaving(true);
       setError(null);
       try {
-        const currentlyActive = strategy.active !== false;
-        const updated = await patchStandardStrategyActive(strategy.id, !currentlyActive);
-        setStandardStrategies((prev) =>
-          prev.map((row) => (row.id === updated.id ? updated : row)),
-        );
-        setNotice(`${updated.name} ${updated.active ? "activated" : "deactivated"} for Market.`);
+        await deleteDynamicStrategy(strategy.id);
+        if (editingStrategyId === strategy.id) {
+          closeBuilder();
+        }
+        await reload();
+        setNotice(`Strategy "${strategy.name}" deleted.`);
+        return true;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Standard strategy update failed.");
+        setError(resolveError(err));
+        return false;
       } finally {
         setSaving(false);
       }
     },
-    [],
+    [closeBuilder, editingStrategyId, reload],
+  );
+
+  const deleteEditingStrategy = useCallback(async () => {
+    if (!editingStrategyId) return false;
+    const strategy = strategies.find((row) => row.id === editingStrategyId);
+    if (!strategy) {
+      setError("Strategy no longer in catalog — refresh and try again.");
+      return false;
+    }
+    return deleteStrategy(strategy);
+  }, [deleteStrategy, editingStrategyId, strategies]);
+
+  const promoteStrategy = useCallback(
+    async (strategy: DynamicStrategy) => {
+      const ok = window.confirm(
+        `Promote "${strategy.name}" to standard?\n\nIt will evaluate on Market (not Premarket) and keep the same id.`,
+      );
+      if (!ok) return false;
+
+      setSaving(true);
+      setError(null);
+      try {
+        const saved = await promoteDynamicStrategy(strategy.id);
+        if (editingStrategyId === strategy.id) {
+          closeBuilder();
+        }
+        await reload();
+        setNotice(`"${saved.name}" promoted to standard — active for Market evaluate.`);
+        return true;
+      } catch (err) {
+        setError(resolveError(err));
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [closeBuilder, editingStrategyId, reload],
+  );
+
+  const demoteStrategy = useCallback(
+    async (strategy: DynamicStrategy) => {
+      const ok = window.confirm(
+        `Demote "${strategy.name}" to dynamic?\n\nA new Premarket copy is created; the standard playbook is deactivated.`,
+      );
+      if (!ok) return false;
+
+      setSaving(true);
+      setError(null);
+      try {
+        const saved = await demoteDynamicStrategy(strategy.id);
+        if (editingStrategyId === strategy.id) {
+          closeBuilder();
+        }
+        await reload();
+        setNotice(`"${saved.name}" demoted — standard deactivated, dynamic copy saved for Premarket.`);
+        return true;
+      } catch (err) {
+        setError(resolveError(err));
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [closeBuilder, editingStrategyId, reload],
   );
 
   const previewBuilder = useCallback(async () => {
@@ -266,7 +374,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setNotice(null);
     try {
       const payload = await postDynamicEvaluate({
-        rules: buildRulesPayload(selectedRuleKeys, rulePathVariants),
+        rules: buildRulesPayload(selectedRuleKeys, rulePathVariants, ruleTypes),
         assessmentTimeMode: "now",
         options: { signalThresholdPct: 50 },
         ...(builderDirection ? { direction: builderDirection } : {}),
@@ -277,12 +385,16 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     } finally {
       setPreviewPending(false);
     }
-  }, [builderDirection, rulePathVariants, selectedRuleKeys]);
+  }, [builderDirection, rulePathVariants, ruleTypes, selectedRuleKeys]);
+
+  const standardStrategies = strategies.filter((s) => resolveStrategyTier(s) === "standard");
+  const dynamicStrategies = strategies.filter((s) => resolveStrategyTier(s) === "dynamic");
 
   return {
     useMock,
-    standardStrategies,
     strategies,
+    standardStrategies,
+    dynamicStrategies,
     rules,
     editingStrategyId,
     builderName,
@@ -291,6 +403,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     builderDirection,
     selectedRuleKeys,
     rulePathVariants,
+    ruleTypes,
     builderOpen,
     loading,
     saving,
@@ -302,6 +415,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setBuilderDescription,
     setBuilderDirection,
     setRulePathVariant,
+    setRuleType,
     addRuleToBuilder,
     removeRuleFromBuilder,
     moveRuleInBuilder,
@@ -310,8 +424,12 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     loadStrategyForEdit,
     saveBuilder,
     toggleStrategyActive,
-    toggleStandardStrategyActive,
+    deleteStrategy,
+    deleteEditingStrategy,
+    promoteStrategy,
+    demoteStrategy,
     previewBuilder,
     reload,
+    resolveStrategyTier,
   };
 }

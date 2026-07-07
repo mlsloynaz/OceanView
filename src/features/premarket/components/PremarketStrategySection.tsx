@@ -16,13 +16,16 @@ export function PremarketStrategySection({ group, threshold, defaultOpen = true 
   const [detailTicker, setDetailTicker] = useState<PremarketTickerHit | null>(null);
   const title = group.shortName || group.name || group.strategyId;
   const count = group.tickers.length;
+  const subtitle = group.description?.trim()
+    ? group.description.trim()
+    : strategyGroupSubtitle(group.strategyId, count, threshold);
 
   return (
     <>
       <CollapsibleSection
         id={`premarket-strategy-${group.strategyId}`}
         title={title}
-        subtitle={strategyGroupSubtitle(group.strategyId, count, threshold)}
+        subtitle={subtitle}
         open={open}
         onOpenChange={setOpen}
         className="min-w-0"

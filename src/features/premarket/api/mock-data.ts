@@ -55,16 +55,48 @@ export const MOCK_DYNAMIC_RULES: DynamicRuleTemplate[] = [
 
 export const MOCK_DYNAMIC_CATALOG: DynamicCatalogResponse = {
   version: "1",
-  catalogKind: "dynamic",
+  catalogKind: "unified",
   strategies: [
+    {
+      id: "estrategia-01",
+      name: "Hourly Trend Change",
+      shortName: "Trend Change 1H",
+      tier: "standard",
+      active: true,
+      rules: [
+        {
+          id: "estrategia-01-close_ma20_bajista_1h",
+          ruleKey: "close_ma20_bajista_1h",
+          label: "MA20 bajista 1h",
+          type: "required",
+          timeframe: "1h",
+        },
+      ],
+    },
     {
       id: "estrategia-05",
       name: "Inside Bollinger 15M",
       shortName: "Inside BB 15M",
+      tier: "standard",
       active: true,
       rules: [
         {
           id: "estrategia-05-close_bb_mid_15m",
+          ruleKey: "close_bb_mid_15m",
+          label: "Close BB mid 15m",
+          type: "required",
+          timeframe: "15m",
+        },
+      ],
+    },
+    {
+      id: "dyn-mock-screen",
+      name: "Mock premarket screen",
+      tier: "dynamic",
+      active: true,
+      rules: [
+        {
+          id: "dyn-mock-screen-close_bb_mid_15m",
           ruleKey: "close_bb_mid_15m",
           label: "Close BB mid 15m",
           type: "required",

@@ -1,4 +1,4 @@
-import type { DynamicRuleTemplate, RulePathVariant } from "../api/dynamic-strategy-client";
+import type { DynamicRuleTemplate, RulePathVariant, RuleType } from "../api/dynamic-strategy-client";
 
 export type TimeframeFilter = "all" | "D" | "1h" | "15m";
 
@@ -44,6 +44,12 @@ export function ruleTypeLabel(type: string | undefined): string {
   return "Required";
 }
 
+export function normalizeRuleType(type: string | undefined): RuleType {
+  const t = (type ?? "required").toLowerCase();
+  if (t === "extra" || t === "gate") return t;
+  return "required";
+}
+
 export function inferPathFromRuleKey(ruleKey: string): "CALL" | "PUT" | null {
   if (ruleKey.endsWith("_call")) return "CALL";
   if (ruleKey.endsWith("_put")) return "PUT";
@@ -60,13 +66,18 @@ export function pathVariantHint(explicit: RulePathVariant, ruleKey: string): str
 export function buildRulesPayload(
   selectedRuleKeys: string[],
   rulePathVariants: Record<string, RulePathVariant>,
-): Array<{ ruleKey: string; pathVariant?: "CALL" | "PUT" }> {
+  ruleTypes: Record<string, RuleType>,
+): Array<{ ruleKey: string; type: RuleType; pathVariant?: "CALL" | "PUT" }> {
   return selectedRuleKeys.map((ruleKey) => {
+    const item: { ruleKey: string; type: RuleType; pathVariant?: "CALL" | "PUT" } = {
+      ruleKey,
+      type: normalizeRuleType(ruleTypes[ruleKey]),
+    };
     const path = rulePathVariants[ruleKey];
     if (path === "CALL" || path === "PUT") {
-      return { ruleKey, pathVariant: path };
+      item.pathVariant = path;
     }
-    return { ruleKey };
+    return item;
   });
 }
 
@@ -78,6 +89,16 @@ export function pathVariantsFromStrategyRules(
     if (rule.pathVariant === "CALL" || rule.pathVariant === "PUT") {
       out[rule.ruleKey] = rule.pathVariant;
     }
+  }
+  return out;
+}
+
+export function ruleTypesFromStrategyRules(
+  rules: Array<{ ruleKey: string; type?: string }>,
+): Record<string, RuleType> {
+  const out: Record<string, RuleType> = {};
+  for (const rule of rules) {
+    out[rule.ruleKey] = normalizeRuleType(rule.type);
   }
   return out;
 }

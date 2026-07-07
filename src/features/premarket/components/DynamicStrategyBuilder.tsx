@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/shared/lib/cn";
-import type { DynamicRuleTemplate, RulePathVariant } from "../api/dynamic-strategy-client";
+import type { DynamicRuleTemplate, RulePathVariant, RuleType } from "../api/dynamic-strategy-client";
 import {
   TIMEFRAME_FILTERS,
   filterRules,
   inferPathFromRuleKey,
+  normalizeRuleType,
   normalizeTimeframe,
   pathVariantHint,
   ruleTypeLabel,
@@ -21,6 +22,7 @@ type Props = {
   rules: DynamicRuleTemplate[];
   selectedRuleKeys: string[];
   rulePathVariants: Record<string, RulePathVariant>;
+  ruleTypes: Record<string, RuleType>;
   name: string;
   shortName: string;
   description: string;
@@ -34,18 +36,21 @@ type Props = {
   onDescriptionChange: (value: string) => void;
   onDirectionChange: (value: "" | "CALL" | "PUT") => void;
   onPathVariantChange: (ruleKey: string, path: RulePathVariant) => void;
+  onRuleTypeChange: (ruleKey: string, ruleType: RuleType) => void;
   onAddRule: (ruleKey: string) => void;
   onRemoveRule: (ruleKey: string) => void;
   onMoveRule: (ruleKey: string, direction: "up" | "down") => void;
   onCancel: () => void;
   onSave: () => void;
   onPreview: () => void;
+  onDelete?: () => void;
 };
 
 export function DynamicStrategyBuilder({
   rules,
   selectedRuleKeys,
   rulePathVariants,
+  ruleTypes,
   name,
   shortName,
   description,
@@ -59,12 +64,14 @@ export function DynamicStrategyBuilder({
   onDescriptionChange,
   onDirectionChange,
   onPathVariantChange,
+  onRuleTypeChange,
   onAddRule,
   onRemoveRule,
   onMoveRule,
   onCancel,
   onSave,
   onPreview,
+  onDelete,
 }: Props) {
   const [search, setSearch] = useState("");
   const [timeframe, setTimeframe] = useState<TimeframeFilter>("all");
@@ -83,14 +90,16 @@ export function DynamicStrategyBuilder({
     () =>
       selectedRuleKeys.map((key) => {
         const template = ruleMap.get(key);
-        if (template) return template;
+        const type = normalizeRuleType(ruleTypes[key] ?? template?.defaultType);
+        if (template) return { ...template, type };
         return {
           ruleKey: key,
           label: `${key} (not in library — remove or replace)`,
           defaultType: "required" as const,
+          type,
         };
       }),
-    [selectedRuleKeys, ruleMap],
+    [selectedRuleKeys, ruleMap, ruleTypes],
   );
 
   const canSave = name.trim().length > 0 && selectedRuleKeys.length > 0;
@@ -245,6 +254,7 @@ export function DynamicStrategyBuilder({
               {composedRules.map((rule, index) => {
                 const explicitPath = rulePathVariants[rule.ruleKey] ?? "";
                 const inferred = inferPathFromRuleKey(rule.ruleKey);
+                const ruleType = normalizeRuleType(ruleTypes[rule.ruleKey] ?? rule.defaultType);
                 return (
                 <li
                   key={rule.ruleKey}
@@ -261,6 +271,21 @@ export function DynamicStrategyBuilder({
                       </span>
                     )}
                   </span>
+                  <label className="flex shrink-0 items-center gap-1.5 text-[10px] text-ocean-sand">
+                    <span className="whitespace-nowrap">Role</span>
+                    <select
+                      value={ruleType}
+                      onChange={(e) =>
+                        onRuleTypeChange(rule.ruleKey, e.target.value as RuleType)
+                      }
+                      className="rounded border border-ocean-mid/40 bg-ocean-deep px-1.5 py-0.5 text-[10px] text-ocean-foam"
+                      title="Required rules count toward quality %; Extra rules are evaluated but optional"
+                    >
+                      <option value="required">Required</option>
+                      <option value="extra">Extra</option>
+                      <option value="gate">Gate</option>
+                    </select>
+                  </label>
                   <label className="flex shrink-0 items-center gap-1.5 text-[10px] text-ocean-sand">
                     <span className="whitespace-nowrap">Path</span>
                     <select
@@ -341,6 +366,19 @@ export function DynamicStrategyBuilder({
           >
             Cancel
           </button>
+          {isEditing && onDelete ? (
+            <button
+              type="button"
+              className={cn(
+                BTN,
+                "ml-auto border border-ocean-danger/40 text-ocean-danger hover:bg-ocean-danger/10",
+              )}
+              disabled={saving}
+              onClick={onDelete}
+            >
+              Delete strategy
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

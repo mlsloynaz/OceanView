@@ -3,7 +3,6 @@ import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane
 import { cn } from "@/shared/lib/cn";
 import { DynamicStrategyCatalog } from "@/features/premarket/components/DynamicStrategyCatalog";
 import { StrategyBuilderModal } from "@/features/premarket/components/StrategyBuilderModal";
-import { StandardStrategyCatalog } from "./components/StandardStrategyCatalog";
 import { useStrategiesPane } from "./hooks/useStrategiesPane";
 
 const BTN =
@@ -11,9 +10,9 @@ const BTN =
 
 export function StrategiesPane() {
   const ws = useStrategiesPane();
-  const standardActiveCount = ws.standardStrategies.filter((s) => s.active !== false).length;
-  const dynamicActiveCount = ws.strategies.filter((s) => s.active).length;
-  const summary = `${standardActiveCount} standard (Market) · ${dynamicActiveCount} dynamic (Premarket)`;
+  const standardActiveCount = ws.standardStrategies.filter((s) => s.active).length;
+  const dynamicActiveCount = ws.dynamicStrategies.filter((s) => s.active).length;
+  const summary = `${standardActiveCount} standard active (Market) · ${dynamicActiveCount} dynamic active (Premarket)`;
 
   return (
     <>
@@ -30,12 +29,12 @@ export function StrategiesPane() {
         </AdminExpandedPane>
       ) : ws.loading ? (
         <AdminExpandedPane id="admin-strategies-pane" title="Strategies" subtitle="Loading catalog…">
-          <p className="text-sm text-ocean-sand">Loading strategy catalogs…</p>
+          <p className="text-sm text-ocean-sand">Loading strategy catalog…</p>
         </AdminExpandedPane>
       ) : (
         <AdminExpandedPane
           id="admin-strategies-pane"
-          title="Strategies"
+          title="Strategy builder"
           subtitle={summary}
           headerExtra={
             <button
@@ -59,30 +58,18 @@ export function StrategiesPane() {
               <Link to="/premarket" className="underline hover:text-ocean-foam">
                 Open Premarket
               </Link>
+              {" · "}
+              <Link to="/market" className="underline hover:text-ocean-foam">
+                Open Market
+              </Link>
             </p>
           )}
 
-          <StandardStrategyCatalog
-            strategies={ws.standardStrategies}
-            saving={ws.saving}
-            onToggleActive={(s) => void ws.toggleStandardStrategyActive(s)}
-          />
-
-          <div
-            className="my-6 border-t border-ocean-mid/50"
-            role="separator"
-            aria-label="Dynamic strategies"
-          />
-
-          <div className="mb-3">
-            <h3 className="text-sm font-semibold text-ocean-foam">Dynamic strategies</h3>
-            <p className="mt-0.5 text-[11px] text-ocean-sand">
-              User-built rule screens in Dynamo —{" "}
-              <strong className="font-medium text-ocean-foam">Premarket evaluate only</strong>.
-              Separate from standard playbooks above. Promotion to standard catalog may come later;
-              not available yet.
-            </p>
-          </div>
+          <p className="mb-4 text-[11px] text-ocean-sand">
+            Unified catalog in Dynamo. <strong className="font-medium text-ocean-foam">Standard</strong>{" "}
+            strategies evaluate on Market; <strong className="font-medium text-ocean-foam">dynamic</strong>{" "}
+            screens evaluate on Premarket. Promote, demote, activate, edit, and delete from this list.
+          </p>
 
           <DynamicStrategyCatalog
             embedded
@@ -91,6 +78,9 @@ export function StrategiesPane() {
             onEdit={ws.loadStrategyForEdit}
             onNew={ws.openBuilderForNew}
             onToggleActive={(s) => void ws.toggleStrategyActive(s)}
+            onDelete={(s) => void ws.deleteStrategy(s)}
+            onPromote={(s) => void ws.promoteStrategy(s)}
+            onDemote={(s) => void ws.demoteStrategy(s)}
           />
         </AdminExpandedPane>
       )}
@@ -100,6 +90,7 @@ export function StrategiesPane() {
           rules={ws.rules}
           selectedRuleKeys={ws.selectedRuleKeys}
           rulePathVariants={ws.rulePathVariants}
+          ruleTypes={ws.ruleTypes}
           name={ws.builderName}
           shortName={ws.builderShortName}
           description={ws.builderDescription}
@@ -113,11 +104,20 @@ export function StrategiesPane() {
           onDescriptionChange={ws.setBuilderDescription}
           onDirectionChange={ws.setBuilderDirection}
           onPathVariantChange={ws.setRulePathVariant}
+          onRuleTypeChange={ws.setRuleType}
           onAddRule={ws.addRuleToBuilder}
           onRemoveRule={ws.removeRuleFromBuilder}
           onMoveRule={ws.moveRuleInBuilder}
           onSave={() => void ws.saveBuilder()}
           onPreview={() => void ws.previewBuilder()}
+          onDelete={
+            ws.editingStrategyId &&
+            ws.strategies.some(
+              (row) => row.id === ws.editingStrategyId && ws.resolveStrategyTier(row) === "dynamic",
+            )
+              ? () => void ws.deleteEditingStrategy()
+              : undefined
+          }
           onClose={ws.closeBuilder}
         />
       )}
