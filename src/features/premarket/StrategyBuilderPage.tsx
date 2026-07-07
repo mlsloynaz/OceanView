@@ -1,16 +1,36 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useStrategiesPane } from "@/features/admin/strategies/hooks/useStrategiesPane";
 import { cn } from "@/shared/lib/cn";
 import { DynamicStrategyBuilder } from "./components/DynamicStrategyBuilder";
 import {
   DEFAULT_STRATEGY_BUILDER_RETURN,
   STRATEGY_BUILDER_NEW_PATH,
+  strategyBuilderEditPath,
   type StrategyBuilderLocationState,
 } from "./lib/strategy-builder-routes";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+
+function BuilderSaveOverlay() {
+  return (
+    <div
+      className="absolute inset-0 z-20 flex items-center justify-center bg-ocean-deep/55 backdrop-blur-[2px]"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-ocean-mid/40 bg-ocean-surface px-8 py-6 shadow-lg">
+        <div
+          className="h-9 w-9 animate-spin rounded-full border-2 border-ocean-teal/30 border-t-ocean-teal"
+          aria-hidden
+        />
+        <p className="text-sm font-medium text-ocean-foam">Guardando…</p>
+      </div>
+    </div>
+  );
+}
 
 export function StrategyBuilderPage() {
   const { strategyId } = useParams<{ strategyId: string }>();
@@ -68,8 +88,11 @@ export function StrategyBuilderPage() {
   };
 
   const handleSave = async () => {
-    const saved = await ws.saveBuilder();
-    if (saved) navigate(returnTo);
+    const saved = await ws.saveBuilder({ stayOnPage: true });
+    if (!saved) return;
+    if (isNew) {
+      navigate(strategyBuilderEditPath(saved.id), { replace: true, state: locationState });
+    }
   };
 
   const handleDelete = async () => {
@@ -99,15 +122,7 @@ export function StrategyBuilderPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold text-ocean-foam">{pageTitle}</h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ocean-sand">
-            Each rule is a row. Add the same rule twice to build CALL and PUT paths with different
-            trend or operation.{" "}
-            <Link to="/premarket" className="text-ocean-teal hover:underline">
-              Premarket
-            </Link>
-            {" · "}
-            <Link to="/admin#admin-strategies-pane" className="text-ocean-teal hover:underline">
-              Strategy catalog
-            </Link>
+            Build a screen by adding rules, set CALL/PUT paths per row, then preview or save.
           </p>
         </div>
         {ws.notice && (
@@ -120,21 +135,22 @@ export function StrategyBuilderPage() {
       {!ready ? (
         <p className="text-sm text-ocean-sand">Loading strategy catalog…</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-ocean-mid/40 bg-ocean-surface shadow-sm">
+        <div className="relative overflow-hidden rounded-xl border border-ocean-mid/40 bg-ocean-surface shadow-sm">
+          {ws.saving ? <BuilderSaveOverlay /> : null}
           <DynamicStrategyBuilder
             layout="page"
             rules={ws.rules}
             builderRows={ws.builderRows}
             name={ws.builderName}
-            shortName={ws.builderShortName}
-            description={ws.builderDescription}
+            strategyId={ws.builderStrategyId}
             editingStrategyId={ws.editingStrategyId}
+            templateStrategies={ws.strategies}
             saving={ws.saving}
             startPending={ws.previewPending}
             error={ws.error}
             onNameChange={ws.setBuilderName}
-            onShortNameChange={ws.setBuilderShortName}
-            onDescriptionChange={ws.setBuilderDescription}
+            onStrategyIdChange={ws.setBuilderStrategyId}
+            onCloneFrom={isNew ? ws.cloneBuilderFromStrategy : undefined}
             onTrendChange={ws.setRuleTrend}
             onOperationChange={ws.setRuleOperation}
             onRuleTypeChange={ws.setRuleType}

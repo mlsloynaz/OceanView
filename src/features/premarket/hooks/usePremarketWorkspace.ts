@@ -22,9 +22,7 @@ import {
   clampAssessmentTime,
   coverageBoundsForInput,
   formatSimulationTimeEt,
-  isAssessmentNow,
   parseEtDatetimeLocal,
-  parseSimulationTimeEt,
   type AssessmentTimeMode,
   validateAssessmentTime,
 } from "@/features/market/lib/assessment-time";
@@ -36,6 +34,11 @@ import {
   activeDynamicStrategyLabel,
   countActiveDynamicStrategies,
 } from "../lib/dynamic-strategies";
+import {
+  defaultPremarketAssessmentMode,
+  persistPremarketAssessment,
+  storedPremarketAssessmentAt,
+} from "../lib/premarket-assessment-storage";
 
 const DEFAULT_THRESHOLD = 0;
 const BACKGROUND_POLL_MS = 2000;
@@ -107,8 +110,15 @@ export function usePremarketWorkspace() {
   const [notice, setNotice] = useState<string | null>(null);
   const evaluateInFlightRef = useRef(false);
 
-  const [assessmentMode, setAssessmentModeState] = useState<AssessmentTimeMode>("now");
-  const [assessmentAt, setAssessmentAt] = useState<Date>(() => new Date());
+  const [assessmentMode, setAssessmentModeState] = useState<AssessmentTimeMode>(
+    defaultPremarketAssessmentMode,
+  );
+  const [assessmentAt, setAssessmentAt] = useState<Date>(() => {
+    if (defaultPremarketAssessmentMode() === "et") {
+      return storedPremarketAssessmentAt() ?? new Date();
+    }
+    return new Date();
+  });
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
   const [assessmentNotice, setAssessmentNotice] = useState<string | null>(null);
   const [candleCoverage, setCandleCoverage] = useState<CandleCoverage | null>(null);
@@ -206,11 +216,6 @@ export function usePremarketWorkspace() {
           setResult(payload);
           if (payload?.signalThresholdPct != null) {
             setThreshold(payload.signalThresholdPct);
-          }
-          const sim = parseSimulationTimeEt(payload?.simulationTimeEt);
-          if (sim && !isAssessmentNow(sim)) {
-            setAssessmentModeState("et");
-            setAssessmentAt(sim);
           }
           setNotice(syncNoticeFromResult(payload));
         }
@@ -325,6 +330,7 @@ export function usePremarketWorkspace() {
     (mode: AssessmentTimeMode) => {
       setAssessmentModeState(mode);
       if (mode === "now") {
+        persistPremarketAssessment("now", new Date());
         if (candleCoverage) {
           applyAssessmentValidation(new Date(), candleCoverage);
         } else {
@@ -334,10 +340,10 @@ export function usePremarketWorkspace() {
         return;
       }
       const fallbackSession = parseEtDatetimeLocal(`${defaultSimulationSessionDate()}T09:30`);
-      const parsed = candleCoverage
-        ? clampAssessmentTime(fallbackSession ?? new Date(), candleCoverage)
-        : fallbackSession ?? new Date();
+      const seed = storedPremarketAssessmentAt() ?? fallbackSession ?? new Date();
+      const parsed = candleCoverage ? clampAssessmentTime(seed, candleCoverage) : seed;
       setAssessmentAt(parsed);
+      persistPremarketAssessment("et", parsed);
       if (candleCoverage) {
         applyAssessmentValidation(parsed, candleCoverage, true);
       } else {
@@ -363,6 +369,7 @@ export function usePremarketWorkspace() {
       }
       setAssessmentModeState("et");
       setAssessmentAt(parsed);
+      persistPremarketAssessment("et", parsed);
       if (candleCoverage) {
         applyAssessmentValidation(parsed, candleCoverage, true);
       } else {

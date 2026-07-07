@@ -7,7 +7,7 @@ import type {
   RuleType,
 } from "../api/dynamic-strategy-client";
 
-export type TimeframeFilter = "all" | "D" | "1h" | "15m";
+export type TimeframeFilter = "all" | "D" | "1h" | "15m" | "1m";
 
 /** One composed rule row in the strategy builder (unique id per instance). */
 export type BuilderRuleRow = {
@@ -20,6 +20,7 @@ export type BuilderRuleRow = {
 
 export const TIMEFRAME_FILTERS: { id: TimeframeFilter; label: string }[] = [
   { id: "all", label: "All" },
+  { id: "1m", label: "1M" },
   { id: "15m", label: "15M" },
   { id: "1h", label: "1H" },
   { id: "D", label: "Daily" },
@@ -37,6 +38,7 @@ export function normalizeTimeframe(tf: string | undefined): string {
   if (raw === "d" || raw === "daily") return "D";
   if (raw === "1h" || raw === "hourly") return "1h";
   if (raw === "15m" || raw === "min15") return "15m";
+  if (raw === "1m" || raw === "min1") return "1m";
   return tf ?? "";
 }
 
@@ -289,10 +291,71 @@ export function rowSummaryParts(
 
 export function libraryParamHint(template: DynamicRuleTemplate): string | null {
   const bits: string[] = [];
-  if (template.trend === "set") bits.push("trend required");
-  else if (template.trend === "auto") bits.push("trend optional");
-  if (template.operation === "set") bits.push("operation required");
-  else if (template.operation === "auto") bits.push("operation optional");
+  if (template.trend === "set") bits.push("bias required");
+  else if (template.trend === "auto") bits.push("bias optional");
+  if (template.operation === "set") bits.push("direction required");
+  else if (template.operation === "auto") bits.push("direction optional");
   return bits.length ? bits.join(" · ") : null;
+}
+
+export type PathFilter = "all" | "call" | "put" | "neutral";
+
+export function rowMatchesPathFilter(row: BuilderRuleRow, filter: PathFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "call") return row.operation === "call";
+  if (filter === "put") return row.operation === "put";
+  return row.operation !== "call" && row.operation !== "put";
+}
+
+export function builderPathStats(rows: BuilderRuleRow[]) {
+  let call = 0;
+  let put = 0;
+  let neutral = 0;
+  let required = 0;
+  for (const row of rows) {
+    if (row.operation === "call") call += 1;
+    else if (row.operation === "put") put += 1;
+    else neutral += 1;
+    if (row.type === "required") required += 1;
+  }
+  return { call, put, neutral, required, total: rows.length };
+}
+
+export function suggestNextStrategyId(strategies: { id: string }[]): string {
+  const nums = strategies
+    .map((s) => {
+      const m = s.id.match(/(?:^e|estrategia-)(\d+)$/i);
+      return m ? Number.parseInt(m[1], 10) : 0;
+    })
+    .filter((n) => n > 0);
+  const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+  return `E${String(next).padStart(2, "0")}`;
+}
+
+export function formatTrendLabelFriendly(trend: RuleTrendValue | BuilderRuleRow["trend"]): string {
+  if (trend === "up") return "Alcista";
+  if (trend === "down") return "Bajista";
+  if (trend === "lateral") return "Lateral";
+  return "Auto";
+}
+
+export function formatRoleLabel(type: RuleType): string {
+  if (type === "extra") return "Bonus";
+  if (type === "gate") return "Blocker";
+  return "Must pass";
+}
+
+export function rowSummaryFriendly(
+  row: BuilderRuleRow,
+  template: RuleTemplateShape,
+): string {
+  const parts: string[] = [formatRoleLabel(row.type)];
+  if (template.trend === "set" || template.trend === "auto") {
+    parts.push(row.trend ? formatTrendLabelFriendly(row.trend) : "Bias: auto");
+  }
+  if (template.operation === "set" || template.operation === "auto") {
+    parts.push(row.operation ? formatOperationLabel(row.operation) : "Direction: auto");
+  }
+  return parts.join(" · ");
 }
 

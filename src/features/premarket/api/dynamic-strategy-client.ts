@@ -93,6 +93,7 @@ export type DynamicCatalogResponse = {
 };
 
 export type CreateDynamicStrategyRequest = {
+  id?: string;
   name: string;
   shortName?: string;
   description?: string;

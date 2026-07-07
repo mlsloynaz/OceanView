@@ -1,6 +1,8 @@
 import type { DynamicCatalogResponse, DynamicRuleTemplate } from "./dynamic-strategy-client";
 import type { PremarketResultResponse } from "../types";
 
+const SET_15M = { timeframe: "15m" as const, trend: "set" as const, operation: "set" as const };
+
 /** Representative rule library for mock premarket (offline builder). */
 export const MOCK_DYNAMIC_RULES: DynamicRuleTemplate[] = [
   {
@@ -13,7 +15,7 @@ export const MOCK_DYNAMIC_RULES: DynamicRuleTemplate[] = [
     ruleKey: "bb_mid_trend_15m",
     label: "Tendencia punto medio Bollinger (15M)",
     defaultType: "required",
-    timeframe: "15m",
+    ...SET_15M,
   },
   {
     ruleKey: "open_inside_bb_15m",
@@ -25,7 +27,7 @@ export const MOCK_DYNAMIC_RULES: DynamicRuleTemplate[] = [
     ruleKey: "close_bb_mid_15m",
     label: "Close BB mid 15m",
     defaultType: "required",
-    timeframe: "15m",
+    ...SET_15M,
   },
   {
     ruleKey: "trendline_1h",
@@ -46,10 +48,18 @@ export const MOCK_DYNAMIC_RULES: DynamicRuleTemplate[] = [
     timeframe: "15m",
   },
   {
+    ruleKey: "momentum_15m",
+    label: "Momento 15M (cuerpo y rango vs ATR)",
+    defaultType: "required",
+    ...SET_15M,
+  },
+  {
     ruleKey: "volume_stoch_1h",
     label: "Volumen en HORA cruza la línea roja (Worden Stochastics)",
     defaultType: "required",
     timeframe: "1h",
+    trend: "set",
+    operation: "set",
   },
 ];
 

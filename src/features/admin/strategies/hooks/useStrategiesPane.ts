@@ -8,6 +8,7 @@ import {
   setRowOperation,
   setRowTrend,
   setRowType,
+  suggestNextStrategyId,
   type BuilderRuleRow,
 } from "@/features/premarket/lib/builder-utils";
 import {
@@ -64,9 +65,8 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   const [rules, setRules] = useState<DynamicRuleTemplate[]>([]);
 
   const [editingStrategyId, setEditingStrategyId] = useState<string | null>(null);
+  const [builderStrategyId, setBuilderStrategyId] = useState("");
   const [builderName, setBuilderName] = useState("");
-  const [builderShortName, setBuilderShortName] = useState("");
-  const [builderDescription, setBuilderDescription] = useState("");
   const [builderRows, setBuilderRows] = useState<BuilderRuleRow[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -111,9 +111,8 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
 
   const clearBuilder = useCallback(() => {
     setEditingStrategyId(null);
+    setBuilderStrategyId("");
     setBuilderName("");
-    setBuilderShortName("");
-    setBuilderDescription("");
     setBuilderRows([]);
     setError(null);
     setNotice(null);
@@ -121,13 +120,25 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
 
   const resetBuilder = useCallback(() => {
     clearBuilder();
-  }, [clearBuilder]);
+    setBuilderStrategyId(suggestNextStrategyId(strategies));
+  }, [clearBuilder, strategies]);
+
+  const cloneBuilderFromStrategy = useCallback(
+    (source: DynamicStrategy) => {
+      setEditingStrategyId(null);
+      setBuilderName(`${source.name} (copy)`);
+      setBuilderStrategyId(suggestNextStrategyId(strategies));
+      setBuilderRows(builderRowsFromStrategyRules(source.rules));
+      setError(null);
+      setNotice(`Loaded rules from ${source.id}. Set a new ID before saving.`);
+    },
+    [strategies],
+  );
 
   const hydrateBuilderFromStrategy = useCallback((strategy: DynamicStrategy) => {
     setEditingStrategyId(strategy.id);
+    setBuilderStrategyId(strategy.id);
     setBuilderName(strategy.name);
-    setBuilderShortName(strategy.shortName ?? "");
-    setBuilderDescription(strategy.description ?? "");
     setBuilderRows(builderRowsFromStrategyRules(strategy.rules));
     setError(null);
   }, []);
@@ -160,34 +171,38 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setBuilderRows((prev) => moveBuilderRow(prev, rowId, direction));
   }, []);
 
-  const saveBuilder = useCallback(async () => {
+  const saveBuilder = useCallback(async (options?: { stayOnPage?: boolean }) => {
     const name = builderName.trim();
+    const id = builderStrategyId.trim();
     if (!name || builderRows.length === 0) {
       setError("Name and at least one rule are required.");
+      return null;
+    }
+    if (!editingStrategyId && !id) {
+      setError("Strategy ID is required (e.g. E01).");
       return null;
     }
     setSaving(true);
     setError(null);
     try {
       const wasEdit = editingStrategyId != null;
-      const payload = {
-        name,
-        shortName: builderShortName.trim(),
-        description: builderDescription.trim(),
-        rules: buildRulesPayload(builderRows),
-        active: true,
-      };
+      const rules = buildRulesPayload(builderRows);
       const saved = wasEdit
-        ? await patchDynamicStrategy(editingStrategyId, payload)
-        : await createDynamicStrategy(payload);
-      clearBuilder();
+        ? await patchDynamicStrategy(editingStrategyId, { name, rules, active: true })
+        : await createDynamicStrategy({ id, name, rules, active: true });
+      const normalized = normalizeStrategy(saved);
       await reload();
+      if (options?.stayOnPage) {
+        hydrateBuilderFromStrategy(normalized);
+      } else {
+        clearBuilder();
+      }
       setNotice(
         wasEdit
           ? `Strategy "${saved.name}" updated.`
           : `Strategy "${saved.name}" saved to Dynamo.`,
       );
-      return normalizeStrategy(saved);
+      return normalized;
     } catch (err) {
       setError(resolveError(err));
       return null;
@@ -195,12 +210,12 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       setSaving(false);
     }
   }, [
-    builderDescription,
     builderName,
     builderRows,
-    builderShortName,
+    builderStrategyId,
     clearBuilder,
     editingStrategyId,
+    hydrateBuilderFromStrategy,
     reload,
   ]);
 
@@ -352,18 +367,16 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     dynamicStrategies,
     rules,
     editingStrategyId,
+    builderStrategyId,
     builderName,
-    builderShortName,
-    builderDescription,
     builderRows,
     loading,
     saving,
     previewPending,
     error,
     notice,
+    setBuilderStrategyId,
     setBuilderName,
-    setBuilderShortName,
-    setBuilderDescription,
     setRuleTrend,
     setRuleOperation,
     setRuleType,
@@ -372,6 +385,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     moveRuleInBuilder,
     resetBuilder,
     hydrateBuilderFromStrategy,
+    cloneBuilderFromStrategy,
     saveBuilder,
     toggleStrategyActive,
     deleteStrategy,
