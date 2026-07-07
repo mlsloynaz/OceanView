@@ -7,6 +7,8 @@ export type PremarketRuleRow = {
   status: string;
   metAtEt?: string | null;
   evidence?: string | null;
+  trend?: "up" | "down" | "lateral";
+  operation?: "call" | "put";
 };
 
 export type PremarketTickerHit = StrategyAssessExtras & {

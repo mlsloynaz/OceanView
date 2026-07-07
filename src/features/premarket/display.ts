@@ -1,6 +1,7 @@
 import type { RuleDisplayRow } from "@/features/market/types";
 import { qualityBadgeClass, normalizeRuleStatus } from "@/features/market/display";
 import { formatAchievedTimeEt } from "@/features/market/display";
+import { evalDedupeKey } from "@/shared/lib/rule-dedupe";
 import type { PremarketRuleRow } from "./types";
 
 export { qualityBadgeClass, formatAchievedTimeEt };
@@ -70,14 +71,26 @@ export function toPremarketDisplayRules(
   rules: PremarketRuleRow[] | undefined,
 ): RuleDisplayRow[] {
   if (!rules?.length) return [];
-  return rules.map((row) => ({
-    ruleKey: row.ruleKey,
-    label: row.label,
-    type: row.type as RuleDisplayRow["type"],
-    status: normalizeRuleStatus(row.status),
-    metAtEt: row.metAtEt,
-    evidence: row.evidence,
-  }));
+  const seen = new Set<string>();
+  const rows: RuleDisplayRow[] = [];
+  for (const row of rules) {
+    const dedupeKey = evalDedupeKey({
+      ruleKey: row.ruleKey,
+      trend: row.trend,
+      operation: row.operation,
+    });
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    rows.push({
+      ruleKey: row.ruleKey,
+      label: row.label,
+      type: row.type as RuleDisplayRow["type"],
+      status: normalizeRuleStatus(row.status),
+      metAtEt: row.metAtEt,
+      evidence: row.evidence,
+    });
+  }
+  return rows;
 }
 
 export function strategyGroupSubtitle(

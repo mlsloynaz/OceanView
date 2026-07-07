@@ -10,6 +10,8 @@ export type StrategyRule = {
   label: string;
   type: RuleType;
   timeframe?: string;
+  trend?: "up" | "down" | "lateral";
+  operation?: "call" | "put";
 };
 
 export type StrategyCatalogItem = {

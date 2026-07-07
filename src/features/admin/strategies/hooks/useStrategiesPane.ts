@@ -11,6 +11,7 @@ import {
   suggestNextStrategyId,
   type BuilderRuleRow,
 } from "@/features/premarket/lib/builder-utils";
+import { evalDedupeKey } from "@/shared/lib/rule-dedupe";
 import {
   DynamicStrategyApiError,
   createDynamicStrategy,
@@ -146,6 +147,19 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   const addRuleToBuilder = useCallback(
     (ruleKey: string) => {
       const template = rules.find((r) => r.ruleKey === ruleKey);
+      if (template?.trend === "auto" && template?.operation === "auto") {
+        setBuilderRows((prev) => {
+          const dedupeKey = evalDedupeKey({ ruleKey });
+          if (prev.some((row) => evalDedupeKey(row) === dedupeKey)) {
+            setNotice(
+              `"${template.label}" only needs one row — direction is detected automatically.`,
+            );
+            return prev;
+          }
+          return [...prev, newBuilderRow(ruleKey, template)];
+        });
+        return;
+      }
       setBuilderRows((prev) => [...prev, newBuilderRow(ruleKey, template)]);
     },
     [rules],

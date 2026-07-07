@@ -12,6 +12,7 @@ import type {
   TickerStrategyEval,
   TradeDirection,
 } from "./types";
+import { evalDedupeKey } from "@/shared/lib/rule-dedupe";
 import { activeCatalogStrategies } from "./lib/catalog";
 import { cn } from "@/shared/lib/cn";
 
@@ -215,17 +216,27 @@ export function mergeRuleDisplay(
   evalRules: RuleEval[],
 ): RuleDisplayRow[] {
   const evalByKey = new Map(evalRules.map((r) => [r.ruleKey, r]));
-  return catalogRules.map((rule) => {
+  const seen = new Set<string>();
+  const rows: RuleDisplayRow[] = [];
+  for (const rule of catalogRules) {
+    const dedupeKey = evalDedupeKey({
+      ruleKey: rule.ruleKey,
+      trend: rule.trend,
+      operation: rule.operation,
+    });
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
     const ev = evalByKey.get(rule.ruleKey);
-    return {
+    rows.push({
       ruleKey: rule.ruleKey,
       label: rule.label,
       type: rule.type,
       status: normalizeRuleStatus(ev?.status),
       metAtEt: ev?.metAtEt,
       evidence: ev?.evidence,
-    };
-  });
+    });
+  }
+  return rows;
 }
 
 export function formatEvaluatedAt(iso: string): string {
