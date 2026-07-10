@@ -39,6 +39,7 @@ export function TickersPane() {
     activateAll,
     deactivateAll,
     setActive,
+    setOperationEnable,
   } = useTickersPane(true);
 
   const filters: { id: TickerCatalogFilter; label: string; count: number }[] = [
@@ -87,7 +88,7 @@ export function TickersPane() {
       <p className="mb-3 text-xs text-ocean-sand">
         Tickers are sorted A–Z, {pageSize} per page. Use the header checkbox to activate or
         deactivate the current page. Active tickers are included in Market Assess and Candles bulk
-        refresh.
+        refresh. Operation controls whether the symbol is enabled for trading operations.
       </p>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -170,6 +171,7 @@ export function TickersPane() {
         pageActiveState={pageActiveState}
         onPageActiveChange={(active) => (active ? activatePage() : deactivatePage())}
         onToggleActive={setActive}
+        onToggleOperationEnable={setOperationEnable}
         emptyMessage={
           search.trim()
             ? `No tickers match “${search.trim()}”.`

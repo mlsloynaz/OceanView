@@ -7,11 +7,11 @@ const API_BASE = getApiBaseUrl();
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_CANDLES === "true";
 
 let mockCatalog: CatalogTicker[] = [
-  { symbol: "AAPL", name: "Apple Inc.", isFavorite: true, active: true },
-  { symbol: "MSFT", name: "Microsoft Corp.", isFavorite: true, active: true },
-  { symbol: "NVDA", name: "NVIDIA Corp.", isFavorite: true, active: true },
-  { symbol: "TSLA", name: "Tesla Inc.", isFavorite: false, active: false },
-  { symbol: "AMD", name: "Advanced Micro Devices", isFavorite: false, active: true },
+  { symbol: "AAPL", name: "Apple Inc.", isFavorite: true, active: true, isOperationEnable: true },
+  { symbol: "MSFT", name: "Microsoft Corp.", isFavorite: true, active: true, isOperationEnable: true },
+  { symbol: "NVDA", name: "NVIDIA Corp.", isFavorite: true, active: true, isOperationEnable: false },
+  { symbol: "TSLA", name: "Tesla Inc.", isFavorite: false, active: false, isOperationEnable: true },
+  { symbol: "AMD", name: "Advanced Micro Devices", isFavorite: false, active: true, isOperationEnable: true },
 ];
 
 function delay(ms = MOCK_DELAY_MS) {
@@ -35,12 +35,14 @@ function mapTicker(row: {
   name?: string | null;
   isFavorite?: boolean;
   active?: boolean;
+  isOperationEnable?: boolean;
 }): CatalogTicker {
   return {
     symbol: row.symbol.toUpperCase(),
     name: row.name ?? null,
     isFavorite: Boolean(row.isFavorite),
     active: row.active !== false,
+    isOperationEnable: row.isOperationEnable !== false,
   };
 }
 
@@ -62,9 +64,26 @@ export async function getTickersCatalog(): Promise<CatalogTickersResponse> {
 }
 
 export async function patchTickerActive(symbol: string, active: boolean): Promise<CatalogTicker> {
+  return patchTicker(symbol, { active });
+}
+
+export async function patchTickerOperationEnable(
+  symbol: string,
+  isOperationEnable: boolean,
+): Promise<CatalogTicker> {
+  return patchTicker(symbol, { isOperationEnable });
+}
+
+async function patchTicker(
+  symbol: string,
+  fields: { active?: boolean; isOperationEnable?: boolean },
+): Promise<CatalogTicker> {
   const upper = symbol.trim().toUpperCase();
   if (!upper) {
     throw new Error("Symbol is required.");
+  }
+  if (fields.active === undefined && fields.isOperationEnable === undefined) {
+    throw new Error("active or isOperationEnable is required.");
   }
   if (USE_MOCK) {
     await delay();
@@ -72,16 +91,13 @@ export async function patchTickerActive(symbol: string, active: boolean): Promis
     if (index < 0) {
       throw new Error(`Unknown symbol: ${upper}`);
     }
-    mockCatalog[index] = { ...mockCatalog[index], active };
+    mockCatalog[index] = { ...mockCatalog[index], ...fields };
     return { ...mockCatalog[index] };
   }
-  const payload = await fetchJson<CatalogTicker>(
-    `/tickers/${encodeURIComponent(upper)}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({ active }),
-    },
-  );
+  const payload = await fetchJson<CatalogTicker>(`/tickers/${encodeURIComponent(upper)}`, {
+    method: "PATCH",
+    body: JSON.stringify(fields),
+  });
   return mapTicker(payload);
 }
 

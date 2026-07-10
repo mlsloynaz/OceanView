@@ -25,7 +25,7 @@ export const ADMIN_PANES: Record<AdminPaneId, AdminPaneMeta> = {
     id: "tickers",
     anchorId: "admin-tickers-pane",
     title: "Tickers",
-    description: "Search, filter, and activate symbols for Market and Candles",
+    description: "Search, filter, Active and Operation flags for Market and Candles",
   },
   candles: {
     id: "candles",

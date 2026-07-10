@@ -3,6 +3,7 @@ export type CatalogTicker = {
   name: string | null;
   isFavorite: boolean;
   active: boolean;
+  isOperationEnable: boolean;
 };
 
 export type CatalogTickersResponse = {
