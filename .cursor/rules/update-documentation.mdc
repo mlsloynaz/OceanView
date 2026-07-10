@@ -12,6 +12,8 @@ When you **resolve an issue**, **change behavior**, or **add functionality**, up
 | Area | Doc to update |
 |------|----------------|
 | Market page (`src/features/market/**`) | [docs/market-page.md](../../docs/market-page.md) |
+| Premarket page (`src/features/premarket/**`) | [docs/premarket-page.md](../../docs/premarket-page.md) |
+| Operations page (`src/features/operations/**`) | [docs/operations-page.md](../../docs/operations-page.md) |
 | Admin candles pane (`src/features/admin/candles/**`) | [docs/candles-pane.md](../../docs/candles-pane.md) |
 | Cursor rules/skills (`.cursor/rules/**`, `.cursor/skills/**`) | [docs/cursor-rules-skills.md](../../docs/cursor-rules-skills.md) |
 

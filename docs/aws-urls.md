@@ -8,7 +8,7 @@ Quick reference for hosted OceanView in **us-east-1**. Region and IDs match the 
 
 | What | URL | Notes |
 |------|-----|--------|
-| **UI (open this in the browser)** | **https://d1xsxf8zu41xgt.cloudfront.net** | React app — Market, Admin |
+| **UI (open this in the browser)** | **https://d1xsxf8zu41xgt.cloudfront.net** | React app — Market, Premarket, Operations, Admin |
 | **API (direct, for curl/tools)** | https://7bko9drijd.execute-api.us-east-1.amazonaws.com/prod | Backend only — **not** a web page |
 | **API (via UI, same origin)** | https://d1xsxf8zu41xgt.cloudfront.net/api/… | What the production app uses |
 
@@ -34,6 +34,7 @@ Quick reference for hosted OceanView in **us-east-1**. Region and IDs match the 
 | Market — by rule | https://d1xsxf8zu41xgt.cloudfront.net/market/rules |
 | Admin | https://d1xsxf8zu41xgt.cloudfront.net/admin |
 | Premarket | https://d1xsxf8zu41xgt.cloudfront.net/premarket |
+| Operations | https://d1xsxf8zu41xgt.cloudfront.net/operations |
 
 Deploy: push to `main` → GitHub Actions → S3 sync → CloudFront invalidation. See [deploy-aws.md](./deploy-aws.md).
 
@@ -97,6 +98,14 @@ Contract and field shapes: [market-page.md](./market-page.md) (APIs section). Im
 | `POST` | `/premarket/evaluate/start` | …/prod/premarket/evaluate/start |
 | `POST` | `/premarket/evaluate/stop` | …/prod/premarket/evaluate/stop |
 | `GET` | `/premarket/evaluate/result` | …/prod/premarket/evaluate/result |
+
+**Operations** ([operations-page.md](./operations-page.md); deploy `OperationsFunction`)
+
+| Method | Path | Example |
+|--------|------|---------|
+| `GET` | `/operations/tickers` | …/prod/operations/tickers |
+| `GET` | `/operations/option-picks` | …/prod/operations/option-picks?contractType=CALL |
+| `POST` | `/operations/buy` | …/prod/operations/buy |
 
 ### Smoke test
 

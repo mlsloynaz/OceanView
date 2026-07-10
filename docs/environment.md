@@ -26,13 +26,14 @@ Vite embeds `VITE_*` variables into the JavaScript bundle at **build time**. The
 | `.env.production` | `npm run build` |
 | `.env.example` | Documentation only |
 
-Current values are non-secret: `VITE_API_BASE_URL=/api`, `VITE_USE_MOCK_CANDLES=false`, `VITE_USE_MOCK_MARKET=true` (dev) / `false` (production), `VITE_USE_MOCK_PREMARKET=true` (dev) / `false` (production).
+Current values are non-secret: `VITE_API_BASE_URL=/api`, `VITE_USE_MOCK_CANDLES=false`, `VITE_USE_MOCK_MARKET=true` (dev) / `false` (production), `VITE_USE_MOCK_PREMARKET=true` (dev) / `false` (production), `VITE_USE_MOCK_OPERATIONS=true` (dev) / `false` (production).
 
 | Flag | Feature doc |
 |------|-------------|
 | `VITE_USE_MOCK_MARKET` | [market-page.md](./market-page.md) |
 | `VITE_USE_MOCK_CANDLES` | [candles-pane.md](./candles-pane.md) |
 | `VITE_USE_MOCK_PREMARKET` | [premarket-page.md](./premarket-page.md) |
+| `VITE_USE_MOCK_OPERATIONS` | [operations-page.md](./operations-page.md) |
 | `VITE_COGNITO_USER_POOL_ID` | Cognito user pool (from `oceanview-api` stack output) |
 | `VITE_COGNITO_CLIENT_ID` | Cognito app client id (public SPA) |
 | `VITE_AWS_REGION` | Cognito region (usually `us-east-1`) |
@@ -64,6 +65,8 @@ Optional overrides via GitHub **Variables** (only if you add them to the workflo
 - `VITE_API_BASE_URL`
 - `VITE_USE_MOCK_CANDLES`
 - `VITE_USE_MOCK_MARKET`
+- `VITE_USE_MOCK_PREMARKET`
+- `VITE_USE_MOCK_OPERATIONS`
 
 Today the workflow uses committed `.env.production` only.
 
