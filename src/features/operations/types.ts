@@ -5,6 +5,16 @@ export type PriceRange = {
   high: number;
 };
 
+/** Full catalog row used for Operations eligibility search. */
+export type CatalogSearchTicker = {
+  symbol: string;
+  name: string | null;
+  isFavorite: boolean;
+  active: boolean;
+  isOperationEnable: boolean;
+  optimalRange: PriceRange | null;
+};
+
 export type OperationPosition = {
   symbol: string;
   status: string;

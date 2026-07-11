@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { operationsApiBaseUrl, operationsApiUsesMock } from "./api/operations-client";
+import { OperationsEligibilitySearch } from "./components/OperationsEligibilitySearch";
 import { OperationsTickerList } from "./components/OperationsTickerList";
 import { OperationsToolbar } from "./components/OperationsToolbar";
 import { OptionPicksTable } from "./components/OptionPicksTable";
@@ -9,14 +10,15 @@ export function OperationsPage() {
   const ws = useOperationsWorkspace();
   const usesMock = operationsApiUsesMock();
   const apiBase = operationsApiBaseUrl();
+  const busy = ws.picksPending || Object.keys(ws.enablePending).length > 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam">Operations</h1>
         <p className="mt-2 text-ocean-sand">
-          Option picks for tickers with <strong className="font-medium text-ocean-foam">Operation</strong>{" "}
-          enabled and an optimal strike range. Enable symbols in{" "}
+          Search the catalog to enable tickers for Operations, then run option picks on those with an
+          optimal strike range. Catalog names live in{" "}
           <Link to="/admin#admin-tickers-pane" className="text-ocean-teal hover:underline">
             Admin → Tickers
           </Link>
@@ -34,6 +36,19 @@ export function OperationsPage() {
         </p>
       ) : null}
 
+      <section className="space-y-2">
+        <h2 className="font-display text-lg font-semibold text-ocean-foam">Eligibility</h2>
+        <OperationsEligibilitySearch
+          query={ws.searchQuery}
+          results={ws.searchResults}
+          pending={ws.enablePending}
+          disabled={busy}
+          catalogLoading={ws.loadingCatalog}
+          onQueryChange={ws.setSearchQuery}
+          onToggleEnable={ws.setOperationEnable}
+        />
+      </section>
+
       <OperationsToolbar
         contractType={ws.contractType}
         selectedCount={ws.selectedSymbols.length}
@@ -43,7 +58,7 @@ export function OperationsPage() {
         onContractTypeChange={ws.setContractType}
         onSelectAll={ws.selectAllEligible}
         onRunPicks={ws.runPicks}
-        onReload={ws.reloadTickers}
+        onReload={() => void ws.reloadTickers()}
       />
 
       {ws.notice ? (
@@ -61,13 +76,13 @@ export function OperationsPage() {
         <h2 className="font-display text-lg font-semibold text-ocean-foam">Universe</h2>
         <p className="text-xs text-ocean-sand">
           {ws.tickers.length} operation-enabled · {ws.eligibleSymbols.length} with optimal range ·{" "}
-          {ws.selectedSymbols.length} selected
+          {ws.selectedSymbols.length} selected for picks
         </p>
         <OperationsTickerList
           tickers={ws.tickers}
           selected={ws.selected}
           loading={ws.loadingTickers}
-          disabled={ws.picksPending}
+          disabled={busy}
           onToggle={ws.toggleSymbol}
         />
       </section>
@@ -78,7 +93,7 @@ export function OperationsPage() {
           picks={ws.picks}
           tickers={ws.tickers}
           buyingSymbol={ws.buyingSymbol}
-          disabled={ws.picksPending}
+          disabled={busy}
           onBuy={ws.buyPick}
         />
       </section>

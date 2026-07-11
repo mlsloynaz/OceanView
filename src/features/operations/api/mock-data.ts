@@ -1,8 +1,60 @@
 import type {
   BuyOptionResponse,
+  CatalogSearchTicker,
   OperationsTicker,
   OptionPicksResponse,
 } from "../types";
+
+export const MOCK_CATALOG_TICKERS: CatalogSearchTicker[] = [
+  {
+    symbol: "AAPL",
+    name: "Apple Inc.",
+    isFavorite: true,
+    active: true,
+    isOperationEnable: false,
+    optimalRange: { low: 150, high: 200 },
+  },
+  {
+    symbol: "MSFT",
+    name: "Microsoft Corp.",
+    isFavorite: true,
+    active: true,
+    isOperationEnable: false,
+    optimalRange: { low: 350, high: 420 },
+  },
+  {
+    symbol: "NFLX",
+    name: "Netflix Inc.",
+    isFavorite: true,
+    active: true,
+    isOperationEnable: true,
+    optimalRange: { low: 40, high: 80 },
+  },
+  {
+    symbol: "TSLA",
+    name: "Tesla Inc.",
+    isFavorite: false,
+    active: true,
+    isOperationEnable: true,
+    optimalRange: { low: 200, high: 280 },
+  },
+  {
+    symbol: "AMD",
+    name: "Advanced Micro Devices",
+    isFavorite: false,
+    active: true,
+    isOperationEnable: true,
+    optimalRange: null,
+  },
+  {
+    symbol: "NVDA",
+    name: "NVIDIA Corp.",
+    isFavorite: true,
+    active: true,
+    isOperationEnable: false,
+    optimalRange: { low: 80, high: 140 },
+  },
+];
 
 export const MOCK_OPERATIONS_TICKERS: OperationsTicker[] = [
   {

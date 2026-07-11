@@ -7,6 +7,7 @@ import {
 import type {
   BuyOptionRequest,
   BuyOptionResponse,
+  CatalogSearchTicker,
   ContractType,
   OperationPosition,
   OperationsTicker,
@@ -15,11 +16,22 @@ import type {
   OptionPicksResponse,
   PriceRange,
 } from "../types";
-import { MOCK_BUY_RESPONSE, MOCK_OPERATIONS_TICKERS, MOCK_OPTION_PICKS } from "./mock-data";
+import {
+  MOCK_BUY_RESPONSE,
+  MOCK_CATALOG_TICKERS,
+  MOCK_OPERATIONS_TICKERS,
+  MOCK_OPTION_PICKS,
+} from "./mock-data";
 
 const MOCK_DELAY_MS = 350;
 const API_BASE = getApiBaseUrl();
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_OPERATIONS === "true";
+
+let mockCatalog: CatalogSearchTicker[] = MOCK_CATALOG_TICKERS.map((row) => ({ ...row }));
+let mockUniverse: OperationsTicker[] = MOCK_OPERATIONS_TICKERS.map((row) => ({
+  ...row,
+  position: row.position ? { ...row.position } : null,
+}));
 
 function delay(ms = MOCK_DELAY_MS) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -129,13 +141,86 @@ export function operationsApiBaseUrl(): string | null {
 export async function fetchOperationsTickers(): Promise<OperationsTicker[]> {
   if (USE_MOCK) {
     await delay();
-    return MOCK_OPERATIONS_TICKERS.map((row) => ({
+    return mockUniverse.map((row) => ({
       ...row,
       position: row.position ? { ...row.position } : null,
     }));
   }
   const payload = await fetchJson<{ tickers?: Record<string, unknown>[] }>("/operations/tickers");
   return (payload.tickers ?? []).map(mapTicker);
+}
+
+export async function fetchTickerCatalog(): Promise<CatalogSearchTicker[]> {
+  if (USE_MOCK) {
+    await delay();
+    return mockCatalog.map((row) => ({ ...row }));
+  }
+  const payload = await fetchJson<{ tickers?: Record<string, unknown>[] }>("/tickers");
+  return (payload.tickers ?? []).map((row) => ({
+    symbol: String(row.symbol ?? "").toUpperCase(),
+    name: row.name != null ? String(row.name) : null,
+    isFavorite: Boolean(row.isFavorite),
+    active: row.active !== false,
+    isOperationEnable: row.isOperationEnable !== false,
+    optimalRange: mapRange(row.optimalRange),
+  }));
+}
+
+export async function patchTickerOperationEnable(
+  symbol: string,
+  isOperationEnable: boolean,
+): Promise<CatalogSearchTicker> {
+  const upper = symbol.trim().toUpperCase();
+  if (!upper) {
+    throw new Error("Symbol is required.");
+  }
+  if (USE_MOCK) {
+    await delay();
+    const index = mockCatalog.findIndex((row) => row.symbol === upper);
+    if (index < 0) {
+      throw new Error(`Unknown symbol: ${upper}`);
+    }
+    mockCatalog[index] = { ...mockCatalog[index], isOperationEnable };
+    if (isOperationEnable) {
+      const existing = mockUniverse.find((row) => row.symbol === upper);
+      if (!existing) {
+        const cat = mockCatalog[index];
+        mockUniverse = [
+          ...mockUniverse,
+          {
+            symbol: cat.symbol,
+            name: cat.name,
+            isFavorite: cat.isFavorite,
+            active: cat.active,
+            isOperationEnable: true,
+            optimalRange: cat.optimalRange,
+            optimalRangeMinMax: null,
+            optimalRangeAsOf: null,
+            position: null,
+          },
+        ].sort((a, b) => a.symbol.localeCompare(b.symbol));
+      } else {
+        mockUniverse = mockUniverse.map((row) =>
+          row.symbol === upper ? { ...row, isOperationEnable: true } : row,
+        );
+      }
+    } else {
+      mockUniverse = mockUniverse.filter((row) => row.symbol !== upper);
+    }
+    return { ...mockCatalog[index] };
+  }
+  const payload = await fetchJson<Record<string, unknown>>(`/tickers/${encodeURIComponent(upper)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ isOperationEnable }),
+  });
+  return {
+    symbol: String(payload.symbol ?? upper).toUpperCase(),
+    name: payload.name != null ? String(payload.name) : null,
+    isFavorite: Boolean(payload.isFavorite),
+    active: payload.active !== false,
+    isOperationEnable: payload.isOperationEnable !== false,
+    optimalRange: mapRange(payload.optimalRange),
+  };
 }
 
 export async function fetchOptionPicks(

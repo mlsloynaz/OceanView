@@ -2,24 +2,49 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import {
   fetchOperationsTickers,
   fetchOptionPicks,
+  fetchTickerCatalog,
   operationsApiUsesMock,
+  patchTickerOperationEnable,
   postBuyOption,
 } from "../api/operations-client";
 import type {
+  CatalogSearchTicker,
   ContractType,
   OperationsTicker,
   OptionPickResult,
   OptionPicksResponse,
 } from "../types";
 
+const SEARCH_RESULT_LIMIT = 40;
+
+function matchesSearch(row: CatalogSearchTicker, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return false;
+  return (
+    row.symbol.toLowerCase().includes(q) || (row.name?.toLowerCase().includes(q) ?? false)
+  );
+}
+
+function rankSearch(row: CatalogSearchTicker, query: string): number {
+  const q = query.trim().toLowerCase();
+  const sym = row.symbol.toLowerCase();
+  if (sym === q) return 0;
+  if (sym.startsWith(q)) return 1;
+  return 2;
+}
+
 export function useOperationsWorkspace() {
   const useMock = operationsApiUsesMock();
   const [tickers, setTickers] = useState<OperationsTicker[]>([]);
+  const [catalog, setCatalog] = useState<CatalogSearchTicker[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [contractType, setContractType] = useState<ContractType>("CALL");
   const [picks, setPicks] = useState<OptionPicksResponse | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [loadingTickers, setLoadingTickers] = useState(true);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [picksPending, setPicksPending] = useState(false);
+  const [enablePending, setEnablePending] = useState<Record<string, boolean>>({});
   const [buyingSymbol, setBuyingSymbol] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -47,9 +72,34 @@ export function useOperationsWorkspace() {
     }
   }, []);
 
+  const loadCatalog = useCallback(async () => {
+    setLoadingCatalog(true);
+    try {
+      const rows = await fetchTickerCatalog();
+      setCatalog(rows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load ticker catalog.");
+    } finally {
+      setLoadingCatalog(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadTickers();
-  }, [loadTickers]);
+    void loadCatalog();
+  }, [loadCatalog, loadTickers]);
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim();
+    if (!q) return [];
+    return catalog
+      .filter((row) => matchesSearch(row, q))
+      .sort(
+        (a, b) =>
+          rankSearch(a, q) - rankSearch(b, q) || a.symbol.localeCompare(b.symbol),
+      )
+      .slice(0, SEARCH_RESULT_LIMIT);
+  }, [catalog, searchQuery]);
 
   const eligibleSymbols = useMemo(
     () => tickers.filter((row) => row.optimalRange).map((row) => row.symbol),
@@ -76,6 +126,42 @@ export function useOperationsWorkspace() {
       });
     },
     [eligibleSymbols],
+  );
+
+  const setOperationEnable = useCallback(
+    (symbol: string, nextEnabled: boolean) => {
+      const upper = symbol.toUpperCase();
+      setError(null);
+      setNotice(null);
+      setEnablePending((prev) => ({ ...prev, [upper]: true }));
+      startTransition(async () => {
+        try {
+          const updated = await patchTickerOperationEnable(upper, nextEnabled);
+          setCatalog((prev) =>
+            prev.map((row) =>
+              row.symbol === updated.symbol
+                ? { ...row, isOperationEnable: updated.isOperationEnable }
+                : row,
+            ),
+          );
+          setNotice(
+            nextEnabled
+              ? `${updated.symbol} enabled for Operations.`
+              : `${updated.symbol} removed from Operations.`,
+          );
+          await loadTickers();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Failed to update ticker.");
+        } finally {
+          setEnablePending((prev) => {
+            const next = { ...prev };
+            delete next[upper];
+            return next;
+          });
+        }
+      });
+    },
+    [loadTickers],
   );
 
   const runPicks = useCallback(() => {
@@ -146,9 +232,16 @@ export function useOperationsWorkspace() {
     [loadTickers, tickers],
   );
 
+  const reloadAll = useCallback(async () => {
+    await Promise.all([loadTickers(), loadCatalog()]);
+  }, [loadCatalog, loadTickers]);
+
   return {
     useMock,
     tickers,
+    searchQuery,
+    setSearchQuery,
+    searchResults,
     contractType,
     setContractType,
     picks,
@@ -156,13 +249,16 @@ export function useOperationsWorkspace() {
     selectedSymbols,
     eligibleSymbols,
     loadingTickers,
+    loadingCatalog,
     picksPending,
+    enablePending,
     buyingSymbol,
     error,
     notice,
-    reloadTickers: loadTickers,
+    reloadTickers: reloadAll,
     toggleSymbol,
     selectAllEligible,
+    setOperationEnable,
     runPicks,
     buyPick,
   };

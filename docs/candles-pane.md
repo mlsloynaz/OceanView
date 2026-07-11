@@ -82,7 +82,7 @@ flowchart TB
 
 | UI control | When | API | Purpose |
 |------------|------|-----|---------|
-| **Ticker catalog** toggle | User click | `PATCH /tickers/{symbol}` `{ active }` and/or `{ isOperationEnable }` | Active: Market + Candles bulk; Operation: ops flag |
+| **Ticker catalog** toggle | User click | `PATCH /tickers/{symbol}` `{ active }` | Include/exclude from Market + Candles bulk |
 | **Ticker catalog** reload | User click | `GET /tickers` | Full catalog (active + inactive) |
 | *(Candles panel open)* | After catalog loads | `GET /tickers?activeOnly=true` | Active symbols only |
 | *(Candles panel open)* | Immediately after | `POST /candles/result` | Last **candles job** outcome + per-symbol candle context |
@@ -138,27 +138,19 @@ Base path: `/api` or same-origin `/` (CloudFront → API Gateway). All requests 
 }
 ```
 
-Missing `isOperationEnable` on older Dynamo rows is treated as **`true`**.
+Missing `isOperationEnable` on older Dynamo rows is treated as **`true`** (used by Operations; not edited in this pane).
 
 ### `PATCH /tickers/{symbol}`
 
-**Purpose:** Update catalog flags on one row (Dynamo `OceanView-Tickers`).
+**Purpose:** Activate or deactivate one catalog row (Dynamo `OceanView-Tickers`).
 
-**Request:** at least one of:
+**Request:** `{ "active": true | false }`
 
-```json
-{ "active": true | false }
-```
-
-```json
-{ "isOperationEnable": true | false }
-```
-
-Both fields may be sent together. `active` controls Market Assess / Candles bulk inclusion. `isOperationEnable` is an operations flag editable from the Tickers pane checkbox.
+The API also accepts `isOperationEnable` / `optimalRange` for other clients; the Tickers pane only toggles **Active**.
 
 **Response `200`:** Updated ticker object (same shape as list item).
 
-**Used by:** Ticker catalog pane toggles (Active + Operation).
+**Used by:** Ticker catalog pane Active toggle.
 
 ---
 
@@ -441,10 +433,10 @@ Removed from legacy pane: Request Earning Calendar, Refresh + foundation.
 src/features/admin/
   AdminPage.tsx                 # TickersPane + CandlesPane
   tickers/
-    TickersPane.tsx             # catalog filters + active / operation toggles
+    TickersPane.tsx             # catalog filters + active toggle
     TickersTable.tsx
     types.ts
-    api/tickers-client.ts       # GET /tickers, PATCH active / isOperationEnable
+    api/tickers-client.ts       # GET /tickers, PATCH /tickers/{symbol} (active)
     hooks/useTickersPane.ts
   candles/
     CandlesPane.tsx             # collapsible panel + toolbar

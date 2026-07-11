@@ -12,7 +12,6 @@ type Props = {
   pageActiveState: PageActiveState;
   emptyMessage?: string;
   onToggleActive: (symbol: string, active: boolean) => void;
-  onToggleOperationEnable: (symbol: string, isOperationEnable: boolean) => void;
   onPageActiveChange: (active: boolean) => void;
 };
 
@@ -24,7 +23,6 @@ export function TickersTable({
   pageActiveState,
   emptyMessage,
   onToggleActive,
-  onToggleOperationEnable,
   onPageActiveChange,
 }: Props) {
   const pageCheckboxRef = useRef<HTMLInputElement>(null);
@@ -56,23 +54,18 @@ export function TickersTable({
         <span className="text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">
           Symbol
         </span>
-        <div className="flex shrink-0 items-center gap-4">
-          <span className="w-[4.5rem] text-center text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">
-            Operation
-          </span>
-          <label className="flex w-[4.5rem] cursor-pointer flex-col items-center gap-0.5 text-xs text-ocean-sand">
-            <span className="text-[10px] font-semibold uppercase tracking-wide">Active</span>
-            <span className="sr-only">Toggle all tickers on this page</span>
-            <input
-              ref={pageCheckboxRef}
-              type="checkbox"
-              checked={pageActiveState === "all"}
-              disabled={pageToggleDisabled}
-              onChange={(event) => onPageActiveChange(event.target.checked)}
-              className="h-4 w-4 rounded border-ocean-mid/60 bg-ocean-deep accent-ocean-teal disabled:opacity-50"
-            />
-          </label>
-        </div>
+        <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs text-ocean-sand">
+          <span className="hidden sm:inline">Active</span>
+          <span className="sr-only">Toggle all tickers on this page</span>
+          <input
+            ref={pageCheckboxRef}
+            type="checkbox"
+            checked={pageActiveState === "all"}
+            disabled={pageToggleDisabled}
+            onChange={(event) => onPageActiveChange(event.target.checked)}
+            className="h-4 w-4 rounded border-ocean-mid/60 bg-ocean-deep accent-ocean-teal disabled:opacity-50"
+          />
+        </label>
       </div>
 
       <ul className="divide-y divide-ocean-mid/30">
@@ -106,39 +99,21 @@ export function TickersTable({
                 >
                   {row.active ? "Active" : "Inactive"}
                 </span>
-                {!row.isOperationEnable && (
-                  <span className="rounded bg-ocean-mid/30 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ocean-sand">
-                    Ops off
-                  </span>
-                )}
               </div>
 
-              <div className="flex shrink-0 items-center gap-4">
-                <label className="flex w-[4.5rem] cursor-pointer items-center justify-center gap-1.5 text-xs text-ocean-sand">
-                  <span className="sr-only">Operation enabled for {row.symbol}</span>
-                  <input
-                    type="checkbox"
-                    checked={row.isOperationEnable}
-                    disabled={rowPending}
-                    onChange={(event) =>
-                      onToggleOperationEnable(row.symbol, event.target.checked)
-                    }
-                    className="h-4 w-4 rounded border-ocean-mid/60 bg-ocean-deep accent-ocean-teal disabled:opacity-50"
-                  />
-                  <span aria-hidden>{rowPending ? "…" : row.isOperationEnable ? "On" : "Off"}</span>
-                </label>
-                <label className="flex w-[4.5rem] cursor-pointer items-center justify-center gap-1.5 text-xs text-ocean-sand">
-                  <span className="sr-only">Active for Market and Candles — {row.symbol}</span>
-                  <input
-                    type="checkbox"
-                    checked={row.active}
-                    disabled={rowPending}
-                    onChange={(event) => onToggleActive(row.symbol, event.target.checked)}
-                    className="h-4 w-4 rounded border-ocean-mid/60 bg-ocean-deep accent-ocean-teal disabled:opacity-50"
-                  />
-                  <span aria-hidden>{rowPending ? "…" : row.active ? "On" : "Off"}</span>
-                </label>
-              </div>
+              <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs text-ocean-sand">
+                <span className="sr-only">Active for Market and Candles</span>
+                <input
+                  type="checkbox"
+                  checked={row.active}
+                  disabled={rowPending}
+                  onChange={(event) => onToggleActive(row.symbol, event.target.checked)}
+                  className="h-4 w-4 rounded border-ocean-mid/60 bg-ocean-deep accent-ocean-teal disabled:opacity-50"
+                />
+                <span className="hidden sm:inline" aria-hidden>
+                  {rowPending ? "…" : row.active ? "On" : "Off"}
+                </span>
+              </label>
             </li>
           );
         })}

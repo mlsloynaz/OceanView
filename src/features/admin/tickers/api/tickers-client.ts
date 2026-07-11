@@ -64,26 +64,9 @@ export async function getTickersCatalog(): Promise<CatalogTickersResponse> {
 }
 
 export async function patchTickerActive(symbol: string, active: boolean): Promise<CatalogTicker> {
-  return patchTicker(symbol, { active });
-}
-
-export async function patchTickerOperationEnable(
-  symbol: string,
-  isOperationEnable: boolean,
-): Promise<CatalogTicker> {
-  return patchTicker(symbol, { isOperationEnable });
-}
-
-async function patchTicker(
-  symbol: string,
-  fields: { active?: boolean; isOperationEnable?: boolean },
-): Promise<CatalogTicker> {
   const upper = symbol.trim().toUpperCase();
   if (!upper) {
     throw new Error("Symbol is required.");
-  }
-  if (fields.active === undefined && fields.isOperationEnable === undefined) {
-    throw new Error("active or isOperationEnable is required.");
   }
   if (USE_MOCK) {
     await delay();
@@ -91,12 +74,12 @@ async function patchTicker(
     if (index < 0) {
       throw new Error(`Unknown symbol: ${upper}`);
     }
-    mockCatalog[index] = { ...mockCatalog[index], ...fields };
+    mockCatalog[index] = { ...mockCatalog[index], active };
     return { ...mockCatalog[index] };
   }
   const payload = await fetchJson<CatalogTicker>(`/tickers/${encodeURIComponent(upper)}`, {
     method: "PATCH",
-    body: JSON.stringify(fields),
+    body: JSON.stringify({ active }),
   });
   return mapTicker(payload);
 }

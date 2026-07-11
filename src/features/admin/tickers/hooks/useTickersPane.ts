@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import {
   getTickersCatalog,
   patchTickerActive,
-  patchTickerOperationEnable,
   patchTickersActive,
 } from "../api/tickers-client";
 import {
@@ -151,37 +150,6 @@ export function useTickersPane(open: boolean) {
     });
   }, []);
 
-  const setOperationEnable = useCallback((symbol: string, nextEnabled: boolean) => {
-    const upper = symbol.toUpperCase();
-    setMessage(null);
-    setError(null);
-    setPending((prev) => ({ ...prev, [upper]: true }));
-
-    startTransition(async () => {
-      try {
-        const updated = await patchTickerOperationEnable(upper, nextEnabled);
-        setTickers((prev) =>
-          sortTickersAlphabetically(
-            prev.map((row) => (row.symbol === updated.symbol ? updated : row)),
-          ),
-        );
-        setMessage(
-          nextEnabled
-            ? `${updated.symbol} operation enabled.`
-            : `${updated.symbol} operation disabled.`,
-        );
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to update ticker.");
-      } finally {
-        setPending((prev) => {
-          const next = { ...prev };
-          delete next[upper];
-          return next;
-        });
-      }
-    });
-  }, []);
-
   const pageActiveState = useMemo((): "all" | "none" | "mixed" => {
     if (pageTickers.length === 0) return "none";
     if (pageCounts.active === pageTickers.length) return "all";
@@ -285,7 +253,6 @@ export function useTickersPane(open: boolean) {
     isPending,
     reload: loadCatalog,
     setActive,
-    setOperationEnable,
     activatePage,
     deactivatePage,
     activateAll,

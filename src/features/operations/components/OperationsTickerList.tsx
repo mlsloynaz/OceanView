@@ -27,8 +27,8 @@ export function OperationsTickerList({
   if (tickers.length === 0) {
     return (
       <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
-        No tickers have <strong className="font-medium">Operation</strong> enabled. Turn it on in{" "}
-        Admin → Tickers.
+        No tickers have <strong className="font-medium">Operation</strong> enabled yet. Use the
+        search above to turn symbols on.
       </p>
     );
   }
