@@ -11,7 +11,7 @@ Top-level desk for **option picks** on tickers with `isOperationEnable` and an `
 
 1. **Eligibility search** — search the full ticker catalog (`GET /tickers`) and enable/disable Operations with `PATCH /tickers/{symbol}` `{ isOperationEnable }`.
 2. Loads the operations universe — `GET /operations/tickers` (enabled tickers + open position summary).
-3. Lets you choose **CALL** or **PUT**, select symbols that have an optimal range, and run **Find picks**.
+3. Lets you choose **CALL** or **PUT**, then run **Find picks** for all enabled tickers that have an optimal range.
 4. Shows nearest-expiration strikes inside each range (`GET /operations/option-picks`).
 5. **Buy** places a live market order via `POST /operations/buy` (confirm dialog first).
 
@@ -25,17 +25,22 @@ Optimal ranges are imported on the API (`import_optimal_ranges.py`). Eligibility
 |---------|----------|
 | Eligibility search | Filter catalog by symbol/name; checkbox toggles `isOperationEnable` |
 | CALL / PUT | Contract type for the next picks run |
-| Universe Pick checkbox | Include/exclude symbol for the next Find picks run |
 | Universe Ops checkbox | Uncheck deactivates (`isOperationEnable: false`) and removes from universe |
-| Find picks | Calls option-picks for the selected symbols |
+| Find picks | Option-picks for all enabled tickers with `optimalRange` |
 | Reload tickers | Refresh catalog + universe + positions |
 | Buy | Confirms, then `POST /operations/buy` for that pick |
 
 **Empty / blocked states**
 
 - No operation-enabled tickers → empty universe (use eligibility search to enable)
-- Ticker without optimal range → can be enabled, but not selectable for picks
+- Ticker without optimal range → can be enabled, but skipped by Find picks
 - Open position (`bought` / `pending`) → Buy disabled
+
+**Layout / accessibility**
+
+- Page content uses a wide column (`max-w-7xl`) so picks tables are readable
+- Body copy and table cells use `text-base` / `text-sm` (no sub-12px labels)
+- Primary controls (search, CALL/PUT, Find picks, Buy, Ops checkboxes) target ~44px height
 
 ---
 

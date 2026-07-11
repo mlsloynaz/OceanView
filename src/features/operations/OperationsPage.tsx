@@ -13,10 +13,12 @@ export function OperationsPage() {
   const busy = ws.picksPending || Object.keys(ws.enablePending).length > 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-8 px-1 sm:px-2">
       <div>
-        <h1 className="font-display text-3xl font-semibold text-ocean-foam">Operations</h1>
-        <p className="mt-2 text-ocean-sand">
+        <h1 className="font-display text-3xl font-semibold text-ocean-foam sm:text-4xl">
+          Operations
+        </h1>
+        <p className="mt-3 max-w-3xl text-base leading-relaxed text-ocean-sand">
           Search the catalog to enable tickers for Operations, then run option picks on those with an
           optimal strike range. Catalog names live in{" "}
           <Link to="/admin#admin-tickers-pane" className="text-ocean-teal hover:underline">
@@ -27,17 +29,17 @@ export function OperationsPage() {
       </div>
 
       {usesMock ? (
-        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
           Mock mode (`VITE_USE_MOCK_OPERATIONS=true`) — picks and buys stay in-memory.
         </p>
       ) : apiBase ? (
-        <p className="truncate text-[11px] text-ocean-sand/70" title={apiBase}>
+        <p className="truncate text-sm text-ocean-sand/70" title={apiBase}>
           API: {apiBase}
         </p>
       ) : null}
 
-      <section className="space-y-2">
-        <h2 className="font-display text-lg font-semibold text-ocean-foam">Eligibility</h2>
+      <section className="space-y-3">
+        <h2 className="font-display text-xl font-semibold text-ocean-foam">Eligibility</h2>
         <OperationsEligibilitySearch
           query={ws.searchQuery}
           results={ws.searchResults}
@@ -51,47 +53,43 @@ export function OperationsPage() {
 
       <OperationsToolbar
         contractType={ws.contractType}
-        selectedCount={ws.selectedSymbols.length}
         eligibleCount={ws.eligibleSymbols.length}
         picksPending={ws.picksPending}
         loading={ws.loadingTickers}
         onContractTypeChange={ws.setContractType}
-        onSelectAll={ws.selectAllEligible}
         onRunPicks={ws.runPicks}
         onReload={() => void ws.reloadTickers()}
       />
 
       {ws.notice ? (
-        <p className="text-sm text-ocean-teal-dim dark:text-ocean-teal" role="status">
+        <p className="text-base text-ocean-teal-dim dark:text-ocean-teal" role="status">
           {ws.notice}
         </p>
       ) : null}
       {ws.error ? (
-        <p className="text-sm text-ocean-danger" role="alert">
+        <p className="text-base text-ocean-danger" role="alert">
           {ws.error}
         </p>
       ) : null}
 
-      <section className="space-y-2">
-        <h2 className="font-display text-lg font-semibold text-ocean-foam">Universe</h2>
-        <p className="text-xs text-ocean-sand">
-          {ws.tickers.length} operation-enabled · {ws.eligibleSymbols.length} with optimal range ·{" "}
-          {ws.selectedSymbols.length} selected for picks. Uncheck <strong className="font-medium text-ocean-foam">Ops</strong>{" "}
-          to deactivate a ticker.
+      <section className="space-y-3">
+        <h2 className="font-display text-xl font-semibold text-ocean-foam">Universe</h2>
+        <p className="text-sm leading-relaxed text-ocean-sand">
+          {ws.tickers.length} operation-enabled · {ws.eligibleSymbols.length} with optimal range.
+          Uncheck <strong className="font-medium text-ocean-foam">Ops</strong> to deactivate a
+          ticker.
         </p>
         <OperationsTickerList
           tickers={ws.tickers}
-          selected={ws.selected}
           enablePending={ws.enablePending}
           loading={ws.loadingTickers}
           disabled={busy}
-          onTogglePick={ws.toggleSymbol}
           onDeactivate={(symbol) => ws.setOperationEnable(symbol, false)}
         />
       </section>
 
-      <section className="space-y-2">
-        <h2 className="font-display text-lg font-semibold text-ocean-foam">Option picks</h2>
+      <section className="space-y-3">
+        <h2 className="font-display text-xl font-semibold text-ocean-foam">Option picks</h2>
         <OptionPicksTable
           picks={ws.picks}
           tickers={ws.tickers}

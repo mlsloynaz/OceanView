@@ -40,7 +40,6 @@ export function useOperationsWorkspace() {
   const [searchQuery, setSearchQuery] = useState("");
   const [contractType, setContractType] = useState<ContractType>("CALL");
   const [picks, setPicks] = useState<OptionPicksResponse | null>(null);
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [loadingTickers, setLoadingTickers] = useState(true);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [picksPending, setPicksPending] = useState(false);
@@ -56,15 +55,6 @@ export function useOperationsWorkspace() {
     try {
       const rows = await fetchOperationsTickers();
       setTickers(rows);
-      setSelected((prev) => {
-        const next: Record<string, boolean> = {};
-        for (const row of rows) {
-          if (row.optimalRange) {
-            next[row.symbol] = prev[row.symbol] ?? true;
-          }
-        }
-        return next;
-      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load operations tickers.");
     } finally {
@@ -106,28 +96,6 @@ export function useOperationsWorkspace() {
     [tickers],
   );
 
-  const selectedSymbols = useMemo(
-    () => eligibleSymbols.filter((symbol) => selected[symbol]),
-    [eligibleSymbols, selected],
-  );
-
-  const toggleSymbol = useCallback((symbol: string, checked: boolean) => {
-    setSelected((prev) => ({ ...prev, [symbol]: checked }));
-  }, []);
-
-  const selectAllEligible = useCallback(
-    (checked: boolean) => {
-      setSelected((prev) => {
-        const next = { ...prev };
-        for (const symbol of eligibleSymbols) {
-          next[symbol] = checked;
-        }
-        return next;
-      });
-    },
-    [eligibleSymbols],
-  );
-
   const setOperationEnable = useCallback(
     (symbol: string, nextEnabled: boolean) => {
       const upper = symbol.toUpperCase();
@@ -165,8 +133,8 @@ export function useOperationsWorkspace() {
   );
 
   const runPicks = useCallback(() => {
-    if (selectedSymbols.length === 0) {
-      setError("Select at least one ticker with an optimal range.");
+    if (eligibleSymbols.length === 0) {
+      setError("No operation-enabled tickers with an optimal range.");
       return;
     }
     setError(null);
@@ -174,7 +142,7 @@ export function useOperationsWorkspace() {
     setPicksPending(true);
     startTransition(async () => {
       try {
-        const payload = await fetchOptionPicks(contractType, selectedSymbols);
+        const payload = await fetchOptionPicks(contractType, eligibleSymbols);
         setPicks(payload);
         const ok = payload.results.filter((row) => row.status === "ok").length;
         setNotice(
@@ -186,7 +154,7 @@ export function useOperationsWorkspace() {
         setPicksPending(false);
       }
     });
-  }, [contractType, selectedSymbols]);
+  }, [contractType, eligibleSymbols]);
 
   const buyPick = useCallback(
     (row: OptionPickResult) => {
@@ -245,8 +213,6 @@ export function useOperationsWorkspace() {
     contractType,
     setContractType,
     picks,
-    selected,
-    selectedSymbols,
     eligibleSymbols,
     loadingTickers,
     loadingCatalog,
@@ -256,8 +222,6 @@ export function useOperationsWorkspace() {
     error,
     notice,
     reloadTickers: reloadAll,
-    toggleSymbol,
-    selectAllEligible,
     setOperationEnable,
     runPicks,
     buyPick,

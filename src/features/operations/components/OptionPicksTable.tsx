@@ -23,16 +23,16 @@ export function OptionPicksTable({
 }: Props) {
   if (!picks) {
     return (
-      <p className="text-sm text-ocean-sand">
-        Select tickers and run <strong className="font-medium text-ocean-foam">Find picks</strong> to
-        see nearest-expiration strikes inside each optimal range.
+      <p className="text-base leading-relaxed text-ocean-sand">
+        Run <strong className="font-medium text-ocean-foam">Find picks</strong> to see
+        nearest-expiration strikes inside each optimal range.
       </p>
     );
   }
 
   if (picks.results.length === 0) {
     return (
-      <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+      <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-base text-amber-900 dark:text-amber-100">
         No results returned for {picks.contractType}.
       </p>
     );
@@ -41,8 +41,8 @@ export function OptionPicksTable({
   const bySymbol = new Map(tickers.map((row) => [row.symbol, row]));
 
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-ocean-sand">
+    <div className="space-y-3">
+      <p className="text-sm text-ocean-sand">
         {picks.contractType} picks · evaluated{" "}
         {picks.evaluatedAt
           ? new Date(picks.evaluatedAt).toLocaleString("en-US", {
@@ -56,17 +56,17 @@ export function OptionPicksTable({
           : "—"}
       </p>
       <div className="overflow-x-auto rounded-lg border border-ocean-mid/40">
-        <table className="min-w-full text-left text-sm">
-          <thead className="border-b border-ocean-mid/40 bg-ocean-deep/25 text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">
+        <table className="min-w-full text-left text-base">
+          <thead className="border-b border-ocean-mid/40 bg-ocean-deep/25 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
             <tr>
-              <th className="px-3 py-2">Symbol</th>
-              <th className="px-3 py-2">Spot</th>
-              <th className="px-3 py-2">Range</th>
-              <th className="px-3 py-2">Strike</th>
-              <th className="px-3 py-2">Exp / DTE</th>
-              <th className="px-3 py-2">Bid / Ask</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2 text-right">Action</th>
+              <th className="px-4 py-3">Symbol</th>
+              <th className="px-4 py-3">Spot</th>
+              <th className="px-4 py-3">Range</th>
+              <th className="px-4 py-3">Strike</th>
+              <th className="px-4 py-3">Exp / DTE</th>
+              <th className="px-4 py-3">Bid / Ask</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-ocean-mid/30">
@@ -81,30 +81,30 @@ export function OptionPicksTable({
               const busy = buyingSymbol === row.symbol;
               return (
                 <tr key={row.symbol} className="bg-ocean-surface">
-                  <td className="px-3 py-2 font-semibold text-ocean-foam">{row.symbol}</td>
-                  <td className="px-3 py-2 tabular-nums text-ocean-sand">
+                  <td className="px-4 py-3 font-semibold text-ocean-foam">{row.symbol}</td>
+                  <td className="px-4 py-3 tabular-nums text-ocean-sand">
                     {money(row.underlyingPrice)}
                   </td>
-                  <td className="px-3 py-2 tabular-nums text-ocean-sand">
+                  <td className="px-4 py-3 tabular-nums text-ocean-sand">
                     {row.optimalRange.low}–{row.optimalRange.high}
                   </td>
-                  <td className="px-3 py-2 tabular-nums text-ocean-foam">
+                  <td className="px-4 py-3 tabular-nums text-ocean-foam">
                     {row.pick ? row.pick.strike : "—"}
                   </td>
-                  <td className="px-3 py-2 text-ocean-sand">
+                  <td className="px-4 py-3 text-ocean-sand">
                     {row.pick
                       ? `${row.pick.expiration} · ${row.pick.dte}d`
                       : row.expiration
                         ? `${row.expiration}`
                         : "—"}
                   </td>
-                  <td className="px-3 py-2 tabular-nums text-ocean-sand">
+                  <td className="px-4 py-3 tabular-nums text-ocean-sand">
                     {row.pick ? `${money(row.pick.bid)} / ${money(row.pick.ask)}` : "—"}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-4 py-3">
                     <span
                       className={cn(
-                        "text-[11px] font-medium uppercase tracking-wide",
+                        "text-sm font-medium uppercase tracking-wide",
                         row.status === "ok"
                           ? "text-ocean-teal-dim dark:text-ocean-teal"
                           : row.status === "skipped"
@@ -115,17 +115,17 @@ export function OptionPicksTable({
                       {row.status}
                     </span>
                     {row.message ? (
-                      <p className="mt-0.5 max-w-[16rem] text-[11px] text-ocean-sand/80">
+                      <p className="mt-1 max-w-xs text-sm leading-snug text-ocean-sand/80">
                         {row.message}
                       </p>
                     ) : null}
                   </td>
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-4 py-3 text-right">
                     <button
                       type="button"
                       disabled={disabled || busy || !canBuy}
                       onClick={() => onBuy(row)}
-                      className="rounded-md bg-ocean-teal px-2.5 py-1 text-xs font-semibold text-ocean-deep hover:bg-ocean-teal/90 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="min-h-11 rounded-md bg-ocean-teal px-4 py-2.5 text-sm font-semibold text-ocean-deep hover:bg-ocean-teal/90 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {busy ? "Buying…" : "Buy"}
                     </button>
