@@ -63,6 +63,45 @@ export async function getTickersCatalog(): Promise<CatalogTickersResponse> {
   return { tickers: (payload.tickers ?? []).map(mapTicker) };
 }
 
+export async function createTicker(input: {
+  symbol: string;
+  name?: string | null;
+  active?: boolean;
+  isFavorite?: boolean;
+  isOperationEnable?: boolean;
+}): Promise<CatalogTicker> {
+  const upper = input.symbol.trim().toUpperCase();
+  if (!upper) {
+    throw new Error("Symbol is required.");
+  }
+  if (USE_MOCK) {
+    await delay();
+    if (mockCatalog.some((row) => row.symbol === upper)) {
+      throw new Error(`Ticker already exists: ${upper}`);
+    }
+    const created: CatalogTicker = {
+      symbol: upper,
+      name: input.name?.trim() ? input.name.trim() : null,
+      isFavorite: Boolean(input.isFavorite),
+      active: input.active !== false,
+      isOperationEnable: Boolean(input.isOperationEnable),
+    };
+    mockCatalog = [...mockCatalog, created];
+    return { ...created };
+  }
+  const payload = await fetchJson<CatalogTicker>("/tickers", {
+    method: "POST",
+    body: JSON.stringify({
+      symbol: upper,
+      ...(input.name?.trim() ? { name: input.name.trim() } : {}),
+      active: input.active !== false,
+      isFavorite: Boolean(input.isFavorite),
+      isOperationEnable: Boolean(input.isOperationEnable),
+    }),
+  });
+  return mapTicker(payload);
+}
+
 export async function patchTickerActive(symbol: string, active: boolean): Promise<CatalogTicker> {
   const upper = symbol.trim().toUpperCase();
   if (!upper) {

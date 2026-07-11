@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
+  createTicker,
   getTickersCatalog,
   patchTickerActive,
   patchTickersActive,
 } from "../api/tickers-client";
+import type { AddTickerFormValues } from "../AddTickerForm";
 import {
   paginate,
   sortTickersAlphabetically,
@@ -25,6 +27,7 @@ export function useTickersPane(open: boolean) {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState<Record<string, boolean>>({});
   const [isPending, startTransition] = useTransition();
+  const [adding, setAdding] = useState(false);
 
   const loadCatalog = useCallback(async () => {
     setError(null);
@@ -111,6 +114,32 @@ export function useTickersPane(open: boolean) {
     }),
     [tickers],
   );
+
+  const addTicker = useCallback(async (values: AddTickerFormValues): Promise<boolean> => {
+    setMessage(null);
+    setError(null);
+    setAdding(true);
+    try {
+      const created = await createTicker({
+        symbol: values.symbol,
+        name: values.name || null,
+        active: values.active,
+        isFavorite: values.isFavorite,
+        isOperationEnable: false,
+      });
+      setTickers((prev) => sortTickersAlphabetically([...prev, created]));
+      setSearchState(created.symbol);
+      setPage(1);
+      setFilter("all");
+      setMessage(`${created.symbol} added to the catalog.`);
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add ticker.");
+      return false;
+    } finally {
+      setAdding(false);
+    }
+  }, []);
 
   const setActive = useCallback((symbol: string, nextActive: boolean) => {
     const upper = symbol.toUpperCase();
@@ -251,7 +280,9 @@ export function useTickersPane(open: boolean) {
     message,
     pending,
     isPending,
+    adding,
     reload: loadCatalog,
+    addTicker,
     setActive,
     activatePage,
     deactivatePage,

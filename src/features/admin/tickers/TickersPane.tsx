@@ -1,5 +1,6 @@
 import { cn } from "@/shared/lib/cn";
 import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane";
+import { AddTickerForm } from "./AddTickerForm";
 import { tickersApiBaseUrl, tickersApiUsesMock } from "./api/tickers-client";
 import { useTickersPane } from "./hooks/useTickersPane";
 import { TickersPager } from "./TickersPager";
@@ -33,7 +34,9 @@ export function TickersPane() {
     message,
     pending,
     isPending,
+    adding,
     reload,
+    addTicker,
     activatePage,
     deactivatePage,
     activateAll,
@@ -89,6 +92,12 @@ export function TickersPane() {
         deactivate the current page. Active tickers are included in Market Assess and Candles bulk
         refresh.
       </p>
+
+      <AddTickerForm
+        disabled={loading || isPending}
+        submitting={adding}
+        onSubmit={addTicker}
+      />
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <TickerCatalogSearch

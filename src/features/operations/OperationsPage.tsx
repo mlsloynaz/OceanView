@@ -76,14 +76,17 @@ export function OperationsPage() {
         <h2 className="font-display text-lg font-semibold text-ocean-foam">Universe</h2>
         <p className="text-xs text-ocean-sand">
           {ws.tickers.length} operation-enabled · {ws.eligibleSymbols.length} with optimal range ·{" "}
-          {ws.selectedSymbols.length} selected for picks
+          {ws.selectedSymbols.length} selected for picks. Uncheck <strong className="font-medium text-ocean-foam">Ops</strong>{" "}
+          to deactivate a ticker.
         </p>
         <OperationsTickerList
           tickers={ws.tickers}
           selected={ws.selected}
+          enablePending={ws.enablePending}
           loading={ws.loadingTickers}
           disabled={busy}
-          onToggle={ws.toggleSymbol}
+          onTogglePick={ws.toggleSymbol}
+          onDeactivate={(symbol) => ws.setOperationEnable(symbol, false)}
         />
       </section>
 

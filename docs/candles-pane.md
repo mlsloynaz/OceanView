@@ -82,6 +82,7 @@ flowchart TB
 
 | UI control | When | API | Purpose |
 |------------|------|-----|---------|
+| **Ticker catalog** add | Form submit | `POST /tickers` | Create catalog symbol |
 | **Ticker catalog** toggle | User click | `PATCH /tickers/{symbol}` `{ active }` | Include/exclude from Market + Candles bulk |
 | **Ticker catalog** reload | User click | `GET /tickers` | Full catalog (active + inactive) |
 | *(Candles panel open)* | After catalog loads | `GET /tickers?activeOnly=true` | Active symbols only |
@@ -139,6 +140,29 @@ Base path: `/api` or same-origin `/` (CloudFront → API Gateway). All requests 
 ```
 
 Missing `isOperationEnable` on older Dynamo rows is treated as **`true`** (used by Operations; not edited in this pane).
+
+### `POST /tickers`
+
+**Purpose:** Create a catalog row (Dynamo `OceanView-Tickers`).
+
+**Request:**
+
+```json
+{
+  "symbol": "AAPL",
+  "name": "Apple Inc.",
+  "active": true,
+  "isFavorite": false,
+  "isOperationEnable": false
+}
+```
+
+`symbol` is required. `name` optional. Defaults: `active: true`, `isFavorite: false`, `isOperationEnable: false`.
+
+**Response `201`:** Created ticker object.  
+**Response `409`:** Symbol already exists.
+
+**Used by:** Admin Tickers pane **Add ticker** form.
 
 ### `PATCH /tickers/{symbol}`
 
@@ -433,10 +457,11 @@ Removed from legacy pane: Request Earning Calendar, Refresh + foundation.
 src/features/admin/
   AdminPage.tsx                 # TickersPane + CandlesPane
   tickers/
-    TickersPane.tsx             # catalog filters + active toggle
+    TickersPane.tsx             # catalog filters + add form + active toggle
+    AddTickerForm.tsx
     TickersTable.tsx
     types.ts
-    api/tickers-client.ts       # GET /tickers, PATCH /tickers/{symbol} (active)
+    api/tickers-client.ts       # GET/POST /tickers, PATCH /tickers/{symbol} (active)
     hooks/useTickersPane.ts
   candles/
     CandlesPane.tsx             # collapsible panel + toolbar

@@ -25,7 +25,8 @@ Optimal ranges are imported on the API (`import_optimal_ranges.py`). Eligibility
 |---------|----------|
 | Eligibility search | Filter catalog by symbol/name; checkbox toggles `isOperationEnable` |
 | CALL / PUT | Contract type for the next picks run |
-| Select all eligible | Toggle all tickers that have `optimalRange` |
+| Universe Pick checkbox | Include/exclude symbol for the next Find picks run |
+| Universe Ops checkbox | Uncheck deactivates (`isOperationEnable: false`) and removes from universe |
 | Find picks | Calls option-picks for the selected symbols |
 | Reload tickers | Refresh catalog + universe + positions |
 | Buy | Confirms, then `POST /operations/buy` for that pick |

@@ -4,9 +4,11 @@ import type { OperationsTicker } from "../types";
 type Props = {
   tickers: OperationsTicker[];
   selected: Record<string, boolean>;
+  enablePending: Record<string, boolean>;
   loading: boolean;
   disabled?: boolean;
-  onToggle: (symbol: string, checked: boolean) => void;
+  onTogglePick: (symbol: string, checked: boolean) => void;
+  onDeactivate: (symbol: string) => void;
 };
 
 function formatRange(low: number, high: number): string {
@@ -16,9 +18,11 @@ function formatRange(low: number, high: number): string {
 export function OperationsTickerList({
   tickers,
   selected,
+  enablePending,
   loading,
   disabled = false,
-  onToggle,
+  onTogglePick,
+  onDeactivate,
 }: Props) {
   if (loading) {
     return <p className="text-sm text-ocean-sand">Loading operations tickers…</p>;
@@ -35,33 +39,34 @@ export function OperationsTickerList({
 
   return (
     <div className="overflow-hidden rounded-lg border border-ocean-mid/40">
-      <div className="grid grid-cols-[auto_1fr_auto_auto] gap-3 border-b border-ocean-mid/40 bg-ocean-deep/25 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">
+      <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-3 border-b border-ocean-mid/40 bg-ocean-deep/25 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">
         <span>Pick</span>
         <span>Symbol</span>
         <span className="text-right">Optimal range</span>
         <span className="text-right">Position</span>
+        <span className="text-center">Ops</span>
       </div>
       <ul className="divide-y divide-ocean-mid/30">
         {tickers.map((row) => {
           const hasRange = Boolean(row.optimalRange);
-          const positionLabel = row.position?.status
-            ? row.position.status
-            : "—";
+          const rowPending = Boolean(enablePending[row.symbol]);
+          const positionLabel = row.position?.status ? row.position.status : "—";
           return (
             <li
               key={row.symbol}
               className={cn(
-                "grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 bg-ocean-surface px-3 py-2",
+                "grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3 bg-ocean-surface px-3 py-2",
                 !hasRange && "opacity-70",
               )}
             >
               <input
                 type="checkbox"
                 checked={Boolean(selected[row.symbol])}
-                disabled={disabled || !hasRange}
-                onChange={(event) => onToggle(row.symbol, event.target.checked)}
+                disabled={disabled || !hasRange || rowPending}
+                onChange={(event) => onTogglePick(row.symbol, event.target.checked)}
                 className="h-4 w-4 rounded border-ocean-mid/60 bg-ocean-deep accent-ocean-teal disabled:opacity-40"
                 aria-label={`Include ${row.symbol} in option picks`}
+                title={hasRange ? "Include in Find picks" : "Needs optimal range"}
               />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -91,6 +96,24 @@ export function OperationsTickerList({
               >
                 {positionLabel}
               </span>
+              <label className="flex items-center justify-center gap-1.5 text-xs text-ocean-sand">
+                <span className="sr-only">Disable operations for {row.symbol}</span>
+                <input
+                  type="checkbox"
+                  checked
+                  disabled={disabled || rowPending}
+                  onChange={(event) => {
+                    if (!event.target.checked) {
+                      onDeactivate(row.symbol);
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-ocean-mid/60 bg-ocean-deep accent-ocean-teal disabled:opacity-50"
+                  title="Uncheck to remove from Operations"
+                />
+                <span className="hidden sm:inline" aria-hidden>
+                  {rowPending ? "…" : "On"}
+                </span>
+              </label>
             </li>
           );
         })}

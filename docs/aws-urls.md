@@ -67,6 +67,7 @@ That is expected. API Gateway has no route on `/prod` itself — only on named p
 |--------|------|---------|
 | `GET` | `/health` | https://7bko9drijd.execute-api.us-east-1.amazonaws.com/prod/health |
 | `GET` | `/tickers` | …/prod/tickers |
+| `POST` | `/tickers` | …/prod/tickers |
 | `GET` | `/jobs/status` | …/prod/jobs/status |
 | `POST` | `/candles/result` | …/prod/candles/result |
 | `POST` | `/candles/status` | …/prod/candles/status |
