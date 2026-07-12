@@ -9,7 +9,6 @@ import { MarketPage } from "@/features/market/MarketPage";
 import { MarketRedirect } from "@/features/market/MarketRedirect";
 import { PremarketPage } from "@/features/premarket/PremarketPage";
 import { StrategyBuilderPage } from "@/features/premarket/StrategyBuilderPage";
-import { OperationsPage } from "@/features/operations/OperationsPage";
 import { AdminPage } from "@/features/admin/AdminPage";
 import { defaultMarketMode, marketPath } from "@/features/market/lib/market-routes";
 
@@ -28,7 +27,6 @@ export const router = createBrowserRouter([
       { path: "market", element: <MarketRedirect /> },
       { path: "market/:mode", element: <MarketPage /> },
       { path: "premarket", element: <PremarketPage /> },
-      { path: "operations", element: <OperationsPage /> },
       {
         path: "strategies/new",
         element: (

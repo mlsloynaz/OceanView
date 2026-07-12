@@ -46,7 +46,7 @@ export function AdminPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam">Admin</h1>
         <p className="mt-2 text-ocean-sand">
-          Operations and configuration for tickers, candles, and strategies. Choose a pane
+          Configuration for tickers, candles, and strategies. Choose a pane
           below —{" "}
           <button
             type="button"

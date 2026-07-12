@@ -56,14 +56,29 @@ export function StrategiesPane() {
           title="Strategy builder"
           subtitle={summary}
           headerExtra={
-            <button
-              type="button"
-              className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105")}
-              disabled={ws.saving}
-              onClick={openNewStrategy}
-            >
-              New
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className={cn(
+                  BTN,
+                  ws.hasUnsavedChanges
+                    ? "bg-amber-500 text-ocean-deep hover:brightness-105"
+                    : "bg-ocean-mid/50 text-ocean-sand",
+                )}
+                disabled={ws.saving || !ws.hasUnsavedChanges}
+                onClick={() => void ws.saveAllStrategies()}
+              >
+                {ws.saving ? "Saving…" : ws.hasUnsavedChanges ? `Save all (${ws.dirtyCount})` : "Save all"}
+              </button>
+              <button
+                type="button"
+                className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105")}
+                disabled={ws.saving}
+                onClick={openNewStrategy}
+              >
+                New
+              </button>
+            </div>
           }
         >
           {ws.error && (
@@ -87,19 +102,23 @@ export function StrategiesPane() {
           <p className="mb-4 text-[11px] text-ocean-sand">
             Unified catalog in Dynamo. <strong className="font-medium text-ocean-foam">Standard</strong>{" "}
             strategies evaluate on Market; <strong className="font-medium text-ocean-foam">dynamic</strong>{" "}
-            screens evaluate on Premarket. Promote, demote, activate, edit, and delete from this list.
+            screens evaluate on Premarket. Activate, edit rules, then click{" "}
+            <strong className="font-medium text-ocean-foam">Save all</strong> once to persist.
           </p>
 
           <DynamicStrategyCatalog
             embedded
             strategies={ws.strategies}
             saving={ws.saving}
+            dirtyIds={ws.dirtyIds}
+            hasUnsavedChanges={ws.hasUnsavedChanges}
             onEdit={openEditStrategy}
             onNew={openNewStrategy}
-            onToggleActive={(s) => void ws.toggleStrategyActive(s)}
+            onToggleActive={(s) => ws.toggleStrategyActive(s)}
             onDelete={(s) => void ws.deleteStrategy(s)}
             onPromote={(s) => void ws.promoteStrategy(s)}
             onDemote={(s) => void ws.demoteStrategy(s)}
+            onSaveAll={() => void ws.saveAllStrategies()}
           />
         </AdminExpandedPane>
       )}

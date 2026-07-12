@@ -113,14 +113,38 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
           title="Strategy builder"
           subtitle={strategySummary}
           headerExtra={
-            <button
-              type="button"
-              className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105")}
-              disabled={builder.saving || builder.loading}
-              onClick={openNewStrategy}
-            >
-              New
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className={cn(
+                  BTN,
+                  builder.hasUnsavedChanges
+                    ? "bg-amber-500 text-ocean-deep hover:brightness-105"
+                    : "bg-ocean-mid/50 text-ocean-sand",
+                )}
+                disabled={builder.saving || builder.loading || !builder.hasUnsavedChanges}
+                onClick={() => {
+                  void (async () => {
+                    const ok = await builder.saveAllStrategies();
+                    if (ok) onStrategyMutated();
+                  })();
+                }}
+              >
+                {builder.saving
+                  ? "Saving…"
+                  : builder.hasUnsavedChanges
+                    ? `Save all (${builder.dirtyCount})`
+                    : "Save all"}
+              </button>
+              <button
+                type="button"
+                className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105")}
+                disabled={builder.saving || builder.loading}
+                onClick={openNewStrategy}
+              >
+                New
+              </button>
+            </div>
           }
         >
           {builder.error && (
@@ -135,11 +159,12 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
               embedded
               strategies={builder.strategies}
               saving={builder.saving}
+              dirtyIds={builder.dirtyIds}
+              hasUnsavedChanges={builder.hasUnsavedChanges}
               onEdit={openEditStrategy}
               onNew={openNewStrategy}
-              onToggleActive={async (strategy) => {
-                await builder.toggleStrategyActive(strategy);
-                onStrategyMutated();
+              onToggleActive={(strategy) => {
+                builder.toggleStrategyActive(strategy);
               }}
               onDelete={async (strategy) => {
                 const deleted = await builder.deleteStrategy(strategy);
@@ -152,6 +177,12 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
               onDemote={async (strategy) => {
                 const demoted = await builder.demoteStrategy(strategy);
                 if (demoted) onStrategyMutated();
+              }}
+              onSaveAll={() => {
+                void (async () => {
+                  const ok = await builder.saveAllStrategies();
+                  if (ok) onStrategyMutated();
+                })();
               }}
             />
           )}

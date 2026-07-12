@@ -57,6 +57,9 @@ type Props = {
   onMoveRule: (rowId: string, direction: "up" | "down") => void;
   onCancel: () => void;
   onSave: () => void;
+  onSaveAll?: () => void;
+  hasUnsavedChanges?: boolean;
+  dirtyCount?: number;
   onPreview: () => void;
   onDelete?: () => void;
 };
@@ -328,6 +331,9 @@ export function DynamicStrategyBuilder({
   onMoveRule,
   onCancel,
   onSave,
+  onSaveAll,
+  hasUnsavedChanges = false,
+  dirtyCount = 0,
   onPreview,
   onDelete,
 }: Props) {
@@ -706,8 +712,23 @@ export function DynamicStrategyBuilder({
             disabled={saving || !canSave}
             onClick={onSave}
           >
-            {saving ? "Guardando…" : isEditing ? "Guardar" : "Guardar estrategia"}
+            {isEditing ? "Apply changes" : "Stage strategy"}
           </button>
+          {onSaveAll ? (
+            <button
+              type="button"
+              className={cn(
+                BTN,
+                hasUnsavedChanges
+                  ? "bg-amber-500 text-ocean-deep hover:brightness-105"
+                  : "bg-ocean-mid/50 text-ocean-sand",
+              )}
+              disabled={saving || !hasUnsavedChanges}
+              onClick={onSaveAll}
+            >
+              {saving ? "Saving…" : hasUnsavedChanges ? `Save all (${dirtyCount})` : "Save all"}
+            </button>
+          ) : null}
           <button
             type="button"
             className={cn(

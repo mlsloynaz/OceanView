@@ -83,6 +83,12 @@ export function StrategyBuilderPage() {
   ]);
 
   const handleCancel = () => {
+    if (ws.hasUnsavedChanges) {
+      const ok = window.confirm(
+        "You have unsaved strategy changes. Leave without saving to Dynamo?",
+      );
+      if (!ok) return;
+    }
     ws.resetBuilder();
     navigate(returnTo);
   };
@@ -93,6 +99,22 @@ export function StrategyBuilderPage() {
     if (isNew) {
       navigate(strategyBuilderEditPath(saved.id), { replace: true, state: locationState });
     }
+  };
+
+  const handleSaveAll = async () => {
+    let staged: Awaited<ReturnType<typeof ws.saveBuilder>> = null;
+    let stagedIsCreate = false;
+    if (ws.builderName.trim() && ws.builderRows.length > 0) {
+      stagedIsCreate = ws.editingStrategyId == null;
+      staged = await ws.saveBuilder({ stayOnPage: true });
+      if (!staged && !ws.hasUnsavedChanges) return;
+      if (isNew && staged) {
+        navigate(strategyBuilderEditPath(staged.id), { replace: true, state: locationState });
+      }
+    }
+    await ws.saveAllStrategies(
+      staged ? { extra: staged, extraIsCreate: stagedIsCreate } : undefined,
+    );
   };
 
   const handleDelete = async () => {
@@ -122,7 +144,8 @@ export function StrategyBuilderPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold text-ocean-foam">{pageTitle}</h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ocean-sand">
-            Build a screen by adding rules, set CALL/PUT paths per row, then preview or save.
+            Build a screen by adding rules, set CALL/PUT paths per row, then apply changes and click
+            Save all once to persist.
           </p>
         </div>
         {ws.notice && (
@@ -159,6 +182,9 @@ export function StrategyBuilderPage() {
             onMoveRule={ws.moveRuleInBuilder}
             onCancel={handleCancel}
             onSave={() => void handleSave()}
+            onSaveAll={() => void handleSaveAll()}
+            hasUnsavedChanges={ws.hasUnsavedChanges}
+            dirtyCount={ws.dirtyCount}
             onPreview={() => void ws.previewBuilder()}
             onDelete={canDelete ? () => void handleDelete() : undefined}
           />

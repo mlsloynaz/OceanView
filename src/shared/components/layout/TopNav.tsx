@@ -7,7 +7,6 @@ import { cn } from "@/shared/lib/cn";
 const navItems = [
   { to: marketPath(defaultMarketMode()), label: "Market", match: "/market" },
   { to: "/premarket", label: "Premarket", match: "/premarket" },
-  { to: "/operations", label: "Operations", match: "/operations" },
   { to: "/admin", label: "Admin", match: "/admin" },
 ] as const;
 

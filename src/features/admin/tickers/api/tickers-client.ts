@@ -7,11 +7,11 @@ const API_BASE = getApiBaseUrl();
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_CANDLES === "true";
 
 let mockCatalog: CatalogTicker[] = [
-  { symbol: "AAPL", name: "Apple Inc.", isFavorite: true, active: true, isOperationEnable: true },
-  { symbol: "MSFT", name: "Microsoft Corp.", isFavorite: true, active: true, isOperationEnable: true },
-  { symbol: "NVDA", name: "NVIDIA Corp.", isFavorite: true, active: true, isOperationEnable: false },
-  { symbol: "TSLA", name: "Tesla Inc.", isFavorite: false, active: false, isOperationEnable: true },
-  { symbol: "AMD", name: "Advanced Micro Devices", isFavorite: false, active: true, isOperationEnable: true },
+  { symbol: "AAPL", name: "Apple Inc.", isFavorite: true, active: true },
+  { symbol: "MSFT", name: "Microsoft Corp.", isFavorite: true, active: true },
+  { symbol: "NVDA", name: "NVIDIA Corp.", isFavorite: true, active: true },
+  { symbol: "TSLA", name: "Tesla Inc.", isFavorite: false, active: false },
+  { symbol: "AMD", name: "Advanced Micro Devices", isFavorite: false, active: true },
 ];
 
 function delay(ms = MOCK_DELAY_MS) {
@@ -35,14 +35,12 @@ function mapTicker(row: {
   name?: string | null;
   isFavorite?: boolean;
   active?: boolean;
-  isOperationEnable?: boolean;
 }): CatalogTicker {
   return {
     symbol: row.symbol.toUpperCase(),
     name: row.name ?? null,
     isFavorite: Boolean(row.isFavorite),
     active: row.active !== false,
-    isOperationEnable: row.isOperationEnable !== false,
   };
 }
 
@@ -68,7 +66,6 @@ export async function createTicker(input: {
   name?: string | null;
   active?: boolean;
   isFavorite?: boolean;
-  isOperationEnable?: boolean;
 }): Promise<CatalogTicker> {
   const upper = input.symbol.trim().toUpperCase();
   if (!upper) {
@@ -84,7 +81,6 @@ export async function createTicker(input: {
       name: input.name?.trim() ? input.name.trim() : null,
       isFavorite: Boolean(input.isFavorite),
       active: input.active !== false,
-      isOperationEnable: Boolean(input.isOperationEnable),
     };
     mockCatalog = [...mockCatalog, created];
     return { ...created };
@@ -96,7 +92,6 @@ export async function createTicker(input: {
       ...(input.name?.trim() ? { name: input.name.trim() } : {}),
       active: input.active !== false,
       isFavorite: Boolean(input.isFavorite),
-      isOperationEnable: Boolean(input.isOperationEnable),
     }),
   });
   return mapTicker(payload);

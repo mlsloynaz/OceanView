@@ -58,6 +58,43 @@ function evaluateSurfaceLabel(tier: StrategyTier): string {
   return tier === "standard" ? "Market" : "Premarket";
 }
 
+function sortStrategies(rows: DynamicStrategy[]): DynamicStrategy[] {
+  return [...rows].sort((a, b) => {
+    const tierOrder = resolveStrategyTier(a) === "standard" ? 0 : 1;
+    const tierOrderB = resolveStrategyTier(b) === "standard" ? 0 : 1;
+    if (tierOrder !== tierOrderB) return tierOrder - tierOrderB;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function strategyRulesToInput(rules: DynamicStrategy["rules"]) {
+  return buildRulesPayload(
+    rules.map((rule) => ({
+      id: rule.id,
+      ruleKey: rule.ruleKey,
+      type: (rule.type === "extra" || rule.type === "gate" ? rule.type : "required") as
+        | "required"
+        | "extra"
+        | "gate",
+      trend: rule.trend,
+      operation: rule.operation,
+    })),
+  );
+}
+
+function markDirty(prev: Set<string>, id: string): Set<string> {
+  const next = new Set(prev);
+  next.add(id);
+  return next;
+}
+
+function clearId(prev: Set<string>, id: string): Set<string> {
+  if (!prev.has(id)) return prev;
+  const next = new Set(prev);
+  next.delete(id);
+  return next;
+}
+
 export function useStrategiesPane(options?: { enabled?: boolean }) {
   const enabled = options?.enabled !== false;
   const useMock = dynamicStrategiesUseMock();
@@ -70,16 +107,29 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   const [builderName, setBuilderName] = useState("");
   const [builderRows, setBuilderRows] = useState<BuilderRuleRow[]>([]);
 
+  /** Strategy ids with local edits not yet written to Dynamo. */
+  const [dirtyActiveIds, setDirtyActiveIds] = useState<Set<string>>(() => new Set());
+  const [dirtyContentIds, setDirtyContentIds] = useState<Set<string>>(() => new Set());
+  /** Local-only creates — POST on Save all instead of PATCH. */
+  const [pendingCreateIds, setPendingCreateIds] = useState<Set<string>>(() => new Set());
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewPending, setPreviewPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const clearPendingEdits = useCallback(() => {
+    setDirtyActiveIds(new Set());
+    setDirtyContentIds(new Set());
+    setPendingCreateIds(new Set());
+  }, []);
+
   const reload = useCallback(async () => {
     if (!enabled) {
       setStrategies([]);
       setRules([]);
+      clearPendingEdits();
       setLoading(false);
       return;
     }
@@ -90,21 +140,18 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
         fetchDynamicCatalog(),
         fetchDynamicRules(),
       ]);
-      const rows = (catalog.strategies ?? []).map((row) => normalizeStrategy(row as DynamicStrategy));
-      rows.sort((a, b) => {
-        const tierOrder = resolveStrategyTier(a) === "standard" ? 0 : 1;
-        const tierOrderB = resolveStrategyTier(b) === "standard" ? 0 : 1;
-        if (tierOrder !== tierOrderB) return tierOrder - tierOrderB;
-        return a.name.localeCompare(b.name);
-      });
+      const rows = sortStrategies(
+        (catalog.strategies ?? []).map((row) => normalizeStrategy(row as DynamicStrategy)),
+      );
       setStrategies(rows);
       setRules(rulesPayload.rules ?? []);
+      clearPendingEdits();
     } catch (err) {
       setError(resolveError(err));
     } finally {
       setLoading(false);
     }
-  }, [enabled]);
+  }, [clearPendingEdits, enabled]);
 
   useEffect(() => {
     void reload();
@@ -196,33 +243,64 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       setError("Strategy ID is required (e.g. E01).");
       return null;
     }
-    setSaving(true);
     setError(null);
-    try {
-      const wasEdit = editingStrategyId != null;
-      const rules = buildRulesPayload(builderRows);
-      const saved = wasEdit
-        ? await patchDynamicStrategy(editingStrategyId, { name, rules, active: true })
-        : await createDynamicStrategy({ id, name, rules, active: true });
-      const normalized = normalizeStrategy(saved);
-      await reload();
-      if (options?.stayOnPage) {
-        hydrateBuilderFromStrategy(normalized);
-      } else {
-        clearBuilder();
-      }
-      setNotice(
-        wasEdit
-          ? `Strategy "${saved.name}" updated.`
-          : `Strategy "${saved.name}" saved to Dynamo.`,
-      );
-      return normalized;
-    } catch (err) {
-      setError(resolveError(err));
+
+    const wasEdit = editingStrategyId != null;
+    const strategyId = wasEdit ? editingStrategyId : id;
+    if (!wasEdit && strategies.some((row) => row.id === strategyId)) {
+      setError(`Strategy already exists: ${strategyId}`);
       return null;
-    } finally {
-      setSaving(false);
     }
+
+    const ruleInputs = buildRulesPayload(builderRows);
+    const existing = wasEdit ? strategies.find((row) => row.id === strategyId) : undefined;
+    const staged = normalizeStrategy({
+      id: strategyId,
+      name,
+      shortName: existing?.shortName,
+      description: existing?.description,
+      tier: existing?.tier ?? "dynamic",
+      direction: existing?.direction,
+      active: true,
+      rules: ruleInputs.map((rule, index) => {
+        const prior = existing?.rules.find((row) => row.id === rule.id);
+        const template = rules.find((r) => r.ruleKey === rule.ruleKey);
+        return {
+          id: rule.id ?? prior?.id ?? `${strategyId}-${rule.ruleKey}-${index}`,
+          ruleKey: rule.ruleKey,
+          label: prior?.label ?? template?.label ?? rule.ruleKey,
+          type: rule.type ?? "required",
+          timeframe: prior?.timeframe ?? template?.timeframe,
+          trend: rule.trend,
+          operation: rule.operation,
+          pathVariant: rule.pathVariant,
+          when: prior?.when ?? template?.when,
+        };
+      }),
+    });
+
+    setStrategies((prev) => {
+      if (wasEdit) {
+        return sortStrategies(prev.map((row) => (row.id === strategyId ? staged : row)));
+      }
+      return sortStrategies([...prev, staged]);
+    });
+    setDirtyContentIds((prev) => markDirty(prev, strategyId));
+    if (!wasEdit) {
+      setPendingCreateIds((prev) => markDirty(prev, strategyId));
+    }
+
+    if (options?.stayOnPage) {
+      hydrateBuilderFromStrategy(staged);
+    } else {
+      clearBuilder();
+    }
+    setNotice(
+      wasEdit
+        ? `Strategy "${staged.name}" updated locally — click Save all to persist.`
+        : `Strategy "${staged.name}" staged locally — click Save all to persist.`,
+    );
+    return staged;
   }, [
     builderName,
     builderRows,
@@ -230,27 +308,78 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     clearBuilder,
     editingStrategyId,
     hydrateBuilderFromStrategy,
-    reload,
+    rules,
+    strategies,
   ]);
 
-  const toggleStrategyActive = useCallback(
-    async (strategy: DynamicStrategy) => {
-      const tier = resolveStrategyTier(strategy);
+  const toggleStrategyActive = useCallback((strategy: DynamicStrategy) => {
+    const tier = resolveStrategyTier(strategy);
+    const nextActive = !strategy.active;
+    setStrategies((prev) =>
+      prev.map((row) => (row.id === strategy.id ? { ...row, active: nextActive } : row)),
+    );
+    setDirtyActiveIds((prev) => markDirty(prev, strategy.id));
+    setError(null);
+    setNotice(
+      `${strategy.name} ${nextActive ? "activated" : "deactivated"} for ${evaluateSurfaceLabel(tier)} (unsaved).`,
+    );
+  }, []);
+
+  const saveAllStrategies = useCallback(
+    async (options?: { extra?: DynamicStrategy; extraIsCreate?: boolean }) => {
+      const ids = new Set<string>([
+        ...dirtyActiveIds,
+        ...dirtyContentIds,
+        ...pendingCreateIds,
+      ]);
+      if (options?.extra) {
+        ids.add(options.extra.id);
+      }
+      if (ids.size === 0) {
+        setNotice("No unsaved strategy changes.");
+        return true;
+      }
       setSaving(true);
       setError(null);
       try {
-        await patchDynamicStrategy(strategy.id, { active: !strategy.active });
+        for (const id of ids) {
+          const strategy =
+            options?.extra?.id === id
+              ? options.extra
+              : strategies.find((row) => row.id === id);
+          if (!strategy) continue;
+          const isCreate = pendingCreateIds.has(id) || (options?.extraIsCreate === true && options.extra?.id === id);
+          if (isCreate) {
+            await createDynamicStrategy({
+              id: strategy.id,
+              name: strategy.name,
+              shortName: strategy.shortName ?? undefined,
+              description: strategy.description,
+              direction: strategy.direction ?? undefined,
+              active: strategy.active,
+              rules: strategyRulesToInput(strategy.rules),
+            });
+          } else if (dirtyContentIds.has(id) || options?.extra?.id === id) {
+            await patchDynamicStrategy(id, {
+              name: strategy.name,
+              active: strategy.active,
+              rules: strategyRulesToInput(strategy.rules),
+            });
+          } else {
+            await patchDynamicStrategy(id, { active: strategy.active });
+          }
+        }
         await reload();
-        setNotice(
-          `${strategy.name} ${!strategy.active ? "activated" : "deactivated"} for ${evaluateSurfaceLabel(tier)}.`,
-        );
+        setNotice(`Saved ${ids.size} strateg${ids.size === 1 ? "y" : "ies"} to Dynamo.`);
+        return true;
       } catch (err) {
         setError(resolveError(err));
+        return false;
       } finally {
         setSaving(false);
       }
     },
-    [reload],
+    [dirtyActiveIds, dirtyContentIds, pendingCreateIds, reload, strategies],
   );
 
   const deleteStrategy = useCallback(
@@ -260,10 +389,26 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
         setError("Standard playbooks cannot be deleted. Demote to dynamic or deactivate instead.");
         return false;
       }
+
+      const isPendingCreate = pendingCreateIds.has(strategy.id);
       const ok = window.confirm(
-        `Delete "${strategy.name}"?\n\nThis permanently removes the strategy from Dynamo. It will no longer appear in Premarket evaluate.`,
+        isPendingCreate
+          ? `Discard unsaved strategy "${strategy.name}"?`
+          : `Delete "${strategy.name}"?\n\nThis permanently removes the strategy from Dynamo. It will no longer appear in Premarket evaluate.`,
       );
       if (!ok) return false;
+
+      if (isPendingCreate) {
+        setStrategies((prev) => prev.filter((row) => row.id !== strategy.id));
+        setDirtyActiveIds((prev) => clearId(prev, strategy.id));
+        setDirtyContentIds((prev) => clearId(prev, strategy.id));
+        setPendingCreateIds((prev) => clearId(prev, strategy.id));
+        if (editingStrategyId === strategy.id) {
+          clearBuilder();
+        }
+        setNotice(`Unsaved strategy "${strategy.name}" discarded.`);
+        return true;
+      }
 
       setSaving(true);
       setError(null);
@@ -282,7 +427,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
         setSaving(false);
       }
     },
-    [clearBuilder, editingStrategyId, reload],
+    [clearBuilder, editingStrategyId, pendingCreateIds, reload],
   );
 
   const deleteEditingStrategy = useCallback(async () => {
@@ -373,6 +518,9 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
 
   const standardStrategies = strategies.filter((s) => resolveStrategyTier(s) === "standard");
   const dynamicStrategies = strategies.filter((s) => resolveStrategyTier(s) === "dynamic");
+  const dirtyIds = new Set<string>([...dirtyActiveIds, ...dirtyContentIds, ...pendingCreateIds]);
+  const dirtyCount = dirtyIds.size;
+  const hasUnsavedChanges = dirtyCount > 0;
 
   return {
     useMock,
@@ -389,6 +537,9 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     previewPending,
     error,
     notice,
+    dirtyIds,
+    dirtyCount,
+    hasUnsavedChanges,
     setBuilderStrategyId,
     setBuilderName,
     setRuleTrend,
@@ -401,6 +552,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     hydrateBuilderFromStrategy,
     cloneBuilderFromStrategy,
     saveBuilder,
+    saveAllStrategies,
     toggleStrategyActive,
     deleteStrategy,
     deleteEditingStrategy,

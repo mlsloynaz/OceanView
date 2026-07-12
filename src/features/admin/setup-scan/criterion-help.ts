@@ -6,8 +6,10 @@ export type CriterionHelp = {
 };
 
 export const SETUP_SCAN_TIER_HELP =
-  "Scores sum weighted D+1h setup checks (max 23 for Inside BB 15M). " +
-  "Excellent ≥18 · Strong ≥14 · Moderate ≥10 · Skip below 10. " +
+  "Scores use strategy-specific D+1h / 15m setup checks. " +
+  "Inside BB 15M (E05): max 23 — Excellent ≥18 · Strong ≥14 · Moderate ≥10. " +
+  "Lateral BB15 + Gap (E04): max 10 — Excellent ≥8 · Strong ≥6 · Moderate ≥5 " +
+  "(primary: finish the day lateral on 15m). " +
   "Avoid flags do not subtract points but mark caution when other tiers apply.";
 
 export const CRITERION_HELP: Record<string, CriterionHelp> = {
@@ -86,6 +88,23 @@ export const CRITERION_HELP: Record<string, CriterionHelp> = {
       "Overnight gap direction matches setup bias (gap up with CALL bias, gap down with PUT bias). " +
       "Small bonus when premarket move agrees with D/1h direction.",
   },
+  m15TrendLateral: {
+    title: "15m finished lateral",
+    description:
+      "End of day on 15m is lateral (or BB mid flat). Primary Tickers SemiFinal screen for " +
+      "Lateral BB15 + Gap (E04) — prior session must close without a clear 15m trend.",
+  },
+  m15VolStableOrClosing: {
+    title: "15m BB vol stable/closing",
+    description:
+      "15m Bollinger width is stable or closing (not opening). Matches E04 “sin volatilidad” " +
+      "before the next opening gap.",
+  },
+  m15InsideBb: {
+    title: "15m inside Bollinger",
+    description:
+      "Last 15m close is inside the Bollinger bands at the end of the day — not stretched outside.",
+  },
 };
 
 export const AVOID_HELP: Record<string, CriterionHelp> = {
@@ -113,6 +132,16 @@ export const AVOID_HELP: Record<string, CriterionHelp> = {
     title: "Extended on daily BB",
     description:
       "Daily close is outside Bollinger bands (stretched). Higher risk of mean reversion instead of an orderly band ride.",
+  },
+  m15Trending: {
+    title: "15m still trending",
+    description:
+      "15m finished bullish or bearish with a sloping BB mid — not the lateral EOD setup E04 wants.",
+  },
+  m15VolOpening: {
+    title: "15m BB vol still opening",
+    description:
+      "15m Bollinger width is still expanding at the close — E04 prefers a quiet/compressed channel first.",
   },
 };
 

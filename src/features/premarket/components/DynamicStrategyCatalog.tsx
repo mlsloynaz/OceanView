@@ -19,6 +19,9 @@ type Props = {
   onDelete: (strategy: DynamicStrategy) => void;
   onPromote?: (strategy: DynamicStrategy) => void;
   onDemote?: (strategy: DynamicStrategy) => void;
+  onSaveAll?: () => void;
+  dirtyIds?: ReadonlySet<string>;
+  hasUnsavedChanges?: boolean;
   defaultOpen?: boolean;
   title?: string;
   embedded?: boolean;
@@ -42,6 +45,7 @@ function StrategyCatalogBody({
   onDelete,
   onPromote,
   onDemote,
+  dirtyIds,
 }: Pick<
   Props,
   | "strategies"
@@ -51,6 +55,7 @@ function StrategyCatalogBody({
   | "onDelete"
   | "onPromote"
   | "onDemote"
+  | "dirtyIds"
 >) {
   if (strategies.length === 0) {
     return (
@@ -66,6 +71,7 @@ function StrategyCatalogBody({
       {strategies.map((strategy) => {
         const tier = resolveStrategyTier(strategy);
         const isStandard = tier === "standard";
+        const isDirty = dirtyIds?.has(strategy.id) ?? false;
 
         return (
           <li
@@ -73,6 +79,7 @@ function StrategyCatalogBody({
             className={cn(
               "rounded-lg border border-ocean-mid/30 px-3 py-3",
               !strategy.active && "opacity-70",
+              isDirty && "border-amber-500/40",
             )}
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -99,6 +106,11 @@ function StrategyCatalogBody({
                 >
                   {strategy.active ? "active" : "inactive"}
                 </span>
+                {isDirty ? (
+                  <span className="ml-2 inline rounded px-1.5 py-px text-[10px] font-medium uppercase bg-amber-500/20 text-amber-200">
+                    unsaved
+                  </span>
+                ) : null}
                 <p className="mt-1 text-[10px] text-ocean-sand/80">{tierEvaluateHint(tier)}</p>
                 {strategy.description && (
                   <p className="mt-1 text-xs text-ocean-sand">{strategy.description}</p>
@@ -183,6 +195,9 @@ export function DynamicStrategyCatalog({
   onDelete,
   onPromote,
   onDemote,
+  onSaveAll,
+  dirtyIds,
+  hasUnsavedChanges = false,
   defaultOpen = false,
   title = "Saved strategies",
   embedded = false,
@@ -208,6 +223,7 @@ export function DynamicStrategyCatalog({
         onDelete={onDelete}
         onPromote={onPromote}
         onDemote={onDemote}
+        dirtyIds={dirtyIds}
       />
     );
   }
@@ -230,6 +246,24 @@ export function DynamicStrategyCatalog({
           <p className="mt-0.5 text-xs text-ocean-sand">{summary}</p>
         </button>
         <div className="flex shrink-0 items-center gap-1">
+          {onSaveAll ? (
+            <button
+              type="button"
+              className={cn(
+                BTN,
+                hasUnsavedChanges
+                  ? "bg-amber-500 text-ocean-deep hover:brightness-105"
+                  : "bg-ocean-mid/50 text-ocean-sand",
+              )}
+              disabled={saving || !hasUnsavedChanges}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSaveAll();
+              }}
+            >
+              {saving ? "Saving…" : "Save all"}
+            </button>
+          ) : null}
           <button
             type="button"
             className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105")}
@@ -277,6 +311,7 @@ export function DynamicStrategyCatalog({
             onDelete={onDelete}
             onPromote={onPromote}
             onDemote={onDemote}
+            dirtyIds={dirtyIds}
           />
         </div>
       ) : null}

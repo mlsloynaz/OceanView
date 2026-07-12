@@ -25,6 +25,7 @@ Pre-open screening workspace — run **premarket evaluate** at **9:25 AM ET**, s
 - [Implementation phases](#implementation-phases)
 - [Manual test checklist](#manual-test-checklist)
 - [Related docs](#related-docs)
+- [Strategy builder (catalog edits)](#strategy-builder-catalog-edits)
 
 ---
 
@@ -394,6 +395,8 @@ Add to `package.json` scripts note in [environment.md](./environment.md): `dev:l
 - [ ] `409` when double Start (second tab or double-click)
 - [ ] Mock mode works offline (`VITE_USE_MOCK_PREMARKET=true`)
 - [ ] Production CloudFront `/api/premarket/evaluate/start` reachable
+- [ ] Strategy builder: Activate/Deactivate does not call API until **Save all**
+- [ ] Strategy builder: Apply/Stage then **Save all** persists rules in one batch
 
 ---
 
@@ -407,6 +410,25 @@ Add to `package.json` scripts note in [environment.md](./environment.md): `dev:l
 | [environment.md](./environment.md) | `VITE_*` flags |
 | [aws-urls.md](./aws-urls.md) | Production URLs |
 | [deploy-aws.md](./deploy-aws.md) | CloudFront `/api/*` — no UI change needed if API routes exist on same gateway |
+
+---
+
+## Strategy builder (catalog edits)
+
+Admin **Strategies** pane and Premarket **Strategy builder** aux pane share `useStrategiesPane`. Activate/deactivate and rule edits are **local until Save all** — so you can batch changes without waiting on Dynamo after every click.
+
+| Action | Behavior |
+|--------|----------|
+| **Activate / Deactivate** | Updates local catalog only; row shows **unsaved** |
+| **Apply changes** / **Stage strategy** (builder) | Stages name/rules into local catalog; does not call the API |
+| **Save all** | Persists all dirty strategies (`PATCH` / `POST`), then reloads catalog once |
+| **Promote / Demote / Delete** (already in Dynamo) | Still immediate API calls |
+
+Unsaved rows are amber-bordered with an **unsaved** badge. Leaving the builder with pending changes prompts to confirm.
+
+**Routes:** `/strategies/new`, `/strategies/:strategyId/edit` (`StrategyBuilderPage`).
+
+**Key files:** `useStrategiesPane.ts`, `DynamicStrategyCatalog.tsx`, `DynamicStrategyBuilder.tsx`, `StrategiesPane.tsx`, `PremarketAuxPanels.tsx`.
 
 ---
 

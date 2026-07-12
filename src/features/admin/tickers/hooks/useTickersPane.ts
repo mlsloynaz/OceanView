@@ -125,7 +125,6 @@ export function useTickersPane(open: boolean) {
         name: values.name || null,
         active: values.active,
         isFavorite: values.isFavorite,
-        isOperationEnable: false,
       });
       setTickers((prev) => sortTickersAlphabetically([...prev, created]));
       setSearchState(created.symbol);

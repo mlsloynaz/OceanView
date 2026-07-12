@@ -19,7 +19,7 @@ export const ADMIN_PANES: Record<AdminPaneId, AdminPaneMeta> = {
     id: "setup-scan",
     anchorId: "admin-setup-scan-pane",
     title: "Tickers SemiFinal",
-    description: "D+1h preselection — refresh stale candles and score the catalog",
+    description: "D+1h preselection — E05 Inside BB 15M + E04 Lateral BB15 (15m EOD lateral)",
   },
   tickers: {
     id: "tickers",
