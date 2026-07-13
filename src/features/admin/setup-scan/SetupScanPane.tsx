@@ -176,7 +176,7 @@ export function SetupScanPane() {
         subtitle={
           usesMock
             ? "Mock data (VITE_USE_MOCK_SETUP_SCAN or VITE_USE_MOCK_CANDLES)"
-            : "D+1h preselection — refresh stale candles, then score full catalog"
+            : "D+1h preselection — scores catalog strategies with a SemiFinal profile (active or not)"
         }
         className="min-w-0"
         headerExtra={

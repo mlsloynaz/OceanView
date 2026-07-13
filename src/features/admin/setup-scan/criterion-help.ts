@@ -89,10 +89,10 @@ export const CRITERION_HELP: Record<string, CriterionHelp> = {
       "Small bonus when premarket move agrees with D/1h direction.",
   },
   m15TrendLateral: {
-    title: "15m finished lateral",
+    title: "15m BB mid lateral",
     description:
-      "End of day on 15m is lateral (or BB mid flat). Primary Tickers SemiFinal screen for " +
-      "Lateral BB15 + Gap (E04) — prior session must close without a clear 15m trend.",
+      "15m Bollinger middle-band slope is flat (lateral). Primary Tickers SemiFinal screen for " +
+      "Lateral BB15 + Gap (E04) — prior session must end with a lateral BB mid, not up/down.",
   },
   m15VolStableOrClosing: {
     title: "15m BB vol stable/closing",
@@ -134,9 +134,9 @@ export const AVOID_HELP: Record<string, CriterionHelp> = {
       "Daily close is outside Bollinger bands (stretched). Higher risk of mean reversion instead of an orderly band ride.",
   },
   m15Trending: {
-    title: "15m still trending",
+    title: "15m BB mid trending",
     description:
-      "15m finished bullish or bearish with a sloping BB mid — not the lateral EOD setup E04 wants.",
+      "15m Bollinger mid slope is up or down — not the lateral EOD BB mid setup E04 wants.",
   },
   m15VolOpening: {
     title: "15m BB vol still opening",
