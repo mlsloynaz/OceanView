@@ -3,8 +3,9 @@ import { buildMockResearchStatsResult } from "./mock-data";
 import type { ResearchStatsRequest, ResearchStatsResult } from "../types";
 
 const API_BASE = getApiBaseUrl();
-/** Default mock until POST /research-stats/run exists. Set VITE_USE_MOCK_RESEARCH_STATS=false for live. */
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_RESEARCH_STATS !== "false";
+const USE_MOCK =
+  import.meta.env.VITE_USE_MOCK_RESEARCH_STATS === "true" ||
+  import.meta.env.VITE_USE_MOCK_CANDLES === "true";
 
 export function researchStatsUsesMock(): boolean {
   return USE_MOCK;

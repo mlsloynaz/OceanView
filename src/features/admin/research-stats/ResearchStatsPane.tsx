@@ -82,13 +82,17 @@ export function ResearchStatsPane() {
       <div className="space-y-4">
         {ws.useMock ? (
           <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-900 dark:text-amber-100">
-            Mock run result. Each submit overwrites{" "}
-            <code className="text-[11px]">OceanView-ResearchRuns#LATEST</code> (when API is
-            wired). Pickers load from{" "}
-            <code className="text-[11px]">/dynamic-strategies/catalog</code> +{" "}
-            <code className="text-[11px]">/rules</code>.
+            Mock mode. Unset mock flags to call{" "}
+            <code className="text-[11px]">POST /research-stats/run</code> (overwrites{" "}
+            <code className="text-[11px]">MarketEval#research-latest</code>). Symbol must have
+            stored candles.
           </p>
-        ) : null}
+        ) : (
+          <p className="text-[11px] text-ocean-sand">
+            Live: evaluates stored candles for the date range, then overwrites{" "}
+            <code className="text-ocean-foam/80">research-latest</code>.
+          </p>
+        )}
 
         {ws.catalogError ? (
           <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-800 dark:text-red-200">

@@ -1,7 +1,13 @@
-import type { DynamicStrategy } from "../api/dynamic-strategy-client";
+import {
+  resolveStrategyTier,
+  type DynamicStrategy,
+} from "../api/dynamic-strategy-client";
 
+/** Active strategies eligible for Premarket evaluate (tier=dynamic only). */
 export function activeDynamicStrategies(strategies: DynamicStrategy[]): DynamicStrategy[] {
-  return strategies.filter((row) => row.active !== false);
+  return strategies.filter(
+    (row) => row.active !== false && resolveStrategyTier(row) === "dynamic",
+  );
 }
 
 export function activeDynamicStrategyIds(strategies: DynamicStrategy[]): string[] {
