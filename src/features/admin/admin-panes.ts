@@ -1,4 +1,9 @@
-export type AdminPaneId = "setup-scan" | "tickers" | "candles" | "strategies";
+export type AdminPaneId =
+  | "setup-scan"
+  | "tickers"
+  | "candles"
+  | "strategies"
+  | "research-stats";
 
 export type AdminPaneMeta = {
   id: AdminPaneId;
@@ -12,6 +17,7 @@ export const ADMIN_PANE_ORDER: AdminPaneId[] = [
   "tickers",
   "candles",
   "strategies",
+  "research-stats",
 ];
 
 export const ADMIN_PANES: Record<AdminPaneId, AdminPaneMeta> = {
@@ -38,6 +44,12 @@ export const ADMIN_PANES: Record<AdminPaneId, AdminPaneMeta> = {
     anchorId: "admin-strategies-pane",
     title: "Strategies",
     description: "Activate standard playbooks and manage dynamic screens",
+  },
+  "research-stats": {
+    id: "research-stats",
+    anchorId: "admin-research-stats-pane",
+    title: "Research-Stats",
+    description: "Historical rule/strategy hit rates by hour — free ticker + date range",
   },
 };
 

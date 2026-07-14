@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ADMIN_PANE_ORDER, ADMIN_PANES, adminPaneFromHash, type AdminPaneId } from "./admin-panes";
 import { CandlesPane } from "./candles/CandlesPane";
 import { ADMIN_PANE_ICONS, AdminPaneThumbnail } from "./components/AdminPaneThumbnail";
+import { ResearchStatsPane } from "./research-stats/ResearchStatsPane";
 import { SetupScanPane } from "./setup-scan/SetupScanPane";
 import { StrategiesPane } from "./strategies/StrategiesPane";
 import { TickersPane } from "./tickers/TickersPane";
@@ -16,6 +17,8 @@ function renderActivePane(id: AdminPaneId) {
       return <CandlesPane />;
     case "strategies":
       return <StrategiesPane />;
+    case "research-stats":
+      return <ResearchStatsPane />;
   }
 }
 
@@ -59,7 +62,7 @@ export function AdminPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {ADMIN_PANE_ORDER.map((id) => {
           const meta = ADMIN_PANES[id];
           return (
