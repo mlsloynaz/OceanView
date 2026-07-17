@@ -169,7 +169,7 @@ export function TickerDetailModal({
               <li
                 key={ev.strategyId}
                 className={cn(
-                  "overflow-hidden rounded-lg border border-ocean-mid/40",
+                  "rounded-lg border border-ocean-mid/40",
                   signal && "border-ocean-teal/30",
                 )}
               >

@@ -41,6 +41,10 @@ export type RuleEval = {
   status: RuleStatus;
   metAtEt?: string | null;
   evidence?: string | null;
+  /** Detected regime when the rule auto-infers path (e.g. alcista / bajista). */
+  suggestedTrend?: string | null;
+  /** Detected CALL/PUT when the rule auto-infers path. */
+  suggestedDirection?: "CALL" | "PUT" | null;
 };
 
 export type TradeDirection = "CALL" | "PUT";
@@ -163,6 +167,8 @@ export type RuleDisplayRow = {
   status: RuleStatus;
   metAtEt?: string | null;
   evidence?: string | null;
+  suggestedTrend?: string | null;
+  suggestedDirection?: "CALL" | "PUT" | null;
 };
 
 export type MarketEnvelopeStatus = "complete" | "running" | "failed" | "stale";

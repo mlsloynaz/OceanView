@@ -234,6 +234,8 @@ export function mergeRuleDisplay(
       status: normalizeRuleStatus(ev?.status),
       metAtEt: ev?.metAtEt,
       evidence: ev?.evidence,
+      suggestedTrend: ev?.suggestedTrend,
+      suggestedDirection: ev?.suggestedDirection,
     });
   }
   return rows;
@@ -336,8 +338,6 @@ export function formatRuleThresholdSummary(evidence: string | null | undefined):
 
   if (parts.length > 0) return parts.join(" · ");
 
-  const afterColon = evidence.match(/:\s*(.{12,120})/);
-  if (afterColon) return afterColon[1].trim();
-
-  return evidence.length > 120 ? `${evidence.slice(0, 117)}…` : evidence;
+  // No structured metrics — avoid echoing truncated evidence (duplicates the detail line).
+  return null;
 }

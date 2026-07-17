@@ -55,7 +55,6 @@ export function PremarketTickerDetailModal({ group, ticker, threshold, onClose }
               <RuleRequirementsList
                 rules={rules}
                 highlightPassedTime
-                showMetrics
                 showPassedTime
               />
             </div>

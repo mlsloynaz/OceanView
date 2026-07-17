@@ -64,6 +64,8 @@ function mapDetailRow(
       status: r.status,
       metAtEt: r.metAtEt,
       evidence: r.evidence,
+      suggestedTrend: r.suggestedTrend,
+      suggestedDirection: r.suggestedDirection,
     })),
   };
   const achievedAt = row.achievedAtEt

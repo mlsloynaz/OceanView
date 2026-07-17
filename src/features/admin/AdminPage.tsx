@@ -45,10 +45,10 @@ export function AdminPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-semibold text-ocean-foam">Admin</h1>
-        <p className="mt-2 text-ocean-sand">
+        <h1 className="font-display text-3xl font-semibold text-ocean-foam sm:text-4xl">Admin</h1>
+        <p className="mt-3 max-w-3xl text-base leading-relaxed text-ocean-sand">
           Configuration for tickers, candles, and strategies. Choose a pane
           below —{" "}
           <button
@@ -62,7 +62,7 @@ export function AdminPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {ADMIN_PANE_ORDER.map((id) => {
           const meta = ADMIN_PANES[id];
           return (

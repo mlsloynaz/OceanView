@@ -32,6 +32,44 @@ function passedTimeForRow(row: RuleDisplayRow): string | null {
   return formatRulePassedTimeOnly(row.metAtEt) ?? extractTimeFromEvidence(row.evidence);
 }
 
+function verdictHeadline(row: RuleDisplayRow): string | null {
+  const trend = row.suggestedTrend?.trim();
+  const op = row.suggestedDirection?.trim().toUpperCase();
+  if (!trend || (op !== "CALL" && op !== "PUT")) return null;
+  const label = trend.charAt(0).toUpperCase() + trend.slice(1).toLowerCase();
+  return `${label} → operación ${op}.`;
+}
+
+/** Drop leading "Alcista → operación PUT." when we render it as a larger headline. */
+function evidenceWithoutVerdict(evidence: string | null | undefined, headline: string | null): string {
+  const text = evidence?.trim() ?? "";
+  if (!text || !headline) return text;
+  const escaped = headline.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(new RegExp(`^${escaped}\\s*`, "i"), "").trim();
+}
+
+/** Drop leading clocks when the pass-time badge already shows them. */
+function evidenceWithoutLeadingClock(evidence: string, passedTime: string | null): string {
+  let text = evidence.trim();
+  if (!text) return text;
+
+  // "9:30 gap mid @ 09:30: …" / "Gap mid @ 09:30: …"
+  text = text.replace(/^\d{1,2}:\d{2}\s+gap mid @\s*\d{1,2}:\d{2}:\s*/i, "Gap mid: ");
+  text = text.replace(/^gap mid @\s*\d{1,2}:\d{2}:\s*/i, "Gap mid: ");
+  text = text.replace(/^Premarket gap mid @\s*\d{1,2}:\d{2}:\s*/i, "Premarket gap mid: ");
+  text = text.replace(/^Prior session 15m @\s*[\d\-T: ]+:\s*/i, "");
+
+  if (passedTime) {
+    const clock = passedTime.replace(/\s*(AM|PM)\s*$/i, "").trim();
+    if (clock) {
+      const escaped = clock.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      text = text.replace(new RegExp(`^${escaped}\\s*[:\\-–]?\\s*`, "i"), "").trim();
+    }
+  }
+
+  return text;
+}
+
 export function RuleRequirementsList({
   rules,
   className,
@@ -44,26 +82,28 @@ export function RuleRequirementsList({
   }
 
   return (
-    <ul className={cn("space-y-2", className)}>
+    <ul className={cn("space-y-2 overflow-visible", className)}>
       {rules.map((row) => {
         const suffix = suffixForRow(row);
         const passedTime = passedTimeForRow(row);
+        const showTime = showTimeForRow(passedTime, highlightPassedTime, showPassedTime);
         const metrics = showMetrics ? formatRuleThresholdSummary(row.evidence) : null;
+        const verdict = row.status === "met" || row.status === "partial" ? verdictHeadline(row) : null;
+        const rawDetail = evidenceWithoutVerdict(row.evidence, verdict);
+        const detailEvidence = evidenceWithoutLeadingClock(
+          rawDetail,
+          showTime ? passedTime : null,
+        );
+        // Prefer metrics OR detail — never both (avoids duplicate lines).
+        const showMetricsLine = Boolean(metrics);
         const showEvidence =
-          Boolean(row.evidence?.trim()) &&
+          Boolean(detailEvidence) &&
+          !showMetricsLine &&
           row.status !== "pending" &&
-          (row.status === "not_met" || !metrics || row.status === "met");
-        const showTime = passedTime && (highlightPassedTime || showPassedTime);
+          (row.status === "not_met" || row.status === "met" || row.status === "partial" || Boolean(verdict));
 
         return (
-          <li
-            key={row.ruleKey}
-            className={cn(
-              highlightPassedTime && passedTime
-                ? "rounded-lg border border-ocean-mid/30 bg-ocean-deep/25 px-3 py-2.5"
-                : undefined,
-            )}
-          >
+          <li key={row.ruleKey} className="min-w-0 overflow-visible">
             <div
               className={cn(
                 "flex items-start gap-2 leading-snug",
@@ -80,7 +120,7 @@ export function RuleRequirementsList({
                 </span>
                 {row.type === "extra" && (
                   <span
-                    className="ml-1 text-[10px] uppercase tracking-wide text-ocean-sand"
+                    className="ml-1.5 inline-block text-[10px] uppercase tracking-wide text-ocean-sand"
                     title="Informational only — does not affect quality %"
                   >
                     extra
@@ -106,37 +146,39 @@ export function RuleRequirementsList({
                 </span>
               ) : null}
             </div>
-            {metrics && (
+            {verdict && (
               <p
                 className={cn(
-                  "font-medium tabular-nums text-ocean-sand/90",
-                  highlightPassedTime ? "mt-1.5 pl-5 text-xs" : "mt-0.5 pl-5 text-[10px]",
+                  "min-w-0 pl-5 font-semibold tracking-tight text-ocean-foam break-words",
+                  highlightPassedTime ? "mt-2 text-lg" : "mt-1 text-base",
+                )}
+              >
+                {verdict}
+              </p>
+            )}
+            {showMetricsLine && (
+              <p
+                className={cn(
+                  "min-w-0 pl-5 font-medium tabular-nums text-ocean-sand/90 break-words",
+                  highlightPassedTime ? "mt-1.5 text-xs" : "mt-0.5 text-[10px]",
                 )}
               >
                 {metrics}
               </p>
             )}
-            {showEvidence && !metrics && (
+            {showEvidence && (
               <p
                 className={cn(
-                  "leading-snug",
+                  "min-w-0 pl-5 leading-snug break-words overflow-visible",
                   row.status === "met"
                     ? "text-ocean-sand/85"
                     : "text-ocean-sand/70 italic",
-                  highlightPassedTime ? "mt-2 pl-5 text-xs" : "mt-0.5 block text-[10px] opacity-75",
+                  highlightPassedTime
+                    ? cn("text-xs", verdict ? "mt-1" : "mt-2")
+                    : cn("text-[10px] opacity-75", verdict ? "mt-0.5" : "mt-0.5"),
                 )}
               >
-                {row.evidence}
-              </p>
-            )}
-            {showEvidence && metrics && (
-              <p
-                className={cn(
-                  "leading-snug text-ocean-sand/60",
-                  highlightPassedTime ? "mt-1 pl-5 text-[11px]" : "mt-0.5 pl-5 text-[10px] opacity-70",
-                )}
-              >
-                {row.evidence}
+                {detailEvidence}
               </p>
             )}
           </li>
@@ -144,4 +186,12 @@ export function RuleRequirementsList({
       })}
     </ul>
   );
+}
+
+function showTimeForRow(
+  passedTime: string | null,
+  highlightPassedTime: boolean,
+  showPassedTime: boolean,
+): boolean {
+  return Boolean(passedTime && (highlightPassedTime || showPassedTime));
 }

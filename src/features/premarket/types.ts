@@ -9,6 +9,8 @@ export type PremarketRuleRow = {
   evidence?: string | null;
   trend?: "up" | "down" | "lateral";
   operation?: "call" | "put";
+  suggestedTrend?: string | null;
+  suggestedDirection?: "CALL" | "PUT" | null;
 };
 
 export type PremarketTickerHit = StrategyAssessExtras & {

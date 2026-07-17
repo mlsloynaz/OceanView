@@ -88,6 +88,8 @@ export function toPremarketDisplayRules(
       status: normalizeRuleStatus(row.status),
       metAtEt: row.metAtEt,
       evidence: row.evidence,
+      suggestedTrend: row.suggestedTrend,
+      suggestedDirection: row.suggestedDirection,
     });
   }
   return rows;

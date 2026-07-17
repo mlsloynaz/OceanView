@@ -17,7 +17,7 @@ export function AdminPaneThumbnail({ title, description, active, onClick, icon }
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "group flex min-h-[7.5rem] flex-col rounded-xl border bg-ocean-surface p-4 text-left shadow-sm transition-all",
+        "group flex min-h-[9rem] flex-col rounded-xl border bg-ocean-surface p-4 text-left shadow-sm transition-all sm:p-5",
         active
           ? "border-ocean-teal/60 ring-2 ring-ocean-teal/30"
           : "border-ocean-mid/50 hover:border-ocean-teal/40 hover:bg-ocean-deep/20",
@@ -25,7 +25,7 @@ export function AdminPaneThumbnail({ title, description, active, onClick, icon }
     >
       <span
         className={cn(
-          "mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors",
+          "mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors",
           active
             ? "border-ocean-teal/40 bg-ocean-teal/15 text-ocean-teal"
             : "border-ocean-mid/40 bg-ocean-deep/40 text-ocean-sand group-hover:text-ocean-foam",
@@ -33,8 +33,8 @@ export function AdminPaneThumbnail({ title, description, active, onClick, icon }
       >
         {icon}
       </span>
-      <span className="font-display text-sm font-semibold text-ocean-foam">{title}</span>
-      <span className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-ocean-sand">
+      <span className="font-display text-base font-semibold text-ocean-foam">{title}</span>
+      <span className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-ocean-sand">
         {description}
       </span>
     </button>
