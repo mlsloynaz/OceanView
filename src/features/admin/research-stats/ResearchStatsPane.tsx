@@ -477,7 +477,7 @@ export function ResearchStatsPane() {
                       </div>
                       <p className="mt-1 text-[11px] text-ocean-sand">
                         Hour {m.hourEt}:00
-                        {ws.result.request.mode === "strategy"
+                        {ws.result?.request.mode === "strategy"
                           ? ` · strategy ${m.strategyTrue ? "true" : "false"}`
                           : ` · matched: ${m.matchedRuleKeys.join(", ") || "—"}`}
                       </p>
