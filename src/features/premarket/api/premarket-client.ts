@@ -5,6 +5,11 @@ import type {
 } from "../types";
 import { MOCK_PREMARKET_RESULT, nextMockPremarketStart } from "./mock-data";
 import { apiFetch, getApiBaseUrl, readResponseBody } from "@/shared/api/api-fetch";
+import {
+  getPremarketResultCached,
+  invalidatePremarketResultCache,
+  setPremarketResultCache,
+} from "./premarket-workspace-cache";
 
 const API_BASE = getApiBaseUrl();
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_PREMARKET === "true";
@@ -96,12 +101,35 @@ export async function postPremarketStop(): Promise<PremarketStopResponse> {
 
 export async function fetchPremarketResult(
   runId?: string | null,
+  opts?: { force?: boolean },
 ): Promise<PremarketResultResponse> {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 150));
-    return { ...MOCK_PREMARKET_RESULT };
+    const payload = { ...MOCK_PREMARKET_RESULT };
+    setPremarketResultCache(payload);
+    return payload;
   }
-  return fetchJson<PremarketResultResponse>(withRunId("/premarket/evaluate/result", runId));
+
+  // Polling / explicit runId always hits the network.
+  if (runId) {
+    const payload = await fetchJson<PremarketResultResponse>(
+      withRunId("/premarket/evaluate/result", runId),
+    );
+    setPremarketResultCache(payload);
+    return payload;
+  }
+
+  try {
+    return await getPremarketResultCached(
+      () => fetchJson<PremarketResultResponse>("/premarket/evaluate/result"),
+      opts,
+    );
+  } catch (err) {
+    if (err instanceof PremarketApiError && err.code === "PREMARKET_NOT_FOUND") {
+      invalidatePremarketResultCache();
+    }
+    throw err;
+  }
 }
 
 const POLL_INTERVAL_MS = 2000;

@@ -7,6 +7,13 @@ import {
   type DynamicEvaluateRequest,
   type DynamicStrategy,
 } from "../api/dynamic-strategy-client";
+import {
+  peekPremarketResultCache,
+  peekPremarketStrategiesCache,
+  setPremarketResultCache,
+  setPremarketStrategiesCache,
+  invalidatePremarketResultCache,
+} from "../api/premarket-workspace-cache";
 import { buildRulesPayload, type BuilderRuleRow } from "../lib/builder-utils";
 import {
   PREMARKET_ERROR_MESSAGES,
@@ -17,6 +24,7 @@ import {
 } from "../api/premarket-client";
 import type { PremarketResultResponse } from "../types";
 import { fetchMarketEnvelope } from "@/features/market/api/market-client";
+import { peekMarketWorkspaceCache } from "@/features/market/api/market-workspace-cache";
 import {
   blocksAssess,
   clampAssessmentTime,
@@ -95,19 +103,28 @@ function isEvaluateConflict(err: unknown): boolean {
 
 export function usePremarketWorkspace() {
   const useMock = dynamicStrategiesUseMock();
+  const cachedStrategies = peekPremarketStrategiesCache();
+  const cachedResult = peekPremarketResultCache();
+  const cachedEnvelope = peekMarketWorkspaceCache().envelope;
 
-  const [dynamicStrategies, setDynamicStrategies] = useState<DynamicStrategy[]>([]);
-  const [activeStrategyIds, setActiveStrategyIds] = useState<string[]>([]);
-  const [evaluateGroupLabel, setEvaluateGroupLabel] = useState("Dynamic strategies");
-  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [dynamicStrategies, setDynamicStrategies] = useState<DynamicStrategy[]>(
+    () => cachedStrategies ?? [],
+  );
+  const [activeStrategyIds, setActiveStrategyIds] = useState<string[]>(() =>
+    cachedStrategies ? activeDynamicStrategyIds(cachedStrategies) : [],
+  );
+  const [evaluateGroupLabel, setEvaluateGroupLabel] = useState(() =>
+    cachedStrategies ? activeDynamicStrategyLabel(cachedStrategies) : "Dynamic strategies",
+  );
+  const [catalogLoading, setCatalogLoading] = useState(() => !cachedStrategies);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
-  const [result, setResult] = useState<PremarketResultResponse | null>(null);
-  const [resultLoading, setResultLoading] = useState(true);
+  const [result, setResult] = useState<PremarketResultResponse | null>(() => cachedResult);
+  const [resultLoading, setResultLoading] = useState(() => !cachedResult);
   const [startPending, setStartPending] = useState(false);
   const [stopPending, setStopPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(() => syncNoticeFromResult(cachedResult));
   const evaluateInFlightRef = useRef(false);
 
   const [assessmentMode, setAssessmentModeState] = useState<AssessmentTimeMode>(
@@ -121,9 +138,15 @@ export function usePremarketWorkspace() {
   });
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
   const [assessmentNotice, setAssessmentNotice] = useState<string | null>(null);
-  const [candleCoverage, setCandleCoverage] = useState<CandleCoverage | null>(null);
-  const [coverageInitialized, setCoverageInitialized] = useState(false);
-  const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
+  const [candleCoverage, setCandleCoverage] = useState<CandleCoverage | null>(
+    () => cachedEnvelope?.candleCoverage ?? null,
+  );
+  const [coverageInitialized, setCoverageInitialized] = useState(
+    () => Boolean(cachedEnvelope?.candleCoverage),
+  );
+  const [threshold, setThreshold] = useState(
+    () => cachedResult?.signalThresholdPct ?? DEFAULT_THRESHOLD,
+  );
 
   const applyAssessmentValidation = useCallback(
     (date: Date, coverage: CandleCoverage, historicalOnly = false) => {
@@ -149,13 +172,15 @@ export function usePremarketWorkspace() {
     setDynamicStrategies(rows);
     setActiveStrategyIds(activeDynamicStrategyIds(rows));
     setEvaluateGroupLabel(activeDynamicStrategyLabel(rows));
+    setPremarketStrategiesCache(rows);
   }, []);
 
-  const reloadCatalog = useCallback(async () => {
-    setCatalogLoading(true);
+  const reloadCatalog = useCallback(async (opts?: { force?: boolean }) => {
+    const hadCache = Boolean(peekPremarketStrategiesCache());
+    if (!hadCache) setCatalogLoading(true);
     setCatalogError(null);
     try {
-      const catalog = await fetchDynamicCatalog();
+      const catalog = await fetchDynamicCatalog(opts);
       applyDynamicCatalog((catalog.strategies ?? []) as DynamicStrategy[]);
     } catch (err) {
       setCatalogError(err instanceof Error ? err.message : "Failed to load dynamic strategies.");
@@ -167,8 +192,9 @@ export function usePremarketWorkspace() {
   const loadResult = useCallback(async (runId?: string | null) => {
     setError(null);
     try {
-      const payload = await fetchPremarketResult(runId ?? result?.runId);
+      const payload = await fetchPremarketResult(runId ?? result?.runId, { force: true });
       setResult(payload);
+      setPremarketResultCache(payload);
       if (payload?.signalThresholdPct != null) {
         setThreshold(payload.signalThresholdPct);
       }
@@ -177,6 +203,7 @@ export function usePremarketWorkspace() {
     } catch (err) {
       if (err instanceof PremarketApiError && err.code === "PREMARKET_NOT_FOUND") {
         setResult(null);
+        invalidatePremarketResultCache();
         setNotice(null);
         return null;
       }
@@ -186,12 +213,14 @@ export function usePremarketWorkspace() {
   }, [result?.runId]);
 
   useEffect(() => {
-    void reloadCatalog();
+    void reloadCatalog({ force: true });
   }, [reloadCatalog]);
 
   useEffect(() => {
     if (useMock) return;
     let cancelled = false;
+    const cachedCov = peekMarketWorkspaceCache().envelope?.candleCoverage;
+    if (cachedCov) setCandleCoverage(cachedCov);
     void fetchMarketEnvelope()
       .then((env) => {
         if (!cancelled && env.candleCoverage) {
@@ -208,12 +237,14 @@ export function usePremarketWorkspace() {
 
   useEffect(() => {
     let cancelled = false;
-    setResultLoading(true);
+    const hadResult = Boolean(peekPremarketResultCache());
+    if (!hadResult) setResultLoading(true);
     void (async () => {
       try {
-        const payload = await fetchPremarketResult();
+        const payload = await fetchPremarketResult(undefined, { force: true });
         if (!cancelled) {
           setResult(payload);
+          setPremarketResultCache(payload);
           if (payload?.signalThresholdPct != null) {
             setThreshold(payload.signalThresholdPct);
           }
@@ -223,6 +254,7 @@ export function usePremarketWorkspace() {
         if (!cancelled) {
           if (err instanceof PremarketApiError && err.code === "PREMARKET_NOT_FOUND") {
             setResult(null);
+            invalidatePremarketResultCache();
             setNotice(null);
           } else {
             setError(resolveError(err));
@@ -305,13 +337,17 @@ export function usePremarketWorkspace() {
   const followEvaluateRun = useCallback(
     async (payload: PremarketResultResponse, thresholdPct: number) => {
       setResult(payload);
+      setPremarketResultCache(payload);
       setThreshold(thresholdPct);
       setNotice(syncNoticeFromResult(payload));
       if (isPremarketEvaluateTerminal(payload.status)) {
         return payload;
       }
       const polled = await pollPremarketEvaluate(payload.runId);
-      setResult(polled);
+      if (polled) {
+        setResult(polled);
+        setPremarketResultCache(polled);
+      }
       setNotice(syncNoticeFromResult(polled));
       return polled;
     },
@@ -531,7 +567,7 @@ export function usePremarketWorkspace() {
     catalogLoading,
     catalogError,
     result,
-    loading: catalogLoading || resultLoading,
+    loading: (catalogLoading && dynamicStrategies.length === 0) || (resultLoading && !result),
     startPending,
     evaluateRunning,
     canStopEvaluate,

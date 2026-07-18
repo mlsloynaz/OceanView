@@ -371,13 +371,15 @@ Both show rule check strips, quality badges, and expandable rule requirement lis
 
 State and data loading live in `useMarketWorkspace` (`src/features/market/hooks/useMarketWorkspace.ts`).
 
+**Navigation cache (stale-while-revalidate):** Leaving Market unmounts the page, but bootstrap (envelope + strategies catalog) and per-mode snapshot cards are kept in a module cache (`market-workspace-cache.ts`). Returning to Market shows the last good grids immediately and refreshes in the background. Snapshot loads no longer blank the UI when that mode already has cached cards. Cache clears after a new Assess.
+
 ---
 
 ## Empty states and errors
 
 | Condition | UI message |
 |-----------|------------|
-| Loading bootstrap or snapshot | “Loading market data…” |
+| Loading bootstrap or snapshot (no cached data yet) | “Loading market data…” |
 | Bootstrap/snapshot HTTP failure | Red error banner with message |
 | Envelope `runId === null` (live, no persisted run) | Banner: “No assessment run yet. Click **Assess**…” (hidden while snapshot is loading) |
 | Search with no matches | “No {strategies\|tickers\|rules} match your search.” |
@@ -444,6 +446,7 @@ Open http://localhost:5173/market/strategies — grids should load from API when
 | `src/features/market/MarketPage.tsx` | Page layout, grids, banners |
 | `src/features/market/MarketRedirect.tsx` | `/market` → stored mode |
 | `src/features/market/hooks/useMarketWorkspace.ts` | Load, assess, search, snapshot cache |
+| `src/features/market/api/market-workspace-cache.ts` | Session cache across Market remounts |
 | `src/features/market/api/market-client.ts` | HTTP client, error types |
 | `src/features/market/api/market-data.ts` | Bootstrap, mock loaders, snapshot by mode |
 | `src/features/market/api/adapters.ts` | API snapshot items → card models |

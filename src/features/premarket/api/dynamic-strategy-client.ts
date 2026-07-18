@@ -2,6 +2,12 @@ import type { PremarketResultResponse } from "../types";
 import { apiFetch, getApiBaseUrl, readResponseBody } from "@/shared/api/api-fetch";
 
 import { MOCK_DYNAMIC_CATALOG, MOCK_DYNAMIC_RULES, nextMockPremarketStart } from "./mock-data";
+import {
+  getDynamicCatalogCached,
+  getDynamicRulesCached,
+  invalidateDynamicCatalogCache,
+  invalidateDynamicRulesCache,
+} from "./premarket-workspace-cache";
 
 
 
@@ -63,6 +69,8 @@ export type DynamicStrategy = {
   tier?: StrategyTier;
   /** Fallback CALL/PUT for dangers when path cannot be inferred from rules. */
   direction?: "CALL" | "PUT" | null;
+  /** Movement strategies rank below non-movement in Best results. */
+  isMovement?: boolean;
   active: boolean;
   rules: DynamicStrategyRule[];
 };
@@ -99,6 +107,7 @@ export type CreateDynamicStrategyRequest = {
   description?: string;
   direction?: "CALL" | "PUT" | "";
   active?: boolean;
+  isMovement?: boolean;
   ruleKeys?: string[];
   rules?: DynamicStrategyRuleInput[];
 };
@@ -109,6 +118,7 @@ export type PatchDynamicStrategyRequest = {
   description?: string;
   direction?: "CALL" | "PUT" | "";
   active?: boolean;
+  isMovement?: boolean;
   ruleKeys?: string[];
   rules?: DynamicStrategyRuleInput[];
 };
@@ -205,94 +215,85 @@ export function dynamicStrategiesApiBaseUrl(): string | null {
 
 
 
-export async function fetchDynamicCatalog(): Promise<DynamicCatalogResponse> {
+export async function fetchDynamicCatalog(opts?: {
+  force?: boolean;
+}): Promise<DynamicCatalogResponse> {
   if (USE_MOCK) {
     return MOCK_DYNAMIC_CATALOG;
   }
-  return fetchJson("/dynamic-strategies/catalog");
+  return getDynamicCatalogCached(() => fetchJson("/dynamic-strategies/catalog"), opts);
 }
 
-export async function fetchDynamicRules(): Promise<DynamicRulesResponse> {
+export async function fetchDynamicRules(opts?: {
+  force?: boolean;
+}): Promise<DynamicRulesResponse> {
   if (USE_MOCK) {
     return { rules: MOCK_DYNAMIC_RULES, count: MOCK_DYNAMIC_RULES.length };
   }
-  return fetchJson("/dynamic-strategies/rules");
+  return getDynamicRulesCached(() => fetchJson("/dynamic-strategies/rules"), opts);
+}
+
+export function invalidateDynamicStrategyCaches(): void {
+  invalidateDynamicCatalogCache();
+  invalidateDynamicRulesCache();
 }
 
 
 
 export async function createDynamicStrategy(
-
   body: CreateDynamicStrategyRequest,
-
 ): Promise<DynamicStrategy> {
-
-  return fetchJson("/dynamic-strategies", {
-
+  const row = await fetchJson<DynamicStrategy>("/dynamic-strategies", {
     method: "POST",
-
     body: JSON.stringify(body),
-
   });
-
+  invalidateDynamicStrategyCaches();
+  return row;
 }
-
-
 
 export async function patchDynamicStrategy(
-
   strategyId: string,
-
   body: PatchDynamicStrategyRequest,
-
 ): Promise<DynamicStrategy> {
-
-  return fetchJson(`/dynamic-strategies/${encodeURIComponent(strategyId)}`, {
-
-    method: "PATCH",
-
-    body: JSON.stringify(body),
-
-  });
-
+  const row = await fetchJson<DynamicStrategy>(
+    `/dynamic-strategies/${encodeURIComponent(strategyId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+  invalidateDynamicStrategyCaches();
+  return row;
 }
-
-
 
 export async function deleteDynamicStrategy(strategyId: string): Promise<void> {
-
   await fetchJson(`/dynamic-strategies/${encodeURIComponent(strategyId)}`, {
-
     method: "DELETE",
-
   });
-
+  invalidateDynamicStrategyCaches();
 }
-
-
 
 export async function promoteDynamicStrategy(strategyId: string): Promise<DynamicStrategy> {
-
-  return fetchJson(`/dynamic-strategies/${encodeURIComponent(strategyId)}/promote`, {
-
-    method: "POST",
-
-  });
-
+  const row = await fetchJson<DynamicStrategy>(
+    `/dynamic-strategies/${encodeURIComponent(strategyId)}/promote`,
+    {
+      method: "POST",
+    },
+  );
+  invalidateDynamicStrategyCaches();
+  return row;
 }
-
-
 
 export async function demoteDynamicStrategy(strategyId: string): Promise<DynamicStrategy> {
-
-  return fetchJson(`/dynamic-strategies/${encodeURIComponent(strategyId)}/demote`, {
-
-    method: "POST",
-
-  });
-
+  const row = await fetchJson<DynamicStrategy>(
+    `/dynamic-strategies/${encodeURIComponent(strategyId)}/demote`,
+    {
+      method: "POST",
+    },
+  );
+  invalidateDynamicStrategyCaches();
+  return row;
 }
-
 
 
 /** Premarket evaluate — dynamic strategyIds (default) or ruleKeys (preview). */

@@ -13,6 +13,7 @@ import {
 } from "./adapters";
 import type { MarketViewMode } from "../types";
 import type { RuleCardModel, StrategyCardModel, TickerCardModel } from "../types";
+import { getMarketBootstrapCached } from "./market-workspace-cache";
 
 let catalogCache: StrategiesCatalogFile | null = null;
 let snapshotCache: MarketSnapshotFile | null = null;
@@ -53,15 +54,19 @@ export async function loadMarketWorkspaceDataMock(): Promise<{
   return { catalog, snapshot };
 }
 
-export async function loadMarketBootstrap(): Promise<{
+export async function loadMarketBootstrap(opts?: {
+  force?: boolean;
+}): Promise<{
   envelope: MarketEnvelope;
   catalog: StrategiesCatalogFile;
 }> {
-  const [envelope, catalog] = await Promise.all([
-    fetchMarketEnvelope(),
-    fetchStrategiesCatalog(),
-  ]);
-  return { envelope, catalog };
+  return getMarketBootstrapCached(
+    () =>
+      Promise.all([fetchMarketEnvelope(), fetchStrategiesCatalog()]).then(
+        ([envelope, catalog]) => ({ envelope, catalog }),
+      ),
+    opts,
+  );
 }
 
 export async function loadSnapshotForModeWithCatalog(

@@ -7,6 +7,12 @@ import {
   marketDataUsesMock,
 } from "../api/market-data";
 import {
+  clearMarketModeSnapshots,
+  invalidateMarketSnapshotsCache,
+  peekMarketWorkspaceCache,
+  setMarketModeSnapshot,
+} from "../api/market-workspace-cache";
+import {
   MARKET_ERROR_MESSAGES,
   MarketApiError,
   fetchMarketEnvelope,
@@ -68,15 +74,20 @@ type SnapshotCache = Partial<
 
 export function useMarketWorkspace(viewMode: MarketViewMode) {
   const useMock = marketDataUsesMock();
+  const cached = peekMarketWorkspaceCache();
 
-  const [catalog, setCatalog] = useState<StrategiesCatalogFile | null>(null);
+  const [catalog, setCatalog] = useState<StrategiesCatalogFile | null>(
+    () => cached.catalog,
+  );
   const [snapshot, setSnapshot] = useState<MarketSnapshotFile | null>(null);
-  const [envelope, setEnvelope] = useState<MarketEnvelope | null>(null);
-  const [runId, setRunId] = useState<string | null>(null);
-  const [snapshotCache, setSnapshotCache] = useState<SnapshotCache>({});
+  const [envelope, setEnvelope] = useState<MarketEnvelope | null>(() => cached.envelope);
+  const [runId, setRunId] = useState<string | null>(() => cached.runId);
+  const [snapshotCache, setSnapshotCache] = useState<SnapshotCache>(
+    () => cached.snapshots,
+  );
   const [snapshotLoading, setSnapshotLoading] = useState(false);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cached.catalog);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
@@ -99,7 +110,8 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    const hadCatalog = Boolean(peekMarketWorkspaceCache().catalog);
+    if (!hadCatalog) setLoading(true);
     setError(null);
 
     const load = useMock
@@ -110,17 +122,28 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
           setEnvelope(null);
           setRunId(null);
           setSnapshotCache({});
+          clearMarketModeSnapshots();
         })
-      : loadMarketBootstrap().then((data) => {
-          if (cancelled) return;
-          setCatalog(data.catalog);
-          setEnvelope(data.envelope);
-          setRunId(data.envelope.runId);
-          setSnapshot(null);
-          setSnapshotCache({});
-          const sim = parseSimulationTimeEt(data.envelope.simulationTimeEt);
-          if (sim) setLastAssessedAt(sim);
-        });
+      : (() => {
+          const prev = peekMarketWorkspaceCache();
+          const prevRun = prev.runId;
+          const prevSnapshots = prev.snapshots;
+          return loadMarketBootstrap({ force: true }).then((data) => {
+            if (cancelled) return;
+            setCatalog(data.catalog);
+            setEnvelope(data.envelope);
+            setRunId(data.envelope.runId);
+            setSnapshot(null);
+            if (prevRun && prevRun !== data.envelope.runId) {
+              setSnapshotCache({});
+              invalidateMarketSnapshotsCache();
+            } else {
+              setSnapshotCache(prevSnapshots);
+            }
+            const sim = parseSimulationTimeEt(data.envelope.simulationTimeEt);
+            if (sim) setLastAssessedAt(sim);
+          });
+        })();
 
     void load
       .catch((err) => {
@@ -225,20 +248,23 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       const cat = catalogRef.current;
       if (!cat) return;
 
-      setSnapshotLoading(true);
+      const hadCards = Boolean(snapshotCacheRef.current[mode]);
+      if (!hadCards) setSnapshotLoading(true);
       try {
         const payload = await loadSnapshotForModeWithCatalog(mode, activeRunId, cat);
         if (activeRunId) {
           setRunId(payload.runId);
         }
+        const next = {
+          strategyCards: payload.strategyCards,
+          tickerCards: payload.tickerCards,
+          ruleCards: payload.ruleCards,
+        };
         setSnapshotCache((prev) => ({
           ...prev,
-          [mode]: {
-            strategyCards: payload.strategyCards,
-            tickerCards: payload.tickerCards,
-            ruleCards: payload.ruleCards,
-          },
+          [mode]: next,
         }));
+        setMarketModeSnapshot(mode, next, payload.runId);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load market snapshot.");
       } finally {
@@ -284,6 +310,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       setEnvelope(env);
       setRunId(newRunId || env.runId);
       setSnapshotCache({});
+      invalidateMarketSnapshotsCache();
       const sim = parseSimulationTimeEt(simulationTimeEt ?? env.simulationTimeEt);
       if (sim) {
         setLastAssessedAt(sim);
@@ -545,8 +572,15 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
 
   const needsAssess = !useMock && !runId && !loading;
 
+  const hasModeCards =
+    viewMode === "strategies"
+      ? Boolean(snapshotCache.strategies?.strategyCards?.length)
+      : viewMode === "tickers"
+        ? Boolean(snapshotCache.tickers?.tickerCards?.length)
+        : Boolean(snapshotCache.rules?.ruleCards?.length);
+
   return {
-    loading: loading || snapshotLoading,
+    loading: loading || (snapshotLoading && !hasModeCards),
     error,
     catalog,
     snapshot,

@@ -123,8 +123,9 @@ function bestHitDedupeKey(symbol: string, direction: TradeDirection | null | und
 }
 
 /**
- * Flatten strategy groups into top-N hits by max qualityPct.
+ * Flatten strategy groups into top-N hits by preferred qualityPct.
  * Same symbol + direction across strategies merges into one row; each strategy keeps its %.
+ * Non-isMovement strategies take priority over isMovement ones.
  */
 export function buildPremarketBestResults(
   strategies: PremarketStrategyGroup[],
@@ -144,12 +145,14 @@ export function buildPremarketBestResults(
 
   for (const group of strategies) {
     const label = strategyLabel(group);
+    const isMovement = Boolean(group.isMovement);
     for (const ticker of group.tickers) {
       const key = bestHitDedupeKey(ticker.symbol, ticker.direction);
       const score: PremarketStrategyScore = {
         strategyId: group.strategyId,
         label,
         qualityPct: ticker.qualityPct,
+        isMovement,
       };
       const existing = byKey.get(key);
       if (!existing) {
@@ -165,31 +168,58 @@ export function buildPremarketBestResults(
         continue;
       }
       existing.strategies.push(score);
-      if (ticker.qualityPct > existing.qualityPct) {
-        existing.qualityPct = ticker.qualityPct;
-        existing.bestGroup = group;
-        existing.bestTicker = ticker;
-        if (ticker.name) existing.name = ticker.name;
-      } else if (!existing.name && ticker.name) {
-        existing.name = ticker.name;
-      }
+      if (!existing.name && ticker.name) existing.name = ticker.name;
+      else if (ticker.name && !isMovement) existing.name = ticker.name;
     }
   }
 
   return [...byKey.values()]
-    .map((row) => ({
-      ...row,
-      strategies: [...row.strategies].sort(
-        (a, b) => b.qualityPct - a.qualityPct || a.label.localeCompare(b.label),
-      ),
-    }))
+    .map((row) => {
+      const ranked = [...row.strategies].sort(compareStrategyScores);
+      const preferred = preferredQuality(ranked);
+      const top = ranked[0];
+      const topGroup =
+        strategies.find((g) => g.strategyId === top?.strategyId) ?? row.bestGroup;
+      const topTicker =
+        topGroup.tickers.find(
+          (t) =>
+            t.symbol.toUpperCase() === row.symbol.toUpperCase() &&
+            directionKey(t.direction) === directionKey(row.direction),
+        ) ?? row.bestTicker;
+      return {
+        ...row,
+        qualityPct: preferred,
+        strategies: ranked,
+        bestGroup: topGroup,
+        bestTicker: { ...topTicker, qualityPct: preferred },
+      };
+    })
     .sort(
       (a, b) =>
+        movementTier(a.strategies) - movementTier(b.strategies) ||
         b.qualityPct - a.qualityPct ||
         a.symbol.localeCompare(b.symbol) ||
         String(a.direction ?? "").localeCompare(String(b.direction ?? "")),
     )
     .slice(0, limit);
+}
+
+function compareStrategyScores(a: PremarketStrategyScore, b: PremarketStrategyScore): number {
+  return (
+    Number(Boolean(a.isMovement)) - Number(Boolean(b.isMovement)) ||
+    b.qualityPct - a.qualityPct ||
+    a.label.localeCompare(b.label)
+  );
+}
+
+function preferredQuality(scores: PremarketStrategyScore[]): number {
+  const nonMove = scores.filter((s) => !s.isMovement);
+  const pool = nonMove.length ? nonMove : scores;
+  return pool.reduce((max, s) => Math.max(max, s.qualityPct), 0);
+}
+
+function movementTier(scores: PremarketStrategyScore[]): number {
+  return scores.some((s) => !s.isMovement) ? 0 : 1;
 }
 
 export function formatStrategyScores(scores: PremarketStrategyScore[]): string {
@@ -204,9 +234,7 @@ function attachBestHitRefs(
   row: PremarketBestResultRow,
   strategies: PremarketStrategyGroup[],
 ): PremarketBestHit {
-  const ranked = [...row.strategies].sort(
-    (a, b) => b.qualityPct - a.qualityPct || a.label.localeCompare(b.label),
-  );
+  const ranked = [...row.strategies].sort(compareStrategyScores);
   const top = ranked[0];
   const group =
     strategies.find((g) => g.strategyId === top?.strategyId) ??
@@ -220,6 +248,7 @@ function attachBestHitRefs(
       strategyId: top?.strategyId ?? "",
       name: top?.label,
       shortName: top?.label,
+      isMovement: top?.isMovement,
       tickers: [],
     };
 

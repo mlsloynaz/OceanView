@@ -31,6 +31,10 @@ import {
   type RuleType,
   type StrategyTier,
 } from "@/features/premarket/api/dynamic-strategy-client";
+import {
+  peekDynamicCatalogCache,
+  peekDynamicRulesCache,
+} from "@/features/premarket/api/premarket-workspace-cache";
 import { PREMARKET_ERROR_MESSAGES } from "@/features/premarket/api/premarket-client";
 
 function resolveError(err: unknown): string {
@@ -99,8 +103,16 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   const enabled = options?.enabled !== false;
   const useMock = dynamicStrategiesUseMock();
 
-  const [strategies, setStrategies] = useState<DynamicStrategy[]>([]);
-  const [rules, setRules] = useState<DynamicRuleTemplate[]>([]);
+  const [strategies, setStrategies] = useState<DynamicStrategy[]>(() => {
+    const cached = peekDynamicCatalogCache();
+    if (!cached?.strategies?.length) return [];
+    return sortStrategies(
+      cached.strategies.map((row) => normalizeStrategy(row as DynamicStrategy)),
+    );
+  });
+  const [rules, setRules] = useState<DynamicRuleTemplate[]>(
+    () => peekDynamicRulesCache()?.rules ?? [],
+  );
 
   const [editingStrategyId, setEditingStrategyId] = useState<string | null>(null);
   const [builderStrategyId, setBuilderStrategyId] = useState("");
@@ -113,7 +125,10 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   /** Local-only creates — POST on Save all instead of PATCH. */
   const [pendingCreateIds, setPendingCreateIds] = useState<Set<string>>(() => new Set());
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (!enabled) return false;
+    return !peekDynamicCatalogCache() && !peekDynamicRulesCache();
+  });
   const [saving, setSaving] = useState(false);
   const [previewPending, setPreviewPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,7 +140,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setPendingCreateIds(new Set());
   }, []);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (opts?: { force?: boolean }) => {
     if (!enabled) {
       setStrategies([]);
       setRules([]);
@@ -133,12 +148,13 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    const hadCache = Boolean(peekDynamicCatalogCache() || peekDynamicRulesCache());
+    if (!hadCache) setLoading(true);
     setError(null);
     try {
       const [catalog, rulesPayload] = await Promise.all([
-        fetchDynamicCatalog(),
-        fetchDynamicRules(),
+        fetchDynamicCatalog(opts),
+        fetchDynamicRules(opts),
       ]);
       const rows = sortStrategies(
         (catalog.strategies ?? []).map((row) => normalizeStrategy(row as DynamicStrategy)),
@@ -154,7 +170,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   }, [clearPendingEdits, enabled]);
 
   useEffect(() => {
-    void reload();
+    void reload({ force: true });
   }, [reload]);
 
   const clearBuilder = useCallback(() => {

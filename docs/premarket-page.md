@@ -192,7 +192,9 @@ sequenceDiagram
 | `stopEvaluate()` | POST stop; show notice (start may still be pending) |
 | `refreshResult()` | GET result with current `runId` |
 
-Mount: call `loadResult()` once.
+Mount: call `loadResult()` once (shows cached result immediately if present, then revalidates).
+
+**Navigation cache:** Dynamic catalog / rules and last evaluate result are session-cached (`premarket-workspace-cache.ts` + in-flight dedupe on `fetchDynamicCatalog`). Admins no longer double-fetch the catalog (workspace + Strategy builder pane share one request). Returning to Premarket shows last Best results / strategies without a full blank “Loading…” gate. Mutations invalidate the catalog cache.
 
 ### Simulation time (v1)
 
@@ -223,6 +225,7 @@ src/features/premarket/
   api/
     premarket-client.ts          # fetchJson wrappers + error class
     best-result-client.ts        # monitor start/status/stop (+ mock)
+    premarket-workspace-cache.ts # session cache (catalog, result) across remounts
     mock-data.ts                 # Sample grouped result + bestResults for VITE_USE_MOCK_PREMARKET
   types.ts                       # PremarketResultResponse, BestResultMonitorStatus, …
   display.ts                     # resolvePremarketBestHits, buildPremarketBestResults
