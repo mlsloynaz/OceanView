@@ -94,11 +94,11 @@ Empty body `{}` is valid (API defaults: today 9:25 ET, threshold 50).
 
 ### Start — response (use for immediate UI update)
 
-Key fields: `runId`, `status`, `stopped`, `summary`, `strategies[]`.
+Key fields: `runId`, `status`, `stopped`, `summary`, `strategies[]`, `bestResults[]`.
 
 ### Result — response
 
-Same grouped `strategies[]` plus `symbolOutcomes[]`, `progress`, `evaluatedAt`.
+Same grouped `strategies[]` plus `bestResults[]`, `symbolOutcomes[]`, `progress`, `evaluatedAt`.
 
 Full schemas: **OceanView-API** `docs/premarket-evaluate.md`.
 
@@ -149,14 +149,21 @@ sequenceDiagram
 │ Status: idle | running… | complete | stopped                 │
 │ Last run: premkt-… · evaluated 9:25 ET                       │
 ├─────────────────────────────────────────────────────────────┤
-│ ▼ Hourly Trend Change (E01) — 3 tickers                      │
+│ ▼ Best results — Top 10 by max quality                       │
+│   AAPL CALL 61%  (Trend Change 1H 61% · Inside BB 58%)       │
+│   LOW  58%   HD  55%   …                                     │
+│ ▼ Hourly Trend Change (E01) — 3 tickers   (.premarket-result)│
 │   AAPL   67%    HD   55%    LOW  52%                         │
-│ ▼ Inside BB 15M (E05) — 1 ticker                             │
+│ ▼ Inside BB 15M (E05) — 1 ticker          (.premarket-result)│
 │   TSLA   58%                                                 │
 ├─────────────────────────────────────────────────────────────┤
 │ Footer: Active tickers N · Active strategies M · API base    │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**Best results (BestResult feature):** Prefer API field `bestResults` from evaluate start/result (computed and persisted in OceanView-API `application/best_result`). Dedupe key = `symbol` + `direction` (CALL/PUT). Rank by **max** `qualityPct`, take top 10. Merged chips list each strategy label + its %. Click opens detail for the highest-% strategy hit. Client fallback (`buildPremarketBestResults`) for older runs without the field. Strategy (and Best results) sections use CSS class `premarket-result`.
+
+**Best strikes monitor:** Page-top **Start best strikes** / **Stop** (separate from Evaluate). Client polls every 5s → `POST/GET /best-results/monitor/*`. Each cycle refreshes underlying spot + option chain, applies Valores **COGER** gates (ticker `optimalRange`), and shows est. option gain at a fixed **12%** underlying move from Start baseline. Requires a run with `bestResults`. Backend contract: [OceanView-API/docs/best-result-monitor.md](https://github.com/mlsloynaz/OceanView-API/blob/main/docs/best-result-monitor.md).
 
 **Empty state:** “No premarket run yet. Click **Start evaluate** (~9:25 ET). Ensure Admin candles are loaded for active tickers.”
 
@@ -202,20 +209,24 @@ Mount: call `loadResult()` once.
 
 ```
 src/features/premarket/
-  PremarketPage.tsx              # Page shell, banner, actions, strategy list
+  PremarketPage.tsx              # Page shell, banner, actions, Best results + strategy list
   components/
     PremarketToolbar.tsx         # Start / Stop / Refresh + status line
-    PremarketStrategySection.tsx # Collapsible block per strategy
-    PremarketTickerRow.tsx       # symbol, name, qualityPct badge
+    PremarketBestResultMonitorBar.tsx  # Start/Stop best strikes (COGER + 12% move)
+    PremarketBestResults.tsx     # BestResult pane (API bestResults + client fallback)
+    PremarketStrategySection.tsx # Collapsible block per strategy (.premarket-result)
+    PremarketTickerRow.tsx       # quality + optional strategy scores + live strike monitor
     PremarketEmptyState.tsx
     PremarketBanner.tsx          # Mock vs live API indicator (like CandlesPane)
   hooks/
     usePremarketWorkspace.ts
+    useBestResultMonitor.ts      # 5s poll of /best-results/monitor/*
   api/
     premarket-client.ts          # fetchJson wrappers + error class
-    mock-data.ts                 # Sample grouped result for VITE_USE_MOCK_PREMARKET
-  types.ts                       # PremarketResultResponse, PremarketStrategyGroup, …
-  display.ts                     # formatQualityPct, sort helpers (if needed)
+    best-result-client.ts        # monitor start/status/stop (+ mock)
+    mock-data.ts                 # Sample grouped result + bestResults for VITE_USE_MOCK_PREMARKET
+  types.ts                       # PremarketResultResponse, BestResultMonitorStatus, …
+  display.ts                     # resolvePremarketBestHits, buildPremarketBestResults
 ```
 
 **Touch existing files:**
@@ -265,6 +276,14 @@ export type PremarketResultResponse = {
   };
   progress?: { completed?: number; total?: number };
   strategies: PremarketStrategyGroup[];
+  /** BestResult feature — top 10 by max qualityPct (API); optional on older runs. */
+  bestResults?: Array<{
+    symbol: string;
+    name?: string | null;
+    direction?: "CALL" | "PUT" | null;
+    qualityPct: number;
+    strategies: Array<{ strategyId: string; label: string; qualityPct: number }>;
+  }>;
   symbolOutcomes?: Array<{
     symbol: string;
     name?: string | null;

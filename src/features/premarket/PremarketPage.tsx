@@ -3,11 +3,14 @@ import { useStrategiesPane } from "@/features/admin/strategies/hooks/useStrategi
 import { useAuth } from "@/shared/auth/AuthProvider";
 import { PremarketAuxPanels } from "./components/PremarketAuxPanels";
 import { PremarketBanner } from "./components/PremarketBanner";
+import { PremarketBestResultMonitorBar } from "./components/PremarketBestResultMonitorBar";
+import { PremarketBestResults } from "./components/PremarketBestResults";
 import { PremarketEmptyState } from "./components/PremarketEmptyState";
 import { PremarketStrategySection } from "./components/PremarketStrategySection";
 import { PremarketToolbar } from "./components/PremarketToolbar";
+import { useBestResultMonitor } from "./hooks/useBestResultMonitor";
 import { usePremarketWorkspace } from "./hooks/usePremarketWorkspace";
-import { isPremarketEvaluateTerminal } from "./display";
+import { isPremarketEvaluateTerminal, resolvePremarketBestHits } from "./display";
 
 export function PremarketPage() {
   const { isAdmin } = useAuth();
@@ -15,6 +18,15 @@ export function PremarketPage() {
   const builder = useStrategiesPane({ enabled: isAdmin });
 
   const resultStrategies = ws.result?.strategies ?? [];
+  const bestHits = resolvePremarketBestHits(
+    resultStrategies,
+    ws.result?.bestResults,
+    10,
+  );
+  const strikeMonitor = useBestResultMonitor({
+    runId: ws.result?.runId,
+    hasBestResults: bestHits.length > 0,
+  });
   const hasResults = resultStrategies.length > 0;
   const hasCompletedRun =
     Boolean(ws.result?.runId) &&
@@ -72,6 +84,20 @@ export function PremarketPage() {
       )}
 
       <PremarketBanner />
+
+      <PremarketBestResultMonitorBar
+        canStart={strikeMonitor.canStart}
+        canStop={strikeMonitor.canStop}
+        running={strikeMonitor.running}
+        startPending={strikeMonitor.startPending}
+        stopPending={strikeMonitor.stopPending}
+        tickerCount={strikeMonitor.status?.tickers.length ?? bestHits.length}
+        moveCapPct={strikeMonitor.status?.moveCapPct ?? 12}
+        polledAt={strikeMonitor.status?.polledAt}
+        error={strikeMonitor.error}
+        onStart={() => void strikeMonitor.start()}
+        onStop={() => void strikeMonitor.stop()}
+      />
 
       <PremarketAuxPanels
         ws={ws}
@@ -139,6 +165,11 @@ export function PremarketPage() {
               {ws.result.summary.symbolsTotal ?? "—"} symbols evaluated
             </p>
           )}
+          <PremarketBestResults
+            hits={bestHits}
+            threshold={ws.threshold}
+            resolveMonitor={strikeMonitor.tickerMonitor}
+          />
           {resultStrategies.map((group) => (
             <PremarketStrategySection
               key={`${group.strategyId}-${group.name ?? ""}`}

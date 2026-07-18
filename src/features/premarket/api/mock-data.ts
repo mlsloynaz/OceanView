@@ -1,4 +1,5 @@
 import type { DynamicCatalogResponse, DynamicRuleTemplate } from "./dynamic-strategy-client";
+import { buildPremarketBestResults } from "../display";
 import type { PremarketResultResponse } from "../types";
 
 const SET_15M = { timeframe: "15m" as const, trend: "set" as const, operation: "set" as const };
@@ -260,6 +261,7 @@ export const MOCK_PREMARKET_RESULT: PremarketResultResponse = {
       ],
     },
   ],
+  bestResults: [],
   symbolOutcomes: [
     { symbol: "AAPL", name: "Apple Inc.", ready: true, error: null },
     { symbol: "HD", name: "Home Depot", ready: true, error: null },
@@ -267,6 +269,17 @@ export const MOCK_PREMARKET_RESULT: PremarketResultResponse = {
     { symbol: "TSLA", name: "Tesla", ready: true, error: null },
   ],
 };
+
+MOCK_PREMARKET_RESULT.bestResults = buildPremarketBestResults(
+  MOCK_PREMARKET_RESULT.strategies,
+  10,
+).map(({ symbol, name, direction, qualityPct, strategies }) => ({
+  symbol,
+  name,
+  direction,
+  qualityPct,
+  strategies,
+}));
 
 let mockRunCounter = 0;
 

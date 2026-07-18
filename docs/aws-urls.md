@@ -100,6 +100,14 @@ Contract and field shapes: [market-page.md](./market-page.md) (APIs section). Im
 | `POST` | `/premarket/evaluate/stop` | …/prod/premarket/evaluate/stop |
 | `GET` | `/premarket/evaluate/result` | …/prod/premarket/evaluate/result |
 
+**BestResult monitor** ([premarket-page.md](./premarket-page.md); deploy `BestResultsFunction`)
+
+| Method | Path | Example |
+|--------|------|---------|
+| `POST` | `/best-results/monitor/start` | …/prod/best-results/monitor/start |
+| `GET` | `/best-results/monitor/status` | …/prod/best-results/monitor/status |
+| `POST` | `/best-results/monitor/stop` | …/prod/best-results/monitor/stop |
+
 **Operations** ([operations-page.md](./operations-page.md); deploy `OperationsFunction`)
 
 | Method | Path | Example |
@@ -118,6 +126,8 @@ curl.exe "$api/market/envelope"
 curl.exe "$api/market/strategies/snapshot"
 curl.exe -X POST "$api/premarket/evaluate/start" -H "Content-Type: application/json" -d "{}"
 curl.exe "$api/premarket/evaluate/result"
+curl.exe -X POST "$api/best-results/monitor/start" -H "Content-Type: application/json" -d "{\"runId\":\"premkt-…\"}"
+curl.exe "$api/best-results/monitor/status"
 ```
 
 ---

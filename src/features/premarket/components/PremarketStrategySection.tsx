@@ -28,7 +28,7 @@ export function PremarketStrategySection({ group, threshold, defaultOpen = true 
         subtitle={subtitle}
         open={open}
         onOpenChange={setOpen}
-        className="min-w-0"
+        className="premarket-result min-w-0"
       >
         <ul className="flex flex-wrap gap-2">
           {group.tickers.map((ticker) => (
