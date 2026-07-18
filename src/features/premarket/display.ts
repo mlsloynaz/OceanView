@@ -114,6 +114,48 @@ export function strategyGroupSubtitle(
   return `${strategyId} · ${countLabel}`;
 }
 
+/** Keep tickers at or above quality threshold (0 = show all). Strict — no fallback. */
+export function filterTickersByThreshold(
+  tickers: PremarketTickerHit[],
+  threshold: number,
+): PremarketTickerHit[] {
+  if (threshold <= 0) return tickers;
+  return tickers.filter((t) => t.qualityPct >= threshold);
+}
+
+function sortTickersByQuality(tickers: PremarketTickerHit[]): PremarketTickerHit[] {
+  return [...tickers].sort((a, b) => b.qualityPct - a.qualityPct);
+}
+
+/** True when at least one ticker meets `threshold` (false when threshold ≤ 0). */
+export function anyTickerMeetsThreshold(
+  strategies: PremarketStrategyGroup[],
+  threshold: number,
+): boolean {
+  if (threshold <= 0) return false;
+  return strategies.some((g) => g.tickers.some((t) => t.qualityPct >= threshold));
+}
+
+/**
+ * Prefer tickers ≥ threshold when any qualify; otherwise keep best available
+ * (highest qualityPct) so panes are not empty.
+ */
+export function filterStrategyGroupsByThreshold(
+  strategies: PremarketStrategyGroup[],
+  threshold: number,
+): PremarketStrategyGroup[] {
+  if (threshold <= 0) return strategies;
+  const preferAbove = anyTickerMeetsThreshold(strategies, threshold);
+  return strategies
+    .map((group) => ({
+      ...group,
+      tickers: preferAbove
+        ? filterTickersByThreshold(group.tickers, threshold)
+        : sortTickersByQuality(group.tickers),
+    }))
+    .filter((group) => group.tickers.length > 0);
+}
+
 function strategyLabel(group: PremarketStrategyGroup): string {
   return group.shortName || group.name || group.strategyId;
 }
@@ -284,15 +326,26 @@ function attachBestHitRefs(
 
 /**
  * Prefer API `bestResults` (BestResult feature); fall back to client aggregation
- * for older runs that lack the field.
+ * for older runs that lack the field. Prefer hits ≥ ``threshold``; if none qualify,
+ * keep the top available by quality.
  */
 export function resolvePremarketBestHits(
   strategies: PremarketStrategyGroup[],
   bestResults?: PremarketBestResultRow[] | null,
   limit = 10,
+  threshold = 0,
 ): PremarketBestHit[] {
+  const filteredStrategies = filterStrategyGroupsByThreshold(strategies, threshold);
+  let hits: PremarketBestHit[];
   if (bestResults && bestResults.length > 0) {
-    return bestResults.slice(0, limit).map((row) => attachBestHitRefs(row, strategies));
+    const above =
+      threshold > 0
+        ? bestResults.filter((row) => row.qualityPct >= threshold)
+        : bestResults;
+    const rows = (above.length > 0 ? above : bestResults).slice(0, limit);
+    hits = rows.map((row) => attachBestHitRefs(row, filteredStrategies));
+  } else {
+    hits = buildPremarketBestResults(filteredStrategies, limit);
   }
-  return buildPremarketBestResults(strategies, limit);
+  return hits;
 }

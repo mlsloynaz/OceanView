@@ -9,24 +9,34 @@ import { PremarketStrategySection } from "./components/PremarketStrategySection"
 import { PremarketToolbar } from "./components/PremarketToolbar";
 import { useBestResultMonitor } from "./hooks/useBestResultMonitor";
 import { usePremarketWorkspace } from "./hooks/usePremarketWorkspace";
-import { isPremarketEvaluateTerminal, resolvePremarketBestHits } from "./display";
+import {
+  anyTickerMeetsThreshold,
+  filterStrategyGroupsByThreshold,
+  isPremarketEvaluateTerminal,
+  resolvePremarketBestHits,
+} from "./display";
 
 export function PremarketPage() {
   const { isAdmin } = useAuth();
   const ws = usePremarketWorkspace();
   const builder = useStrategiesPane({ enabled: isAdmin });
 
-  const resultStrategies = ws.result?.strategies ?? [];
+  const displayThreshold = ws.thresholdInput;
+  const rawStrategies = ws.result?.strategies ?? [];
+  const thresholdMet = anyTickerMeetsThreshold(rawStrategies, displayThreshold);
+  const resultStrategies = filterStrategyGroupsByThreshold(rawStrategies, displayThreshold);
   const bestHits = resolvePremarketBestHits(
-    resultStrategies,
+    rawStrategies,
     ws.result?.bestResults,
     10,
+    displayThreshold,
   );
   const strikeMonitor = useBestResultMonitor({
     runId: ws.result?.runId,
     hasBestResults: bestHits.length > 0,
   });
-  const hasResults = resultStrategies.length > 0;
+  const hasApiStrategies = (ws.result?.strategies?.length ?? 0) > 0;
+  const hasResults = hasApiStrategies;
   const hasCompletedRun =
     Boolean(ws.result?.runId) &&
     (Boolean(ws.result?.evaluatedAt) || isPremarketEvaluateTerminal(ws.result?.status));
@@ -34,7 +44,7 @@ export function PremarketPage() {
     !ws.loading && !ws.startPending && !hasResults && !hasCompletedRun && !ws.error && !ws.useMock;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-5">
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam">Premarket</h1>
         <p className="mt-2 text-ocean-sand">
@@ -142,17 +152,22 @@ export function PremarketPage() {
         <div className="space-y-4">
           {ws.result?.summary && (
             <p className="text-xs text-ocean-sand">
-              {ws.result.summary.symbolsAboveThreshold ?? 0} hit(s) at ≥ {ws.threshold}%
+              {resultStrategies.reduce((n, g) => n + g.tickers.length, 0)} ticker(s) shown
+              {displayThreshold > 0
+                ? thresholdMet
+                  ? ` at ≥ ${displayThreshold}%`
+                  : ` (none ≥ ${displayThreshold}% — best available)`
+                : ""}
               {" · "}
-              {ws.result.summary.strategyCount ?? resultStrategies.length} strateg
-              {(ws.result.summary.strategyCount ?? resultStrategies.length) === 1 ? "y" : "ies"}
+              {resultStrategies.length} strateg
+              {resultStrategies.length === 1 ? "y" : "ies"}
               {" · "}
               {ws.result.summary.symbolsTotal ?? "—"} symbols evaluated
             </p>
           )}
           <PremarketBestResults
             hits={bestHits}
-            threshold={ws.threshold}
+            threshold={displayThreshold}
             resolveMonitor={strikeMonitor.tickerMonitor}
             monitor={{
               canStart: strikeMonitor.canStart,
@@ -172,7 +187,7 @@ export function PremarketPage() {
             <PremarketStrategySection
               key={`${group.strategyId}-${group.name ?? ""}`}
               group={group}
-              threshold={ws.threshold}
+              threshold={displayThreshold}
             />
           ))}
         </div>
@@ -185,11 +200,11 @@ export function PremarketPage() {
         />
       )}
 
-      {hasResults && ws.threshold > 0 && (ws.result?.summary?.symbolsAboveThreshold ?? 0) === 0 && (
+      {hasResults && displayThreshold > 0 && !thresholdMet && resultStrategies.length > 0 && (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
-          No tickers reached ≥ {ws.threshold}% quality — click a ticker chip below to see per-rule
-          evidence. Volatility often reads <strong>not met</strong> at the open until BB width and
-          ATR expand (need index ≥ 1.35 and ATR ratio ≥ 1.20 on 15m).
+          No tickers reached ≥ {displayThreshold}% — showing the best available below that bar.
+          Volatility often reads <strong>not met</strong> at the open until BB width and ATR expand
+          (need index ≥ 1.35 and ATR ratio ≥ 1.20 on 15m).
         </p>
       )}
 

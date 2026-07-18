@@ -33,7 +33,7 @@ export function TopNav() {
 
   return (
     <header className="shrink-0 border-b border-ocean-mid/60 bg-ocean-surface/90 backdrop-blur-sm">
-      <div className="flex h-14 items-center gap-8 px-6">
+      <div className="flex h-12 items-center gap-6 px-4 md:px-5">
         <div className="flex items-center gap-2.5">
           <img
             src="/favicon.svg"

@@ -161,6 +161,8 @@ sequenceDiagram
 └─────────────────────────────────────────────────────────────┘
 ```
 
+**Quality threshold:** Applied in the **UI** when rendering Best results and strategy panes. If any ticker has `qualityPct ≥ threshold`, only those are shown; if **none** qualify, fall back to the best available (highest %). The API still returns all evaluated tickers; `signalThresholdPct` on the run is used for summary counts and the next evaluate request. Setting **All (0%)** shows every ticker.
+
 **Best results (BestResult feature):** Prefer API field `bestResults` from evaluate start/result (computed and persisted in OceanView-API `application/best_result`). Dedupe key = `symbol` + `direction` (CALL/PUT). Rank by **max** `qualityPct`, take top 10. Merged chips list each strategy label + its %. Click opens detail for the highest-% strategy hit. Client fallback (`buildPremarketBestResults`) for older runs without the field. Strategy (and Best results) sections use CSS class `premarket-result`.
 
 **Best strikes monitor:** **Start** / **Stop** on the Best results pane header (not Evaluate). Client polls every 5s → `POST/GET /best-results/monitor/*`. Each cycle refreshes underlying spot + option chain, applies Valores **COGER** gates (ticker `optimalRange`), and shows est. option gain at a fixed **12%** underlying move from Start baseline. Requires a run with Best results tickers. Backend contract: [OceanView-API/docs/best-result-monitor.md](https://github.com/mlsloynaz/OceanView-API/blob/main/docs/best-result-monitor.md).
