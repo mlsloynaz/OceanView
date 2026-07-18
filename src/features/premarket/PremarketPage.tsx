@@ -44,7 +44,7 @@ export function PremarketPage() {
     !ws.loading && !ws.startPending && !hasResults && !hasCompletedRun && !ws.error && !ws.useMock;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
+    <div className="w-full space-y-5">
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam">Premarket</h1>
         <p className="mt-2 text-ocean-sand">

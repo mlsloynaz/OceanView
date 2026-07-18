@@ -132,7 +132,7 @@ export function StrategyBuilderPage() {
   const ready = hydrated && !ws.loading;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
+    <div className="w-full space-y-5">
       <header className="space-y-3">
         <button
           type="button"

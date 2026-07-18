@@ -443,7 +443,7 @@ Open http://localhost:5173/market/strategies — grids should load from API when
 
 | Path | Role |
 |------|------|
-| `src/features/market/MarketPage.tsx` | Page layout, grids, banners |
+| `src/features/market/MarketPage.tsx` | Page layout (full-width main column), grids, banners |
 | `src/features/market/MarketRedirect.tsx` | `/market` → stored mode |
 | `src/features/market/hooks/useMarketWorkspace.ts` | Load, assess, search, snapshot cache |
 | `src/features/market/api/market-workspace-cache.ts` | Session cache across Market remounts |

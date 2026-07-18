@@ -45,7 +45,7 @@ export function AdminPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="w-full space-y-6">
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam sm:text-4xl">Admin</h1>
         <p className="mt-3 max-w-3xl text-base leading-relaxed text-ocean-sand">

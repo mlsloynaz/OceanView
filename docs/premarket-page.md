@@ -139,6 +139,8 @@ sequenceDiagram
 
 ## Page layout (wireframe)
 
+Content is **full width** of the main column (no `max-w-*` cap). Shell padding and root font size are global — see `AppShell` (`p-2 md:p-3`) and `index.css` (`html { font-size: 18px }`).
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Premarket                                                    │

@@ -9,7 +9,7 @@ export function AppShell() {
 
       <div className="flex min-h-0 flex-1">
         <ToolsPane />
-        <main className="min-w-0 flex-1 overflow-y-auto p-3 md:p-4">
+        <main className="min-w-0 flex-1 overflow-y-auto p-2 md:p-3">
           <Outlet />
         </main>
       </div>

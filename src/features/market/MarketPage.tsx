@@ -90,7 +90,7 @@ export function MarketPage() {
   const showGrids = !loading && !error;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
+    <div className="w-full space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="font-display text-xl font-semibold text-ocean-foam sm:text-2xl">Market</h1>

@@ -47,7 +47,8 @@
 
 @layer base {
   html {
-    font-size: 17px;
+    /* Site-wide rem base — Tailwind text-* / spacing scale with this */
+    font-size: 18px;
   }
 
   body {
