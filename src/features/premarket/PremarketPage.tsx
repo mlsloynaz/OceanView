@@ -3,7 +3,6 @@ import { useStrategiesPane } from "@/features/admin/strategies/hooks/useStrategi
 import { useAuth } from "@/shared/auth/AuthProvider";
 import { PremarketAuxPanels } from "./components/PremarketAuxPanels";
 import { PremarketBanner } from "./components/PremarketBanner";
-import { PremarketBestResultMonitorBar } from "./components/PremarketBestResultMonitorBar";
 import { PremarketBestResults } from "./components/PremarketBestResults";
 import { PremarketEmptyState } from "./components/PremarketEmptyState";
 import { PremarketStrategySection } from "./components/PremarketStrategySection";
@@ -85,20 +84,6 @@ export function PremarketPage() {
 
       <PremarketBanner />
 
-      <PremarketBestResultMonitorBar
-        canStart={strikeMonitor.canStart}
-        canStop={strikeMonitor.canStop}
-        running={strikeMonitor.running}
-        startPending={strikeMonitor.startPending}
-        stopPending={strikeMonitor.stopPending}
-        tickerCount={strikeMonitor.status?.tickers.length ?? bestHits.length}
-        moveCapPct={strikeMonitor.status?.moveCapPct ?? 12}
-        polledAt={strikeMonitor.status?.polledAt}
-        error={strikeMonitor.error}
-        onStart={() => void strikeMonitor.start()}
-        onStop={() => void strikeMonitor.stop()}
-      />
-
       <PremarketAuxPanels
         ws={ws}
         isAdmin={isAdmin}
@@ -169,6 +154,19 @@ export function PremarketPage() {
             hits={bestHits}
             threshold={ws.threshold}
             resolveMonitor={strikeMonitor.tickerMonitor}
+            monitor={{
+              canStart: strikeMonitor.canStart,
+              canStop: strikeMonitor.canStop,
+              running: strikeMonitor.running,
+              startPending: strikeMonitor.startPending,
+              stopPending: strikeMonitor.stopPending,
+              tickerCount: strikeMonitor.status?.tickers.length ?? bestHits.length,
+              moveCapPct: strikeMonitor.status?.moveCapPct ?? 12,
+              polledAt: strikeMonitor.status?.polledAt,
+              error: strikeMonitor.error,
+              onStart: () => void strikeMonitor.start(),
+              onStop: () => void strikeMonitor.stop(),
+            }}
           />
           {resultStrategies.map((group) => (
             <PremarketStrategySection
