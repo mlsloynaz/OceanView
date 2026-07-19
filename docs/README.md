@@ -12,6 +12,7 @@ Index of docs in this repo. Feature pages are the **source of truth** for UI beh
 | [premarket-page.md](./premarket-page.md) | Premarket — evaluate + BestResult strike monitor | `/premarket` |
 | [operations-page.md](./operations-page.md) | Operations — option picks and buy | `/operations` |
 | [candles-pane.md](./candles-pane.md) | Admin — candle intake and status | `/admin` |
+| [job-status-pane.md](./job-status-pane.md) | Admin — latest job runs (`GET /jobs/status`) | `/admin#admin-job-status-pane` |
 
 Agent rule [update-documentation](../.cursor/rules/update-documentation.mdc) requires updating these when fixing bugs or adding functionality.
 

@@ -26,9 +26,31 @@ Operational panel for **candle (OHLC bar) collection** — incremental refresh, 
 - Load last **candles job** summary and per-symbol candle context
 - **Refresh candles** (incremental D / 1h / 15m intake)
 - **Reset candles** (full re-fetch)
+- **Build movement profiles** (maintenance — ~1y hourly in memory; see Job Status `movement_profiles`)
 - **Refresh status** (read current collection state without starting a job)
 - Per-row **Refresh one ticker**
 - English labels only
+
+### Scheduled candle refresh (no UI click)
+
+| | |
+|--|--|
+| **When** | **Weekdays 5:00 PM America/New_York** |
+| **What** | Same incremental refresh as **Refresh candles** (D + 1h + 15m) for **all catalog** tickers |
+| **How** | EventBridge rule `oceanview-weekday-candle-refresh` → Candles Lambda (`cron(0 17 ? * MON-FRI *)`) |
+| **Batches** | 10 symbols per continue invoke |
+| **Progress** | Admin → **Job Status** → Candles (`trigger: schedule`) |
+
+Defined in OceanView-API `template.yaml` (`WeekdayCandleRefresh`, `State: ENABLED`) and `src/application/candle/scheduled_refresh.py`.
+
+### Manual refresh / reset (avoids API Gateway 504)
+
+| | |
+|--|--|
+| **HTTP** | `POST /candles/refresh` or `/candles/reset` returns **202** quickly (`status: running`) |
+| **Work** | Same batching as the weekday job (10 tickers per Lambda continue) |
+| **UI** | Candles pane polls `/candles/status` every ~2.5s until the job finishes and updates the table |
+| **Also** | Weekday 5 PM ET job remains the automatic full-catalog refresh |
 
 ### Out of scope (other panes / APIs)
 
@@ -90,9 +112,11 @@ flowchart TB
 | **Refresh status** | User click | `POST /candles/status` | Live collection state for requested tickers (no new job) |
 | **Refresh candles** | User click | `POST /candles/refresh` | Start incremental intake; show acknowledgment message |
 | **Reset candles** | User click (after confirm) | `POST /candles/reset` | Start full reset intake; show acknowledgment message |
+| **Build movement profiles** | User click (after confirm) | `POST /candles/movement-profiles/build` `{ tickers, batchSize: 5 }` | Async 202 — ~1y hourly in memory, persist compact profile only |
+| **Stop profiles** | User click | `POST /candles/movement-profiles/stop` | Stop after current batch |
 | **Refresh** (row) | Per ticker | `POST /candles/refresh` `{ tickers: ["AAPL"] }` | Same as bulk, one symbol |
 
-**After refresh/reset:** Do **not** poll. Display `202` message (e.g. job started). User clicks **Refresh status** when they want updated rows, or collapses/reopens the pane to reload `candles/result`.
+**After refresh/reset/profile build:** Do **not** poll. Display ack message. Profile progress lives under Admin → **Job Status** (`movement_profiles`). User clicks **Reload Result** for candle rows.
 
 ---
 
@@ -367,6 +391,44 @@ Single-ticker and multi-ticker use the **same endpoint** (pass one element for o
 
 ---
 
+### `POST /candles/movement-profiles/build`
+
+**Purpose:** Async maintenance — fetch ~1 year of **1h RTH** bars **in memory**, compute `MovementProfile`, persist compact DTO to `OceanView-MovementProfiles`. Does **not** write bars to `OceanView-Candles`.
+
+**Request:**
+
+```json
+{
+  "tickers": ["AAPL", "MSFT"],
+  "batchSize": 5
+}
+```
+
+**Response `202`:**
+
+```json
+{
+  "runId": "mvprof-20260719-120000",
+  "kind": "build_movement_profiles",
+  "status": "running",
+  "message": "Movement profile build started. Check Job Status or Reload when ready.",
+  "tickers": ["AAPL", "MSFT"],
+  "batchSize": 5
+}
+```
+
+**409** if a profile job is already running. Progress: `GET /jobs/status` → `jobType: movement_profiles`.
+
+### `POST /candles/movement-profiles/stop`
+
+Sets `stopRequested` on the active job; worker finishes the current batch of 5 then stops.
+
+### `POST /candles/movement-profiles/status`
+
+**Request:** `{ "tickers": [...] }` — returns `lastRun` + per-symbol stored profile summary (`moveCapPct`, `sampleSize`, `expectedExitPrice`, …).
+
+---
+
 ## Sequence diagrams
 
 ### Panel open
@@ -460,6 +522,7 @@ src/features/admin/
     TickersPane.tsx             # catalog filters + add form + active toggle
     AddTickerForm.tsx
     TickersTable.tsx
+    TickerMovementInfoPanel.tsx # expanded row: stacked label-above-value metrics (no wide L/R gap)
     types.ts
     api/tickers-client.ts       # GET/POST /tickers, PATCH /tickers/{symbol} (active)
     hooks/useTickersPane.ts

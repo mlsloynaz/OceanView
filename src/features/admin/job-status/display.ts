@@ -11,6 +11,7 @@ const JOB_TITLES: Record<string, string> = {
   market: "Market assess",
   premarket: "Premarket",
   preselection: "Tickers SemiFinal",
+  movement_profiles: "Movement profiles",
 };
 
 export function jobTypeTitle(jobType: string): string {

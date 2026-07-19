@@ -21,6 +21,7 @@ export const BEST_RESULT_ERROR_MESSAGES: Record<string, string> = {
   BEST_RESULT_RUN_NOT_FOUND: "No premarket result for that run — evaluate first.",
   BEST_RESULT_EMPTY: "No Best results on this run — evaluate first.",
   BEST_RESULT_NOT_FOUND: "No best-result monitor session.",
+  BEST_RESULT_REFRESH_ERROR: "Best results refresh failed.",
 };
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -65,7 +66,28 @@ function mockTickersFromSymbols(
       baselineSpot: baseline,
       spot: Number(spot.toFixed(2)),
       movePct: Number((((spot - baseline) / baseline) * 100).toFixed(2)),
-      targetSpot: direction === "CALL" ? baseline * 1.12 : baseline * 0.88,
+      targetSpot: Number((direction === "CALL" ? baseline * 1.12 : baseline * 0.88).toFixed(2)),
+      expectedExitPrice: Number((direction === "CALL" ? baseline * 1.03 : baseline * 0.97).toFixed(2)),
+      stretchExitPrice: Number((direction === "CALL" ? baseline * 1.06 : baseline * 0.94).toFixed(2)),
+      expectedExitPrices: [
+        Number((direction === "CALL" ? baseline * 1.03 : baseline * 0.97).toFixed(2)),
+        Number((direction === "CALL" ? baseline * 1.06 : baseline * 0.94).toFixed(2)),
+        Number((direction === "CALL" ? baseline * 1.042 : baseline * 0.958).toFixed(2)),
+      ],
+      moveCapPct: 4.2,
+      remainingMfePct: 2.8,
+      movementProfile: {
+        timeframe: "15m",
+        moveCapPct: 4.2,
+        expectedExitPrice: Number(
+          (direction === "CALL" ? baseline * 1.042 : baseline * 0.958).toFixed(2),
+        ),
+        stretchExitPrice: Number(
+          (direction === "CALL" ? baseline * 1.06 : baseline * 0.94).toFixed(2),
+        ),
+        referencePrice: Number(spot.toFixed(2)),
+        remainingMfePct: 2.8,
+      },
       pick: {
         symbol: row.symbol,
         strike,
@@ -80,7 +102,10 @@ function mockTickersFromSymbols(
       },
       estimate: {
         atMoveCapPct: 12,
-        targetSpot: direction === "CALL" ? baseline * 1.12 : baseline * 0.88,
+        targetSpot: Number((direction === "CALL" ? baseline * 1.12 : baseline * 0.88).toFixed(2)),
+        expectedExitPrice: Number(
+          (direction === "CALL" ? baseline * 1.042 : baseline * 0.958).toFixed(2),
+        ),
         exitMarkEst: Number((ask * 1.45).toFixed(2)),
         gainPct: 45,
         gainUsdPerContract: Number(((ask * 1.45 - ask) * 100).toFixed(2)),
@@ -159,5 +184,46 @@ export async function postBestResultMonitorStop(
   return fetchJson<BestResultMonitorStatus>("/best-results/monitor/stop", {
     method: "POST",
     body: JSON.stringify(monitorId ? { monitorId } : {}),
+  });
+}
+
+export type BestResultRefreshResponse = {
+  runId: string;
+  status: string;
+  refreshedAt?: string;
+  symbols?: string[];
+  message?: string;
+  bestResults?: unknown[];
+  tickers?: BestResultMonitorTicker[];
+  steps?: {
+    candles?: { skipped?: boolean; outcomes?: unknown[] };
+    reassess?: { skipped?: boolean; symbols?: string[] };
+    strikes?: { skipped?: boolean; resolved?: number; attempted?: number };
+  };
+};
+
+export async function postBestResultRefresh(body: {
+  runId?: string;
+  refreshCandles?: boolean;
+  reassess?: boolean;
+  resolveStrikes?: boolean;
+}): Promise<BestResultRefreshResponse> {
+  if (USE_MOCK) {
+    await new Promise((r) => setTimeout(r, 600));
+    return {
+      runId: body.runId || "premkt-mock",
+      status: "refreshed",
+      refreshedAt: new Date().toISOString(),
+      symbols: ["AAPL", "LOW"],
+      message: "Best results refreshed (mock).",
+      tickers: mockTickersFromSymbols([
+        { symbol: "AAPL", direction: "CALL", name: "Apple Inc." },
+        { symbol: "LOW", direction: "CALL", name: "Lowe's" },
+      ]),
+    };
+  }
+  return fetchJson<BestResultRefreshResponse>("/best-results/refresh", {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }

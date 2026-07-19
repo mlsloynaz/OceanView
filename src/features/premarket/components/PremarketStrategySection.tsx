@@ -36,7 +36,7 @@ export function PremarketStrategySection({ group, threshold, defaultOpen = true 
               key={ticker.symbol}
               ticker={ticker}
               threshold={threshold}
-              onOpen={() => setDetailTicker(ticker)}
+              onOpenRules={() => setDetailTicker(ticker)}
             />
           ))}
         </ul>

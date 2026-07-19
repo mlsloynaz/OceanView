@@ -11,7 +11,7 @@ type Props = {
 };
 
 export function TickerCard({ card, threshold, strategyById, onOpen }: Props) {
-  const { symbol, name, signalCount, bestSignal, topStrategyEval } = card;
+  const { symbol, name, signalCount, bestSignal, topStrategyEval, movementProfile } = card;
   const hasSignals = signalCount > 0;
   const topCatalog = topStrategyEval
     ? strategyById.get(topStrategyEval.strategyId)
@@ -20,9 +20,15 @@ export function TickerCard({ card, threshold, strategyById, onOpen }: Props) {
     topStrategyEval && topCatalog
       ? mergeRuleDisplay(topCatalog.rules, topStrategyEval.rules)
       : [];
+  const exhaustion = Boolean(movementProfile?.exhaustionRisk);
 
   return (
-    <article className="flex flex-col rounded-xl border border-ocean-mid/50 bg-ocean-surface p-4 shadow-sm transition-shadow hover:shadow-md">
+    <article
+      className={cn(
+        "flex flex-col rounded-xl border bg-ocean-surface p-4 shadow-sm transition-shadow hover:shadow-md",
+        exhaustion ? "border-ocean-danger/60" : "border-ocean-mid/50",
+      )}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="font-display text-lg font-semibold text-ocean-foam">{symbol}</h3>
@@ -56,6 +62,11 @@ export function TickerCard({ card, threshold, strategyById, onOpen }: Props) {
             )}
           >
             {bestSignal.direction}
+          </span>
+        )}
+        {exhaustion && (
+          <span className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase text-ocean-danger">
+            Stop
           </span>
         )}
       </div>

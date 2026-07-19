@@ -2,21 +2,55 @@ import { MarketDetailModal } from "@/features/market/components/MarketDetailModa
 import { RuleCheckStrip } from "@/features/market/components/RuleCheckStrip";
 import { RuleRequirementsList } from "@/features/market/components/RuleRequirementsList";
 import { StrategyAssessMeta } from "@/features/market/components/StrategyAssessMeta";
-import { formatAchievedTimeEt, toPremarketDisplayRules } from "../display";
-import type { PremarketStrategyGroup, PremarketTickerHit } from "../types";
+import {
+  formatAchievedTimeEt,
+  formatMoneyPrice,
+  resolveBestResultTradeSummary,
+  resolveEstimatedExitPrice,
+  toPremarketDisplayRules,
+} from "../display";
+import type { BestResultMonitorTicker, PremarketStrategyGroup, PremarketTickerHit } from "../types";
+import { BestResultTradeSummaryPanel } from "./BestResultTradeSummary";
 
 type Props = {
   group: PremarketStrategyGroup;
   ticker: PremarketTickerHit;
   threshold: number;
   onClose: () => void;
+  /** When set, show Best Results trade levels (current / exit / obstacle / strike). */
+  monitor?: BestResultMonitorTicker | null;
+  /** `trade` = Best Results summary; `exit-only` = strategy panes. */
+  priceDetail?: "exit-only" | "trade";
 };
 
-export function PremarketTickerDetailModal({ group, ticker, threshold, onClose }: Props) {
+export function PremarketTickerDetailModal({
+  group,
+  ticker,
+  threshold,
+  onClose,
+  monitor,
+  priceDetail = "exit-only",
+}: Props) {
   const strategyName = group.shortName || group.name || group.strategyId;
   const rules = toPremarketDisplayRules(ticker.rules);
   const achieved = ticker.achievedAtEt?.trim()
     ? formatAchievedTimeEt(ticker.achievedAtEt)
+    : null;
+  const profile = monitor?.movementProfile ?? ticker.movementProfile ?? null;
+  const showTrade = priceDetail === "trade";
+  const tradeSummary = showTrade
+    ? resolveBestResultTradeSummary({
+        monitor,
+        profile,
+        dangers: ticker.dangers,
+      })
+    : null;
+  const estimatedExit = !showTrade
+    ? resolveEstimatedExitPrice({
+        monitor,
+        profile,
+        dangers: ticker.dangers,
+      })
     : null;
 
   return (
@@ -38,6 +72,17 @@ export function PremarketTickerDetailModal({ group, ticker, threshold, onClose }
           dangers={ticker.dangers}
         />
 
+        {showTrade && tradeSummary && <BestResultTradeSummaryPanel summary={tradeSummary} />}
+
+        {!showTrade && estimatedExit != null && (
+          <p className="text-sm text-ocean-sand">
+            Estimated exit{" "}
+            <strong className="tabular-nums text-ocean-foam">
+              {formatMoneyPrice(estimatedExit)}
+            </strong>
+          </p>
+        )}
+
         {achieved && (
           <p className="text-xs text-ocean-sand">
             Signal achieved at{" "}
@@ -50,7 +95,7 @@ export function PremarketTickerDetailModal({ group, ticker, threshold, onClose }
             <RuleCheckStrip rules={rules} />
             <div>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
-                Rules
+                Strategy rules
               </h3>
               <RuleRequirementsList
                 rules={rules}

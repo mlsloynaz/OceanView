@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   createTicker,
+  fetchMovementProfilesForSymbols,
   getTickersCatalog,
   patchTickerActive,
   patchTickersActive,
@@ -13,9 +14,14 @@ import {
   totalPages as calcTotalPages,
 } from "../pagination";
 import { filterTickersBySearch } from "../search";
-import type { CatalogTicker, TickerCatalogFilter } from "../types";
+import type { CatalogTicker, TickerCatalogFilter, TickerMovementProfileEntry } from "../types";
 
 const SEARCH_SUGGESTION_LIMIT = 8;
+
+export type ProfileCacheEntry =
+  | { status: "loading" }
+  | { status: "error"; error: string }
+  | { status: "ready"; entry: TickerMovementProfileEntry };
 
 export function useTickersPane(open: boolean) {
   const [tickers, setTickers] = useState<CatalogTicker[]>([]);
@@ -28,6 +34,10 @@ export function useTickersPane(open: boolean) {
   const [pending, setPending] = useState<Record<string, boolean>>({});
   const [isPending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
+  const [expandedSymbol, setExpandedSymbol] = useState<string | null>(null);
+  const [profileCache, setProfileCache] = useState<Record<string, ProfileCacheEntry>>({});
+  const profileCacheRef = useRef(profileCache);
+  profileCacheRef.current = profileCache;
 
   const loadCatalog = useCallback(async () => {
     setError(null);
@@ -50,16 +60,19 @@ export function useTickersPane(open: boolean) {
   const setFilterAndResetPage = useCallback((next: TickerCatalogFilter) => {
     setFilter(next);
     setPage(1);
+    setExpandedSymbol(null);
   }, []);
 
   const setSearch = useCallback((next: string) => {
     setSearchState(next);
     setPage(1);
+    setExpandedSymbol(null);
   }, []);
 
   const selectSearchTicker = useCallback((symbol: string) => {
     setSearchState(symbol);
     setPage(1);
+    setExpandedSymbol(null);
   }, []);
 
   const filteredTickers = useMemo(() => {
@@ -93,6 +106,11 @@ export function useTickersPane(open: boolean) {
     if (page > pages) setPage(pages);
   }, [page, pages]);
 
+  const setPageAndCollapse = useCallback((next: number) => {
+    setPage(next);
+    setExpandedSymbol(null);
+  }, []);
+
   const pageTickers = useMemo(
     () => paginate(filteredTickers, page, TICKERS_PAGE_SIZE),
     [filteredTickers, page],
@@ -113,6 +131,44 @@ export function useTickersPane(open: boolean) {
       inactive: tickers.filter((row) => !row.active).length,
     }),
     [tickers],
+  );
+
+  const loadMovementProfile = useCallback(async (symbol: string) => {
+    const upper = symbol.toUpperCase();
+    const existing = profileCacheRef.current[upper];
+    if (existing?.status === "loading" || existing?.status === "ready") return;
+
+    setProfileCache((prev) => ({ ...prev, [upper]: { status: "loading" } }));
+    try {
+      const rows = await fetchMovementProfilesForSymbols([upper]);
+      const entry = rows[0] ?? {
+        symbol: upper,
+        outcome: "unknown",
+        message: "No stored movement profile yet",
+        profile: null,
+      };
+      setProfileCache((prev) => ({ ...prev, [upper]: { status: "ready", entry } }));
+    } catch (err) {
+      setProfileCache((prev) => ({
+        ...prev,
+        [upper]: {
+          status: "error",
+          error: err instanceof Error ? err.message : "Failed to load movement profile.",
+        },
+      }));
+    }
+  }, []);
+
+  const toggleExpanded = useCallback(
+    (symbol: string) => {
+      const upper = symbol.toUpperCase();
+      setExpandedSymbol((prev) => {
+        const next = prev === upper ? null : upper;
+        if (next) void loadMovementProfile(next);
+        return next;
+      });
+    },
+    [loadMovementProfile],
   );
 
   const addTicker = useCallback(async (values: AddTickerFormValues): Promise<boolean> => {
@@ -197,25 +253,24 @@ export function useTickersPane(open: boolean) {
               : "All tickers are already active."
             : scope === "page"
               ? "No active tickers on this page."
-              : "No active tickers in the catalog.",
+              : "No active tickers to deactivate.",
         );
         return;
       }
 
       if (!nextActive) {
-        const ok = window.confirm(
+        const label =
           scope === "page"
-            ? `Deactivate ${targets.length} ticker(s) on this page? They will be excluded from Market Assess and Candles bulk actions.`
-            : `Deactivate all ${targets.length} active ticker(s)? They will be excluded from Market Assess and Candles bulk actions.`,
+            ? `${targets.length} ticker(s) on this page`
+            : `${targets.length} ticker(s)`;
+        const ok = window.confirm(
+          `${label} will be excluded from Market Assess and default Candles bulk actions. Continue?`,
         );
         if (!ok) return;
       }
 
       setMessage(null);
       setError(null);
-      const pendingKeys = Object.fromEntries(targets.map((row) => [row.symbol, true]));
-      setPending((prev) => ({ ...prev, ...pendingKeys }));
-
       startTransition(async () => {
         try {
           const updated = await patchTickersActive(
@@ -224,28 +279,19 @@ export function useTickersPane(open: boolean) {
           );
           const bySymbol = new Map(updated.map((row) => [row.symbol, row]));
           setTickers((prev) =>
-            sortTickersAlphabetically(
-              prev.map((row) => bySymbol.get(row.symbol) ?? row),
-            ),
+            sortTickersAlphabetically(prev.map((row) => bySymbol.get(row.symbol) ?? row)),
           );
           setMessage(
             nextActive
-              ? scope === "page"
-                ? `Activated ${updated.length} ticker(s) on this page.`
-                : `Activated ${updated.length} ticker(s) across the catalog.`
-              : scope === "page"
-                ? `Deactivated ${updated.length} ticker(s) on this page.`
-                : `Deactivated ${updated.length} ticker(s) across the catalog.`,
+              ? `Activated ${updated.length} ticker(s).`
+              : `Deactivated ${updated.length} ticker(s).`,
           );
         } catch (err) {
-          setError(err instanceof Error ? err.message : "Bulk update failed.");
-          await loadCatalog();
-        } finally {
-          setPending({});
+          setError(err instanceof Error ? err.message : "Failed to update tickers.");
         }
       });
     },
-    [loadCatalog, pageTickers, tickers],
+    [pageTickers, tickers],
   );
 
   const setPageActive = useCallback(
@@ -268,7 +314,7 @@ export function useTickersPane(open: boolean) {
     searchSuggestions,
     setSearch,
     selectSearchTicker,
-    setPage,
+    setPage: setPageAndCollapse,
     filter,
     setFilter: setFilterAndResetPage,
     counts,
@@ -287,5 +333,8 @@ export function useTickersPane(open: boolean) {
     deactivatePage,
     activateAll,
     deactivateAll,
+    expandedSymbol,
+    toggleExpanded,
+    profileCache,
   };
 }

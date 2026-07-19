@@ -138,6 +138,7 @@ export function buildTickerCards(
           } satisfies TickerCardModel["bestSignal"] & object
         : null,
       topStrategyEval: top,
+      movementProfile: ticker.movementProfile ?? null,
     };
   });
 }

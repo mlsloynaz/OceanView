@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ADMIN_PANE_ORDER, ADMIN_PANES, adminPaneFromHash, type AdminPaneId } from "./admin-panes";
 import { CandlesPane } from "./candles/CandlesPane";
 import { ADMIN_PANE_ICONS, AdminPaneThumbnail } from "./components/AdminPaneThumbnail";
+import { JobsStatusPane } from "./job-status/JobsStatusPane";
 import { ResearchStatsPane } from "./research-stats/ResearchStatsPane";
 import { SetupScanPane } from "./setup-scan/SetupScanPane";
 import { StrategiesPane } from "./strategies/StrategiesPane";
@@ -19,6 +20,8 @@ function renderActivePane(id: AdminPaneId) {
       return <StrategiesPane />;
     case "research-stats":
       return <ResearchStatsPane />;
+    case "job-status":
+      return <JobsStatusPane />;
   }
 }
 
@@ -49,7 +52,7 @@ export function AdminPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam sm:text-4xl">Admin</h1>
         <p className="mt-3 max-w-3xl text-base leading-relaxed text-ocean-sand">
-          Configuration for tickers, candles, and strategies. Choose a pane
+          Configuration for tickers, candles, strategies, and job status. Choose a pane
           below —{" "}
           <button
             type="button"
@@ -62,7 +65,7 @@ export function AdminPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6">
         {ADMIN_PANE_ORDER.map((id) => {
           const meta = ADMIN_PANES[id];
           return (

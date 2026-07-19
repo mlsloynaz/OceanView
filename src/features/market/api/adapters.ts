@@ -43,6 +43,7 @@ export function adaptTickerSnapshotItems(items: TickerSnapshotItem[]): TickerCar
           rules: item.topStrategyEval.rules,
         }
       : null,
+    movementProfile: item.movementProfile ?? null,
   }));
 }
 

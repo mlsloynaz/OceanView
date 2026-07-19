@@ -35,6 +35,9 @@ export function TickersPane() {
     pending,
     isPending,
     adding,
+    expandedSymbol,
+    toggleExpanded,
+    profileCache,
     reload,
     addTicker,
     activatePage,
@@ -88,7 +91,8 @@ export function TickersPane() {
       )}
 
       <p className="mb-3 text-xs text-ocean-sand">
-        Tickers are sorted A–Z, {pageSize} per page. Use the header checkbox to activate or
+        Tickers are sorted A–Z, {pageSize} per page. Click a symbol for movement info (stored
+        profiles from Candles → Build movement profiles). Use the header checkbox to activate or
         deactivate the current page. Active tickers are included in Market Assess and Candles bulk
         refresh.
       </p>
@@ -177,6 +181,9 @@ export function TickersPane() {
         pending={pending}
         bulkPending={isPending}
         pageActiveState={pageActiveState}
+        expandedSymbol={expandedSymbol}
+        profileCache={profileCache}
+        onToggleExpanded={toggleExpanded}
         onPageActiveChange={(active) => (active ? activatePage() : deactivatePage())}
         onToggleActive={setActive}
         emptyMessage={

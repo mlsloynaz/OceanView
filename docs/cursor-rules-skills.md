@@ -22,6 +22,7 @@ Rules are `.mdc` files with YAML frontmatter (`description`, `globs`, `alwaysApp
 | `src/features/premarket/**` | [premarket-page.md](./premarket-page.md) |
 | `src/features/operations/**` | [operations-page.md](./operations-page.md) |
 | `src/features/admin/candles/**` | [candles-pane.md](./candles-pane.md) |
+| `src/features/admin/job-status/**` | [job-status-pane.md](./job-status-pane.md) |
 | `.cursor/rules/**`, `.cursor/skills/**` | This file ([cursor-rules-skills.md](./cursor-rules-skills.md)) |
 
 Cross-cutting docs (when relevant): [README.md](./README.md), [aws-urls.md](./aws-urls.md), [environment.md](./environment.md), [market-page.md](./market-page.md) (APIs section).

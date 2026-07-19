@@ -1,4 +1,9 @@
-import type { CatalogTicker, CatalogTickersResponse } from "../types";
+import type {
+  CatalogTicker,
+  CatalogTickersResponse,
+  TickerMovementProfileEntry,
+} from "../types";
+import type { MovementProfile } from "@/features/premarket/types";
 import { apiFetch, errorMessageFromBody, getApiBaseUrl, readResponseBody } from "@/shared/api/api-fetch";
 
 const MOCK_DELAY_MS = 200;
@@ -13,6 +18,54 @@ let mockCatalog: CatalogTicker[] = [
   { symbol: "TSLA", name: "Tesla Inc.", isFavorite: false, active: false },
   { symbol: "AMD", name: "Advanced Micro Devices", isFavorite: false, active: true },
 ];
+
+const MOCK_PROFILES: Record<string, MovementProfile> = {
+  AAPL: {
+    timeframe: "1h",
+    sampleSize: 18,
+    horizonBars: 20,
+    historyStart: "2025-07-01T00:00:00Z",
+    historyEnd: "2026-07-01T00:00:00Z",
+    moveCapPct: 1.85,
+    stretchMoveCapPct: 2.6,
+    expectedMfePct: 1.85,
+    expectedMaePct: 0.42,
+    expectedExitPrice: 214.2,
+    stretchExitPrice: 216.1,
+    referencePrice: 210.3,
+    sequenceEntryPrice: 208.5,
+    remainingMfePct: 1.1,
+    currentMfePct: 0.75,
+    exhaustionRisk: false,
+    reachProb: { "5": 0.22, "10": 0.08, "12": 0.05, "15": 0.02, "20": 0.01 },
+    maDistance: {
+      ma20DistancePct: 0.9,
+      ma20DistancePercentile: 55,
+      typicalMa20DistancePct: 0.7,
+      ma40DistancePct: 1.4,
+      ma40DistancePercentile: 48,
+      typicalMa40DistancePct: 1.2,
+      maStackSepPct: 0.55,
+      maStackSepPercentile: 40,
+      typicalMaStackSepPct: 0.5,
+      maExtended: false,
+    },
+    warnings: [],
+  },
+  MSFT: {
+    timeframe: "1h",
+    sampleSize: 12,
+    moveCapPct: 1.4,
+    stretchMoveCapPct: 2.1,
+    expectedMaePct: 0.35,
+    expectedExitPrice: 428.5,
+    stretchExitPrice: 431.2,
+    referencePrice: 422.0,
+    exhaustionRisk: false,
+    reachProb: { "5": 0.18, "10": 0.05, "12": 0.03, "15": 0.01, "20": 0 },
+    warnings: ["small breakout sample (12)"],
+  },
+};
 
 function delay(ms = MOCK_DELAY_MS) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -136,4 +189,43 @@ export async function getActiveTickersForAdmin(): Promise<CatalogTickersResponse
   }
   const payload = await fetchJson<{ tickers: CatalogTicker[] }>("/tickers?activeOnly=true");
   return { tickers: (payload.tickers ?? []).map(mapTicker) };
+}
+
+/** Lazy-load stored movement profile(s) for Admin Tickers expand. */
+export async function fetchMovementProfilesForSymbols(
+  symbols: string[],
+): Promise<TickerMovementProfileEntry[]> {
+  const unique = [...new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))];
+  if (unique.length === 0) return [];
+
+  if (USE_MOCK) {
+    await delay(180);
+    return unique.map((symbol) => {
+      const profile = MOCK_PROFILES[symbol] ?? null;
+      return {
+        symbol,
+        outcome: profile ? "success" : "unknown",
+        message: profile ? null : "No stored movement profile yet",
+        updatedAt: profile ? "2026-07-18T14:00:00Z" : null,
+        historyBars: profile ? 1600 : null,
+        profile,
+      };
+    });
+  }
+
+  const payload = await fetchJson<{ symbols?: TickerMovementProfileEntry[] }>(
+    "/candles/movement-profiles/status",
+    {
+      method: "POST",
+      body: JSON.stringify({ tickers: unique }),
+    },
+  );
+  return (payload.symbols ?? []).map((row) => ({
+    symbol: String(row.symbol || "").toUpperCase(),
+    outcome: row.outcome || "unknown",
+    message: row.message ?? null,
+    updatedAt: row.updatedAt ?? null,
+    historyBars: row.historyBars ?? null,
+    profile: row.profile ?? null,
+  }));
 }

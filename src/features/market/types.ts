@@ -1,5 +1,6 @@
 import type { EntryWindow } from "./lib/entry-window";
 import type { AssessmentTimeMode } from "./lib/assessment-time";
+import type { MovementProfile } from "@/features/premarket/types";
 
 /** Rule definition in strategy catalog. */
 export type RuleType = "required" | "extra";
@@ -102,6 +103,7 @@ export type TickerEvalResult = {
   symbol: string;
   name: string | null;
   strategies: TickerStrategyEval[];
+  movementProfile?: MovementProfile | null;
 };
 
 export type CandleCoverage = {
@@ -144,6 +146,7 @@ export type TickerCardModel = {
     achievedAtEt?: string;
   } | null;
   topStrategyEval: TickerStrategyEval | null;
+  movementProfile?: MovementProfile | null;
 };
 
 /** Derived view model for rule thumbnail grid (By rule). */
@@ -211,6 +214,7 @@ export type TickerSnapshotItem = {
     qualityPct: number;
     rules: RuleEval[];
   } | null;
+  movementProfile?: MovementProfile | null;
 };
 
 export type RuleSnapshotItem = RuleCardModel;
@@ -242,6 +246,7 @@ export type TickerDetailResponse = {
   name: string | null;
   runId: string;
   strategies: TickerDetailStrategyRow[];
+  movementProfile?: MovementProfile | null;
 };
 
 export type MarketEvaluateRequest = {

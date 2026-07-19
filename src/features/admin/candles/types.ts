@@ -1,7 +1,7 @@
 export type BannerKind = "ok" | "warn" | "error" | "running" | "none";
 
-export type JobStatus = "idle" | "running" | "completed" | "failed" | "partial";
-export type JobKind = "refresh" | "reset";
+export type JobStatus = "idle" | "running" | "completed" | "failed" | "partial" | "stopping" | "stopped";
+export type JobKind = "refresh" | "reset" | "build_movement_profiles";
 export type ContextStatus = "ready" | "missing" | "error";
 export type SymbolOutcome = "success" | "failed" | "skipped" | "unknown";
 

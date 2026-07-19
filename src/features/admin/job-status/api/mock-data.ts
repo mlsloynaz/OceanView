@@ -43,6 +43,20 @@ export function buildMockJobsStatus(): JobsStatusResponse {
           summary: { total: 120, succeeded: 120, failed: 0, skipped: 0 },
         },
       },
+      {
+        jobType: "movement_profiles",
+        lastRun: {
+          runId: "mvprof-mock-1",
+          kind: "build_movement_profiles",
+          status: "completed",
+          trigger: "manual",
+          message:
+            "Movement profile build finished: 12 succeeded, 0 failed, 0 skipped.",
+          startedAt: new Date(now - 2 * 60 * 60_000).toISOString(),
+          finishedAt: new Date(now - 2 * 60 * 60_000 + 8 * 60_000).toISOString(),
+          summary: { total: 12, succeeded: 12, failed: 0, skipped: 0 },
+        },
+      },
     ],
   };
 }

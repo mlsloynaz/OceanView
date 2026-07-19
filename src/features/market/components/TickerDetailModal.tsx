@@ -7,6 +7,10 @@ import {
   isSignal,
   mergeRuleDisplay,
 } from "../display";
+import {
+  formatMoneyPrice,
+  resolveEstimatedExitPrice,
+} from "@/features/premarket/display";
 import { MarketDetailModal } from "./MarketDetailModal";
 import { RuleCheckStrip } from "./RuleCheckStrip";
 import { RuleRequirementsList } from "./RuleRequirementsList";
@@ -47,6 +51,7 @@ export function TickerDetailModal({
 }: Props) {
   const [rows, setRows] = useState<StrategyRow[]>([]);
   const [titleName, setTitleName] = useState<string | null>(ticker?.name ?? null);
+  const [movementProfile, setMovementProfile] = useState(ticker?.movementProfile ?? null);
   const [loading, setLoading] = useState(!useMock);
   const [error, setError] = useState<string | null>(null);
   const [expandedStrategyId, setExpandedStrategyId] = useState<string | null>(null);
@@ -73,6 +78,7 @@ export function TickerDetailModal({
         }),
       );
       setTitleName(ticker.name);
+      setMovementProfile(ticker.movementProfile ?? null);
       setExpandedStrategyId(
         sorted.find((s) => isSignal(s.qualityPct, threshold))?.strategyId ??
           sorted[0]?.strategyId ??
@@ -95,6 +101,7 @@ export function TickerDetailModal({
       .then((detail) => {
         if (cancelled) return;
         setTitleName(detail.name);
+        setMovementProfile(detail.movementProfile ?? null);
         const sorted = [...detail.strategies].sort((a, b) => b.qualityPct - a.qualityPct);
         setRows(
           sorted.map((ev) => {
@@ -139,6 +146,11 @@ export function TickerDetailModal({
     };
   }, [useMock, ticker, symbol, runId, threshold, strategyById]);
 
+  const estimatedExit = resolveEstimatedExitPrice({
+    profile: movementProfile,
+    dangers: rows[0]?.dangers,
+  });
+
   return (
     <MarketDetailModal
       open
@@ -146,6 +158,15 @@ export function TickerDetailModal({
       title={symbol}
       subtitle={titleName ?? undefined}
     >
+      {estimatedExit != null && (
+        <p className="mb-4 text-sm text-ocean-sand">
+          Estimated exit{" "}
+          <strong className="tabular-nums text-ocean-foam">
+            {formatMoneyPrice(estimatedExit)}
+          </strong>
+        </p>
+      )}
+
       <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
         Strategies evaluated
       </h3>

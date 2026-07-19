@@ -249,3 +249,50 @@ export async function postCandlesReset(body: CandlesRequest): Promise<CandlesJob
   });
   return mapAckPayload(payload);
 }
+
+export async function postMovementProfilesBuild(
+  body: CandlesRequest & { batchSize?: number },
+): Promise<CandlesJobAckResponse> {
+  const tickers = normalizeTickers(body.tickers);
+  if (tickers.length === 0) {
+    throw new Error("At least one ticker is required.");
+  }
+  const batchSize = body.batchSize ?? 5;
+  if (USE_MOCK) {
+    await delay(400);
+    return {
+      jobId: `mvprof-mock-${Date.now()}`,
+      kind: "build_movement_profiles",
+      status: "running",
+      message:
+        "Movement profile build started (mock). Check Job Status — batches of 5, ~1y hourly in memory.",
+      tickers,
+    };
+  }
+  const payload = await fetchJson<ApiAckPayload>("/candles/movement-profiles/build", {
+    method: "POST",
+    body: JSON.stringify({ tickers, batchSize }),
+  });
+  return mapAckPayload(payload);
+}
+
+export async function postMovementProfilesStop(): Promise<{
+  runId?: string;
+  status: string;
+  stopRequested?: boolean;
+  message?: string;
+}> {
+  if (USE_MOCK) {
+    await delay();
+    return {
+      runId: "mvprof-mock",
+      status: "stopping",
+      stopRequested: true,
+      message: "Stop requested (mock).",
+    };
+  }
+  return fetchJson("/candles/movement-profiles/stop", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}

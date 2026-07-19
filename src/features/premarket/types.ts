@@ -19,6 +19,7 @@ export type PremarketTickerHit = StrategyAssessExtras & {
   qualityPct: number;
   achievedAtEt?: string;
   rules?: PremarketRuleRow[];
+  movementProfile?: MovementProfile | null;
 };
 
 export type PremarketStrategyGroup = {
@@ -26,6 +27,7 @@ export type PremarketStrategyGroup = {
   name?: string | null;
   shortName?: string | null;
   description?: string | null;
+  isMovement?: boolean;
   tickers: PremarketTickerHit[];
 };
 
@@ -34,6 +36,64 @@ export type PremarketStrategyScore = {
   strategyId: string;
   label: string;
   qualityPct: number;
+  isMovement?: boolean;
+};
+
+/** Compact foundation movement profile (ticker-specific move length). */
+export type MaDistanceProfile = {
+  sampleSize?: number;
+  typicalMa20DistancePct?: number | null;
+  typicalMa40DistancePct?: number | null;
+  typicalMaStackSepPct?: number | null;
+  p75Ma20DistancePct?: number | null;
+  p90Ma20DistancePct?: number | null;
+  p75Ma40DistancePct?: number | null;
+  p90Ma40DistancePct?: number | null;
+  ma20DistancePct?: number | null;
+  ma40DistancePct?: number | null;
+  ma20SignedPct?: number | null;
+  ma40SignedPct?: number | null;
+  ma20DistancePercentile?: number | null;
+  ma40DistancePercentile?: number | null;
+  maStackSepPct?: number | null;
+  maStackSepPercentile?: number | null;
+  ma20?: number | null;
+  ma40?: number | null;
+  maExtended?: boolean;
+};
+
+export type MovementProfile = {
+  timeframe?: string;
+  sampleSize?: number;
+  horizonBars?: number | null;
+  historyStart?: string | null;
+  historyEnd?: string | null;
+  moveCapPct?: number | null;
+  stretchMoveCapPct?: number | null;
+  moveCapRemainingPct?: number | null;
+  expectedMfePct?: number | null;
+  expectedMaePct?: number | null;
+  p75MfePct?: number | null;
+  p90MfePct?: number | null;
+  expectedExitPrice?: number | null;
+  stretchExitPrice?: number | null;
+  /**
+   * Ordered stock exit targets when Camino libre is not viable.
+   * Last entry is the movement-profile estimate when present.
+   */
+  expectedExitPrices?: number[] | null;
+  referencePrice?: number | null;
+  sequenceEntryPrice?: number | null;
+  remainingMfePct?: number | null;
+  currentMfePct?: number | null;
+  exhaustionRisk?: boolean;
+  extensionPercentile?: number | null;
+  barsOutside?: number;
+  direction?: string | null;
+  reachProb?: Record<string, number | null>;
+  maDistance?: MaDistanceProfile | null;
+  warnings?: string[];
+  reasons?: string[];
 };
 
 /** API BestResult row (persisted on premarket evaluate context). */
@@ -42,7 +102,10 @@ export type PremarketBestResultRow = {
   name?: string | null;
   direction?: TradeDirection | null;
   qualityPct: number;
+  /** Count of preferred-pool strategies at 100% (same-direction concurrence). */
+  agreementCount?: number;
   strategies: PremarketStrategyScore[];
+  movementProfile?: MovementProfile | null;
 };
 
 /**
@@ -124,6 +187,7 @@ export type BestResultStrikePick = {
 export type BestResultMoveEstimate = {
   atMoveCapPct: number;
   targetSpot?: number;
+  expectedExitPrice?: number;
   exitMarkEst?: number;
   gainPct?: number;
   gainUsdPerContract?: number;
@@ -138,6 +202,18 @@ export type BestResultMonitorTicker = {
   spot?: number;
   movePct?: number;
   targetSpot?: number;
+  expectedExitPrice?: number;
+  stretchExitPrice?: number | null;
+  /**
+   * Ordered stock exit targets when Camino libre is not viable.
+   * Last entry is the movement-profile estimate when present.
+   */
+  expectedExitPrices?: number[] | null;
+  moveCapPct?: number;
+  moveCapRemainingPct?: number;
+  remainingMfePct?: number | null;
+  exhaustionRisk?: boolean;
+  movementProfile?: MovementProfile | null;
   pick?: BestResultStrikePick | null;
   estimate?: BestResultMoveEstimate | null;
   error?: string | null;

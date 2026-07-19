@@ -18,12 +18,17 @@ export function CandlesPane() {
     error,
     loading,
     bulkPending,
+    profileJobPending,
     rowPending,
     refreshStatus,
     refreshAll,
     refreshOne,
     resetCandles,
+    buildMovementProfiles,
+    stopMovementProfiles,
   } = useCandlesPane(true);
+
+  const busy = bulkPending || profileJobPending;
 
   return (
     <AdminExpandedPane
@@ -43,7 +48,7 @@ export function CandlesPane() {
               TOOLBAR_BTN,
               "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-ocean-teal/50",
             )}
-            disabled={bulkPending || loading || rows.length === 0}
+            disabled={busy || loading || rows.length === 0}
             onClick={refreshStatus}
           >
             {bulkPending ? "…" : "Reload Result"}
@@ -54,7 +59,7 @@ export function CandlesPane() {
               TOOLBAR_BTN,
               "bg-ocean-teal font-semibold text-ocean-deep hover:brightness-105",
             )}
-            disabled={bulkPending || loading || rows.length === 0}
+            disabled={busy || loading || rows.length === 0}
             title="Incremental D + 1h + 15m fetch for all active tickers"
             onClick={refreshAll}
           >
@@ -64,9 +69,33 @@ export function CandlesPane() {
             type="button"
             className={cn(
               TOOLBAR_BTN,
+              "border border-ocean-teal/50 bg-ocean-teal/15 font-semibold text-ocean-teal-dim dark:text-ocean-teal hover:bg-ocean-teal/25",
+            )}
+            disabled={busy || loading || rows.length === 0}
+            title="~1y hourly RTH in memory → save compact MovementProfile (batches of 5)"
+            onClick={buildMovementProfiles}
+          >
+            {profileJobPending ? "Starting…" : "Build movement profiles"}
+          </button>
+          <button
+            type="button"
+            className={cn(
+              TOOLBAR_BTN,
+              "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-amber-500/50",
+            )}
+            disabled={loading}
+            title="Stop the movement-profile maintenance job after the current batch"
+            onClick={stopMovementProfiles}
+          >
+            Stop profiles
+          </button>
+          <button
+            type="button"
+            className={cn(
+              TOOLBAR_BTN,
               "border border-ocean-danger-border bg-ocean-danger-muted text-ocean-danger hover:brightness-95",
             )}
-            disabled={bulkPending || loading || rows.length === 0}
+            disabled={busy || loading || rows.length === 0}
             title="Full D + 1h + 15m re-fetch for all tickers"
             onClick={resetCandles}
           >
@@ -87,7 +116,10 @@ export function CandlesPane() {
       )}
       <p className="mb-2 text-xs text-ocean-sand">
         Bulk actions use <strong className="font-medium text-ocean-foam">active</strong> tickers
-        from Tickers ({rows.length} shown).
+        from Tickers ({rows.length} shown).{" "}
+        <strong className="font-medium text-ocean-foam">Build movement profiles</strong> pulls ~1
+        year of hourly bars in memory only (batches of 5) and stores the compact profile — not the
+        bars. Track progress under Admin → Job Status.
       </p>
       {message && (
         <p className="mb-2 text-ocean-teal-dim dark:text-ocean-teal">{message}</p>
@@ -98,7 +130,7 @@ export function CandlesPane() {
       <CandlesTable
         rows={rows}
         loading={loading}
-        bulkPending={bulkPending}
+        bulkPending={busy}
         rowPending={rowPending}
         onRefreshOne={refreshOne}
       />

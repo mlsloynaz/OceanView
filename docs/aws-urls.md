@@ -68,11 +68,14 @@ That is expected. API Gateway has no route on `/prod` itself — only on named p
 | `GET` | `/health` | https://7bko9drijd.execute-api.us-east-1.amazonaws.com/prod/health |
 | `GET` | `/tickers` | …/prod/tickers |
 | `POST` | `/tickers` | …/prod/tickers |
-| `GET` | `/jobs/status` | …/prod/jobs/status |
+| `GET` | `/jobs/status` | …/prod/jobs/status — Admin **Job Status** pane |
 | `POST` | `/candles/result` | …/prod/candles/result |
 | `POST` | `/candles/status` | …/prod/candles/status |
 | `POST` | `/candles/refresh` | …/prod/candles/refresh |
 | `POST` | `/candles/reset` | …/prod/candles/reset |
+| `POST` | `/candles/movement-profiles/build` | …/prod/candles/movement-profiles/build — Candles pane maintenance |
+| `POST` | `/candles/movement-profiles/stop` | …/prod/candles/movement-profiles/stop |
+| `POST` | `/candles/movement-profiles/status` | …/prod/candles/movement-profiles/status |
 
 **Market** (used by the Market page when `VITE_USE_MOCK_MARKET=false`)
 

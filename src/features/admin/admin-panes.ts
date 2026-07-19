@@ -3,7 +3,8 @@ export type AdminPaneId =
   | "tickers"
   | "candles"
   | "strategies"
-  | "research-stats";
+  | "research-stats"
+  | "job-status";
 
 export type AdminPaneMeta = {
   id: AdminPaneId;
@@ -18,6 +19,7 @@ export const ADMIN_PANE_ORDER: AdminPaneId[] = [
   "candles",
   "strategies",
   "research-stats",
+  "job-status",
 ];
 
 export const ADMIN_PANES: Record<AdminPaneId, AdminPaneMeta> = {
@@ -50,6 +52,12 @@ export const ADMIN_PANES: Record<AdminPaneId, AdminPaneMeta> = {
     anchorId: "admin-research-stats-pane",
     title: "Research-Stats",
     description: "Historical rule/strategy hit rates by hour — free ticker + date range",
+  },
+  "job-status": {
+    id: "job-status",
+    anchorId: "admin-job-status-pane",
+    title: "Job Status",
+    description: "Latest run status for candles, market, premarket, and preselection jobs",
   },
 };
 

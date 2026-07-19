@@ -156,8 +156,21 @@ export const MOCK_PREMARKET_RESULT: PremarketResultResponse = {
               direction: "CALL",
               evidence: "Camino libre CALL: $2.40 antes de MA40 1h ($182.50).",
               gapUsd: 2.4,
+              obstacles: [
+                { key: "ma20_1h", label: "MA20 1h", level: 181.2 },
+                { key: "ma40_1h", label: "MA40 1h", level: 182.5 },
+              ],
             },
           ],
+          movementProfile: {
+            timeframe: "15m",
+            moveCapPct: 4.2,
+            expectedExitPrice: 185.1,
+            stretchExitPrice: 187.4,
+            referencePrice: 179.8,
+            remainingMfePct: 2.9,
+            exhaustionRisk: false,
+          },
           rules: [
             {
               ruleKey: "trendline_1h",

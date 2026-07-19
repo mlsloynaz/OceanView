@@ -34,6 +34,7 @@ export function PremarketPage() {
   const strikeMonitor = useBestResultMonitor({
     runId: ws.result?.runId,
     hasBestResults: bestHits.length > 0,
+    onRefreshed: () => ws.refreshResult(),
   });
   const hasApiStrategies = (ws.result?.strategies?.length ?? 0) > 0;
   const hasResults = hasApiStrategies;
@@ -172,15 +173,22 @@ export function PremarketPage() {
             monitor={{
               canStart: strikeMonitor.canStart,
               canStop: strikeMonitor.canStop,
+              canScan: strikeMonitor.canScan,
+              canRefresh: strikeMonitor.canRefresh,
               running: strikeMonitor.running,
               startPending: strikeMonitor.startPending,
               stopPending: strikeMonitor.stopPending,
+              scanPending: strikeMonitor.scanPending,
+              refreshPending: strikeMonitor.refreshPending,
               tickerCount: strikeMonitor.status?.tickers.length ?? bestHits.length,
               moveCapPct: strikeMonitor.status?.moveCapPct ?? 12,
               polledAt: strikeMonitor.status?.polledAt,
               error: strikeMonitor.error,
+              notice: strikeMonitor.notice,
               onStart: () => void strikeMonitor.start(),
               onStop: () => void strikeMonitor.stop(),
+              onScan: () => void strikeMonitor.scan(),
+              onRefresh: () => void strikeMonitor.refresh(),
             }}
           />
           {resultStrategies.map((group) => (

@@ -1,8 +1,10 @@
-import type { RuleDisplayRow, TradeDirection } from "@/features/market/types";
+import type { DangerEval, RuleDisplayRow, TradeDirection } from "@/features/market/types";
 import { qualityBadgeClass, normalizeRuleStatus } from "@/features/market/display";
 import { formatAchievedTimeEt } from "@/features/market/display";
 import { evalDedupeKey } from "@/shared/lib/rule-dedupe";
 import type {
+  BestResultMonitorTicker,
+  MovementProfile,
   PremarketBestHit,
   PremarketBestResultRow,
   PremarketRuleRow,
@@ -12,6 +14,189 @@ import type {
 } from "./types";
 
 export { qualityBadgeClass, formatAchievedTimeEt };
+
+function isPositivePrice(n: number | null | undefined): n is number {
+  return typeof n === "number" && !Number.isNaN(n) && n > 0;
+}
+
+function pushUniquePrice(out: number[], n: number | null | undefined): void {
+  if (!isPositivePrice(n)) return;
+  const rounded = Math.round(n * 100) / 100;
+  if (out.some((x) => Math.abs(x - rounded) < 0.005)) return;
+  out.push(rounded);
+}
+
+function clearPathDanger(dangers: DangerEval[] | null | undefined): DangerEval | null {
+  return dangers?.find((d) => d.dangerKey === "clear_path") ?? null;
+}
+
+/** True when Camino libre (clear_path) passed — a single free-path exit is enough. */
+export function isCaminoLibreViable(dangers: DangerEval[] | null | undefined): boolean {
+  return clearPathDanger(dangers)?.status === "passed";
+}
+
+export function formatMoneyPrice(n: number): string {
+  return `$${n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+/** Comma-separated stock prices: `$120.50, $122.00, $125.30`. */
+export function formatMoneyPriceList(prices: number[]): string {
+  return prices.map(formatMoneyPrice).join(", ");
+}
+
+export type PremarketPriceLines = {
+  currentPrice: number | null;
+  /** Ordered exits; last is movement-profile estimate when available. */
+  expectedExits: number[];
+  caminoLibreViable: boolean;
+};
+
+/**
+ * Current spot + expected exit targets for Best-results chips / movement panel.
+ * When Camino libre is not viable, include obstacle / structure levels and put the
+ * movement-profile estimate last. When viable, prefer a single free-path exit.
+ */
+export function resolvePremarketPriceLines(args: {
+  monitor?: BestResultMonitorTicker | null;
+  profile?: MovementProfile | null;
+  dangers?: DangerEval[] | null;
+}): PremarketPriceLines {
+  const { monitor, profile, dangers } = args;
+  const clearPath = clearPathDanger(dangers);
+  const caminoLibreViable = clearPath?.status === "passed";
+
+  const currentPrice =
+    (isPositivePrice(monitor?.spot) && monitor.spot) ||
+    (isPositivePrice(profile?.referencePrice) && profile.referencePrice) ||
+    null;
+
+  const profileExit =
+    (isPositivePrice(profile?.expectedExitPrice) && profile.expectedExitPrice) ||
+    (isPositivePrice(monitor?.estimate?.expectedExitPrice) &&
+      monitor.estimate.expectedExitPrice) ||
+    null;
+
+  const explicit =
+    monitor?.expectedExitPrices?.filter(isPositivePrice) ??
+    profile?.expectedExitPrices?.filter(isPositivePrice) ??
+    null;
+  if (explicit && explicit.length > 0) {
+    const exits: number[] = [];
+    for (const p of explicit) pushUniquePrice(exits, p);
+    if (profileExit != null) {
+      // Keep movement-profile estimate last even if API listed it earlier.
+      const withoutProfile = exits.filter((p) => Math.abs(p - profileExit) >= 0.005);
+      withoutProfile.push(Math.round(profileExit * 100) / 100);
+      return { currentPrice, expectedExits: withoutProfile, caminoLibreViable };
+    }
+    return { currentPrice, expectedExits: exits, caminoLibreViable };
+  }
+
+  const structure: number[] = [];
+  for (const obs of clearPath?.obstacles ?? []) {
+    pushUniquePrice(structure, obs.level);
+  }
+  pushUniquePrice(structure, monitor?.expectedExitPrice);
+  pushUniquePrice(structure, monitor?.stretchExitPrice);
+  pushUniquePrice(structure, profile?.stretchExitPrice);
+  // targetSpot is the move-cap projection — include only when Camino libre failed
+  // so the chip shows alternate exits before the profile estimate.
+  if (!caminoLibreViable) {
+    pushUniquePrice(structure, monitor?.targetSpot);
+    pushUniquePrice(structure, monitor?.estimate?.targetSpot);
+  }
+
+  if (caminoLibreViable) {
+    const single: number[] = [];
+    if (structure.length > 0) pushUniquePrice(single, structure[0]);
+    else if (profileExit != null) pushUniquePrice(single, profileExit);
+    return { currentPrice, expectedExits: single, caminoLibreViable };
+  }
+
+  const exits = [...structure];
+  if (profileExit != null) {
+    const withoutProfile = exits.filter((p) => Math.abs(p - profileExit) >= 0.005);
+    withoutProfile.push(Math.round(profileExit * 100) / 100);
+    return { currentPrice, expectedExits: withoutProfile, caminoLibreViable };
+  }
+  return { currentPrice, expectedExits: exits, caminoLibreViable };
+}
+
+export type BestResultTradeSummary = {
+  currentPrice: number | null;
+  /** Movement-profile expected exit (stock). */
+  estimatedExit: number | null;
+  /** Primary Camino libre obstacle level (e.g. MA20). */
+  estimatedObstacle: number | null;
+  obstacleLabel: string | null;
+  suggestedStrike: number | null;
+  strikeExpiration: string | null;
+  strikeAsk: number | null;
+};
+
+/**
+ * Compact Best Results trade lines: spot, profile exit, Camino obstacle, option pick.
+ */
+export function resolveBestResultTradeSummary(args: {
+  monitor?: BestResultMonitorTicker | null;
+  profile?: MovementProfile | null;
+  dangers?: DangerEval[] | null;
+}): BestResultTradeSummary {
+  const { monitor, profile, dangers } = args;
+  const { currentPrice } = resolvePremarketPriceLines({ monitor, profile, dangers });
+
+  const estimatedExit =
+    (isPositivePrice(profile?.expectedExitPrice) && profile.expectedExitPrice) ||
+    (isPositivePrice(monitor?.estimate?.expectedExitPrice) &&
+      monitor.estimate.expectedExitPrice) ||
+    (isPositivePrice(monitor?.expectedExitPrice) && monitor.expectedExitPrice) ||
+    null;
+
+  const clearPath = clearPathDanger(dangers);
+  const primaryObstacle =
+    clearPath?.obstacles?.find((o) => isPositivePrice(o.level)) ??
+    clearPath?.obstacles?.[0] ??
+    null;
+  const estimatedObstacle =
+    primaryObstacle && isPositivePrice(primaryObstacle.level)
+      ? primaryObstacle.level
+      : null;
+  const obstacleLabel =
+    primaryObstacle?.label?.trim() ||
+    primaryObstacle?.key?.trim() ||
+    (estimatedObstacle != null ? "Camino libre" : null);
+
+  const pick = monitor?.pick;
+  const suggestedStrike =
+    typeof pick?.strike === "number" && !Number.isNaN(pick.strike) ? pick.strike : null;
+
+  return {
+    currentPrice,
+    estimatedExit,
+    estimatedObstacle,
+    obstacleLabel,
+    suggestedStrike,
+    strikeExpiration: pick?.expiration?.trim() || null,
+    strikeAsk: typeof pick?.ask === "number" && !Number.isNaN(pick.ask) ? pick.ask : null,
+  };
+}
+
+/** Profile (or resolved) estimated exit only — for non–Best Results panes. */
+export function resolveEstimatedExitPrice(args: {
+  monitor?: BestResultMonitorTicker | null;
+  profile?: MovementProfile | null;
+  dangers?: DangerEval[] | null;
+}): number | null {
+  const profileExit =
+    (isPositivePrice(args.profile?.expectedExitPrice) && args.profile.expectedExitPrice) ||
+    null;
+  if (profileExit != null) return profileExit;
+  const { expectedExits } = resolvePremarketPriceLines(args);
+  return expectedExits.length > 0 ? expectedExits[expectedExits.length - 1]! : null;
+}
 
 export function formatPremarketStatus(status: string | undefined): string {
   if (!status) return "Unknown";
@@ -181,6 +366,7 @@ export function buildPremarketBestResults(
     strategies: PremarketStrategyScore[];
     bestGroup: PremarketStrategyGroup;
     bestTicker: PremarketTickerHit;
+    movementProfile?: PremarketTickerHit["movementProfile"];
   };
 
   const byKey = new Map<string, Acc>();
@@ -206,12 +392,16 @@ export function buildPremarketBestResults(
           strategies: [score],
           bestGroup: group,
           bestTicker: ticker,
+          movementProfile: ticker.movementProfile,
         });
         continue;
       }
       existing.strategies.push(score);
       if (!existing.name && ticker.name) existing.name = ticker.name;
       else if (ticker.name && !isMovement) existing.name = ticker.name;
+      if (ticker.movementProfile && (!existing.movementProfile || !isMovement)) {
+        existing.movementProfile = ticker.movementProfile;
+      }
     }
   }
 
@@ -231,15 +421,22 @@ export function buildPremarketBestResults(
       return {
         ...row,
         qualityPct: preferred,
+        agreementCount: perfectAgreementCount(ranked),
         strategies: ranked,
         bestGroup: topGroup,
-        bestTicker: { ...topTicker, qualityPct: preferred },
+        bestTicker: {
+          ...topTicker,
+          qualityPct: preferred,
+          movementProfile: row.movementProfile ?? topTicker.movementProfile,
+        },
+        movementProfile: row.movementProfile ?? topTicker.movementProfile,
       };
     })
     .sort(
       (a, b) =>
         movementTier(a.strategies) - movementTier(b.strategies) ||
         b.qualityPct - a.qualityPct ||
+        (b.agreementCount ?? 0) - (a.agreementCount ?? 0) ||
         a.symbol.localeCompare(b.symbol) ||
         String(a.direction ?? "").localeCompare(String(b.direction ?? "")),
     )
@@ -258,6 +455,12 @@ function preferredQuality(scores: PremarketStrategyScore[]): number {
   const nonMove = scores.filter((s) => !s.isMovement);
   const pool = nonMove.length ? nonMove : scores;
   return pool.reduce((max, s) => Math.max(max, s.qualityPct), 0);
+}
+
+function perfectAgreementCount(scores: PremarketStrategyScore[]): number {
+  const nonMove = scores.filter((s) => !s.isMovement);
+  const pool = nonMove.length ? nonMove : scores;
+  return pool.filter((s) => s.qualityPct >= 100).length;
 }
 
 function movementTier(scores: PremarketStrategyScore[]): number {
@@ -311,6 +514,8 @@ function attachBestHitRefs(
     name: row.name ?? tickerFromGroup?.name,
     direction: row.direction ?? tickerFromGroup?.direction,
     qualityPct: row.qualityPct,
+    movementProfile:
+      row.movementProfile ?? tickerFromGroup?.movementProfile ?? null,
   };
 
   return {
@@ -319,6 +524,7 @@ function attachBestHitRefs(
     direction: row.direction,
     qualityPct: row.qualityPct,
     strategies: ranked.length ? ranked : row.strategies,
+    movementProfile: row.movementProfile ?? bestTicker.movementProfile ?? null,
     bestGroup: group,
     bestTicker,
   };

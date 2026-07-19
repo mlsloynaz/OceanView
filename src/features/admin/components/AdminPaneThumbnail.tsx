@@ -93,10 +93,20 @@ function IconResearch() {
   );
 }
 
+function IconJobStatus() {
+  return (
+    <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+      <path d="M3.5 3.75a.75.75 0 000 1.5h13a.75.75 0 000-1.5h-13zM3.5 9.25a.75.75 0 000 1.5h8a.75.75 0 000-1.5h-8zM3.5 14.75a.75.75 0 000 1.5h5a.75.75 0 000-1.5h-5z" />
+      <path d="M15.28 9.22a.75.75 0 10-1.06 1.06l1.22 1.22-1.22 1.22a.75.75 0 101.06 1.06l1.75-1.75a.75.75 0 000-1.06l-1.75-1.75z" />
+    </svg>
+  );
+}
+
 export const ADMIN_PANE_ICONS: Record<AdminPaneId, ReactNode> = {
   "setup-scan": <IconScan />,
   tickers: <IconList />,
   candles: <IconCandles />,
   strategies: <IconStrategy />,
   "research-stats": <IconResearch />,
+  "job-status": <IconJobStatus />,
 };

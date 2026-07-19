@@ -15,15 +15,22 @@ const BTN =
 type MonitorControls = {
   canStart: boolean;
   canStop: boolean;
+  canScan: boolean;
+  canRefresh: boolean;
   running: boolean;
   startPending: boolean;
   stopPending: boolean;
+  scanPending: boolean;
+  refreshPending: boolean;
   tickerCount: number;
   moveCapPct: number;
   polledAt?: string | null;
   error?: string | null;
+  notice?: string | null;
   onStart: () => void;
   onStop: () => void;
+  onScan: () => void;
+  onRefresh: () => void;
 };
 
 type Props = {
@@ -58,13 +65,38 @@ function MonitorHeaderActions({ monitor }: { monitor: MonitorControls }): ReactN
       <button
         type="button"
         className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-110")}
+        disabled={!monitor.canRefresh}
+        title="Refresh candles, reassess these tickers, and resolve option picks once"
+        onClick={(e) => {
+          e.stopPropagation();
+          monitor.onRefresh();
+        }}
+      >
+        {monitor.refreshPending ? "Refreshing…" : "Refresh best results"}
+      </button>
+      <button
+        type="button"
+        className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
         disabled={!monitor.canStart}
+        title="Load option picks once (no continuous polling)"
         onClick={(e) => {
           e.stopPropagation();
           monitor.onStart();
         }}
       >
-        {monitor.startPending ? "Starting…" : "Start"}
+        {monitor.startPending ? "Loading…" : "Load strikes"}
+      </button>
+      <button
+        type="button"
+        className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
+        disabled={!monitor.canScan}
+        title="One scan of option chains for current session"
+        onClick={(e) => {
+          e.stopPropagation();
+          monitor.onScan();
+        }}
+      >
+        {monitor.scanPending ? "Scanning…" : "Scan strikes"}
       </button>
       <button
         type="button"
@@ -78,7 +110,7 @@ function MonitorHeaderActions({ monitor }: { monitor: MonitorControls }): ReactN
           monitor.onStop();
         }}
       >
-        {monitor.stopPending ? "Stopping…" : "Stop"}
+        {monitor.stopPending ? "Clearing…" : "Clear"}
       </button>
     </div>
   );
@@ -95,14 +127,15 @@ export function PremarketBestResults({
   const [detail, setDetail] = useState<{
     group: PremarketStrategyGroup;
     ticker: PremarketBestHit["bestTicker"];
+    monitor: BestResultMonitorTicker | null;
   } | null>(null);
 
   if (hits.length === 0) return null;
 
   const countLabel = `${hits.length} ticker${hits.length === 1 ? "" : "s"}`;
   const statusLine = monitor?.running
-    ? `Monitoring ${monitor.tickerCount} · last scan ${formatPolledAt(monitor.polledAt)} · move cap ${monitor.moveCapPct}%`
-    : `Top 10 by max quality · ${countLabel} · move cap ${monitor?.moveCapPct ?? 12}%`;
+    ? `Strikes loaded · ${monitor.tickerCount} · last update ${formatPolledAt(monitor.polledAt)}`
+    : `Top 10 by max quality · ${countLabel} · use Refresh for candles + reassess + options`;
 
   return (
     <>
@@ -120,6 +153,11 @@ export function PremarketBestResults({
             {monitor.error}
           </p>
         ) : null}
+        {monitor?.notice ? (
+          <p className="mb-2 text-xs text-ocean-sand" role="status">
+            {monitor.notice}
+          </p>
+        ) : null}
         <ul className="flex flex-wrap gap-2">
           {hits.map((hit) => (
             <PremarketTickerRow
@@ -130,12 +168,22 @@ export function PremarketBestResults({
                 name: hit.name,
                 direction: hit.direction,
                 qualityPct: hit.qualityPct,
+                movementProfile: hit.movementProfile ?? hit.bestTicker.movementProfile,
               }}
               threshold={threshold}
               strategyScores={hit.strategies}
               monitor={resolveMonitor?.(hit.symbol, hit.direction) ?? null}
-              onOpen={() =>
-                setDetail({ group: hit.bestGroup, ticker: hit.bestTicker })
+              priceDetail="trade"
+              onOpenRules={() =>
+                setDetail({
+                  group: hit.bestGroup,
+                  ticker: {
+                    ...hit.bestTicker,
+                    movementProfile:
+                      hit.movementProfile ?? hit.bestTicker.movementProfile,
+                  },
+                  monitor: resolveMonitor?.(hit.symbol, hit.direction) ?? null,
+                })
               }
             />
           ))}
@@ -147,6 +195,8 @@ export function PremarketBestResults({
           group={detail.group}
           ticker={detail.ticker}
           threshold={threshold}
+          monitor={detail.monitor}
+          priceDetail="trade"
           onClose={() => setDetail(null)}
         />
       )}

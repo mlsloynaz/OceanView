@@ -169,6 +169,8 @@ Content is **full width** of the main column (no `max-w-*` cap). Shell padding a
 
 **Best strikes monitor:** **Start** / **Stop** on the Best results pane header (not Evaluate). Client polls every 5s → `POST/GET /best-results/monitor/*`. Each cycle refreshes underlying spot + option chain, applies Valores **COGER** gates (ticker `optimalRange`), and shows est. option gain at a fixed **12%** underlying move from Start baseline. Requires a run with Best results tickers. Backend contract: [OceanView-API/docs/best-result-monitor.md](https://github.com/mlsloynaz/OceanView-API/blob/main/docs/best-result-monitor.md).
 
+**Price lines:** Strategy-result chips and Premarket detail modals show only **Estimated exit** (movement-profile estimate). Full movement profile (“How this ticker usually moves”) appears on **Market → ticker detail** only. Best-results chips (with strike monitor) still show **Current price** and comma-separated **Expected exit** (last = movement-profile estimate).
+
 **Empty state:** “No premarket run yet. Click **Start evaluate** (~9:25 ET). Ensure Admin candles are loaded for active tickers.”
 
 **Running state:** Disable Start, enable Stop, show “Evaluating symbol X of Y…” if start response includes progress (or generic “Running…” until HTTP returns).

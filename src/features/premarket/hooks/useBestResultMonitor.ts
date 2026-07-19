@@ -4,51 +4,30 @@ import {
   fetchBestResultMonitorStatus,
   postBestResultMonitorStart,
   postBestResultMonitorStop,
+  postBestResultRefresh,
 } from "../api/best-result-client";
 import type { BestResultMonitorStatus, BestResultMonitorTicker } from "../types";
-
-const POLL_MS = 5000;
 
 type Args = {
   runId: string | null | undefined;
   hasBestResults: boolean;
+  /** Reload premarket result after a full refresh */
+  onRefreshed?: () => void | Promise<void>;
 };
 
-export function useBestResultMonitor({ runId, hasBestResults }: Args) {
+/**
+ * Best Results strikes: one-shot Start / manual Scan — no 5s polling.
+ * Refresh runs candles + reassess + option picks for best-result symbols.
+ */
+export function useBestResultMonitor({ runId, hasBestResults, onRefreshed }: Args) {
   const [status, setStatus] = useState<BestResultMonitorStatus | null>(null);
   const [startPending, setStartPending] = useState(false);
   const [stopPending, setStopPending] = useState(false);
+  const [scanPending, setScanPending] = useState(false);
+  const [refreshPending, setRefreshPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const monitorIdRef = useRef<string | null>(null);
-  const pollInFlight = useRef(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const clearPoll = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
-
-  const pollOnce = useCallback(async () => {
-    if (pollInFlight.current) return;
-    const id = monitorIdRef.current;
-    if (!id) return;
-    pollInFlight.current = true;
-    try {
-      const next = await fetchBestResultMonitorStatus(id);
-      setStatus(next);
-      if (next.status !== "running") {
-        clearPoll();
-      }
-    } catch (err) {
-      const message =
-        err instanceof BestResultApiError ? err.message : "Failed to refresh strike monitor.";
-      setError(message);
-    } finally {
-      pollInFlight.current = false;
-    }
-  }, [clearPoll]);
 
   const start = useCallback(async () => {
     if (!runId || !hasBestResults) {
@@ -57,16 +36,12 @@ export function useBestResultMonitor({ runId, hasBestResults }: Args) {
     }
     setStartPending(true);
     setError(null);
+    setNotice(null);
     try {
-      const next = await postBestResultMonitorStart({ runId, moveCapPct: 12 });
+      const next = await postBestResultMonitorStart({ runId });
       monitorIdRef.current = next.monitorId ?? null;
       setStatus(next);
-      clearPoll();
-      if (next.status === "running") {
-        intervalRef.current = setInterval(() => {
-          void pollOnce();
-        }, POLL_MS);
-      }
+      setNotice("Option picks loaded once — use Scan strikes or Refresh best results for updates.");
     } catch (err) {
       const message =
         err instanceof BestResultApiError ? err.message : "Failed to start strike monitor.";
@@ -74,15 +49,35 @@ export function useBestResultMonitor({ runId, hasBestResults }: Args) {
     } finally {
       setStartPending(false);
     }
-  }, [runId, hasBestResults, clearPoll, pollOnce]);
+  }, [runId, hasBestResults]);
+
+  const scan = useCallback(async () => {
+    const id = monitorIdRef.current;
+    if (!id) {
+      setError("Load strikes first (Start), or use Refresh best results.");
+      return;
+    }
+    setScanPending(true);
+    setError(null);
+    try {
+      const next = await fetchBestResultMonitorStatus(id);
+      setStatus(next);
+    } catch (err) {
+      const message =
+        err instanceof BestResultApiError ? err.message : "Failed to scan strikes.";
+      setError(message);
+    } finally {
+      setScanPending(false);
+    }
+  }, []);
 
   const stop = useCallback(async () => {
     setStopPending(true);
     setError(null);
-    clearPoll();
     try {
       const next = await postBestResultMonitorStop(monitorIdRef.current);
       setStatus(next);
+      monitorIdRef.current = null;
     } catch (err) {
       const message =
         err instanceof BestResultApiError ? err.message : "Failed to stop strike monitor.";
@@ -90,18 +85,53 @@ export function useBestResultMonitor({ runId, hasBestResults }: Args) {
     } finally {
       setStopPending(false);
     }
-  }, [clearPoll]);
+  }, []);
+
+  const refresh = useCallback(async () => {
+    if (!runId && !hasBestResults) {
+      setError("Run evaluate first so Best results has tickers.");
+      return;
+    }
+    setRefreshPending(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const payload = await postBestResultRefresh({
+        runId: runId || undefined,
+        refreshCandles: true,
+        reassess: true,
+        resolveStrikes: true,
+      });
+      setNotice(payload.message || "Best results refreshed.");
+      if (payload.tickers?.length) {
+        setStatus({
+          monitorId: monitorIdRef.current ?? undefined,
+          status: "refreshed",
+          runId: payload.runId,
+          polledAt: payload.refreshedAt,
+          tickers: payload.tickers,
+          message: payload.message,
+        });
+      }
+      await onRefreshed?.();
+    } catch (err) {
+      const message =
+        err instanceof BestResultApiError ? err.message : "Failed to refresh best results.";
+      setError(message);
+    } finally {
+      setRefreshPending(false);
+    }
+  }, [runId, hasBestResults, onRefreshed]);
 
   useEffect(() => {
     return () => {
-      clearPoll();
       if (monitorIdRef.current) {
         void postBestResultMonitorStop(monitorIdRef.current).catch(() => undefined);
       }
     };
-  }, [clearPoll]);
+  }, []);
 
-  const running = status?.status === "running";
+  const running = status?.status === "running" || status?.status === "refreshed";
   const bySymbol = new Map<string, BestResultMonitorTicker>();
   for (const row of status?.tickers ?? []) {
     const key = `${row.symbol.toUpperCase()}|${row.direction ?? "NONE"}`;
@@ -114,14 +144,21 @@ export function useBestResultMonitor({ runId, hasBestResults }: Args) {
     running,
     startPending,
     stopPending,
+    scanPending,
+    refreshPending,
     error,
+    notice,
     start,
     stop,
+    scan,
+    refresh,
     tickerMonitor: (symbol: string, direction?: string | null) =>
       bySymbol.get(`${symbol.toUpperCase()}|${direction ?? "NONE"}`) ??
       bySymbol.get(symbol.toUpperCase()) ??
       null,
-    canStart: Boolean(runId) && hasBestResults && !running && !startPending,
-    canStop: running && !stopPending,
+    canStart: Boolean(runId) && hasBestResults && !startPending && !refreshPending,
+    canStop: Boolean(monitorIdRef.current) && !stopPending,
+    canScan: Boolean(monitorIdRef.current) && !scanPending && !refreshPending,
+    canRefresh: hasBestResults && !refreshPending && !startPending,
   };
 }

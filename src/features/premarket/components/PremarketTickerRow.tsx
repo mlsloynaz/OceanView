@@ -1,29 +1,54 @@
 import { RuleCheckStrip } from "@/features/market/components/RuleCheckStrip";
 import { DirectionDisplay } from "@/features/market/components/StrategyAssessMeta";
 import { cn } from "@/shared/lib/cn";
-import { formatStrategyScores, qualityBadgeClass, toPremarketDisplayRules } from "../display";
+import {
+  formatMoneyPrice,
+  formatStrategyScores,
+  qualityBadgeClass,
+  resolveBestResultTradeSummary,
+  resolveEstimatedExitPrice,
+  toPremarketDisplayRules,
+} from "../display";
 import type {
   BestResultMonitorTicker,
   PremarketStrategyScore,
   PremarketTickerHit,
 } from "../types";
+import { BestResultTradeSummaryPanel } from "./BestResultTradeSummary";
 
 type Props = {
   ticker: PremarketTickerHit;
   threshold: number;
-  onOpen: () => void;
-  /** When set (Best results), show each strategy contribution under the chip. */
+  /** Opens rules / full detail modal */
+  onOpenRules: () => void;
   strategyScores?: PremarketStrategyScore[];
-  /** Live strike monitor row (COGER pick + 12% move estimate). */
   monitor?: BestResultMonitorTicker | null;
+  /**
+   * `exit-only` — strategy result chips: estimated exit price only.
+   * `trade` — Best results: current, exit, obstacle, strike.
+   */
+  priceDetail?: "exit-only" | "trade";
 };
+
+function StopIcon({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden viewBox="0 0 20 20" className={className} fill="currentColor">
+      <path
+        fillRule="evenodd"
+        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
 
 export function PremarketTickerRow({
   ticker,
   threshold,
-  onOpen,
+  onOpenRules,
   strategyScores,
   monitor,
+  priceDetail = "exit-only",
 }: Props) {
   const rules = toPremarketDisplayRules(ticker.rules);
   const hasDangerPenalty =
@@ -31,21 +56,37 @@ export function PremarketTickerRow({
   const multiStrategy = (strategyScores?.length ?? 0) > 1;
   const scoresLine =
     strategyScores && strategyScores.length > 0 ? formatStrategyScores(strategyScores) : null;
-  const pick = monitor?.pick;
-  const estimate = monitor?.estimate;
+  const profile = monitor?.movementProfile ?? ticker.movementProfile ?? null;
+  const exhaustion = Boolean(monitor?.exhaustionRisk ?? profile?.exhaustionRisk);
+  const showTrade = priceDetail === "trade";
+  const tradeSummary = showTrade
+    ? resolveBestResultTradeSummary({
+        monitor,
+        profile,
+        dangers: ticker.dangers,
+      })
+    : null;
+  const estimatedExit = !showTrade
+    ? resolveEstimatedExitPrice({
+        monitor,
+        profile,
+        dangers: ticker.dangers,
+      })
+    : null;
 
   return (
-    <li>
+    <li className="min-w-0">
       <button
         type="button"
-        onClick={onOpen}
-        title="View rule pass details"
+        onClick={onOpenRules}
+        title={showTrade ? "View trade levels and strategy rules" : "View strategy rules"}
         className={cn(
-          "inline-flex cursor-pointer flex-col items-start gap-1.5 rounded-lg border border-ocean-mid/40 px-2.5 py-2 text-left transition-opacity hover:brightness-110",
-          qualityBadgeClass(ticker.qualityPct, threshold),
+          "flex w-full cursor-pointer flex-col items-start gap-1.5 rounded-lg border px-2.5 py-2 text-left transition-opacity hover:brightness-110",
+          exhaustion ? "border-ocean-danger/70 bg-ocean-danger/10" : "border-ocean-mid/40",
+          !exhaustion && qualityBadgeClass(ticker.qualityPct, threshold),
         )}
       >
-        <span className="inline-flex flex-wrap items-center gap-2 text-sm font-semibold tabular-nums">
+        <span className="inline-flex w-full flex-wrap items-center gap-2 text-sm font-semibold tabular-nums">
           <span>{ticker.symbol}</span>
           {ticker.direction && <DirectionDisplay direction={ticker.direction} compact />}
           {ticker.name && (
@@ -57,37 +98,21 @@ export function PremarketTickerRow({
               ({ticker.dangerPenaltyPct}%)
             </span>
           )}
+          {exhaustion && (
+            <span className="inline-flex items-center gap-0.5 text-ocean-danger">
+              <StopIcon className="h-4 w-4" />
+              <span className="text-[10px] font-semibold uppercase tracking-wide">Stop</span>
+            </span>
+          )}
         </span>
         {scoresLine && (
           <span className="text-[11px] font-normal leading-snug opacity-90">{scoresLine}</span>
         )}
-        {monitor && (
-          <span className="flex flex-col gap-0.5 text-[11px] font-normal leading-snug opacity-95">
-            {typeof monitor.spot === "number" && (
-              <span>
-                Spot {monitor.spot}
-                {typeof monitor.movePct === "number" ? ` · move ${monitor.movePct}%` : ""}
-              </span>
-            )}
-            {pick ? (
-              <span>
-                Strike {pick.strike}
-                {pick.expiration ? ` ${pick.expiration}` : ""}
-                {` · ask $${pick.ask}`}
-                {typeof pick.dte === "number" ? ` · ${pick.dte}d` : ""}
-                {typeof pick.distancePct === "number" ? ` · ${pick.distancePct}%` : ""}
-              </span>
-            ) : (
-              <span className="opacity-80">{monitor.error || "no COGER strike"}</span>
-            )}
-            {estimate && typeof estimate.gainPct === "number" && (
-              <span>
-                est. @ {estimate.atMoveCapPct}% move · {estimate.gainPct}%
-                {typeof estimate.gainUsdPerContract === "number"
-                  ? ` ($${estimate.gainUsdPerContract}/ct)`
-                  : ""}
-              </span>
-            )}
+        {showTrade && tradeSummary && <BestResultTradeSummaryPanel summary={tradeSummary} compact />}
+        {!showTrade && estimatedExit != null && (
+          <span className="text-[11px] font-normal leading-snug opacity-95">
+            <span className="opacity-80">Estimated exit </span>
+            <span className="font-semibold tabular-nums">{formatMoneyPrice(estimatedExit)}</span>
           </span>
         )}
         {!multiStrategy && !monitor && rules.length > 0 && <RuleCheckStrip rules={rules} />}

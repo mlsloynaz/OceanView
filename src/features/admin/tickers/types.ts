@@ -10,3 +10,12 @@ export type CatalogTickersResponse = {
 };
 
 export type TickerCatalogFilter = "all" | "active" | "inactive";
+
+export type TickerMovementProfileEntry = {
+  symbol: string;
+  outcome: string;
+  message?: string | null;
+  updatedAt?: string | null;
+  historyBars?: number | null;
+  profile: import("@/features/premarket/types").MovementProfile | null;
+};
