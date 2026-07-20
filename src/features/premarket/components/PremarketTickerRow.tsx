@@ -11,6 +11,7 @@ import {
 } from "../display";
 import type {
   BestResultMonitorTicker,
+  BestResultStrikePick,
   PremarketStrategyScore,
   PremarketTickerHit,
 } from "../types";
@@ -23,6 +24,9 @@ type Props = {
   onOpenRules: () => void;
   strategyScores?: PremarketStrategyScore[];
   monitor?: BestResultMonitorTicker | null;
+  /** Assess-time COGER pick (shown when monitor has not loaded). */
+  assessPick?: BestResultStrikePick | null;
+  assessSpot?: number | null;
   /**
    * `exit-only` — strategy result chips: estimated exit price only.
    * `trade` — Best results: current, exit, obstacle, strike.
@@ -48,6 +52,8 @@ export function PremarketTickerRow({
   onOpenRules,
   strategyScores,
   monitor,
+  assessPick,
+  assessSpot,
   priceDetail = "exit-only",
 }: Props) {
   const rules = toPremarketDisplayRules(ticker.rules);
@@ -64,6 +70,8 @@ export function PremarketTickerRow({
         monitor,
         profile,
         dangers: ticker.dangers,
+        pick: assessPick,
+        spot: assessSpot,
       })
     : null;
   const estimatedExit = !showTrade

@@ -9,7 +9,7 @@ Index of docs in this repo. Feature pages are the **source of truth** for UI beh
 | Doc | Area | Route |
 |-----|------|-------|
 | [market-page.md](./market-page.md) | Market — strategies, tickers, rules, Assess | `/market/*` |
-| [premarket-page.md](./premarket-page.md) | Premarket — evaluate + BestResult strike monitor | `/premarket` |
+| [premarket-page.md](./premarket-page.md) | Premarket — evaluate + BestResult strike monitor + Alarm | `/premarket` |
 | [operations-page.md](./operations-page.md) | Operations — option picks and buy | `/operations` |
 | [candles-pane.md](./candles-pane.md) | Admin — candle intake and status | `/admin` |
 | [job-status-pane.md](./job-status-pane.md) | Admin — latest job runs (`GET /jobs/status`) | `/admin#admin-job-status-pane` |
@@ -42,6 +42,7 @@ Agent rule [update-documentation](../.cursor/rules/update-documentation.mdc) req
 |-----|---------|
 | `OceanView-API/docs/market-plan.md` | Market Lambda routes and eval pipeline |
 | `OceanView-API/docs/best-result-monitor.md` | BestResult strike monitor (COGER + 12% move) |
+| `OceanView-API/docs/premarket-alarm.md` | Premarket Alarm one-shot check |
 | `OceanView-API/README.md` | API deploy and smoke tests |
 
 ---

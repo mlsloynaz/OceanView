@@ -106,6 +106,10 @@ export type PremarketBestResultRow = {
   agreementCount?: number;
   strategies: PremarketStrategyScore[];
   movementProfile?: MovementProfile | null;
+  /** COGER strike when assess ran during RTH (strike-gated). */
+  pick?: BestResultStrikePick | null;
+  /** Spot used when resolving the pick. */
+  spot?: number | null;
 };
 
 /**

@@ -102,6 +102,7 @@ Contract and field shapes: [market-page.md](./market-page.md) (APIs section). Im
 | `POST` | `/premarket/evaluate/start` | …/prod/premarket/evaluate/start |
 | `POST` | `/premarket/evaluate/stop` | …/prod/premarket/evaluate/stop |
 | `GET` | `/premarket/evaluate/result` | …/prod/premarket/evaluate/result |
+| `POST` | `/premarket/alarm/check` | …/prod/premarket/alarm/check |
 
 **BestResult monitor** ([premarket-page.md](./premarket-page.md); deploy `BestResultsFunction`)
 

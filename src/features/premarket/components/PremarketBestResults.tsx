@@ -15,12 +15,11 @@ const BTN =
 type MonitorControls = {
   canStart: boolean;
   canStop: boolean;
-  canScan: boolean;
   canRefresh: boolean;
   running: boolean;
+  monitoring: boolean;
   startPending: boolean;
   stopPending: boolean;
-  scanPending: boolean;
   refreshPending: boolean;
   tickerCount: number;
   moveCapPct: number;
@@ -29,7 +28,6 @@ type MonitorControls = {
   notice?: string | null;
   onStart: () => void;
   onStop: () => void;
-  onScan: () => void;
   onRefresh: () => void;
 };
 
@@ -66,7 +64,7 @@ function MonitorHeaderActions({ monitor }: { monitor: MonitorControls }): ReactN
         type="button"
         className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-110")}
         disabled={!monitor.canRefresh}
-        title="Refresh candles, reassess these tickers, and resolve option picks once"
+        title="All-in-one: refresh candles, reassess these tickers, and resolve option picks once (best during RTH)"
         onClick={(e) => {
           e.stopPropagation();
           monitor.onRefresh();
@@ -78,25 +76,13 @@ function MonitorHeaderActions({ monitor }: { monitor: MonitorControls }): ReactN
         type="button"
         className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
         disabled={!monitor.canStart}
-        title="Load option picks once (no continuous polling)"
+        title="Start live strike refresh (polls every 5s)"
         onClick={(e) => {
           e.stopPropagation();
           monitor.onStart();
         }}
       >
-        {monitor.startPending ? "Loading…" : "Load strikes"}
-      </button>
-      <button
-        type="button"
-        className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
-        disabled={!monitor.canScan}
-        title="One scan of option chains for current session"
-        onClick={(e) => {
-          e.stopPropagation();
-          monitor.onScan();
-        }}
-      >
-        {monitor.scanPending ? "Scanning…" : "Scan strikes"}
+        {monitor.startPending ? "Starting…" : "Start"}
       </button>
       <button
         type="button"
@@ -105,12 +91,13 @@ function MonitorHeaderActions({ monitor }: { monitor: MonitorControls }): ReactN
           "border border-ocean-danger/50 text-ocean-danger hover:bg-ocean-danger/10",
         )}
         disabled={!monitor.canStop}
+        title="Stop live strike refresh"
         onClick={(e) => {
           e.stopPropagation();
           monitor.onStop();
         }}
       >
-        {monitor.stopPending ? "Clearing…" : "Clear"}
+        {monitor.stopPending ? "Stopping…" : "Stop"}
       </button>
     </div>
   );
@@ -128,14 +115,18 @@ export function PremarketBestResults({
     group: PremarketStrategyGroup;
     ticker: PremarketBestHit["bestTicker"];
     monitor: BestResultMonitorTicker | null;
+    pick: PremarketBestHit["pick"];
+    spot: PremarketBestHit["spot"];
   } | null>(null);
 
   if (hits.length === 0) return null;
 
   const countLabel = `${hits.length} ticker${hits.length === 1 ? "" : "s"}`;
-  const statusLine = monitor?.running
-    ? `Strikes loaded · ${monitor.tickerCount} · last update ${formatPolledAt(monitor.polledAt)}`
-    : `Top 10 by max quality · ${countLabel} · use Refresh for candles + reassess + options`;
+  const statusLine = monitor?.monitoring
+    ? `Strikes live · ${monitor.tickerCount} · last update ${formatPolledAt(monitor.polledAt)}`
+    : monitor?.running
+      ? `Strikes loaded · ${monitor.tickerCount} · last update ${formatPolledAt(monitor.polledAt)}`
+      : `Top 10 by max quality · ${countLabel} · Refresh (RTH all-in-one) or Start for live strikes`;
 
   return (
     <>
@@ -148,45 +139,44 @@ export function PremarketBestResults({
         className="premarket-result min-w-0"
         headerExtra={monitor ? <MonitorHeaderActions monitor={monitor} /> : undefined}
       >
-        {monitor?.error ? (
-          <p className="mb-2 text-xs text-ocean-danger" role="alert">
-            {monitor.error}
-          </p>
-        ) : null}
-        {monitor?.notice ? (
-          <p className="mb-2 text-xs text-ocean-sand" role="status">
-            {monitor.notice}
-          </p>
-        ) : null}
-        <ul className="flex flex-wrap gap-2">
-          {hits.map((hit) => (
-            <PremarketTickerRow
-              key={`${hit.symbol}|${hit.direction ?? "NONE"}`}
-              ticker={{
-                ...hit.bestTicker,
-                symbol: hit.symbol,
-                name: hit.name,
-                direction: hit.direction,
-                qualityPct: hit.qualityPct,
-                movementProfile: hit.movementProfile ?? hit.bestTicker.movementProfile,
-              }}
-              threshold={threshold}
-              strategyScores={hit.strategies}
-              monitor={resolveMonitor?.(hit.symbol, hit.direction) ?? null}
-              priceDetail="trade"
-              onOpenRules={() =>
-                setDetail({
-                  group: hit.bestGroup,
-                  ticker: {
-                    ...hit.bestTicker,
-                    movementProfile:
-                      hit.movementProfile ?? hit.bestTicker.movementProfile,
-                  },
-                  monitor: resolveMonitor?.(hit.symbol, hit.direction) ?? null,
-                })
-              }
-            />
-          ))}
+        {(monitor?.error || monitor?.notice) && (
+          <div className="mb-3 space-y-1 px-1 text-xs">
+            {monitor.error ? (
+              <p className="text-ocean-danger" role="alert">
+                {monitor.error}
+              </p>
+            ) : null}
+            {monitor.notice ? <p className="text-ocean-sand">{monitor.notice}</p> : null}
+          </div>
+        )}
+        <ul className="space-y-2">
+          {hits.map((hit) => {
+            const mon =
+              resolveMonitor?.(hit.bestTicker.symbol, hit.direction) ??
+              resolveMonitor?.(hit.bestTicker.symbol) ??
+              null;
+            return (
+              <PremarketTickerRow
+                key={`${hit.bestTicker.symbol}-${hit.direction ?? "NONE"}`}
+                ticker={hit.bestTicker}
+                threshold={threshold}
+                strategyScores={hit.strategies}
+                monitor={mon}
+                assessPick={hit.pick}
+                assessSpot={hit.spot}
+                priceDetail="trade"
+                onOpenRules={() =>
+                  setDetail({
+                    group: hit.bestGroup,
+                    ticker: hit.bestTicker,
+                    monitor: mon,
+                    pick: hit.pick,
+                    spot: hit.spot,
+                  })
+                }
+              />
+            );
+          })}
         </ul>
       </CollapsibleSection>
 
@@ -196,6 +186,8 @@ export function PremarketBestResults({
           ticker={detail.ticker}
           threshold={threshold}
           monitor={detail.monitor}
+          assessPick={detail.pick}
+          assessSpot={detail.spot}
           priceDetail="trade"
           onClose={() => setDetail(null)}
         />

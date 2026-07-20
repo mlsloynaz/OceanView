@@ -167,7 +167,16 @@ Content is **full width** of the main column (no `max-w-*` cap). Shell padding a
 
 **Best results (BestResult feature):** Prefer API field `bestResults` from evaluate start/result (computed and persisted in OceanView-API `application/best_result`). Dedupe key = `symbol` + `direction` (CALL/PUT). Rank by **max** `qualityPct`, take top 10. Merged chips list each strategy label + its %. Click opens detail for the highest-% strategy hit. Client fallback (`buildPremarketBestResults`) for older runs without the field. Strategy (and Best results) sections use CSS class `premarket-result`.
 
-**Best strikes monitor:** **Start** / **Stop** on the Best results pane header (not Evaluate). Client polls every 5s → `POST/GET /best-results/monitor/*`. Each cycle refreshes underlying spot + option chain, applies Valores **COGER** gates (ticker `optimalRange`), and shows est. option gain at a fixed **12%** underlying move from Start baseline. Requires a run with Best results tickers. Backend contract: [OceanView-API/docs/best-result-monitor.md](https://github.com/mlsloynaz/OceanView-API/blob/main/docs/best-result-monitor.md).
+**Best results actions (pane header):**
+
+| Control | Role |
+|---------|------|
+| **Refresh best results** | All-in-one once: candles + reassess + COGER strikes (`POST /best-results/refresh`). Preferred during RTH. |
+| **Start** / **Stop** | Live strike monitor: Start opens a session and the client polls every **5s** → `GET /best-results/monitor/status` (spot + chain + COGER pick + move estimate). Stop ends the session. |
+
+Requires a run with Best results tickers. Backend contract: [OceanView-API/docs/best-result-monitor.md](https://github.com/mlsloynaz/OceanView-API/blob/main/docs/best-result-monitor.md).
+
+**Alarm (custom watches):** Collapsible **Alarm** section on Premarket (always visible — below the evaluate toolbar, above Best results). Add watches: active catalog ticker + one active **dynamic** strategy + poll frequency (**minutes** or **hours**, min 1). **Start** polls on that interval: refresh candles for that ticker → assess the strategy (`POST /premarket/alarm/check`). When `qualityPct ≥` Premarket threshold, show an in-app banner (optional desktop notification), and **stop polling that watch immediately**. Watches are session-scoped (`sessionStorage`). Mock: `VITE_USE_MOCK_PREMARKET`.
 
 **Price lines:** Strategy-result chips and Premarket detail modals show only **Estimated exit** (movement-profile estimate). Full movement profile (“How this ticker usually moves”) appears on **Market → ticker detail** only. Best-results chips (with strike monitor) still show **Current price** and comma-separated **Expected exit** (last = movement-profile estimate).
 
@@ -220,19 +229,23 @@ src/features/premarket/
   PremarketPage.tsx              # Page shell, banner, actions, Best results + strategy list
   components/
     PremarketToolbar.tsx         # Start / Stop / Refresh + status line
-    PremarketBestResults.tsx     # BestResult pane + Start/Stop strike monitor in header
+    PremarketBestResults.tsx     # BestResult pane + Refresh + Start/Stop strike monitor
+    PremarketAlarmPanel.tsx      # Alarm watches (ticker + strategy + frequency)
     PremarketStrategySection.tsx # Collapsible block per strategy (.premarket-result)
     PremarketTickerRow.tsx       # quality + optional strategy scores + live strike monitor
     PremarketEmptyState.tsx
     PremarketBanner.tsx          # Mock vs live API indicator (like CandlesPane)
   hooks/
     usePremarketWorkspace.ts
-    useBestResultMonitor.ts      # 5s poll of /best-results/monitor/*
+    useBestResultMonitor.ts      # Refresh all-in-one; Start/Stop + 5s strike poll
+    usePremarketAlarms.ts        # Alarm watches + interval poll until met
   api/
     premarket-client.ts          # fetchJson wrappers + error class
     best-result-client.ts        # monitor start/status/stop (+ mock)
+    alarm-client.ts              # POST /premarket/alarm/check (+ mock)
     premarket-workspace-cache.ts # session cache (catalog, result) across remounts
     mock-data.ts                 # Sample grouped result + bestResults for VITE_USE_MOCK_PREMARKET
+  alarm-types.ts
   types.ts                       # PremarketResultResponse, BestResultMonitorStatus, …
   display.ts                     # resolvePremarketBestHits, buildPremarketBestResults
 ```

@@ -43,6 +43,9 @@ Operational panel for **candle (OHLC bar) collection** — incremental refresh, 
 
 Defined in OceanView-API `template.yaml` (`WeekdayCandleRefresh`, `State: ENABLED`) and `src/application/candle/scheduled_refresh.py`.
 
+**Note:** EventBridge Scheduler does **not** send an `aws.events` envelope. The schedule Target `Input` must be set to  
+`{"source":"oceanview.scheduled-candle-refresh","action":"start"}` (or the handler treats an empty `{}` as start). Without that, the Lambda returns in ~2ms and no candles refresh.
+
 ### Manual refresh / reset (avoids API Gateway 504)
 
 | | |

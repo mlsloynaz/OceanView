@@ -12,24 +12,28 @@ function Row({
   label,
   value,
   compact,
+  alwaysShow,
 }: {
   label: string;
   value: string | null;
   compact?: boolean;
+  /** Keep the row visible even when value is missing (e.g. Strike: —). */
+  alwaysShow?: boolean;
 }) {
-  if (!value) return null;
+  if (!value && !alwaysShow) return null;
+  const display = value ?? "—";
   if (compact) {
     return (
       <span className="block text-[11px] font-normal leading-snug opacity-95">
         <span className="opacity-80">{label} </span>
-        <span className="font-semibold tabular-nums">{value}</span>
+        <span className="font-semibold tabular-nums">{display}</span>
       </span>
     );
   }
   return (
     <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
       <dt className="text-xs text-ocean-sand">{label}</dt>
-      <dd className="text-sm font-semibold tabular-nums text-ocean-foam sm:text-right">{value}</dd>
+      <dd className="text-sm font-semibold tabular-nums text-ocean-foam sm:text-right">{display}</dd>
     </div>
   );
 }
@@ -52,28 +56,23 @@ function obstacleValue(summary: BestResultTradeSummary): string | null {
  * Best Results trade snapshot — current, profile exit, Camino obstacle, strike pick.
  */
 export function BestResultTradeSummaryPanel({ summary, className, compact }: Props) {
-  const hasAny =
-    summary.currentPrice != null ||
-    summary.estimatedExit != null ||
-    summary.estimatedObstacle != null ||
-    summary.suggestedStrike != null;
-  if (!hasAny) return null;
+  const strike = strikeValue(summary);
 
   if (compact) {
     return (
       <span className={cn("flex flex-col gap-0.5", className)}>
         <Row
           compact
-          label="Current"
+          label="Current:"
           value={summary.currentPrice != null ? formatMoneyPrice(summary.currentPrice) : null}
         />
         <Row
           compact
-          label="Est. exit"
+          label="Est. exit:"
           value={summary.estimatedExit != null ? formatMoneyPrice(summary.estimatedExit) : null}
         />
-        <Row compact label="Obstacle" value={obstacleValue(summary)} />
-        <Row compact label="Strike" value={strikeValue(summary)} />
+        <Row compact label="Obstacle:" value={obstacleValue(summary)} />
+        <Row compact label="Strike:" value={strike} alwaysShow />
       </span>
     );
   }
@@ -90,15 +89,15 @@ export function BestResultTradeSummaryPanel({ summary, className, compact }: Pro
       </h3>
       <dl className="space-y-2">
         <Row
-          label="Current price"
+          label="Current price:"
           value={summary.currentPrice != null ? formatMoneyPrice(summary.currentPrice) : null}
         />
         <Row
-          label="Estimated exit"
+          label="Estimated exit:"
           value={summary.estimatedExit != null ? formatMoneyPrice(summary.estimatedExit) : null}
         />
-        <Row label="Estimated obstacle" value={obstacleValue(summary)} />
-        <Row label="Suggested strike" value={strikeValue(summary)} />
+        <Row label="Estimated obstacle:" value={obstacleValue(summary)} />
+        <Row label="Strike:" value={strike} alwaysShow />
       </dl>
     </div>
   );

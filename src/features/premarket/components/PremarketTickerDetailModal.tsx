@@ -9,7 +9,12 @@ import {
   resolveEstimatedExitPrice,
   toPremarketDisplayRules,
 } from "../display";
-import type { BestResultMonitorTicker, PremarketStrategyGroup, PremarketTickerHit } from "../types";
+import type {
+  BestResultMonitorTicker,
+  BestResultStrikePick,
+  PremarketStrategyGroup,
+  PremarketTickerHit,
+} from "../types";
 import { BestResultTradeSummaryPanel } from "./BestResultTradeSummary";
 
 type Props = {
@@ -19,6 +24,8 @@ type Props = {
   onClose: () => void;
   /** When set, show Best Results trade levels (current / exit / obstacle / strike). */
   monitor?: BestResultMonitorTicker | null;
+  assessPick?: BestResultStrikePick | null;
+  assessSpot?: number | null;
   /** `trade` = Best Results summary; `exit-only` = strategy panes. */
   priceDetail?: "exit-only" | "trade";
 };
@@ -29,6 +36,8 @@ export function PremarketTickerDetailModal({
   threshold,
   onClose,
   monitor,
+  assessPick,
+  assessSpot,
   priceDetail = "exit-only",
 }: Props) {
   const strategyName = group.shortName || group.name || group.strategyId;
@@ -43,6 +52,8 @@ export function PremarketTickerDetailModal({
         monitor,
         profile,
         dangers: ticker.dangers,
+        pick: assessPick,
+        spot: assessSpot,
       })
     : null;
   const estimatedExit = !showTrade

@@ -4,6 +4,7 @@ import { formatAchievedTimeEt } from "@/features/market/display";
 import { evalDedupeKey } from "@/shared/lib/rule-dedupe";
 import type {
   BestResultMonitorTicker,
+  BestResultStrikePick,
   MovementProfile,
   PremarketBestHit,
   PremarketBestResultRow,
@@ -144,9 +145,16 @@ export function resolveBestResultTradeSummary(args: {
   monitor?: BestResultMonitorTicker | null;
   profile?: MovementProfile | null;
   dangers?: DangerEval[] | null;
+  /** Assess/refresh pick when monitor session has not loaded yet. */
+  pick?: BestResultStrikePick | null;
+  spot?: number | null;
 }): BestResultTradeSummary {
   const { monitor, profile, dangers } = args;
-  const { currentPrice } = resolvePremarketPriceLines({ monitor, profile, dangers });
+  const lines = resolvePremarketPriceLines({ monitor, profile, dangers });
+  const currentPrice =
+    lines.currentPrice ??
+    (isPositivePrice(args.spot) ? args.spot : null) ??
+    (isPositivePrice(monitor?.spot) ? monitor.spot : null);
 
   const estimatedExit =
     (isPositivePrice(profile?.expectedExitPrice) && profile.expectedExitPrice) ||
@@ -169,7 +177,7 @@ export function resolveBestResultTradeSummary(args: {
     primaryObstacle?.key?.trim() ||
     (estimatedObstacle != null ? "Camino libre" : null);
 
-  const pick = monitor?.pick;
+  const pick = monitor?.pick ?? args.pick ?? null;
   const suggestedStrike =
     typeof pick?.strike === "number" && !Number.isNaN(pick.strike) ? pick.strike : null;
 
@@ -523,8 +531,11 @@ function attachBestHitRefs(
     name: row.name,
     direction: row.direction,
     qualityPct: row.qualityPct,
+    agreementCount: row.agreementCount,
     strategies: ranked.length ? ranked : row.strategies,
     movementProfile: row.movementProfile ?? bestTicker.movementProfile ?? null,
+    pick: row.pick ?? null,
+    spot: row.spot ?? null,
     bestGroup: group,
     bestTicker,
   };
