@@ -401,16 +401,13 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   const deleteStrategy = useCallback(
     async (strategy: DynamicStrategy) => {
       const tier = resolveStrategyTier(strategy);
-      if (tier === "standard") {
-        setError("Standard playbooks cannot be deleted. Demote to dynamic or deactivate instead.");
-        return false;
-      }
-
       const isPendingCreate = pendingCreateIds.has(strategy.id);
       const ok = window.confirm(
         isPendingCreate
           ? `Discard unsaved strategy "${strategy.name}"?`
-          : `Delete "${strategy.name}"?\n\nThis permanently removes the strategy from Dynamo. It will no longer appear in Premarket evaluate.`,
+          : tier === "standard"
+            ? `Delete standard playbook "${strategy.name}"?\n\nThis permanently removes it from Dynamo. Seed bootstrap will not resurrect it unless you recreate it.`
+            : `Delete "${strategy.name}"?\n\nThis permanently removes the strategy from Dynamo. It will no longer appear in Premarket evaluate.`,
       );
       if (!ok) return false;
 
