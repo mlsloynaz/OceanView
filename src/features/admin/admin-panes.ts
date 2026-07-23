@@ -33,7 +33,7 @@ export const ADMIN_PANES: Record<AdminPaneId, AdminPaneMeta> = {
     id: "tickers",
     anchorId: "admin-tickers-pane",
     title: "Tickers",
-    description: "Search, filter, and activate symbols for Market and Candles",
+    description: "Watchlist, best-fit ranking, and option tradability sampling",
   },
   candles: {
     id: "candles",
@@ -63,5 +63,6 @@ export const ADMIN_PANES: Record<AdminPaneId, AdminPaneMeta> = {
 
 export function adminPaneFromHash(hash: string): AdminPaneId | null {
   const id = hash.replace(/^#/, "");
+  if (id.startsWith("admin-tickers")) return "tickers";
   return ADMIN_PANE_ORDER.find((paneId) => ADMIN_PANES[paneId].anchorId === id) ?? null;
 }

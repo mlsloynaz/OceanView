@@ -52,12 +52,10 @@ export function useTickersPane(open: boolean) {
   const [bestFitLoading, setBestFitLoading] = useState(false);
   const [bestFitResolving, setBestFitResolving] = useState(false);
   const [bestFitError, setBestFitError] = useState<string | null>(null);
-  const [bestFitActivateTop, setBestFitActivateTop] = useState(false);
   const [tradable, setTradable] = useState<TradableWatchlistResponse | null>(null);
   const [tradableLoading, setTradableLoading] = useState(false);
   const [tradableRefining, setTradableRefining] = useState(false);
   const [tradableError, setTradableError] = useState<string | null>(null);
-  const [tradableActivateTop, setTradableActivateTop] = useState(false);
 
   const loadCatalog = useCallback(async () => {
     setError(null);
@@ -96,19 +94,16 @@ export function useTickersPane(open: boolean) {
     try {
       const payload = await resolveBestFitWatchlist({
         limit: 10,
-        activateTop: bestFitActivateTop,
+        activateTop: false,
       });
       setBestFit(payload);
-      setMessage(payload.message ?? "Best-fit watchlist resolved.");
-      if (bestFitActivateTop) {
-        await loadCatalog();
-      }
+      setMessage(payload.message ?? "Best-fit ranking resolved.");
     } catch (err) {
-      setBestFitError(err instanceof Error ? err.message : "Failed to resolve best-fit watchlist.");
+      setBestFitError(err instanceof Error ? err.message : "Failed to resolve best-fit ranking.");
     } finally {
       setBestFitResolving(false);
     }
-  }, [bestFitActivateTop, loadCatalog]);
+  }, []);
 
   const loadTradable = useCallback(async () => {
     setTradableError(null);
@@ -123,25 +118,23 @@ export function useTickersPane(open: boolean) {
     }
   }, []);
 
-  const refineTradable = useCallback(async () => {
+  const refineTradable = useCallback(async (opts?: { force?: boolean }) => {
     setTradableError(null);
     setTradableRefining(true);
     try {
       const payload = await refineTradableWatchlist({
         limit: 5,
-        activateTop: tradableActivateTop,
+        activateTop: false,
+        force: Boolean(opts?.force),
       });
       setTradable(payload);
-      setMessage(payload.message ?? "Tradable top 5 refined.");
-      if (tradableActivateTop) {
-        await loadCatalog();
-      }
+      setMessage(payload.message ?? "Tradability samples collected.");
     } catch (err) {
-      setTradableError(err instanceof Error ? err.message : "Failed to refine tradable top 5.");
+      setTradableError(err instanceof Error ? err.message : "Failed to collect tradability samples.");
     } finally {
       setTradableRefining(false);
     }
-  }, [tradableActivateTop, loadCatalog]);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -432,15 +425,12 @@ export function useTickersPane(open: boolean) {
     bestFitLoading,
     bestFitResolving,
     bestFitError,
-    bestFitActivateTop,
-    setBestFitActivateTop,
     resolveBestFit,
     tradable,
     tradableLoading,
     tradableRefining,
     tradableError,
-    tradableActivateTop,
-    setTradableActivateTop,
     refineTradable,
+    tickers,
   };
 }

@@ -61,8 +61,12 @@ export type BestFitWatchlistResponse = {
   universeSize: number;
   scoredCount: number;
   skippedCount: number;
+  /** Suggested top N (for tradable sampling source). */
   watchlist: BestFitWatchlistRow[];
+  /** All scored tickers, best first. Prefer this for display. */
+  ranked?: BestFitWatchlistRow[];
   skipped: BestFitSkippedRow[];
+  skipReasons?: Record<string, number>;
   activation?: {
     applied?: boolean;
     activated?: string[];
@@ -123,6 +127,7 @@ export type TradableWatchlistResponse = {
   sourceCount: number;
   minSamplesReady?: number;
   maxSamplesPerRun?: number;
+  minResampleGapMinutes?: number;
   readyCount?: number;
   scoredCount: number;
   skippedCount: number;

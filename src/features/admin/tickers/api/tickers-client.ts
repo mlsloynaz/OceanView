@@ -29,8 +29,9 @@ let mockBestFit: BestFitWatchlistResponse = {
   scoredCount: 0,
   skippedCount: 0,
   watchlist: [],
+  ranked: [],
   skipped: [],
-  message: "No best-fit watchlist resolved yet. Run Resolve best-fit watchlist.",
+  message: "No best-fit ranking yet. Run Resolve on Best-fit.",
 };
 
 let mockTradable: TradableWatchlistResponse = {
@@ -44,7 +45,7 @@ let mockTradable: TradableWatchlistResponse = {
   sourceSymbols: [],
   watchlist: [],
   skipped: [],
-  message: "No tradable top 5 yet. Resolve best-fit 10, then Refine tradable top 5.",
+  message: "No tradability samples yet. Collect samples for the full catalog.",
 };
 
 const MOCK_PROFILES: Record<string, MovementProfile> = {
@@ -264,6 +265,7 @@ export async function getBestFitWatchlist(): Promise<BestFitWatchlistResponse> {
     return {
       ...mockBestFit,
       watchlist: [...mockBestFit.watchlist],
+      ranked: [...(mockBestFit.ranked ?? mockBestFit.watchlist)],
       skipped: [...mockBestFit.skipped],
     };
   }
@@ -279,25 +281,27 @@ export async function resolveBestFitWatchlist(input?: {
 
   if (USE_MOCK) {
     await delay(250);
-    const watchlist = mockCatalog
-      .slice(0, Math.min(limit, mockCatalog.length))
-      .map((row, index) => ({
-        rank: index + 1,
-        symbol: row.symbol,
-        name: row.name,
-        currentlyActive: activateTop ? true : row.active,
-        score: 80 - index * 4,
-        tier: index < 2 ? "excellent" : index < 4 ? "strong" : "moderate",
-        reasons: [`+mock score for ${row.symbol}`],
-        metrics: {
-          sampleSize: 16,
-          moveCapPct: 1.6,
-          expectedMaePct: 0.4,
-          winRate: 0.58,
-          atrPct: 1.0,
-          suggestedStopPct: 0.65,
-        },
-      }));
+    const ranked = mockCatalog.map((row, index) => ({
+      rank: index + 1,
+      symbol: row.symbol,
+      name: row.name,
+      currentlyActive: row.active,
+      score: 80 - index * 1.2,
+      tier: index < 2 ? "excellent" : index < 6 ? "strong" : "moderate",
+      reasons: [`+mock score for ${row.symbol}`],
+      metrics: {
+        sampleSize: 16,
+        moveCapPct: 1.6,
+        expectedMaePct: 0.4,
+        winRate: 0.58,
+        atrPct: 1.0,
+        suggestedStopPct: 0.65,
+      },
+    }));
+    const watchlist = ranked.slice(0, Math.min(limit, ranked.length)).map((row) => ({
+      ...row,
+      currentlyActive: activateTop ? true : row.currentlyActive,
+    }));
     if (activateTop) {
       const keep = new Set(watchlist.map((row) => row.symbol));
       mockCatalog = mockCatalog.map((row) => ({ ...row, active: keep.has(row.symbol) }));
@@ -307,20 +311,20 @@ export async function resolveBestFitWatchlist(input?: {
       resolvedAt: new Date().toISOString(),
       limit,
       universeSize: mockCatalog.length,
-      scoredCount: watchlist.length,
-      skippedCount: Math.max(0, mockCatalog.length - watchlist.length),
+      scoredCount: ranked.length,
+      skippedCount: 0,
       watchlist,
-      skipped: mockCatalog
-        .filter((row) => !watchlist.some((w) => w.symbol === row.symbol))
-        .map((row) => ({ symbol: row.symbol, reason: "Mock: outside top N" })),
+      ranked,
+      skipped: [],
       activation: activateTop
         ? { applied: true, activated: watchlist.map((w) => w.symbol), deactivated: [] }
         : null,
-      message: `Best-fit watchlist: top ${watchlist.length} (mock).`,
+      message: `Best-fit: ${ranked.length} scored (suggested top ${watchlist.length}) (mock).`,
     };
     return {
       ...mockBestFit,
       watchlist: [...mockBestFit.watchlist],
+      ranked: [...(mockBestFit.ranked ?? [])],
       skipped: [...mockBestFit.skipped],
     };
   }
@@ -355,10 +359,15 @@ export async function refineTradableWatchlist(input?: {
 
   if (USE_MOCK) {
     await delay(300);
-    if (!mockBestFit.watchlist.length) {
-      throw new Error("No best-fit watchlist yet. Resolve best-fit (top 10) first.");
+    if (!mockCatalog.length) {
+      throw new Error("No tickers in the catalog. Add symbols under Watchlist first.");
     }
-    const source = mockBestFit.watchlist.slice(0, 10);
+    const source = mockCatalog.map((row, index) => ({
+      symbol: row.symbol,
+      name: row.name,
+      rank: index + 1,
+      score: 70 - index,
+    }));
     const progress = source.map((row, index) => ({
       symbol: row.symbol,
       name: row.name,
@@ -374,7 +383,7 @@ export async function refineTradableWatchlist(input?: {
       underlyingMovePctForOption12Pct: 0.4,
     }));
     const ready = progress.filter((row) => row.ready);
-    const watchlist = ready.slice(0, Math.min(limit, ready.length)).map((row, index) => ({
+    const watchlist = ready.map((row, index) => ({
       rank: index + 1,
       symbol: row.symbol,
       name: row.name,
@@ -410,11 +419,11 @@ export async function refineTradableWatchlist(input?: {
     }
     mockTradable = {
       kind: "tradable_watchlist",
-      status: watchlist.length >= limit ? "ready" : "collecting",
-      resolvedAt: watchlist.length >= limit ? new Date().toISOString() : null,
+      status: ready.length >= limit ? "ready" : "collecting",
+      resolvedAt: ready.length ? new Date().toISOString() : null,
       collectedAt: new Date().toISOString(),
       limit,
-      sourceLimit: 10,
+      sourceLimit: source.length,
       sourceCount: source.length,
       minSamplesReady: 8,
       maxSamplesPerRun: 3,
@@ -422,7 +431,6 @@ export async function refineTradableWatchlist(input?: {
       scoredCount: watchlist.length,
       skippedCount: 0,
       sourceSymbols: source.map((row) => row.symbol),
-      bestFitResolvedAt: mockBestFit.resolvedAt,
       progress,
       sampledThisRun: progress.slice(0, 3).map((row) => ({
         symbol: row.symbol,
@@ -437,10 +445,7 @@ export async function refineTradableWatchlist(input?: {
       activation: activateTop
         ? { applied: true, activated: watchlist.map((w) => w.symbol), deactivated: [] }
         : null,
-      message:
-        watchlist.length >= limit
-          ? `Tradable top ${watchlist.length} ready (mock).`
-          : `Collected samples (mock). Progress: ${ready.length}/${source.length} ready.`,
+      message: `Collected samples for full catalog (mock). Ready ${ready.length}/${source.length}.`,
     };
     return {
       ...mockTradable,

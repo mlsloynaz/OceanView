@@ -19,9 +19,9 @@ type Args = {
 };
 
 /**
- * Best Results strikes:
- * - **Refresh** — one-shot candles + reassess + option picks (all-in-one).
- * - **Start / Stop** — monitor session with 5s polling to keep refreshing best strikes.
+ * Best Results:
+ * - **Refresh** — candles + reassess only (no option chains).
+ * - **Start / Stop** — optional monitor session that polls strikes (chains) every 5s.
  */
 export function useBestResultMonitor({ runId, hasBestResults, onRefreshed }: Args) {
   const [status, setStatus] = useState<BestResultMonitorStatus | null>(null);
@@ -88,9 +88,10 @@ export function useBestResultMonitor({ runId, hasBestResults, onRefreshed }: Arg
         runId: runId || undefined,
         refreshCandles: true,
         reassess: true,
-        resolveStrikes: true,
+        // Never pull option chains on this path — keeps Premarket refresh fast.
+        resolveStrikes: false,
       });
-      setNotice(payload.message || "Best results refreshed (candles + reassess + strikes).");
+      setNotice(payload.message || "Best results refreshed (candles + reassess).");
       if (payload.tickers?.length) {
         const keepRunning = Boolean(monitorIdRef.current) && pollingRef.current;
         setStatus({

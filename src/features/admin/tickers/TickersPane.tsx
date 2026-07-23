@@ -1,239 +1,101 @@
-import { cn } from "@/shared/lib/cn";
-import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane";
-import { AddTickerForm } from "./AddTickerForm";
-import { BestFitWatchlistPanel } from "./BestFitWatchlistPanel";
-import { tickersApiBaseUrl, tickersApiUsesMock } from "./api/tickers-client";
-import { useTickersPane } from "./hooks/useTickersPane";
-import { TickersPager } from "./TickersPager";
-import { TickersTable } from "./TickersTable";
-import { TickerCatalogSearch } from "./TickerCatalogSearch";
-import type { TickerCatalogFilter } from "./types";
+import { useCallback, useEffect, useState } from "react";
+import { AdminPaneThumbnail } from "@/features/admin/components/AdminPaneThumbnail";
+import { BestFitPane } from "./BestFitPane";
+import { TradablePane } from "./TradablePane";
+import { WatchlistPane } from "./WatchlistPane";
+import {
+  hashForTickersHubView,
+  TICKERS_HUB,
+  TICKERS_HUB_ORDER,
+  tickersHubViewFromHash,
+  type TickersHubView,
+} from "./tickers-hub";
 
-const FILTER_BTN =
-  "rounded px-2 py-0.5 text-xs font-medium transition-colors disabled:opacity-50";
+function IconWatchlist() {
+  return (
+    <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+      <path
+        fillRule="evenodd"
+        d="M6 4.75A.75.75 0 016.75 4h10.5a.75.75 0 010 1.5H6.75A.75.75 0 016 4.75zM6 10a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H6.75A.75.75 0 016 10zm0 5.25a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H6.75a.75.75 0 01-.75-.75zM2.75 4.75a.75.75 0 111.5 0 .75.75 0 01-1.5 0zM2.75 10a.75.75 0 111.5 0 .75.75 0 01-1.5 0zm0 5.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function IconBestFit() {
+  return (
+    <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+      <path d="M10 2a.75.75 0 01.67.415l1.98 3.99 4.41.64a.75.75 0 01.416 1.279l-3.19 3.11.753 4.39a.75.75 0 01-1.088.79L10 14.347l-3.95 2.077a.75.75 0 01-1.088-.79l.753-4.39-3.19-3.11a.75.75 0 01.416-1.28l4.41-.64 1.98-3.99A.75.75 0 0110 2z" />
+    </svg>
+  );
+}
+
+function IconTradable() {
+  return (
+    <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+      <path d="M3.5 3.75a.75.75 0 000 1.5h13a.75.75 0 000-1.5h-13zM3.5 9.25a.75.75 0 000 1.5h8a.75.75 0 000-1.5h-8zM3.5 14.75a.75.75 0 000 1.5h5a.75.75 0 000-1.5h-5z" />
+      <path d="M14.22 9.22a.75.75 0 011.06 0l2.25 2.25a.75.75 0 010 1.06l-2.25 2.25a.75.75 0 11-1.06-1.06l.97-.97H10.75a.75.75 0 010-1.5h4.44l-.97-.97a.75.75 0 010-1.06z" />
+    </svg>
+  );
+}
+
+const HUB_ICONS = {
+  watchlist: <IconWatchlist />,
+  "best-fit": <IconBestFit />,
+  tradable: <IconTradable />,
+} as const;
 
 export function TickersPane() {
-  const usesMock = tickersApiUsesMock();
-  const apiBase = tickersApiBaseUrl();
-  const {
-    pageTickers,
-    page,
-    pages,
-    pageSize,
-    filteredCount,
-    search,
-    searchSuggestions,
-    setSearch,
-    selectSearchTicker,
-    setPage,
-    filter,
-    setFilter,
-    counts,
-    pageActiveState,
-    loading,
-    error,
-    message,
-    pending,
-    isPending,
-    adding,
-    expandedSymbol,
-    toggleExpanded,
-    profileCache,
-    reload,
-    addTicker,
-    activatePage,
-    deactivatePage,
-    activateAll,
-    deactivateAll,
-    setActive,
-    bestFit,
-    bestFitLoading,
-    bestFitResolving,
-    bestFitError,
-    bestFitActivateTop,
-    setBestFitActivateTop,
-    resolveBestFit,
-    tradable,
-    tradableLoading,
-    tradableRefining,
-    tradableError,
-    tradableActivateTop,
-    setTradableActivateTop,
-    refineTradable,
-  } = useTickersPane(true);
+  const [view, setView] = useState<TickersHubView>(() =>
+    tickersHubViewFromHash(window.location.hash),
+  );
 
-  const filters: { id: TickerCatalogFilter; label: string; count: number }[] = [
-    { id: "all", label: "All", count: counts.total },
-    { id: "active", label: "Active", count: counts.active },
-    { id: "inactive", label: "Inactive", count: counts.inactive },
-  ];
+  useEffect(() => {
+    const sync = () => setView(tickersHubViewFromHash(window.location.hash));
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
+
+  const openView = useCallback((next: TickersHubView) => {
+    setView(next);
+    window.history.replaceState(null, "", `${window.location.pathname}${hashForTickersHubView(next)}`);
+  }, []);
+
+  if (view === "watchlist") {
+    return <WatchlistPane onBack={() => openView("hub")} />;
+  }
+  if (view === "best-fit") {
+    return <BestFitPane onBack={() => openView("hub")} />;
+  }
+  if (view === "tradable") {
+    return <TradablePane onBack={() => openView("hub")} />;
+  }
 
   return (
-    <AdminExpandedPane
-      id="admin-tickers-pane"
-      title="Tickers"
-      subtitle={
-        usesMock
-          ? "Mock data (VITE_USE_MOCK_CANDLES=true)"
-          : `Live API${apiBase ? ` — ${apiBase}` : ""}`
-      }
-      className="min-w-0"
-      headerExtra={
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <span className="text-[11px] text-ocean-sand/80">
-            {counts.active} active · {counts.total} total · A–Z
-          </span>
-          <button
-            type="button"
-            className="rounded border border-ocean-mid/60 bg-ocean-deep px-2 py-1 text-xs font-medium text-ocean-foam hover:border-ocean-teal/50 disabled:opacity-50"
-            disabled={loading || isPending}
-            onClick={() => void reload()}
-          >
-            {loading ? "…" : "Reload"}
-          </button>
-        </div>
-      }
-    >
-      {!usesMock && apiBase && (
-        <p className="mb-2 truncate text-[11px] text-ocean-sand/70" title={apiBase}>
-          API: {apiBase}
+    <div className="space-y-4">
+      <div>
+        <h2 className="font-display text-xl font-semibold text-ocean-foam">Tickers</h2>
+        <p className="mt-1 max-w-2xl text-sm text-ocean-sand">
+          Watchlist for catalog control, Best-fit for long-term stock ranking, Tradable for option
+          spreads. Open a thumbnail below.
         </p>
-      )}
-      {usesMock && (
-        <p className="mb-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-800 dark:text-amber-200">
-          Mock mode — toggles update in-memory catalog only.
-        </p>
-      )}
-
-      <p className="mb-3 text-xs text-ocean-sand">
-        Tickers are sorted A–Z, {pageSize} per page. Click a symbol for movement info (stored
-        profiles from Candles → Build movement profiles). Use the header checkbox to activate or
-        deactivate the current page. Active tickers are included in Market Assess and Candles bulk
-        refresh.
-      </p>
-
-      <BestFitWatchlistPanel
-        result={bestFit}
-        loading={bestFitLoading}
-        resolving={bestFitResolving}
-        activateTop={bestFitActivateTop}
-        error={bestFitError}
-        tradable={tradable}
-        tradableLoading={tradableLoading}
-        tradableRefining={tradableRefining}
-        tradableActivateTop={tradableActivateTop}
-        tradableError={tradableError}
-        disabled={loading || isPending}
-        onActivateTopChange={setBestFitActivateTop}
-        onResolve={() => void resolveBestFit()}
-        onTradableActivateTopChange={setTradableActivateTop}
-        onRefineTradable={() => void refineTradable()}
-      />
-
-      <AddTickerForm
-        disabled={loading || isPending}
-        submitting={adding}
-        onSubmit={addTicker}
-      />
-
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <TickerCatalogSearch
-          value={search}
-          suggestions={searchSuggestions}
-          disabled={loading || isPending}
-          onChange={setSearch}
-          onSelect={selectSearchTicker}
-        />
-        {search.trim() ? (
-          <button
-            type="button"
-            disabled={loading || isPending}
-            onClick={() => setSearch("")}
-            className="rounded px-2 py-1 text-xs font-medium text-ocean-sand hover:text-ocean-foam"
-          >
-            Clear
-          </button>
-        ) : null}
-        {search.trim() ? (
-          <span className="text-[11px] text-ocean-sand/80">
-            {filteredCount} match{filteredCount === 1 ? "" : "es"}
-          </span>
-        ) : null}
       </div>
-
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
-        {filters.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            disabled={loading || isPending}
-            onClick={() => setFilter(item.id)}
-            className={cn(
-              FILTER_BTN,
-              filter === item.id
-                ? "bg-ocean-teal/20 text-ocean-teal-dim dark:text-ocean-teal"
-                : "border border-ocean-mid/50 text-ocean-sand hover:border-ocean-teal/40",
-            )}
-          >
-            {item.label} ({item.count})
-          </button>
-        ))}
-        <span className="mx-1 hidden h-4 w-px bg-ocean-mid/50 sm:inline" aria-hidden />
-        <button
-          type="button"
-          disabled={loading || isPending || counts.inactive === 0}
-          onClick={activateAll}
-          className={cn(
-            FILTER_BTN,
-            "border border-ocean-teal/40 text-ocean-teal-dim hover:bg-ocean-teal/10 dark:text-ocean-teal",
-          )}
-        >
-          Activate all
-        </button>
-        <button
-          type="button"
-          disabled={loading || isPending || counts.active === 0}
-          onClick={deactivateAll}
-          className={cn(
-            FILTER_BTN,
-            "border border-ocean-danger-border/60 text-ocean-danger hover:bg-ocean-danger-muted/50",
-          )}
-        >
-          Deactivate all
-        </button>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {TICKERS_HUB_ORDER.map((id) => {
+          const meta = TICKERS_HUB[id];
+          return (
+            <AdminPaneThumbnail
+              key={id}
+              title={meta.title}
+              description={meta.description}
+              icon={HUB_ICONS[id]}
+              active={false}
+              onClick={() => openView(id)}
+            />
+          );
+        })}
       </div>
-
-      {message && (
-        <p className="mb-2 text-ocean-teal-dim dark:text-ocean-teal">{message}</p>
-      )}
-      {error && <p className="mb-2 text-ocean-danger">{error}</p>}
-
-      <TickersTable
-        rows={pageTickers}
-        loading={loading}
-        pending={pending}
-        bulkPending={isPending}
-        pageActiveState={pageActiveState}
-        expandedSymbol={expandedSymbol}
-        profileCache={profileCache}
-        onToggleExpanded={toggleExpanded}
-        onPageActiveChange={(active) => (active ? activatePage() : deactivatePage())}
-        onToggleActive={setActive}
-        emptyMessage={
-          search.trim()
-            ? `No tickers match “${search.trim()}”.`
-            : undefined
-        }
-      />
-
-      <TickersPager
-        page={page}
-        totalPages={pages}
-        totalItems={filteredCount}
-        pageSize={pageSize}
-        disabled={loading || isPending}
-        onPageChange={setPage}
-      />
-    </AdminExpandedPane>
+    </div>
   );
 }
