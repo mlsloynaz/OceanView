@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  buildEntryWindowPayload,
+  entryWindowTimeFields,
+} from "@/features/market/lib/entry-window";
+import {
   buildRulesPayload,
   builderRowsFromStrategyRules,
   moveBuilderRow,
@@ -117,6 +121,9 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   const [editingStrategyId, setEditingStrategyId] = useState<string | null>(null);
   const [builderStrategyId, setBuilderStrategyId] = useState("");
   const [builderName, setBuilderName] = useState("");
+  const [builderEntryStart, setBuilderEntryStart] = useState("");
+  const [builderEntryEnd, setBuilderEntryEnd] = useState("");
+  const [builderEntryLegacyLabel, setBuilderEntryLegacyLabel] = useState<string | null>(null);
   const [builderRows, setBuilderRows] = useState<BuilderRuleRow[]>([]);
 
   /** Strategy ids with local edits not yet written to Dynamo. */
@@ -177,6 +184,9 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setEditingStrategyId(null);
     setBuilderStrategyId("");
     setBuilderName("");
+    setBuilderEntryStart("");
+    setBuilderEntryEnd("");
+    setBuilderEntryLegacyLabel(null);
     setBuilderRows([]);
     setError(null);
     setNotice(null);
@@ -189,9 +199,13 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
 
   const cloneBuilderFromStrategy = useCallback(
     (source: DynamicStrategy) => {
+      const windowFields = entryWindowTimeFields(source.entryWindow);
       setEditingStrategyId(null);
       setBuilderName(`${source.name} (copy)`);
       setBuilderStrategyId(suggestNextStrategyId(strategies));
+      setBuilderEntryStart(windowFields.startEt);
+      setBuilderEntryEnd(windowFields.endEt);
+      setBuilderEntryLegacyLabel(windowFields.legacyLabel);
       setBuilderRows(builderRowsFromStrategyRules(source.rules));
       setError(null);
       setNotice(`Loaded rules from ${source.id}. Set a new ID before saving.`);
@@ -200,9 +214,13 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   );
 
   const hydrateBuilderFromStrategy = useCallback((strategy: DynamicStrategy) => {
+    const windowFields = entryWindowTimeFields(strategy.entryWindow);
     setEditingStrategyId(strategy.id);
     setBuilderStrategyId(strategy.id);
     setBuilderName(strategy.name);
+    setBuilderEntryStart(windowFields.startEt);
+    setBuilderEntryEnd(windowFields.endEt);
+    setBuilderEntryLegacyLabel(windowFields.legacyLabel);
     setBuilderRows(builderRowsFromStrategyRules(strategy.rules));
     setError(null);
   }, []);
@@ -269,6 +287,17 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     }
 
     const ruleInputs = buildRulesPayload(builderRows);
+    let entryWindow: DynamicStrategy["entryWindow"];
+    try {
+      entryWindow = buildEntryWindowPayload(builderEntryStart, builderEntryEnd);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid entry window.");
+      return null;
+    }
+    // Preserve legacy string label when times were left empty.
+    if (entryWindow == null && builderEntryLegacyLabel) {
+      entryWindow = builderEntryLegacyLabel;
+    }
     const existing = wasEdit ? strategies.find((row) => row.id === strategyId) : undefined;
     const staged = normalizeStrategy({
       id: strategyId,
@@ -277,6 +306,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       description: existing?.description,
       tier: existing?.tier ?? "dynamic",
       direction: existing?.direction,
+      entryWindow: entryWindow ?? null,
       active: true,
       rules: ruleInputs.map((rule, index) => {
         const prior = existing?.rules.find((row) => row.id === rule.id);
@@ -318,6 +348,9 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     );
     return staged;
   }, [
+    builderEntryEnd,
+    builderEntryLegacyLabel,
+    builderEntryStart,
     builderName,
     builderRows,
     builderStrategyId,
@@ -372,6 +405,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
               shortName: strategy.shortName ?? undefined,
               description: strategy.description,
               direction: strategy.direction ?? undefined,
+              entryWindow: strategy.entryWindow ?? null,
               active: strategy.active,
               rules: strategyRulesToInput(strategy.rules),
             });
@@ -379,6 +413,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
             await patchDynamicStrategy(id, {
               name: strategy.name,
               active: strategy.active,
+              entryWindow: strategy.entryWindow ?? null,
               rules: strategyRulesToInput(strategy.rules),
             });
           } else {
@@ -544,6 +579,9 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     editingStrategyId,
     builderStrategyId,
     builderName,
+    builderEntryStart,
+    builderEntryEnd,
+    builderEntryLegacyLabel,
     builderRows,
     loading,
     saving,
@@ -555,6 +593,8 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     hasUnsavedChanges,
     setBuilderStrategyId,
     setBuilderName,
+    setBuilderEntryStart,
+    setBuilderEntryEnd,
     setRuleTrend,
     setRuleOperation,
     setRuleType,

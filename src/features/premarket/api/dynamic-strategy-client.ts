@@ -71,6 +71,8 @@ export type DynamicStrategy = {
   direction?: "CALL" | "PUT" | null;
   /** Movement strategies rank below non-movement in Best results. */
   isMovement?: boolean;
+  /** Structured ET window (enforced) or legacy display string. */
+  entryWindow?: import("@/features/market/lib/entry-window").EntryWindow | null;
   active: boolean;
   rules: DynamicStrategyRule[];
 };
@@ -108,6 +110,7 @@ export type CreateDynamicStrategyRequest = {
   direction?: "CALL" | "PUT" | "";
   active?: boolean;
   isMovement?: boolean;
+  entryWindow?: import("@/features/market/lib/entry-window").EntryWindow | null;
   ruleKeys?: string[];
   rules?: DynamicStrategyRuleInput[];
 };
@@ -119,6 +122,7 @@ export type PatchDynamicStrategyRequest = {
   direction?: "CALL" | "PUT" | "";
   active?: boolean;
   isMovement?: boolean;
+  entryWindow?: import("@/features/market/lib/entry-window").EntryWindow | null;
   ruleKeys?: string[];
   rules?: DynamicStrategyRuleInput[];
 };

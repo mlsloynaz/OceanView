@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { cn } from "@/shared/lib/cn";
+import { formatEntryWindow } from "@/features/market/lib/entry-window";
 import {
   resolveStrategyTier,
   type DynamicStrategy,
@@ -112,6 +113,11 @@ function StrategyCatalogBody({
                   </span>
                 ) : null}
                 <p className="mt-1 text-[10px] text-ocean-sand/80">{tierEvaluateHint(tier)}</p>
+                {formatEntryWindow(strategy.entryWindow) && (
+                  <p className="mt-0.5 text-[10px] text-ocean-sand/90">
+                    Entry: {formatEntryWindow(strategy.entryWindow)}
+                  </p>
+                )}
                 {strategy.description && (
                   <p className="mt-1 text-xs text-ocean-sand">{strategy.description}</p>
                 )}

@@ -41,6 +41,9 @@ type Props = {
   builderRows: BuilderRuleRow[];
   name: string;
   strategyId: string;
+  entryStartEt: string;
+  entryEndEt: string;
+  entryLegacyLabel?: string | null;
   editingStrategyId: string | null;
   templateStrategies?: DynamicStrategy[];
   saving: boolean;
@@ -48,6 +51,8 @@ type Props = {
   error?: string | null;
   onNameChange: (value: string) => void;
   onStrategyIdChange: (value: string) => void;
+  onEntryStartChange: (value: string) => void;
+  onEntryEndChange: (value: string) => void;
   onCloneFrom?: (strategy: DynamicStrategy) => void;
   onTrendChange: (rowId: string, trend: RuleTrendValue) => void;
   onOperationChange: (rowId: string, operation: RuleOperationValue) => void;
@@ -315,6 +320,9 @@ export function DynamicStrategyBuilder({
   builderRows,
   name,
   strategyId,
+  entryStartEt,
+  entryEndEt,
+  entryLegacyLabel = null,
   editingStrategyId,
   templateStrategies = [],
   saving,
@@ -322,6 +330,8 @@ export function DynamicStrategyBuilder({
   error,
   onNameChange,
   onStrategyIdChange,
+  onEntryStartChange,
+  onEntryEndChange,
   onCloneFrom,
   onTrendChange,
   onOperationChange,
@@ -568,6 +578,37 @@ export function DynamicStrategyBuilder({
               />
             </label>
           </div>
+
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-[11px] text-ocean-sand">Entry window start (ET)</span>
+              <input
+                type="time"
+                value={entryStartEt}
+                onChange={(e) => onEntryStartChange(e.target.value)}
+                className={cn(INPUT, "mt-0.5")}
+              />
+            </label>
+            <label className="block">
+              <span className="text-[11px] text-ocean-sand">Entry window end (ET)</span>
+              <input
+                type="time"
+                value={entryEndEt}
+                onChange={(e) => onEntryEndChange(e.target.value)}
+                className={cn(INPUT, "mt-0.5")}
+              />
+            </label>
+          </div>
+          <p className="mt-1 text-[10px] leading-relaxed text-ocean-sand/80">
+            Optional clock gate for Market/Premarket scoring. Leave both empty for no time restriction.
+            {entryLegacyLabel ? (
+              <>
+                {" "}
+                Legacy label (not enforced until you set times):{" "}
+                <span className="text-ocean-sand">{entryLegacyLabel}</span>
+              </>
+            ) : null}
+          </p>
 
           <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-ocean-sand/90">
             <span className="rounded-full bg-ocean-mid/35 px-2 py-0.5">
