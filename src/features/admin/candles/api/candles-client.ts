@@ -296,3 +296,62 @@ export async function postMovementProfilesStop(): Promise<{
     body: JSON.stringify({}),
   });
 }
+
+/** OceanDesk stop_metrics.json payload from stored movement profiles. */
+export type StopMetricsExport = {
+  version: number;
+  updatedAt: string;
+  source: string;
+  defaults: {
+    initialStopLossPercent: number;
+    refStockStopPct: number;
+    minInitialStopLossPercent: number;
+    maxInitialStopLossPercent: number;
+  };
+  tickers: Record<string, Record<string, unknown>>;
+  missing: string[];
+  tickerCount: number;
+};
+
+export async function postMovementProfilesStopMetrics(body: {
+  tickers: string[];
+}): Promise<StopMetricsExport> {
+  const tickers = body.tickers.map((t) => t.trim().toUpperCase()).filter(Boolean);
+  if (USE_MOCK) {
+    await delay(200);
+    const now = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+    const tickersOut: Record<string, Record<string, unknown>> = {};
+    for (const sym of tickers.slice(0, 3)) {
+      tickersOut[sym] = {
+        symbol: sym,
+        suggestedStopPct: 1.2,
+        expectedMaePct: 0.9,
+        pullbackPct: 0.8,
+        winRate: 0.6,
+        atrPct: 0.55,
+        initialStopLossPercent: 0.072,
+        sampleSize: 10,
+        timeframe: "1h",
+        asOf: now,
+      };
+    }
+    return {
+      version: 1,
+      updatedAt: now,
+      source: "oceanview-movement-profile",
+      defaults: {
+        initialStopLossPercent: 0.06,
+        refStockStopPct: 1.0,
+        minInitialStopLossPercent: 0.04,
+        maxInitialStopLossPercent: 0.2,
+      },
+      tickers: tickersOut,
+      missing: tickers.filter((s) => !(s in tickersOut)),
+      tickerCount: Object.keys(tickersOut).length,
+    };
+  }
+  return fetchJson<StopMetricsExport>("/candles/movement-profiles/stop-metrics", {
+    method: "POST",
+    body: JSON.stringify({ tickers }),
+  });
+}

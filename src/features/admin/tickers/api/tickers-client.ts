@@ -1,7 +1,9 @@
 import type {
+  BestFitWatchlistResponse,
   CatalogTicker,
   CatalogTickersResponse,
   TickerMovementProfileEntry,
+  TradableWatchlistResponse,
 } from "../types";
 import type { MovementProfile } from "@/features/premarket/types";
 import { apiFetch, errorMessageFromBody, getApiBaseUrl, readResponseBody } from "@/shared/api/api-fetch";
@@ -18,6 +20,32 @@ let mockCatalog: CatalogTicker[] = [
   { symbol: "TSLA", name: "Tesla Inc.", isFavorite: false, active: false },
   { symbol: "AMD", name: "Advanced Micro Devices", isFavorite: false, active: true },
 ];
+
+let mockBestFit: BestFitWatchlistResponse = {
+  kind: "best_fit_watchlist",
+  resolvedAt: null,
+  limit: 10,
+  universeSize: 0,
+  scoredCount: 0,
+  skippedCount: 0,
+  watchlist: [],
+  skipped: [],
+  message: "No best-fit watchlist resolved yet. Run Resolve best-fit watchlist.",
+};
+
+let mockTradable: TradableWatchlistResponse = {
+  kind: "tradable_watchlist",
+  resolvedAt: null,
+  limit: 5,
+  sourceLimit: 10,
+  sourceCount: 0,
+  scoredCount: 0,
+  skippedCount: 0,
+  sourceSymbols: [],
+  watchlist: [],
+  skipped: [],
+  message: "No tradable top 5 yet. Resolve best-fit 10, then Refine tradable top 5.",
+};
 
 const MOCK_PROFILES: Record<string, MovementProfile> = {
   AAPL: {
@@ -228,4 +256,207 @@ export async function fetchMovementProfilesForSymbols(
     historyBars: row.historyBars ?? null,
     profile: row.profile ?? null,
   }));
+}
+
+export async function getBestFitWatchlist(): Promise<BestFitWatchlistResponse> {
+  if (USE_MOCK) {
+    await delay();
+    return {
+      ...mockBestFit,
+      watchlist: [...mockBestFit.watchlist],
+      skipped: [...mockBestFit.skipped],
+    };
+  }
+  return fetchJson<BestFitWatchlistResponse>("/tickers/best-fit");
+}
+
+export async function resolveBestFitWatchlist(input?: {
+  limit?: number;
+  activateTop?: boolean;
+}): Promise<BestFitWatchlistResponse> {
+  const limit = input?.limit ?? 10;
+  const activateTop = Boolean(input?.activateTop);
+
+  if (USE_MOCK) {
+    await delay(250);
+    const watchlist = mockCatalog
+      .slice(0, Math.min(limit, mockCatalog.length))
+      .map((row, index) => ({
+        rank: index + 1,
+        symbol: row.symbol,
+        name: row.name,
+        currentlyActive: activateTop ? true : row.active,
+        score: 80 - index * 4,
+        tier: index < 2 ? "excellent" : index < 4 ? "strong" : "moderate",
+        reasons: [`+mock score for ${row.symbol}`],
+        metrics: {
+          sampleSize: 16,
+          moveCapPct: 1.6,
+          expectedMaePct: 0.4,
+          winRate: 0.58,
+          atrPct: 1.0,
+          suggestedStopPct: 0.65,
+        },
+      }));
+    if (activateTop) {
+      const keep = new Set(watchlist.map((row) => row.symbol));
+      mockCatalog = mockCatalog.map((row) => ({ ...row, active: keep.has(row.symbol) }));
+    }
+    mockBestFit = {
+      kind: "best_fit_watchlist",
+      resolvedAt: new Date().toISOString(),
+      limit,
+      universeSize: mockCatalog.length,
+      scoredCount: watchlist.length,
+      skippedCount: Math.max(0, mockCatalog.length - watchlist.length),
+      watchlist,
+      skipped: mockCatalog
+        .filter((row) => !watchlist.some((w) => w.symbol === row.symbol))
+        .map((row) => ({ symbol: row.symbol, reason: "Mock: outside top N" })),
+      activation: activateTop
+        ? { applied: true, activated: watchlist.map((w) => w.symbol), deactivated: [] }
+        : null,
+      message: `Best-fit watchlist: top ${watchlist.length} (mock).`,
+    };
+    return {
+      ...mockBestFit,
+      watchlist: [...mockBestFit.watchlist],
+      skipped: [...mockBestFit.skipped],
+    };
+  }
+
+  return fetchJson<BestFitWatchlistResponse>("/tickers/best-fit/resolve", {
+    method: "POST",
+    body: JSON.stringify({ limit, activateTop }),
+  });
+}
+
+export async function getTradableWatchlist(): Promise<TradableWatchlistResponse> {
+  if (USE_MOCK) {
+    await delay();
+    return {
+      ...mockTradable,
+      watchlist: [...mockTradable.watchlist],
+      skipped: [...mockTradable.skipped],
+    };
+  }
+  return fetchJson<TradableWatchlistResponse>("/tickers/tradable");
+}
+
+export async function refineTradableWatchlist(input?: {
+  limit?: number;
+  activateTop?: boolean;
+  force?: boolean;
+  maxSamples?: number;
+}): Promise<TradableWatchlistResponse> {
+  const limit = input?.limit ?? 5;
+  const activateTop = Boolean(input?.activateTop);
+  const force = Boolean(input?.force);
+
+  if (USE_MOCK) {
+    await delay(300);
+    if (!mockBestFit.watchlist.length) {
+      throw new Error("No best-fit watchlist yet. Resolve best-fit (top 10) first.");
+    }
+    const source = mockBestFit.watchlist.slice(0, 10);
+    const progress = source.map((row, index) => ({
+      symbol: row.symbol,
+      name: row.name,
+      stockRank: row.rank,
+      stockScore: row.score,
+      sampleCount: Math.min(8, index + 3),
+      minSamplesReady: 8,
+      ready: index + 3 >= 8,
+      lastSampleAt: new Date().toISOString(),
+      typicalBidAskDollars: 0.05,
+      typicalBidAskPct: 0.03,
+      underlyingMoveDollarsForOption12Pct: 0.35,
+      underlyingMovePctForOption12Pct: 0.4,
+    }));
+    const ready = progress.filter((row) => row.ready);
+    const watchlist = ready.slice(0, Math.min(limit, ready.length)).map((row, index) => ({
+      rank: index + 1,
+      symbol: row.symbol,
+      name: row.name,
+      stockRank: row.stockRank,
+      stockScore: row.stockScore ?? undefined,
+      score: 78 - index * 3,
+      tier: index < 2 ? "excellent" : "strong",
+      reasons: [`+mock tradability for ${row.symbol}`],
+      call: {
+        eligible: true,
+        score: 75,
+        metrics: {
+          contractCount: 6,
+          medianSpreadPct: 0.03,
+          medianVolume: 250,
+          medianOpenInterest: 900,
+        },
+      },
+      put: {
+        eligible: true,
+        score: 72,
+        metrics: {
+          contractCount: 5,
+          medianSpreadPct: 0.035,
+          medianVolume: 180,
+          medianOpenInterest: 700,
+        },
+      },
+    }));
+    if (activateTop && watchlist.length) {
+      const keep = new Set(watchlist.map((row) => row.symbol));
+      mockCatalog = mockCatalog.map((row) => ({ ...row, active: keep.has(row.symbol) }));
+    }
+    mockTradable = {
+      kind: "tradable_watchlist",
+      status: watchlist.length >= limit ? "ready" : "collecting",
+      resolvedAt: watchlist.length >= limit ? new Date().toISOString() : null,
+      collectedAt: new Date().toISOString(),
+      limit,
+      sourceLimit: 10,
+      sourceCount: source.length,
+      minSamplesReady: 8,
+      maxSamplesPerRun: 3,
+      readyCount: ready.length,
+      scoredCount: watchlist.length,
+      skippedCount: 0,
+      sourceSymbols: source.map((row) => row.symbol),
+      bestFitResolvedAt: mockBestFit.resolvedAt,
+      progress,
+      sampledThisRun: progress.slice(0, 3).map((row) => ({
+        symbol: row.symbol,
+        sampleCount: row.sampleCount,
+        ready: row.ready,
+        typicalBidAskDollars: row.typicalBidAskDollars,
+        underlyingMoveDollarsForOption12Pct: row.underlyingMoveDollarsForOption12Pct,
+      })),
+      errors: [],
+      watchlist,
+      skipped: [],
+      activation: activateTop
+        ? { applied: true, activated: watchlist.map((w) => w.symbol), deactivated: [] }
+        : null,
+      message:
+        watchlist.length >= limit
+          ? `Tradable top ${watchlist.length} ready (mock).`
+          : `Collected samples (mock). Progress: ${ready.length}/${source.length} ready.`,
+    };
+    return {
+      ...mockTradable,
+      watchlist: [...mockTradable.watchlist],
+      skipped: [...mockTradable.skipped],
+      progress: [...(mockTradable.progress ?? [])],
+    };
+  }
+
+  return fetchJson<TradableWatchlistResponse>("/tickers/tradable/refine", {
+    method: "POST",
+    body: JSON.stringify({
+      limit,
+      activateTop,
+      force,
+      ...(input?.maxSamples != null ? { maxSamples: input.maxSamples } : {}),
+    }),
+  });
 }

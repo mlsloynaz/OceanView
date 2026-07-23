@@ -47,8 +47,17 @@ export function PremarketPage() {
   const hasCompletedRun =
     Boolean(ws.result?.runId) &&
     (Boolean(ws.result?.evaluatedAt) || isPremarketEvaluateTerminal(ws.result?.status));
+  const hasActiveRun =
+    ws.startPending ||
+    ws.evaluateRunning ||
+    (Boolean(ws.result?.runId) && !isPremarketEvaluateTerminal(ws.result?.status));
   const showEmpty =
-    !ws.loading && !ws.startPending && !hasResults && !hasCompletedRun && !ws.error && !ws.useMock;
+    !ws.loading &&
+    !hasActiveRun &&
+    !hasResults &&
+    !hasCompletedRun &&
+    !ws.error &&
+    !ws.useMock;
 
   return (
     <div className="w-full space-y-5">
@@ -226,6 +235,26 @@ export function PremarketPage() {
               threshold={displayThreshold}
             />
           ))}
+        </div>
+      )}
+
+      {hasActiveRun && !hasResults && !ws.error && (
+        <div className="rounded-xl border border-ocean-mid/50 bg-ocean-surface px-6 py-8 text-center">
+          <p className="font-display text-lg text-ocean-foam">
+            {ws.startPending ? "Starting evaluate…" : "Evaluate in progress"}
+          </p>
+          <p className="mx-auto mt-2 max-w-md text-sm text-ocean-sand">
+            Scoring active tickers against your dynamic strategies. Early hits appear here as they
+            finish — status updates automatically until the run completes.
+          </p>
+          {ws.result?.progress?.total != null && ws.result.progress.total > 0 && (
+            <p className="mt-3 text-xs text-ocean-sand">
+              Progress:{" "}
+              <strong className="text-ocean-foam">
+                {ws.result.progress.completed ?? 0}/{ws.result.progress.total}
+              </strong>
+            </p>
+          )}
         </div>
       )}
 

@@ -120,7 +120,7 @@ function DetailModal({
           {SETUP_SCAN_TIER_HELP}
         </p>
 
-        {ticker.reasons.length > 0 && (
+        {Array.isArray(ticker.reasons) && ticker.reasons.length > 0 && (
           <div>
             <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
               Points earned
@@ -133,7 +133,7 @@ function DetailModal({
           </div>
         )}
 
-        {ticker.avoidReasons.length > 0 && (
+        {Array.isArray(ticker.avoidReasons) && ticker.avoidReasons.length > 0 && (
           <div>
             <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
               Avoid flags
@@ -146,7 +146,7 @@ function DetailModal({
           </div>
         )}
 
-        {ticker.breakdown.length > 0 && (
+        {Array.isArray(ticker.breakdown) && ticker.breakdown.length > 0 && (
           <div>
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
               Full checklist
@@ -303,7 +303,7 @@ export function SetupScanPane() {
           <p className="text-sm text-ocean-sand">No Tickers SemiFinal result yet — run a scan to begin.</p>
         )}
 
-        {ws.result && ws.search.trim() && (ws.filteredResult?.strategies.length ?? 0) === 0 && (
+        {ws.result && ws.search.trim() && (ws.filteredResult?.strategies?.length ?? 0) === 0 && (
           <p className="mb-3 text-sm text-ocean-sand">
             No tickers match “{ws.search.trim()}”.
           </p>
@@ -315,11 +315,11 @@ export function SetupScanPane() {
               {group.shortName || group.name}
               <span className="ml-2 text-sm font-normal text-ocean-sand">({group.tickerCount})</span>
             </h3>
-            {group.tickers.length === 0 ? (
+            {(group.tickers ?? []).length === 0 ? (
               <p className="text-sm text-ocean-sand">No tickers at or above min score.</p>
             ) : (
               <ul className="space-y-2">
-                {group.tickers.map((ticker) => {
+                {(group.tickers ?? []).map((ticker) => {
                   const pending = Boolean(ws.tickerPending[ticker.symbol]);
                   return (
                     <li

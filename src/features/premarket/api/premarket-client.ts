@@ -132,16 +132,12 @@ export async function fetchPremarketResult(
   }
 }
 
-const POLL_INTERVAL_MS = 2000;
-const POLL_MAX_DURATION_MS = 10_000;
+const POLL_INTERVAL_MS = 2500;
+/** Premarket evaluate can take minutes across many tickers — poll until done, then stop. */
+const POLL_MAX_DURATION_MS = 8 * 60_000;
 
 function delay(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
-function isEvaluateUsable(status: string | undefined): boolean {
-  const value = (status ?? "").toLowerCase();
-  return value === "ready" || value === "complete" || value === "partial";
 }
 
 function isEvaluateTerminal(status: string | undefined): boolean {
@@ -154,7 +150,10 @@ export function isPremarketJobActive(status: string | undefined): boolean {
   return value === "running" || value === "ready" || value === "stopping";
 }
 
-/** Poll up to 10s after start — does not throw on timeout. */
+/**
+ * Poll result until the job is terminal (or max duration).
+ * Stops when done — does not leave a background interval running.
+ */
 export async function pollPremarketEvaluate(
   runId?: string | null,
   onProgress?: (payload: PremarketResultResponse) => void,
@@ -165,9 +164,6 @@ export async function pollPremarketEvaluate(
     last = await fetchPremarketResult(runId);
     onProgress?.(last);
     if (isEvaluateTerminal(last.status)) {
-      return last;
-    }
-    if (isEvaluateUsable(last.status) && !isPremarketJobActive(last.status)) {
       return last;
     }
     if (Date.now() + POLL_INTERVAL_MS >= deadline) {

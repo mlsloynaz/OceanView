@@ -2,9 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import {
   createTicker,
   fetchMovementProfilesForSymbols,
+  getBestFitWatchlist,
   getTickersCatalog,
+  getTradableWatchlist,
   patchTickerActive,
   patchTickersActive,
+  refineTradableWatchlist,
+  resolveBestFitWatchlist,
 } from "../api/tickers-client";
 import type { AddTickerFormValues } from "../AddTickerForm";
 import {
@@ -14,7 +18,13 @@ import {
   totalPages as calcTotalPages,
 } from "../pagination";
 import { filterTickersBySearch } from "../search";
-import type { CatalogTicker, TickerCatalogFilter, TickerMovementProfileEntry } from "../types";
+import type {
+  BestFitWatchlistResponse,
+  CatalogTicker,
+  TickerCatalogFilter,
+  TickerMovementProfileEntry,
+  TradableWatchlistResponse,
+} from "../types";
 
 const SEARCH_SUGGESTION_LIMIT = 8;
 
@@ -38,6 +48,16 @@ export function useTickersPane(open: boolean) {
   const [profileCache, setProfileCache] = useState<Record<string, ProfileCacheEntry>>({});
   const profileCacheRef = useRef(profileCache);
   profileCacheRef.current = profileCache;
+  const [bestFit, setBestFit] = useState<BestFitWatchlistResponse | null>(null);
+  const [bestFitLoading, setBestFitLoading] = useState(false);
+  const [bestFitResolving, setBestFitResolving] = useState(false);
+  const [bestFitError, setBestFitError] = useState<string | null>(null);
+  const [bestFitActivateTop, setBestFitActivateTop] = useState(false);
+  const [tradable, setTradable] = useState<TradableWatchlistResponse | null>(null);
+  const [tradableLoading, setTradableLoading] = useState(false);
+  const [tradableRefining, setTradableRefining] = useState(false);
+  const [tradableError, setTradableError] = useState<string | null>(null);
+  const [tradableActivateTop, setTradableActivateTop] = useState(false);
 
   const loadCatalog = useCallback(async () => {
     setError(null);
@@ -56,6 +76,78 @@ export function useTickersPane(open: boolean) {
     if (!open) return;
     void loadCatalog();
   }, [open, loadCatalog]);
+
+  const loadBestFit = useCallback(async () => {
+    setBestFitError(null);
+    setBestFitLoading(true);
+    try {
+      const payload = await getBestFitWatchlist();
+      setBestFit(payload);
+    } catch (err) {
+      setBestFitError(err instanceof Error ? err.message : "Failed to load best-fit watchlist.");
+    } finally {
+      setBestFitLoading(false);
+    }
+  }, []);
+
+  const resolveBestFit = useCallback(async () => {
+    setBestFitError(null);
+    setBestFitResolving(true);
+    try {
+      const payload = await resolveBestFitWatchlist({
+        limit: 10,
+        activateTop: bestFitActivateTop,
+      });
+      setBestFit(payload);
+      setMessage(payload.message ?? "Best-fit watchlist resolved.");
+      if (bestFitActivateTop) {
+        await loadCatalog();
+      }
+    } catch (err) {
+      setBestFitError(err instanceof Error ? err.message : "Failed to resolve best-fit watchlist.");
+    } finally {
+      setBestFitResolving(false);
+    }
+  }, [bestFitActivateTop, loadCatalog]);
+
+  const loadTradable = useCallback(async () => {
+    setTradableError(null);
+    setTradableLoading(true);
+    try {
+      const payload = await getTradableWatchlist();
+      setTradable(payload);
+    } catch (err) {
+      setTradableError(err instanceof Error ? err.message : "Failed to load tradable watchlist.");
+    } finally {
+      setTradableLoading(false);
+    }
+  }, []);
+
+  const refineTradable = useCallback(async () => {
+    setTradableError(null);
+    setTradableRefining(true);
+    try {
+      const payload = await refineTradableWatchlist({
+        limit: 5,
+        activateTop: tradableActivateTop,
+      });
+      setTradable(payload);
+      setMessage(payload.message ?? "Tradable top 5 refined.");
+      if (tradableActivateTop) {
+        await loadCatalog();
+      }
+    } catch (err) {
+      setTradableError(err instanceof Error ? err.message : "Failed to refine tradable top 5.");
+    } finally {
+      setTradableRefining(false);
+    }
+  }, [tradableActivateTop, loadCatalog]);
+
+  useEffect(() => {
+    if (!open) return;
+    void loadBestFit();
+    void loadTradable();
+  }, [open, loadBestFit, loadTradable]);
 
   const setFilterAndResetPage = useCallback((next: TickerCatalogFilter) => {
     setFilter(next);
@@ -336,5 +428,19 @@ export function useTickersPane(open: boolean) {
     expandedSymbol,
     toggleExpanded,
     profileCache,
+    bestFit,
+    bestFitLoading,
+    bestFitResolving,
+    bestFitError,
+    bestFitActivateTop,
+    setBestFitActivateTop,
+    resolveBestFit,
+    tradable,
+    tradableLoading,
+    tradableRefining,
+    tradableError,
+    tradableActivateTop,
+    setTradableActivateTop,
+    refineTradable,
   };
 }

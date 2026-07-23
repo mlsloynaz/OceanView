@@ -7,6 +7,7 @@ import {
   postCandlesStatus,
   postMovementProfilesBuild,
   postMovementProfilesStop,
+  postMovementProfilesStopMetrics,
 } from "../api/candles-client";
 import { bannerFromJob } from "../display";
 import type {
@@ -276,6 +277,45 @@ export function useCandlesPane(open: boolean) {
     });
   }, []);
 
+  const downloadStopMetricsJson = useCallback(() => {
+    if (tickerSymbols.length === 0) return;
+    setMessage(null);
+    setError(null);
+    setProfileJobPending(true);
+    startBulkTransition(async () => {
+      try {
+        const { tickers } = await getAdminTickers();
+        setCatalog(tickers);
+        const symbolsList = tickers.map((t) => t.symbol.trim().toUpperCase()).filter(Boolean);
+        if (symbolsList.length === 0) {
+          setMessage("No active tickers — activate symbols in Tickers first.");
+          return;
+        }
+        const payload = await postMovementProfilesStopMetrics({ tickers: symbolsList });
+        const blob = new Blob([JSON.stringify(payload, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const day = String(payload.updatedAt || "").slice(0, 10) || "export";
+        a.href = url;
+        a.download = `stop_metrics_${day}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        const miss = payload.missing?.length ?? 0;
+        setMessage(
+          `Downloaded stop_metrics JSON · ${payload.tickerCount} ticker(s)` +
+            (miss ? ` · ${miss} missing profiles` : "") +
+            ` — drop into OceanDesk as stop_metrics.json`,
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Stop metrics download failed.");
+      } finally {
+        setProfileJobPending(false);
+      }
+    });
+  }, [tickerSymbols]);
+
   const refreshOne = useCallback(
     (symbol: string) => {
       refreshCandles([symbol]);
@@ -298,6 +338,7 @@ export function useCandlesPane(open: boolean) {
     resetCandles,
     buildMovementProfiles,
     stopMovementProfiles,
+    downloadStopMetricsJson,
     reload: loadPanel,
   };
 }

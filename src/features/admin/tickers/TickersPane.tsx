@@ -1,6 +1,7 @@
 import { cn } from "@/shared/lib/cn";
 import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane";
 import { AddTickerForm } from "./AddTickerForm";
+import { BestFitWatchlistPanel } from "./BestFitWatchlistPanel";
 import { tickersApiBaseUrl, tickersApiUsesMock } from "./api/tickers-client";
 import { useTickersPane } from "./hooks/useTickersPane";
 import { TickersPager } from "./TickersPager";
@@ -45,6 +46,20 @@ export function TickersPane() {
     activateAll,
     deactivateAll,
     setActive,
+    bestFit,
+    bestFitLoading,
+    bestFitResolving,
+    bestFitError,
+    bestFitActivateTop,
+    setBestFitActivateTop,
+    resolveBestFit,
+    tradable,
+    tradableLoading,
+    tradableRefining,
+    tradableError,
+    tradableActivateTop,
+    setTradableActivateTop,
+    refineTradable,
   } = useTickersPane(true);
 
   const filters: { id: TickerCatalogFilter; label: string; count: number }[] = [
@@ -96,6 +111,24 @@ export function TickersPane() {
         deactivate the current page. Active tickers are included in Market Assess and Candles bulk
         refresh.
       </p>
+
+      <BestFitWatchlistPanel
+        result={bestFit}
+        loading={bestFitLoading}
+        resolving={bestFitResolving}
+        activateTop={bestFitActivateTop}
+        error={bestFitError}
+        tradable={tradable}
+        tradableLoading={tradableLoading}
+        tradableRefining={tradableRefining}
+        tradableActivateTop={tradableActivateTop}
+        tradableError={tradableError}
+        disabled={loading || isPending}
+        onActivateTopChange={setBestFitActivateTop}
+        onResolve={() => void resolveBestFit()}
+        onTradableActivateTopChange={setTradableActivateTop}
+        onRefineTradable={() => void refineTradable()}
+      />
 
       <AddTickerForm
         disabled={loading || isPending}

@@ -27,11 +27,12 @@ export function filterSemiFinalResult(
 ): PreselectionResultResponse | null {
   if (!result) return null;
   const q = query.trim();
-  if (!q) return result;
+  const strategies = Array.isArray(result.strategies) ? result.strategies : [];
+  if (!q) return { ...result, strategies };
 
-  const strategies = result.strategies
+  const filtered = strategies
     .map((group) => {
-      const tickers = group.tickers
+      const tickers = (Array.isArray(group.tickers) ? group.tickers : [])
         .filter((row) => matchesSemiFinalSearch(row, q))
         .sort(
           (a, b) =>
@@ -46,7 +47,7 @@ export function filterSemiFinalResult(
     })
     .filter((group) => group.tickers.length > 0);
 
-  return { ...result, strategies };
+  return { ...result, strategies: filtered };
 }
 
 export function semiFinalSearchSuggestions(
@@ -58,8 +59,8 @@ export function semiFinalSearchSuggestions(
   const seen = new Set<string>();
   const matches: PreselectionTickerRow[] = [];
 
-  for (const group of result.strategies) {
-    for (const row of group.tickers) {
+  for (const group of result.strategies ?? []) {
+    for (const row of group.tickers ?? []) {
       const upper = row.symbol.toUpperCase();
       if (seen.has(upper) || !matchesSemiFinalSearch(row, query)) continue;
       seen.add(upper);
@@ -80,8 +81,8 @@ export function semiFinalMatchCount(result: PreselectionResultResponse | null, q
   if (!result || !query.trim()) return 0;
   const seen = new Set<string>();
   let count = 0;
-  for (const group of result.strategies) {
-    for (const row of group.tickers) {
+  for (const group of result.strategies ?? []) {
+    for (const row of group.tickers ?? []) {
       const upper = row.symbol.toUpperCase();
       if (seen.has(upper) || !matchesSemiFinalSearch(row, query)) continue;
       seen.add(upper);

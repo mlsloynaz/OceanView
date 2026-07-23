@@ -62,6 +62,18 @@ export function useSetupScanPane(open: boolean) {
     );
   }, [scanMode]);
 
+  const selectSearchTicker = useCallback((symbol: string) => {
+    setSearch(symbol);
+  }, []);
+
+  const applyCatalogActive = useCallback(
+    async (payload: PreselectionResultResponse) => {
+      const { tickers } = await getTickersCatalog();
+      return mergePreselectionWithCatalogActive(payload, tickers ?? []);
+    },
+    [],
+  );
+
   const loadResult = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -70,7 +82,30 @@ export function useSetupScanPane(open: boolean) {
         getSetupScanResult(),
         getTickersCatalog(),
       ]);
-      setResult(mergePreselectionWithCatalogActive(payload, catalog.tickers));
+      const merged = mergePreselectionWithCatalogActive(payload, catalog.tickers ?? []);
+      setResult(merged);
+      const status = (merged.status ?? "").toLowerCase();
+      if (status === "running" || status === "pending") {
+        setMessage(
+          merged.progress?.done != null && merged.progress?.total != null
+            ? `Scan in progress… ${merged.progress.done}/${merged.progress.total}`
+            : "Scan in progress…",
+        );
+        const runId = merged.runId;
+        try {
+          const finalPayload = await pollSetupScanResult(runId, (progress) => {
+            const done = progress.progress?.done;
+            const total = progress.progress?.total;
+            if (done != null && total != null) {
+              setMessage(`Scanning… ${done}/${total}`);
+            }
+          });
+          setResult(await applyCatalogActive(finalPayload));
+          setMessage(finalPayload.message ?? "Tickers SemiFinal complete.");
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Tickers SemiFinal failed.");
+        }
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load Tickers SemiFinal result.";
       if (!msg.toLowerCase().includes("not found")) {
@@ -79,7 +114,7 @@ export function useSetupScanPane(open: boolean) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyCatalogActive]);
 
   useEffect(() => {
     if (!open) return;
@@ -99,18 +134,6 @@ export function useSetupScanPane(open: boolean) {
   const searchMatchCount = useMemo(
     () => semiFinalMatchCount(result, search),
     [result, search],
-  );
-
-  const selectSearchTicker = useCallback((symbol: string) => {
-    setSearch(symbol);
-  }, []);
-
-  const applyCatalogActive = useCallback(
-    async (payload: PreselectionResultResponse) => {
-      const { tickers } = await getTickersCatalog();
-      return mergePreselectionWithCatalogActive(payload, tickers);
-    },
-    [],
   );
 
   const runScan = useCallback(() => {
@@ -139,7 +162,11 @@ export function useSetupScanPane(open: boolean) {
           setMessage(ack.message ?? "Tickers SemiFinal complete.");
           return;
         }
-        setMessage(ack.message ?? "Tickers SemiFinal started…");
+        setMessage(
+          (ack.message ?? "").toLowerCase().includes("poll")
+            ? "Tickers SemiFinal started…"
+            : (ack.message ?? "Tickers SemiFinal started…"),
+        );
         const payload = await pollSetupScanResult(runId, (progress) => {
           const done = progress.progress?.done;
           const total = progress.progress?.total;
@@ -183,11 +210,12 @@ export function useSetupScanPane(open: boolean) {
       const updated = await patchTickerActive(upper, active);
       setResult((prev) => {
         if (!prev) return prev;
+        const strategies = Array.isArray(prev.strategies) ? prev.strategies : [];
         return {
           ...prev,
-          strategies: prev.strategies.map((group) => ({
+          strategies: strategies.map((group) => ({
             ...group,
-            tickers: group.tickers.map((row) =>
+            tickers: (Array.isArray(group.tickers) ? group.tickers : []).map((row) =>
               row.symbol.toUpperCase() === upper
                 ? { ...row, currentlyActive: updated.active }
                 : row,

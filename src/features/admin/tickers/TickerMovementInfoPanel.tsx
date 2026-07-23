@@ -140,6 +140,18 @@ export function TickerMovementInfoPanel({
   const typicalMove = pct(p.moveCapPct) || pct(p.expectedMfePct);
   const stretchMove = pct(p.stretchMoveCapPct) || pct(p.p75MfePct);
   const adverse = pct(p.expectedMaePct);
+  const adverseP75 = pct(p.p75MaePct);
+  const pullback = pct(p.pullbackPct);
+  const suggestedStop = pct(p.suggestedStopPct);
+  const atrPct = pct(p.atrPct);
+  const winRatePct =
+    typeof p.winRate === "number" && !Number.isNaN(p.winRate)
+      ? `${Math.round(p.winRate * 100)}%`
+      : null;
+  const timeToTarget =
+    typeof p.timeToTargetBars === "number" && !Number.isNaN(p.timeToTargetBars)
+      ? `${p.timeToTargetBars} bar${p.timeToTargetBars === 1 ? "" : "s"}`
+      : null;
 
   const reachBits =
     p.reachProb &&
@@ -204,8 +216,52 @@ export function TickerMovementInfoPanel({
         <Metric
           label="Typical adverse move (risk)"
           value={adverse ? `${adverse} of the stock price` : null}
+          hint={adverseP75 ? `75th percentile adverse: ${adverseP75}` : undefined}
         />
       </dl>
+
+      {(suggestedStop || pullback || winRatePct || atrPct || timeToTarget) && (
+        <div className="space-y-2 border-t border-ocean-mid/30 pt-3">
+          <h5 className="text-xs font-semibold text-ocean-sand">Risk &amp; timing (stock)</h5>
+          <p className="text-[10px] leading-snug text-ocean-sand/70">
+            Suggested stop is a stock % from historical pullback / MAE (+10% buffer), floored at half
+            ATR — not an option-premium stop.
+          </p>
+          <dl className="grid gap-2 sm:grid-cols-2">
+            <Metric
+              label="Suggested stop"
+              value={suggestedStop}
+              hint="max(pullback, typical MAE) × 1.1, at least half ATR%."
+            />
+            <Metric
+              label="Pullback before continuation"
+              value={pullback}
+              hint="Typical adverse move before winners reach the usual favorable target."
+            />
+            <Metric
+              label="Win rate"
+              value={winRatePct}
+              hint="Share of past breakouts where favorable move ≥ adverse move."
+            />
+            <Metric
+              label="ATR (underlying)"
+              value={
+                atrPct
+                  ? p.atr != null
+                    ? `${atrPct} of price ($${Number(p.atr).toFixed(2)})`
+                    : atrPct
+                  : null
+              }
+              hint="ATR(14) on this profile’s chart."
+            />
+            <Metric
+              label="Time to target"
+              value={timeToTarget}
+              hint="Median bars until a breakout first reaches this ticker’s typical favorable move."
+            />
+          </dl>
+        </div>
+      )}
 
       {ma && (
         <div className="space-y-2 border-t border-ocean-mid/30 pt-3">

@@ -7,15 +7,16 @@ function catalogActiveMap(catalog: CatalogTicker[]): Map<string, boolean> {
 
 export function mergePreselectionWithCatalogActive(
   result: PreselectionResultResponse,
-  catalog: CatalogTicker[],
+  catalog: CatalogTicker[] | null | undefined,
 ): PreselectionResultResponse {
-  const activeMap = catalogActiveMap(catalog);
+  const activeMap = catalogActiveMap(Array.isArray(catalog) ? catalog : []);
+  const strategies = Array.isArray(result?.strategies) ? result.strategies : [];
 
   return {
     ...result,
-    strategies: result.strategies.map((group) => ({
+    strategies: strategies.map((group) => ({
       ...group,
-      tickers: group.tickers.map((row) => {
+      tickers: (Array.isArray(group?.tickers) ? group.tickers : []).map((row) => {
         const live = activeMap.get(row.symbol.toUpperCase());
         return live === undefined ? row : { ...row, currentlyActive: live };
       }),

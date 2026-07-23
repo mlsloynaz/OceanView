@@ -61,5 +61,5 @@ export type PreselectionResultResponse = {
     symbolsReady?: number;
     strategyCount?: number;
   };
-  strategies: PreselectionStrategyGroup[];
+  strategies?: PreselectionStrategyGroup[];
 };

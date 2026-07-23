@@ -42,21 +42,6 @@ type Props = {
   monitor?: MonitorControls;
 };
 
-function formatPolledAt(iso?: string | null): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleTimeString("en-US", {
-      timeZone: "America/New_York",
-      hour: "numeric",
-      minute: "2-digit",
-      second: "2-digit",
-      timeZoneName: "shortGeneric",
-    });
-  } catch {
-    return iso;
-  }
-}
-
 function MonitorHeaderActions({ monitor }: { monitor: MonitorControls }): ReactNode {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -64,40 +49,13 @@ function MonitorHeaderActions({ monitor }: { monitor: MonitorControls }): ReactN
         type="button"
         className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-110")}
         disabled={!monitor.canRefresh}
-        title="All-in-one: refresh candles, reassess these tickers, and resolve option picks once (best during RTH)"
+        title="Refresh candles and reassess these tickers (strategy quality only — no option chains)"
         onClick={(e) => {
           e.stopPropagation();
           monitor.onRefresh();
         }}
       >
         {monitor.refreshPending ? "Refreshing…" : "Refresh best results"}
-      </button>
-      <button
-        type="button"
-        className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
-        disabled={!monitor.canStart}
-        title="Start live strike refresh (polls every 5s)"
-        onClick={(e) => {
-          e.stopPropagation();
-          monitor.onStart();
-        }}
-      >
-        {monitor.startPending ? "Starting…" : "Start"}
-      </button>
-      <button
-        type="button"
-        className={cn(
-          BTN,
-          "border border-ocean-danger/50 text-ocean-danger hover:bg-ocean-danger/10",
-        )}
-        disabled={!monitor.canStop}
-        title="Stop live strike refresh"
-        onClick={(e) => {
-          e.stopPropagation();
-          monitor.onStop();
-        }}
-      >
-        {monitor.stopPending ? "Stopping…" : "Stop"}
       </button>
     </div>
   );
@@ -122,11 +80,7 @@ export function PremarketBestResults({
   if (hits.length === 0) return null;
 
   const countLabel = `${hits.length} ticker${hits.length === 1 ? "" : "s"}`;
-  const statusLine = monitor?.monitoring
-    ? `Strikes live · ${monitor.tickerCount} · last update ${formatPolledAt(monitor.polledAt)}`
-    : monitor?.running
-      ? `Strikes loaded · ${monitor.tickerCount} · last update ${formatPolledAt(monitor.polledAt)}`
-      : `Top 10 by max quality · ${countLabel} · Refresh (RTH all-in-one) or Start for live strikes`;
+  const statusLine = `Top 10 by strategy quality · ${countLabel} · Refresh to reassess (no option feasibility)`;
 
   return (
     <>

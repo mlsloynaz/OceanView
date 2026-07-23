@@ -49,7 +49,6 @@ import {
 } from "../lib/premarket-assessment-storage";
 
 const DEFAULT_THRESHOLD = 0;
-const BACKGROUND_POLL_MS = 2000;
 const START_NOTICE_PREFIX = "Premarket evaluate started";
 
 function isStartBoilerplateMessage(message: string | undefined): boolean {
@@ -77,9 +76,9 @@ function activeJobNotice(payload: PremarketResultResponse | null): string | null
   const total = payload.progress?.total ?? 0;
   const progress = total > 0 ? ` (${completed}/${total} symbols)` : "";
   if ((payload.status ?? "").toLowerCase() === "ready") {
-    return `Early results available${progress}. Evaluate still running — Stop to cancel or Refresh for updates.`;
+    return `Early results available${progress}. Waiting for remaining symbols…`;
   }
-  return `Evaluate in progress${progress}. Stop to cancel or Refresh for partial results.`;
+  return `Evaluate in progress${progress}. Stop to cancel.`;
 }
 
 function resolveError(err: unknown): string {
@@ -270,30 +269,6 @@ export function usePremarketWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (startPending || !isPremarketEvaluateActive(result?.status)) {
-      return;
-    }
-    const runId = result?.runId;
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const payload = await fetchPremarketResult(runId);
-        if (cancelled) return;
-        setResult(payload);
-        setNotice(syncNoticeFromResult(payload));
-      } catch {
-        /* keep last result; user can Refresh manually */
-      }
-    };
-    void tick();
-    const id = window.setInterval(() => void tick(), BACKGROUND_POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, [result?.runId, result?.status, startPending]);
-
-  useEffect(() => {
     if (!candleCoverage || coverageInitialized) return;
     if (assessmentMode === "et") {
       const clamped = clampAssessmentTime(assessmentAt, candleCoverage);
@@ -340,16 +315,30 @@ export function usePremarketWorkspace() {
       setPremarketResultCache(payload);
       setThreshold(thresholdPct);
       setNotice(syncNoticeFromResult(payload));
+
       if (isPremarketEvaluateTerminal(payload.status)) {
         return payload;
       }
-      const polled = await pollPremarketEvaluate(payload.runId);
+
+      // Poll only until this run finishes — no leftover background interval.
+      const polled = await pollPremarketEvaluate(payload.runId, (progress) => {
+        setResult(progress);
+        setPremarketResultCache(progress);
+        setNotice(syncNoticeFromResult(progress));
+      });
       if (polled) {
         setResult(polled);
         setPremarketResultCache(polled);
+        if (isPremarketEvaluateTerminal(polled.status)) {
+          setNotice(null);
+        } else {
+          setNotice(
+            syncNoticeFromResult(polled) ??
+              "Evaluate still running — use Refresh result for updates.",
+          );
+        }
       }
-      setNotice(syncNoticeFromResult(polled));
-      return polled;
+      return polled ?? payload;
     },
     [],
   );

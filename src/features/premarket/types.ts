@@ -75,6 +75,20 @@ export type MovementProfile = {
   expectedMaePct?: number | null;
   p75MfePct?: number | null;
   p90MfePct?: number | null;
+  p75MaePct?: number | null;
+  averageMfePct?: number | null;
+  averageMaePct?: number | null;
+  /** Share of BB breakouts where MFE ≥ MAE (0–1). */
+  winRate?: number | null;
+  atr?: number | null;
+  /** ATR(14) as % of last close. */
+  atrPct?: number | null;
+  /** Median bars until running MFE first reaches typical (median) MFE. */
+  timeToTargetBars?: number | null;
+  /** Median adverse % before that first target touch. */
+  pullbackPct?: number | null;
+  /** Suggested stock stop %: max(pullback, MAE) × 1.1, floored at half ATR%. */
+  suggestedStopPct?: number | null;
   expectedExitPrice?: number | null;
   stretchExitPrice?: number | null;
   /**
