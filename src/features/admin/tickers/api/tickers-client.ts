@@ -179,10 +179,16 @@ export async function createTicker(input: {
   return mapTicker(payload);
 }
 
-export async function patchTickerActive(symbol: string, active: boolean): Promise<CatalogTicker> {
+export async function patchTicker(
+  symbol: string,
+  patch: { active?: boolean; name?: string | null },
+): Promise<CatalogTicker> {
   const upper = symbol.trim().toUpperCase();
   if (!upper) {
     throw new Error("Symbol is required.");
+  }
+  if (patch.active === undefined && patch.name === undefined) {
+    throw new Error("Nothing to update.");
   }
   if (USE_MOCK) {
     await delay();
@@ -190,14 +196,35 @@ export async function patchTickerActive(symbol: string, active: boolean): Promis
     if (index < 0) {
       throw new Error(`Unknown symbol: ${upper}`);
     }
-    mockCatalog[index] = { ...mockCatalog[index], active };
+    const nextName =
+      patch.name === undefined
+        ? mockCatalog[index].name
+        : patch.name?.trim()
+          ? patch.name.trim()
+          : null;
+    mockCatalog[index] = {
+      ...mockCatalog[index],
+      ...(patch.active !== undefined ? { active: patch.active } : {}),
+      ...(patch.name !== undefined ? { name: nextName } : {}),
+    };
     return { ...mockCatalog[index] };
   }
+  const body: Record<string, unknown> = {};
+  if (patch.active !== undefined) body.active = patch.active;
+  if (patch.name !== undefined) body.name = patch.name?.trim() ? patch.name.trim() : null;
   const payload = await fetchJson<CatalogTicker>(`/tickers/${encodeURIComponent(upper)}`, {
     method: "PATCH",
-    body: JSON.stringify({ active }),
+    body: JSON.stringify(body),
   });
   return mapTicker(payload);
+}
+
+export async function patchTickerActive(symbol: string, active: boolean): Promise<CatalogTicker> {
+  return patchTicker(symbol, { active });
+}
+
+export async function patchTickerName(symbol: string, name: string | null): Promise<CatalogTicker> {
+  return patchTicker(symbol, { name });
 }
 
 export async function patchTickersActive(
@@ -463,5 +490,57 @@ export async function refineTradableWatchlist(input?: {
       force,
       ...(input?.maxSamples != null ? { maxSamples: input.maxSamples } : {}),
     }),
+  });
+}
+
+/** OceanDesk stop_metrics.json — movement stops + tradability bid–ask / $→12%. */
+export type OceanDeskMetricsExport = {
+  version: number;
+  updatedAt: string;
+  source: string;
+  defaults?: Record<string, unknown>;
+  tickers: Record<string, Record<string, unknown>>;
+  missing: string[];
+  tickerCount: number;
+};
+
+export async function postTradableOceanDeskExport(input?: {
+  tickers?: string[];
+}): Promise<OceanDeskMetricsExport> {
+  const tickers = (input?.tickers ?? [])
+    .map((t) => t.trim().toUpperCase())
+    .filter(Boolean);
+
+  if (USE_MOCK) {
+    await delay(200);
+    const now = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+    const source = tickers.length
+      ? tickers
+      : mockCatalog.map((row) => row.symbol.trim().toUpperCase()).filter(Boolean);
+    const tickersOut: Record<string, Record<string, unknown>> = {};
+    for (const sym of source.slice(0, 5)) {
+      tickersOut[sym] = {
+        symbol: sym,
+        suggestedStopPct: 1.2,
+        initialStopLossPercent: 0.072,
+        typicalBidAskDollars: 0.15,
+        underlyingMoveDollarsForOption12Pct: 1.25,
+        tradabilityReady: true,
+        tradabilitySampleCount: 8,
+      };
+    }
+    return {
+      version: 1,
+      updatedAt: now,
+      source: "oceanview-movement-profile+tradability",
+      tickers: tickersOut,
+      missing: source.slice(5),
+      tickerCount: Object.keys(tickersOut).length,
+    };
+  }
+
+  return fetchJson<OceanDeskMetricsExport>("/tickers/tradable/export", {
+    method: "POST",
+    body: JSON.stringify(tickers.length ? { tickers } : {}),
   });
 }

@@ -6,7 +6,9 @@ import {
   getTickersCatalog,
   getTradableWatchlist,
   patchTickerActive,
+  patchTickerName,
   patchTickersActive,
+  postTradableOceanDeskExport,
   refineTradableWatchlist,
   resolveBestFitWatchlist,
 } from "../api/tickers-client";
@@ -135,6 +137,42 @@ export function useTickersPane(open: boolean) {
       setTradableRefining(false);
     }
   }, []);
+
+  const [exportingDesk, setExportingDesk] = useState(false);
+
+  const downloadOceanDeskJson = useCallback(async () => {
+    setTradableError(null);
+    setExportingDesk(true);
+    try {
+      const symbols =
+        tradable?.sourceSymbols?.length
+          ? tradable.sourceSymbols
+          : tickers.map((row) => row.symbol.trim().toUpperCase()).filter(Boolean);
+      const payload = await postTradableOceanDeskExport(
+        symbols.length ? { tickers: symbols } : undefined,
+      );
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const day = String(payload.updatedAt || "").slice(0, 10) || "export";
+      a.href = url;
+      a.download = `stop_metrics_${day}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      const miss = payload.missing?.length ?? 0;
+      setMessage(
+        `Downloaded OceanDesk JSON · ${payload.tickerCount} ticker(s)` +
+          (miss ? ` · ${miss} missing` : "") +
+          ` — save as stop_metrics.json`,
+      );
+    } catch (err) {
+      setTradableError(err instanceof Error ? err.message : "OceanDesk export failed.");
+    } finally {
+      setExportingDesk(false);
+    }
+  }, [tickers, tradable?.sourceSymbols]);
 
   useEffect(() => {
     if (!open) return;
@@ -319,6 +357,37 @@ export function useTickersPane(open: boolean) {
     });
   }, []);
 
+  const renameTicker = useCallback(async (symbol: string, name: string): Promise<boolean> => {
+    const upper = symbol.toUpperCase();
+    const cleaned = name.trim();
+    setMessage(null);
+    setError(null);
+    setPending((prev) => ({ ...prev, [upper]: true }));
+    try {
+      const updated = await patchTickerName(upper, cleaned || null);
+      setTickers((prev) =>
+        sortTickersAlphabetically(
+          prev.map((row) => (row.symbol === updated.symbol ? updated : row)),
+        ),
+      );
+      setMessage(
+        updated.name
+          ? `${updated.symbol} renamed to “${updated.name}”.`
+          : `${updated.symbol} name cleared.`,
+      );
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update ticker name.");
+      return false;
+    } finally {
+      setPending((prev) => {
+        const next = { ...prev };
+        delete next[upper];
+        return next;
+      });
+    }
+  }, []);
+
   const pageActiveState = useMemo((): "all" | "none" | "mixed" => {
     if (pageTickers.length === 0) return "none";
     if (pageCounts.active === pageTickers.length) return "all";
@@ -414,6 +483,7 @@ export function useTickersPane(open: boolean) {
     reload: loadCatalog,
     addTicker,
     setActive,
+    renameTicker,
     activatePage,
     deactivatePage,
     activateAll,
@@ -431,6 +501,8 @@ export function useTickersPane(open: boolean) {
     tradableRefining,
     tradableError,
     refineTradable,
+    exportingDesk,
+    downloadOceanDeskJson,
     tickers,
   };
 }

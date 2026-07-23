@@ -49,6 +49,7 @@ export function WatchlistPane({ onBack }: Props) {
     activateAll,
     deactivateAll,
     setActive,
+    renameTicker,
   } = useTickersPane(true);
 
   const filters: { id: TickerCatalogFilter; label: string; count: number }[] = [
@@ -95,8 +96,8 @@ export function WatchlistPane({ onBack }: Props) {
       }
     >
       <p className="mb-3 text-xs text-ocean-sand">
-        Catalog sorted A–Z, {pageSize} per page. Click a symbol for movement info. Active tickers
-        are included in Market Assess and Candles bulk refresh.
+        Catalog sorted A–Z, {pageSize} per page. Click a symbol for movement info; click the name to
+        edit it. Active tickers are included in Market Assess and Candles bulk refresh.
       </p>
 
       <AddTickerForm disabled={loading || isPending} submitting={adding} onSubmit={addTicker} />
@@ -182,6 +183,7 @@ export function WatchlistPane({ onBack }: Props) {
         onToggleExpanded={toggleExpanded}
         onPageActiveChange={(active) => (active ? activatePage() : deactivatePage())}
         onToggleActive={setActive}
+        onRename={renameTicker}
         emptyMessage={search.trim() ? `No tickers match “${search.trim()}”.` : undefined}
       />
 

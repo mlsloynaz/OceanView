@@ -13,8 +13,35 @@ const TIER_CLASS: Record<string, string> = {
   skip: "bg-ocean-mid/30 text-ocean-sand",
 };
 
+const TIER_ORDER: Record<string, number> = {
+  excellent: 0,
+  strong: 1,
+  moderate: 2,
+  watch: 3,
+  skip: 4,
+};
+
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+
+type SortDir = "asc" | "desc";
+
+type ProgressSortKey =
+  | "symbol"
+  | "samples"
+  | "ready"
+  | "recent"
+  | "bidAsk"
+  | "move12";
+
+type WatchlistSortKey =
+  | "rank"
+  | "symbol"
+  | "score"
+  | "tier"
+  | "stockRank"
+  | "callSpr"
+  | "putSpr";
 
 function fmtSpreadPct(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "—";
@@ -30,6 +57,124 @@ function isRecent(lastSampleAt: string | null | undefined): boolean {
   return ageMs >= 0 && ageMs <= 3 * 24 * 60 * 60 * 1000;
 }
 
+function cmpNullableNumber(
+  a: number | null | undefined,
+  b: number | null | undefined,
+  dir: SortDir,
+): number {
+  const aMissing = a == null || Number.isNaN(a);
+  const bMissing = b == null || Number.isNaN(b);
+  if (aMissing && bMissing) return 0;
+  if (aMissing) return 1;
+  if (bMissing) return -1;
+  return dir === "asc" ? a - b : b - a;
+}
+
+function cmpBool(a: boolean, b: boolean, dir: SortDir): number {
+  if (a === b) return 0;
+  const raw = a ? 1 : -1;
+  return dir === "asc" ? raw : -raw;
+}
+
+function cmpString(a: string, b: string, dir: SortDir): number {
+  const raw = a.localeCompare(b);
+  return dir === "asc" ? raw : -raw;
+}
+
+function progressValue(row: TradableProgressRow, key: ProgressSortKey): number | string | boolean {
+  switch (key) {
+    case "symbol":
+      return row.symbol;
+    case "samples":
+      return row.sampleCount;
+    case "ready":
+      return row.ready;
+    case "recent":
+      return isRecent(row.lastSampleAt);
+    case "bidAsk":
+      return row.typicalBidAskDollars ?? Number.NaN;
+    case "move12":
+      return row.underlyingMoveDollarsForOption12Pct ?? Number.NaN;
+  }
+}
+
+function compareProgress(
+  a: TradableProgressRow,
+  b: TradableProgressRow,
+  key: ProgressSortKey,
+  dir: SortDir,
+): number {
+  if (key === "symbol") return cmpString(a.symbol, b.symbol, dir);
+  if (key === "ready" || key === "recent") {
+    return cmpBool(Boolean(progressValue(a, key)), Boolean(progressValue(b, key)), dir);
+  }
+  return cmpNullableNumber(
+    progressValue(a, key) as number,
+    progressValue(b, key) as number,
+    dir,
+  );
+}
+
+function compareWatchlist(
+  a: TradableWatchlistRow,
+  b: TradableWatchlistRow,
+  key: WatchlistSortKey,
+  dir: SortDir,
+): number {
+  switch (key) {
+    case "symbol":
+      return cmpString(a.symbol, b.symbol, dir);
+    case "tier":
+      return cmpNullableNumber(TIER_ORDER[a.tier] ?? 99, TIER_ORDER[b.tier] ?? 99, dir);
+    case "rank":
+      return cmpNullableNumber(a.rank, b.rank, dir);
+    case "score":
+      return cmpNullableNumber(a.score, b.score, dir);
+    case "stockRank":
+      return cmpNullableNumber(a.stockRank, b.stockRank, dir);
+    case "callSpr":
+      return cmpNullableNumber(a.call?.metrics?.medianSpreadPct, b.call?.metrics?.medianSpreadPct, dir);
+    case "putSpr":
+      return cmpNullableNumber(a.put?.metrics?.medianSpreadPct, b.put?.metrics?.medianSpreadPct, dir);
+  }
+}
+
+function SortTh<K extends string>({
+  label,
+  column,
+  sortKey,
+  sortDir,
+  onSort,
+  className,
+}: {
+  label: string;
+  column: K;
+  sortKey: K;
+  sortDir: SortDir;
+  onSort: (key: K) => void;
+  className?: string;
+}) {
+  const active = sortKey === column;
+  return (
+    <th className={cn("px-2 py-1.5 font-medium", className)}>
+      <button
+        type="button"
+        className={cn(
+          "inline-flex items-center gap-1 rounded px-0.5 text-left hover:text-ocean-foam",
+          active ? "text-ocean-foam" : "text-ocean-sand",
+        )}
+        onClick={() => onSort(column)}
+        aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+      >
+        {label}
+        <span className="tabular-nums text-[10px] opacity-80" aria-hidden>
+          {active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 type Props = {
   onBack: () => void;
 };
@@ -42,6 +187,8 @@ export function TradablePane({ onBack }: Props) {
     tradableRefining,
     tradableError,
     refineTradable,
+    exportingDesk,
+    downloadOceanDeskJson,
     message,
   } = useTickersPane(true);
 
@@ -49,10 +196,22 @@ export function TradablePane({ onBack }: Props) {
   const watchlist = tradable?.watchlist ?? [];
 
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [focusedSymbol, setFocusedSymbol] = useState<string | null>(null);
   const [promoting, setPromoting] = useState(false);
   const [promoteError, setPromoteError] = useState<string | null>(null);
   const [promoteMessage, setPromoteMessage] = useState<string | null>(null);
   const [forceResample, setForceResample] = useState(false);
+  const [progressSortKey, setProgressSortKey] = useState<ProgressSortKey>("samples");
+  const [progressSortDir, setProgressSortDir] = useState<SortDir>("desc");
+  const [watchlistSortKey, setWatchlistSortKey] = useState<WatchlistSortKey>("rank");
+  const [watchlistSortDir, setWatchlistSortDir] = useState<SortDir>("asc");
+
+  const rowClass = (symbol: string) =>
+    cn(
+      "border-b border-ocean-mid/25 text-ocean-foam cursor-pointer transition-colors",
+      "hover:bg-ocean-mid/20",
+      focusedSymbol === symbol && "bg-ocean-teal/20 ring-1 ring-inset ring-ocean-teal/40",
+    );
 
   useEffect(() => {
     if (!watchlist.length) {
@@ -71,8 +230,38 @@ export function TradablePane({ onBack }: Props) {
     [selected],
   );
 
+  const sortedProgress = useMemo(
+    () =>
+      [...progress].sort((a, b) => compareProgress(a, b, progressSortKey, progressSortDir)),
+    [progress, progressSortKey, progressSortDir],
+  );
+
+  const sortedWatchlist = useMemo(
+    () =>
+      [...watchlist].sort((a, b) => compareWatchlist(a, b, watchlistSortKey, watchlistSortDir)),
+    [watchlist, watchlistSortKey, watchlistSortDir],
+  );
+
+  const toggleProgressSort = (key: ProgressSortKey) => {
+    if (key === progressSortKey) {
+      setProgressSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setProgressSortKey(key);
+    setProgressSortDir(key === "symbol" ? "asc" : "desc");
+  };
+
+  const toggleWatchlistSort = (key: WatchlistSortKey) => {
+    if (key === watchlistSortKey) {
+      setWatchlistSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setWatchlistSortKey(key);
+    setWatchlistSortDir(key === "symbol" || key === "rank" || key === "tier" ? "asc" : "desc");
+  };
+
   const canCollect = (tradable?.sourceCount ?? tickers.length) > 0;
-  const busy = tradableLoading || tradableRefining || promoting;
+  const busy = tradableLoading || tradableRefining || promoting || exportingDesk;
 
   const promoteSelected = async () => {
     if (selectedSymbols.length === 0) {
@@ -142,6 +331,18 @@ export function TradablePane({ onBack }: Props) {
           </button>
           <button
             type="button"
+            disabled={busy || !canCollect}
+            onClick={() => void downloadOceanDeskJson()}
+            className={cn(
+              BTN,
+              "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-ocean-teal/50",
+            )}
+            title="Download stop_metrics.json for OceanDesk (stops + bid–ask + $→12%)"
+          >
+            {exportingDesk ? "…" : "Download OceanDesk JSON"}
+          </button>
+          <button
+            type="button"
             disabled={busy || selectedSymbols.length === 0}
             onClick={() => void promoteSelected()}
             className={cn(
@@ -159,7 +360,11 @@ export function TradablePane({ onBack }: Props) {
         Collect adds up to 3 intakes (symbols furthest from Ready first). You need ≥
         {tradable?.minSamplesReady ?? 8} intakes per symbol for a stable typical bid–ask — click
         again after ~{tradable?.minResampleGapMinutes ?? 15} minutes (or enable Force) to add more
-        the same day. Bid–ask $ and $ move for ~12% option gain are saved on each ticker.
+        the same day. Bid–ask $ and $ move for ~12% option gain are saved on each ticker.{" "}
+        <strong className="font-medium text-ocean-foam">Download OceanDesk JSON</strong> exports
+        stops (from movement profiles) plus bid–ask / $→12% — drop into OceanDesk as{" "}
+        <code className="text-[11px]">stop_metrics.json</code>. Click a column header to sort;
+        click a row to highlight it.
       </p>
 
       {tradableError ? <p className="mb-2 text-xs text-ocean-danger">{tradableError}</p> : null}
@@ -190,20 +395,61 @@ export function TradablePane({ onBack }: Props) {
         <div className="mb-6 overflow-x-auto">
           <table className="w-full min-w-[640px] border-collapse text-left text-xs">
             <thead>
-              <tr className="border-b border-ocean-mid/40 text-[11px] text-ocean-sand">
-                <th className="px-2 py-1.5 font-medium">Symbol</th>
-                <th className="px-2 py-1.5 font-medium">Samples</th>
-                <th className="px-2 py-1.5 font-medium">Ready</th>
-                <th className="px-2 py-1.5 font-medium">Recent</th>
-                <th className="px-2 py-1.5 font-medium">Bid–ask $</th>
-                <th className="px-2 py-1.5 font-medium">$ move → 12% opt</th>
+              <tr className="border-b border-ocean-mid/40 text-[11px]">
+                <SortTh
+                  label="Symbol"
+                  column="symbol"
+                  sortKey={progressSortKey}
+                  sortDir={progressSortDir}
+                  onSort={toggleProgressSort}
+                />
+                <SortTh
+                  label="Samples"
+                  column="samples"
+                  sortKey={progressSortKey}
+                  sortDir={progressSortDir}
+                  onSort={toggleProgressSort}
+                />
+                <SortTh
+                  label="Ready"
+                  column="ready"
+                  sortKey={progressSortKey}
+                  sortDir={progressSortDir}
+                  onSort={toggleProgressSort}
+                />
+                <SortTh
+                  label="Recent"
+                  column="recent"
+                  sortKey={progressSortKey}
+                  sortDir={progressSortDir}
+                  onSort={toggleProgressSort}
+                />
+                <SortTh
+                  label="Bid–ask $"
+                  column="bidAsk"
+                  sortKey={progressSortKey}
+                  sortDir={progressSortDir}
+                  onSort={toggleProgressSort}
+                />
+                <SortTh
+                  label="$ move → 12% opt"
+                  column="move12"
+                  sortKey={progressSortKey}
+                  sortDir={progressSortDir}
+                  onSort={toggleProgressSort}
+                />
               </tr>
             </thead>
             <tbody>
-              {progress.map((row: TradableProgressRow) => {
+              {sortedProgress.map((row: TradableProgressRow) => {
                 const recent = isRecent(row.lastSampleAt);
                 return (
-                  <tr key={row.symbol} className="border-b border-ocean-mid/25 text-ocean-foam">
+                  <tr
+                    key={row.symbol}
+                    className={rowClass(row.symbol)}
+                    onClick={() => setFocusedSymbol(row.symbol)}
+                    aria-selected={focusedSymbol === row.symbol}
+                  >
                     <td className="px-2 py-1.5 font-semibold">
                       {row.symbol}
                       {row.name ? (
@@ -269,26 +515,74 @@ export function TradablePane({ onBack }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] border-collapse text-left text-xs">
               <thead>
-                <tr className="border-b border-ocean-mid/40 text-[11px] text-ocean-sand">
-                  <th className="px-2 py-1.5 font-medium">Promote</th>
-                  <th className="px-2 py-1.5 font-medium">#</th>
-                  <th className="px-2 py-1.5 font-medium">Symbol</th>
-                  <th className="px-2 py-1.5 font-medium">Tradability</th>
-                  <th className="px-2 py-1.5 font-medium">Tier</th>
-                  <th className="px-2 py-1.5 font-medium">Stock #</th>
-                  <th className="px-2 py-1.5 font-medium">Call spr%</th>
-                  <th className="px-2 py-1.5 font-medium">Put spr%</th>
+                <tr className="border-b border-ocean-mid/40 text-[11px]">
+                  <th className="px-2 py-1.5 font-medium text-ocean-sand">Promote</th>
+                  <SortTh
+                    label="#"
+                    column="rank"
+                    sortKey={watchlistSortKey}
+                    sortDir={watchlistSortDir}
+                    onSort={toggleWatchlistSort}
+                  />
+                  <SortTh
+                    label="Symbol"
+                    column="symbol"
+                    sortKey={watchlistSortKey}
+                    sortDir={watchlistSortDir}
+                    onSort={toggleWatchlistSort}
+                  />
+                  <SortTh
+                    label="Tradability"
+                    column="score"
+                    sortKey={watchlistSortKey}
+                    sortDir={watchlistSortDir}
+                    onSort={toggleWatchlistSort}
+                  />
+                  <SortTh
+                    label="Tier"
+                    column="tier"
+                    sortKey={watchlistSortKey}
+                    sortDir={watchlistSortDir}
+                    onSort={toggleWatchlistSort}
+                  />
+                  <SortTh
+                    label="Stock #"
+                    column="stockRank"
+                    sortKey={watchlistSortKey}
+                    sortDir={watchlistSortDir}
+                    onSort={toggleWatchlistSort}
+                  />
+                  <SortTh
+                    label="Call spr%"
+                    column="callSpr"
+                    sortKey={watchlistSortKey}
+                    sortDir={watchlistSortDir}
+                    onSort={toggleWatchlistSort}
+                  />
+                  <SortTh
+                    label="Put spr%"
+                    column="putSpr"
+                    sortKey={watchlistSortKey}
+                    sortDir={watchlistSortDir}
+                    onSort={toggleWatchlistSort}
+                  />
                 </tr>
               </thead>
               <tbody>
-                {watchlist.map((row: TradableWatchlistRow) => (
-                  <tr key={row.symbol} className="border-b border-ocean-mid/25 text-ocean-foam">
+                {sortedWatchlist.map((row: TradableWatchlistRow) => (
+                  <tr
+                    key={row.symbol}
+                    className={rowClass(row.symbol)}
+                    onClick={() => setFocusedSymbol(row.symbol)}
+                    aria-selected={focusedSymbol === row.symbol}
+                  >
                     <td className="px-2 py-1.5">
                       <input
                         type="checkbox"
                         className="rounded border-ocean-mid"
                         checked={Boolean(selected[row.symbol])}
                         disabled={busy}
+                        onClick={(event) => event.stopPropagation()}
                         onChange={(event) =>
                           setSelected((prev) => ({
                             ...prev,

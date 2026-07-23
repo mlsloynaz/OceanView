@@ -108,7 +108,7 @@ flowchart TB
 | UI control | When | API | Purpose |
 |------------|------|-----|---------|
 | **Ticker catalog** add | Form submit | `POST /tickers` | Create catalog symbol |
-| **Ticker catalog** toggle | User click | `PATCH /tickers/{symbol}` `{ active }` | Include/exclude from Market + Candles bulk |
+| **Ticker catalog** toggle / rename | User click | `PATCH /tickers/{symbol}` `{ active }` or `{ name }` | Include/exclude from Market + Candles bulk; edit display name |
 | **Ticker catalog** reload | User click | `GET /tickers` | Full catalog (active + inactive) |
 | *(Candles panel open)* | After catalog loads | `GET /tickers?activeOnly=true` | Active symbols only |
 | *(Candles panel open)* | Immediately after | `POST /candles/result` | Last **candles job** outcome + per-symbol candle context |
@@ -193,15 +193,27 @@ Missing `isOperationEnable` on older Dynamo rows is treated as **`true`** (used 
 
 ### `PATCH /tickers/{symbol}`
 
-**Purpose:** Activate or deactivate one catalog row (Dynamo `OceanView-Tickers`).
+**Purpose:** Update one catalog row (Dynamo `OceanView-Tickers`).
 
-**Request:** `{ "active": true | false }`
+**Request examples:**
 
-The API also accepts `isOperationEnable` / `optimalRange` for other clients; the Tickers pane only toggles **Active**.
+```json
+{ "active": true }
+```
+
+```json
+{ "name": "Apple Inc." }
+```
+
+```json
+{ "name": null }
+```
+
+Accepted fields: `active`, `name` (string or `null` to clear), and `optimalRange` / related range fields for other clients. The Watchlist pane toggles **Active** and edits **name**.
 
 **Response `200`:** Updated ticker object (same shape as list item).
 
-**Used by:** Ticker catalog pane Active toggle.
+**Used by:** Tickers Watchlist Active toggle and inline name edit.
 
 ---
 
@@ -527,7 +539,7 @@ src/features/admin/
     TickersTable.tsx
     TickerMovementInfoPanel.tsx # expanded row: stacked label-above-value metrics (no wide L/R gap)
     types.ts
-    api/tickers-client.ts       # GET/POST /tickers, PATCH /tickers/{symbol} (active)
+    api/tickers-client.ts       # GET/POST /tickers, PATCH /tickers/{symbol} (active, name)
     hooks/useTickersPane.ts
   candles/
     CandlesPane.tsx             # collapsible panel + toolbar
