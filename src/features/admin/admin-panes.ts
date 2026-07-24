@@ -3,7 +3,7 @@ export type AdminPaneId =
   | "tickers"
   | "candles"
   | "strategies"
-  | "research-stats"
+  | "lab"
   | "job-status";
 
 export type AdminPaneMeta = {
@@ -18,7 +18,7 @@ export const ADMIN_PANE_ORDER: AdminPaneId[] = [
   "tickers",
   "candles",
   "strategies",
-  "research-stats",
+  "lab",
   "job-status",
 ];
 
@@ -47,11 +47,11 @@ export const ADMIN_PANES: Record<AdminPaneId, AdminPaneMeta> = {
     title: "Strategies",
     description: "Activate standard playbooks and manage dynamic screens",
   },
-  "research-stats": {
-    id: "research-stats",
-    anchorId: "admin-research-stats-pane",
-    title: "Research-Stats",
-    description: "Historical rule/strategy hit rates by hour — free ticker + date range",
+  lab: {
+    id: "lab",
+    anchorId: "admin-lab-pane",
+    title: "Lab",
+    description: "Research-Stats and custom studies (Lab1 ETF Bollinger, …)",
   },
   "job-status": {
     id: "job-status",
@@ -64,5 +64,8 @@ export const ADMIN_PANES: Record<AdminPaneId, AdminPaneMeta> = {
 export function adminPaneFromHash(hash: string): AdminPaneId | null {
   const id = hash.replace(/^#/, "");
   if (id.startsWith("admin-tickers")) return "tickers";
+  if (id.startsWith("admin-lab")) return "lab";
+  // Legacy Research-Stats hash → Lab hub
+  if (id === "admin-research-stats-pane") return "lab";
   return ADMIN_PANE_ORDER.find((paneId) => ADMIN_PANES[paneId].anchorId === id) ?? null;
 }

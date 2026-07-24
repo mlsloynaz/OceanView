@@ -3,7 +3,7 @@ import { ADMIN_PANE_ORDER, ADMIN_PANES, adminPaneFromHash, type AdminPaneId } fr
 import { CandlesPane } from "./candles/CandlesPane";
 import { ADMIN_PANE_ICONS, AdminPaneThumbnail } from "./components/AdminPaneThumbnail";
 import { JobsStatusPane } from "./job-status/JobsStatusPane";
-import { ResearchStatsPane } from "./research-stats/ResearchStatsPane";
+import { LabPane } from "./lab/LabPane";
 import { SetupScanPane } from "./setup-scan/SetupScanPane";
 import { StrategiesPane } from "./strategies/StrategiesPane";
 import { TickersPane } from "./tickers/TickersPane";
@@ -18,8 +18,8 @@ function renderActivePane(id: AdminPaneId) {
       return <CandlesPane />;
     case "strategies":
       return <StrategiesPane />;
-    case "research-stats":
-      return <ResearchStatsPane />;
+    case "lab":
+      return <LabPane />;
     case "job-status":
       return <JobsStatusPane />;
   }
@@ -38,6 +38,14 @@ export function AdminPage() {
     return () => window.removeEventListener("hashchange", syncFromHash);
   }, []);
 
+  // Deep-link legacy #admin-research-stats-pane into Lab → Research.
+  useEffect(() => {
+    if (window.location.hash.replace(/^#/, "") === "admin-research-stats-pane") {
+      window.history.replaceState(null, "", `${window.location.pathname}#admin-lab-research`);
+      setActivePane("lab");
+    }
+  }, []);
+
   const selectPane = useCallback((id: AdminPaneId) => {
     setActivePane((current) => {
       const next = current === id ? null : id;
@@ -52,7 +60,7 @@ export function AdminPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam sm:text-4xl">Admin</h1>
         <p className="mt-3 max-w-3xl text-base leading-relaxed text-ocean-sand">
-          Configuration for tickers, candles, strategies, and job status. Choose a pane
+          Configuration for tickers, candles, strategies, Lab studies, and job status. Choose a pane
           below —{" "}
           <button
             type="button"

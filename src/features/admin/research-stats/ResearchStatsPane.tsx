@@ -60,13 +60,32 @@ function CommonalityBlock({ block }: { block: DirectionRuleCommonality }) {
   );
 }
 
-export function ResearchStatsPane() {
+type Props = {
+  onBack?: () => void;
+};
+
+export function ResearchStatsPane({ onBack }: Props) {
   const ws = useResearchStatsPane();
 
   return (
     <AdminExpandedPane
-      id="admin-research-stats-pane"
-      title="Research-Stats"
+      id={onBack ? "admin-lab-research" : "admin-research-stats-pane"}
+      title={
+        onBack ? (
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onBack}
+              className="rounded border border-ocean-mid/50 px-2 py-0.5 text-xs font-medium text-ocean-sand hover:border-ocean-teal/50 hover:text-ocean-foam"
+            >
+              ← Lab
+            </button>
+            <span>Research-Stats</span>
+          </span>
+        ) : (
+          "Research-Stats"
+        )
+      }
       subtitle="Named research: strategy OR rules · same ticker & timeframe · result overwrites prior save"
       headerExtra={
         <button

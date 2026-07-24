@@ -115,18 +115,43 @@ export type TradableProgressRow = {
   typicalBidAskPct?: number | null;
   underlyingMoveDollarsForOption12Pct?: number | null;
   underlyingMovePctForOption12Pct?: number | null;
+  /** Soft flag: one day's bid–ask differed from the majority over ~2 weeks. */
+  hasSpreadDayWarning?: boolean;
+  warnings?: string[];
+  spreadDayWarning?: {
+    lookbackDays?: number;
+    sampleDays?: number;
+    majorityMedianDollars?: number | null;
+    outlierDays?: Array<{
+      day: string;
+      dayMedianDollars: number;
+      majorityMedianDollars: number;
+      gapDollars: number;
+      gapPct: number;
+      direction: string;
+    }>;
+    warnings?: string[];
+    hasSpreadDayWarning?: boolean;
+  } | null;
 };
 
 export type TradableWatchlistResponse = {
   kind?: string;
+  runId?: string | null;
   status?: string;
   resolvedAt: string | null;
   collectedAt?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
   limit: number;
   sourceLimit?: number;
   sourceCount: number;
   minSamplesReady?: number;
   maxSamplesPerRun?: number;
+  batchSize?: number;
+  batchIntervalSeconds?: number;
+  pollIntervalSeconds?: number;
+  batchesCompleted?: number;
   minResampleGapMinutes?: number;
   readyCount?: number;
   scoredCount: number;
@@ -150,5 +175,6 @@ export type TradableWatchlistResponse = {
     deactivated?: string[];
     message?: string;
   } | null;
+  stopRequested?: boolean;
   message?: string | null;
 };

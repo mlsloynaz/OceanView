@@ -84,11 +84,11 @@ function IconStrategy() {
   );
 }
 
-function IconResearch() {
+function IconLab() {
   return (
     <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-      <path d="M10 2a.75.75 0 01.75.75v.546a6.75 6.75 0 015.954 5.954h.546a.75.75 0 010 1.5h-.546a6.75 6.75 0 01-5.954 5.954v.546a.75.75 0 01-1.5 0v-.546a6.75 6.75 0 01-5.954-5.954H2.75a.75.75 0 010-1.5h.546A6.75 6.75 0 019.25 3.296V2.75A.75.75 0 0110 2zm0 3.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9z" />
-      <path d="M10 8a2 2 0 100 4 2 2 0 000-4z" />
+      <path d="M6.75 3a.75.75 0 00-.75.75V8.5c0 .834-.278 1.604-.745 2.22L3.72 13.53A.75.75 0 004.25 14.75h11.5a.75.75 0 00.53-1.22l-1.535-2.81A3.75 3.75 0 0114 8.5V3.75a.75.75 0 00-.75-.75h-6.5zM8 4.5h4V8.5a5.24 5.24 0 001.043 3.15l.5.91H6.457l.5-.91A5.24 5.24 0 008 8.5V4.5z" />
+      <path d="M7 16.25a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75z" />
     </svg>
   );
 }
@@ -107,6 +107,6 @@ export const ADMIN_PANE_ICONS: Record<AdminPaneId, ReactNode> = {
   tickers: <IconList />,
   candles: <IconCandles />,
   strategies: <IconStrategy />,
-  "research-stats": <IconResearch />,
+  lab: <IconLab />,
   "job-status": <IconJobStatus />,
 };

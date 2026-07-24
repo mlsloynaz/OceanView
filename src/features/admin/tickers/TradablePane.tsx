@@ -185,8 +185,10 @@ export function TradablePane({ onBack }: Props) {
     tradable,
     tradableLoading,
     tradableRefining,
+    tradableCollecting,
     tradableError,
     refineTradable,
+    stopTradable,
     exportingDesk,
     downloadOceanDeskJson,
     message,
@@ -194,13 +196,14 @@ export function TradablePane({ onBack }: Props) {
 
   const progress = tradable?.progress ?? [];
   const watchlist = tradable?.watchlist ?? [];
+  const batchSize = tradable?.batchSize ?? tradable?.maxSamplesPerRun ?? 5;
+  const pollSeconds = tradable?.pollIntervalSeconds ?? tradable?.batchIntervalSeconds ?? 30;
 
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [focusedSymbol, setFocusedSymbol] = useState<string | null>(null);
   const [promoting, setPromoting] = useState(false);
   const [promoteError, setPromoteError] = useState<string | null>(null);
   const [promoteMessage, setPromoteMessage] = useState<string | null>(null);
-  const [forceResample, setForceResample] = useState(false);
   const [progressSortKey, setProgressSortKey] = useState<ProgressSortKey>("samples");
   const [progressSortDir, setProgressSortDir] = useState<SortDir>("desc");
   const [watchlistSortKey, setWatchlistSortKey] = useState<WatchlistSortKey>("rank");
@@ -261,7 +264,8 @@ export function TradablePane({ onBack }: Props) {
   };
 
   const canCollect = (tradable?.sourceCount ?? tickers.length) > 0;
-  const busy = tradableLoading || tradableRefining || promoting || exportingDesk;
+  const collecting = tradableCollecting || tradableRefining;
+  const busy = tradableLoading || collecting || promoting || exportingDesk;
 
   const promoteSelected = async () => {
     if (selectedSymbols.length === 0) {
@@ -310,25 +314,25 @@ export function TradablePane({ onBack }: Props) {
       subtitle="Option chain samples for the full catalog — Ready + Recent, best progress on top."
       headerExtra={
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1.5 text-[11px] text-ocean-sand">
-            <input
-              type="checkbox"
-              className="rounded border-ocean-mid"
-              checked={forceResample}
-              disabled={busy}
-              onChange={(event) => setForceResample(event.target.checked)}
-            />
-            Force (ignore {tradable?.minResampleGapMinutes ?? 15}m gap)
-          </label>
           <button
             type="button"
-            disabled={busy || !canCollect}
-            onClick={() => void refineTradable({ force: forceResample })}
+            disabled={busy || !canCollect || collecting}
+            onClick={() => void refineTradable()}
             className={cn(BTN, "border border-ocean-teal/50 bg-ocean-teal/15 text-ocean-foam")}
             title={canCollect ? undefined : "Add tickers under Watchlist first"}
           >
-            {tradableRefining ? "Sampling…" : "Collect samples"}
+            {collecting ? `Collecting… (batch ${tradable?.batchesCompleted ?? 0})` : "Collect samples"}
           </button>
+          {collecting ? (
+            <button
+              type="button"
+              disabled={tradableLoading || promoting || exportingDesk}
+              onClick={() => void stopTradable()}
+              className={cn(BTN, "border border-amber-600/50 bg-amber-500/10 text-amber-900 dark:text-amber-100")}
+            >
+              Stop
+            </button>
+          ) : null}
           <button
             type="button"
             disabled={busy || !canCollect}
@@ -356,11 +360,15 @@ export function TradablePane({ onBack }: Props) {
       }
     >
       <p className="mb-3 text-xs text-ocean-sand">
-        Samples the <strong className="font-medium text-ocean-foam">entire catalog</strong>. Each
-        Collect adds up to 3 intakes (symbols furthest from Ready first). You need ≥
-        {tradable?.minSamplesReady ?? 8} intakes per symbol for a stable typical bid–ask — click
-        again after ~{tradable?.minResampleGapMinutes ?? 15} minutes (or enable Force) to add more
-        the same day. Bid–ask $ and $ move for ~12% option gain are saved on each ticker.{" "}
+        Samples the <strong className="font-medium text-ocean-foam">entire catalog</strong>. Click{" "}
+        <strong className="font-medium text-ocean-foam">Collect</strong> once — each ticker gets{" "}
+        <strong className="font-medium text-ocean-foam">one</strong> option-chain call this run (≤
+        {batchSize} every {pollSeconds}s until all are done). This pane polls on the same cadence.
+        Need ≥{tradable?.minSamplesReady ?? 8} intakes over time for Ready (run Collect on later
+        days to accumulate). Soft{" "}
+        <strong className="font-medium text-ocean-foam">WARNING</strong> can flag a day whose
+        bid–ask differs from the majority (does not skip ranking). Bid–ask $ and $ move for ~12%
+        option gain are saved on each ticker.{" "}
         <strong className="font-medium text-ocean-foam">Download OceanDesk JSON</strong> exports
         stops (from movement profiles) plus bid–ask / $→12% — drop into OceanDesk as{" "}
         <code className="text-[11px]">stop_metrics.json</code>. Click a column header to sort;
@@ -379,7 +387,11 @@ export function TradablePane({ onBack }: Props) {
       {tradable?.readyCount != null ? (
         <p className="mb-3 text-[11px] text-ocean-sand/70">
           Ready {tradable.readyCount}/{tradable.sourceCount || "—"} catalog
+          {tradable.batchesCompleted != null && collecting
+            ? ` · batches ${tradable.batchesCompleted}`
+            : null}
           {tradable.collectedAt ? ` · last collect ${tradable.collectedAt}` : null}
+          {collecting ? ` · polling every ${pollSeconds}s` : null}
         </p>
       ) : null}
 
@@ -488,9 +500,30 @@ export function TradablePane({ onBack }: Props) {
                       )}
                     </td>
                     <td className="px-2 py-1.5 tabular-nums">
-                      {row.typicalBidAskDollars != null
-                        ? `$${row.typicalBidAskDollars.toFixed(2)}`
-                        : "—"}
+                      {row.typicalBidAskDollars != null ? (
+                        <span
+                          className={
+                            row.hasSpreadDayWarning
+                              ? "text-amber-800 dark:text-amber-200"
+                              : undefined
+                          }
+                          title={
+                            row.hasSpreadDayWarning
+                              ? (row.warnings?.join(" · ") ??
+                                "WARNING: one day's bid–ask differed from the majority over ~2 weeks (soft flag only).")
+                              : undefined
+                          }
+                        >
+                          {`$${row.typicalBidAskDollars.toFixed(2)}`}
+                          {row.hasSpreadDayWarning ? (
+                            <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide">
+                              warn
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="px-2 py-1.5 tabular-nums">
                       {row.underlyingMoveDollarsForOption12Pct != null

@@ -12,6 +12,7 @@ import {
   postTradableOceanDeskExport,
   refineTradableWatchlist,
   resolveBestFitWatchlist,
+  stopTradableCollect,
 } from "../api/tickers-client";
 import type { AddTickerFormValues } from "../AddTickerForm";
 import {
@@ -121,6 +122,34 @@ export function useTickersPane(open: boolean) {
     }
   }, []);
 
+  const tradableCollecting = useMemo(() => {
+    const status = String(tradable?.status || "").toLowerCase();
+    return status === "running" || status === "stopping";
+  }, [tradable?.status]);
+
+  // Poll GET on the same cadence as async batches (default 30s) while collecting.
+  useEffect(() => {
+    if (!open || !tradableCollecting) return;
+    const pollMs = Math.max(5, Number(tradable?.pollIntervalSeconds) || 30) * 1000;
+    const id = window.setInterval(() => {
+      void getTradableWatchlist()
+        .then((payload) => {
+          setTradable(payload);
+          const status = String(payload.status || "").toLowerCase();
+          if (status !== "running" && status !== "stopping") {
+            setMessage(payload.message ?? "Tradable collect finished.");
+            setTradableRefining(false);
+          }
+        })
+        .catch((err) => {
+          setTradableError(
+            err instanceof Error ? err.message : "Failed to poll tradable watchlist.",
+          );
+        });
+    }, pollMs);
+    return () => window.clearInterval(id);
+  }, [open, tradableCollecting, tradable?.pollIntervalSeconds]);
+
   const refineTradable = useCallback(async (opts?: { force?: boolean }) => {
     setTradableError(null);
     setTradableRefining(true);
@@ -131,11 +160,26 @@ export function useTickersPane(open: boolean) {
         force: Boolean(opts?.force),
       });
       setTradable(payload);
-      setMessage(payload.message ?? "Tradability samples collected.");
+      setMessage(payload.message ?? "Tradable collect started — polling every 30s.");
+      const status = String(payload.status || "").toLowerCase();
+      if (status !== "running" && status !== "stopping") {
+        setTradableRefining(false);
+      }
     } catch (err) {
-      setTradableError(err instanceof Error ? err.message : "Failed to collect tradability samples.");
-    } finally {
       setTradableRefining(false);
+      setTradableError(err instanceof Error ? err.message : "Failed to collect tradability samples.");
+    }
+  }, []);
+
+  const stopTradable = useCallback(async () => {
+    setTradableError(null);
+    try {
+      const ack = await stopTradableCollect();
+      setMessage(ack.message ?? "Stop requested.");
+      const payload = await getTradableWatchlist();
+      setTradable(payload);
+    } catch (err) {
+      setTradableError(err instanceof Error ? err.message : "Failed to stop tradable collect.");
     }
   }, []);
 
@@ -535,8 +579,10 @@ export function useTickersPane(open: boolean) {
     tradable,
     tradableLoading,
     tradableRefining,
+    tradableCollecting,
     tradableError,
     refineTradable,
+    stopTradable,
     exportingDesk,
     downloadOceanDeskJson,
     tickers,

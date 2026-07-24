@@ -42,10 +42,14 @@ let mockTradable: TradableWatchlistResponse = {
   sourceCount: 0,
   scoredCount: 0,
   skippedCount: 0,
+  batchSize: 5,
+  batchIntervalSeconds: 30,
+  pollIntervalSeconds: 30,
   sourceSymbols: [],
   watchlist: [],
   skipped: [],
-  message: "No tradability samples yet. Collect samples for the full catalog.",
+  message:
+    "No tradability samples yet. Click Collect once — async batches of 5 every 30s.",
 };
 
 const MOCK_PROFILES: Record<string, MovementProfile> = {
@@ -399,10 +403,12 @@ export async function refineTradableWatchlist(input?: {
   activateTop?: boolean;
   force?: boolean;
   maxSamples?: number;
+  batchSize?: number;
 }): Promise<TradableWatchlistResponse> {
   const limit = input?.limit ?? 5;
   const activateTop = Boolean(input?.activateTop);
   const force = Boolean(input?.force);
+  const batchSize = input?.batchSize ?? input?.maxSamples ?? 5;
 
   if (USE_MOCK) {
     await delay(300);
@@ -466,6 +472,7 @@ export async function refineTradableWatchlist(input?: {
     }
     mockTradable = {
       kind: "tradable_watchlist",
+      runId: `tradable-mock-${Date.now()}`,
       status: ready.length >= limit ? "ready" : "collecting",
       resolvedAt: ready.length ? new Date().toISOString() : null,
       collectedAt: new Date().toISOString(),
@@ -473,13 +480,17 @@ export async function refineTradableWatchlist(input?: {
       sourceLimit: source.length,
       sourceCount: source.length,
       minSamplesReady: 8,
-      maxSamplesPerRun: 3,
+      maxSamplesPerRun: 5,
+      batchSize: 5,
+      batchIntervalSeconds: 30,
+      pollIntervalSeconds: 30,
+      batchesCompleted: 1,
       readyCount: ready.length,
       scoredCount: watchlist.length,
       skippedCount: 0,
       sourceSymbols: source.map((row) => row.symbol),
       progress,
-      sampledThisRun: progress.slice(0, 3).map((row) => ({
+      sampledThisRun: progress.slice(0, 5).map((row) => ({
         symbol: row.symbol,
         sampleCount: row.sampleCount,
         ready: row.ready,
@@ -508,8 +519,37 @@ export async function refineTradableWatchlist(input?: {
       limit,
       activateTop,
       force,
-      ...(input?.maxSamples != null ? { maxSamples: input.maxSamples } : {}),
+      batchSize,
     }),
+  });
+}
+
+export async function stopTradableCollect(): Promise<{
+  runId?: string | null;
+  status?: string;
+  stopRequested?: boolean;
+  message?: string;
+}> {
+  if (USE_MOCK) {
+    await delay(100);
+    if (mockTradable) {
+      mockTradable = {
+        ...mockTradable,
+        status: "stopped",
+        stopRequested: true,
+        message: "Tradable collect stopped (mock).",
+      };
+    }
+    return {
+      runId: mockTradable?.runId,
+      status: "stopped",
+      stopRequested: true,
+      message: "Tradable collect stopped (mock).",
+    };
+  }
+  return fetchJson("/tickers/tradable/stop", {
+    method: "POST",
+    body: "{}",
   });
 }
 
