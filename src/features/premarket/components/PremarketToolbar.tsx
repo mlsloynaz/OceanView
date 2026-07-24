@@ -17,6 +17,9 @@ type Props = {
   canStopEvaluate: boolean;
   startPending: boolean;
   stopPending: boolean;
+  monitorActive: boolean;
+  intervalMinutes: number;
+  onIntervalMinutesChange: (value: number) => void;
   loading: boolean;
   threshold: number;
   onThresholdChange: (value: number) => void;
@@ -44,6 +47,9 @@ export function PremarketToolbar({
   canStopEvaluate,
   startPending,
   stopPending,
+  monitorActive,
+  intervalMinutes,
+  onIntervalMinutesChange,
   loading,
   threshold,
   onThresholdChange,
@@ -62,7 +68,9 @@ export function PremarketToolbar({
   const busy = evaluateRunning || stopPending || loading;
   const evaluateControlsBusy = evaluateRunning || stopPending;
   const refreshDisabled = stopPending || loading;
-  const evaluateDisabled = busy || activeStrategyCount === 0 || Boolean(assessmentError);
+  const startDisabled =
+    monitorActive || busy || activeStrategyCount === 0 || Boolean(assessmentError);
+  const intervalDisabled = monitorActive || stopPending;
 
   return (
     <div className="space-y-3 rounded-xl border border-ocean-mid/50 bg-ocean-surface p-4">
@@ -168,18 +176,39 @@ export function PremarketToolbar({
         <button
           type="button"
           className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105")}
-          disabled={evaluateDisabled}
+          disabled={startDisabled}
           title={
-            evaluateRunning
-              ? "An evaluate run is already in progress"
+            monitorActive
+              ? "Continuous evaluate is already running — hit Stop first"
               : activeStrategyCount === 0
                 ? "Activate at least one dynamic strategy first"
-                : `Evaluate ${activeStrategyCount} dynamic strateg${activeStrategyCount === 1 ? "y" : "ies"}`
+                : `Start continuous evaluate every ${intervalMinutes} min`
           }
           onClick={onStart}
         >
-          {startPending ? "Evaluating…" : "Evaluate strategies"}
+          {startPending ? "Evaluating…" : "Start"}
         </button>
+        <label
+          htmlFor="premarket-evaluate-interval"
+          className="flex items-center gap-1.5 text-xs text-ocean-sand"
+        >
+          Every
+          <input
+            id="premarket-evaluate-interval"
+            type="number"
+            min={1}
+            max={60}
+            step={1}
+            value={intervalMinutes}
+            disabled={intervalDisabled}
+            onChange={(e) => {
+              const next = Number.parseInt(e.target.value, 10);
+              if (!Number.isNaN(next)) onIntervalMinutesChange(next);
+            }}
+            className="w-14 rounded-md border border-ocean-mid/50 bg-ocean-deep px-2 py-1 text-xs tabular-nums text-ocean-foam focus:border-ocean-teal/60 focus:outline-none disabled:opacity-50"
+          />
+          min
+        </label>
         <button
           type="button"
           className={cn(
@@ -188,7 +217,11 @@ export function PremarketToolbar({
           )}
           disabled={!canStopEvaluate || stopPending}
           onClick={onStop}
-          title="Request stop after the current symbol"
+          title={
+            monitorActive
+              ? "Stop continuous evaluate and cancel any in-flight run"
+              : "Request stop after the current symbol"
+          }
         >
           {stopPending ? "Stopping…" : "Stop"}
         </button>
@@ -208,11 +241,25 @@ export function PremarketToolbar({
         </span>
       </div>
 
+      {monitorActive ? (
+        <p className="text-[11px] text-ocean-teal-dim dark:text-ocean-teal" role="status">
+          Monitoring — next evaluate every {intervalMinutes} min · result refresh ~20s after each
+          assess starts
+          {assessmentMode === "et"
+            ? " · Simulate mode reuses the same assessment time each tick"
+            : ""}
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ocean-sand">
         <span>
           Status:{" "}
           <strong className="text-ocean-foam">
-            {startPending ? "Starting…" : formatPremarketStatus(result?.status)}
+            {monitorActive && !startPending
+              ? "Monitoring"
+              : startPending
+                ? "Starting…"
+                : formatPremarketStatus(result?.status)}
           </strong>
         </span>
         {result?.progress?.total != null && result.progress.total > 0 && (

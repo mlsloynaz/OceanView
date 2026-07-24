@@ -49,7 +49,25 @@ import {
 } from "../lib/premarket-assessment-storage";
 
 const DEFAULT_THRESHOLD = 0;
+const DEFAULT_INTERVAL_MINUTES = 5;
+const MIN_INTERVAL_MINUTES = 1;
+const MAX_INTERVAL_MINUTES = 60;
+/** After an async evaluate starts, wait this long before the first result refresh. */
+const POST_ASSESS_REFRESH_MS = 20_000;
 const START_NOTICE_PREFIX = "Premarket evaluate started";
+
+function clampIntervalMinutes(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_INTERVAL_MINUTES;
+  return Math.max(MIN_INTERVAL_MINUTES, Math.min(MAX_INTERVAL_MINUTES, Math.round(value)));
+}
+
+function continuousMonitorNotice(intervalMinutes: number, assessmentMode: AssessmentTimeMode): string {
+  const base = `Monitoring — evaluating every ${intervalMinutes} min · result refresh ~20s after each assess starts`;
+  if (assessmentMode === "et") {
+    return `${base}. Simulate mode reuses the same assessment time each tick.`;
+  }
+  return base;
+}
 
 function isStartBoilerplateMessage(message: string | undefined): boolean {
   return Boolean(message?.trim().startsWith(START_NOTICE_PREFIX));
@@ -124,7 +142,15 @@ export function usePremarketWorkspace() {
   const [stopPending, setStopPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(() => syncNoticeFromResult(cachedResult));
+  const [monitorActive, setMonitorActive] = useState(false);
+  const [intervalMinutes, setIntervalMinutesState] = useState(DEFAULT_INTERVAL_MINUTES);
   const evaluateInFlightRef = useRef(false);
+  const monitorActiveRef = useRef(false);
+  const intervalMinutesRef = useRef(DEFAULT_INTERVAL_MINUTES);
+  const resultRef = useRef<PremarketResultResponse | null>(cachedResult);
+  const evaluateTimerRef = useRef<number | null>(null);
+  const refreshTimerRef = useRef<number | null>(null);
+  const postAssessWaitRef = useRef<{ resolve: (value: "done" | "cleared") => void } | null>(null);
 
   const [assessmentMode, setAssessmentModeState] = useState<AssessmentTimeMode>(
     defaultPremarketAssessmentMode,
@@ -146,6 +172,51 @@ export function usePremarketWorkspace() {
   const [threshold, setThreshold] = useState(
     () => cachedResult?.signalThresholdPct ?? DEFAULT_THRESHOLD,
   );
+
+  resultRef.current = result;
+  monitorActiveRef.current = monitorActive;
+  intervalMinutesRef.current = intervalMinutes;
+
+  const clearMonitorTimers = useCallback(() => {
+    if (evaluateTimerRef.current != null) {
+      window.clearInterval(evaluateTimerRef.current);
+      evaluateTimerRef.current = null;
+    }
+    if (refreshTimerRef.current != null) {
+      window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+    if (postAssessWaitRef.current) {
+      postAssessWaitRef.current.resolve("cleared");
+      postAssessWaitRef.current = null;
+    }
+  }, []);
+
+  const waitPostAssessRefresh = useCallback((): Promise<"done" | "cleared"> => {
+    if (refreshTimerRef.current != null) {
+      window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+    if (postAssessWaitRef.current) {
+      postAssessWaitRef.current.resolve("cleared");
+      postAssessWaitRef.current = null;
+    }
+    return new Promise((resolve) => {
+      postAssessWaitRef.current = { resolve };
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        postAssessWaitRef.current = null;
+        resolve("done");
+      }, POST_ASSESS_REFRESH_MS);
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearMonitorTimers();
+      monitorActiveRef.current = false;
+    };
+  }, [clearMonitorTimers]);
 
   const applyAssessmentValidation = useCallback(
     (date: Date, coverage: CandleCoverage, historicalOnly = false) => {
@@ -410,6 +481,116 @@ export function usePremarketWorkspace() {
     setThreshold(clamped);
   }, []);
 
+  const setIntervalMinutes = useCallback((value: number) => {
+    setIntervalMinutesState(clampIntervalMinutes(value));
+  }, []);
+
+  const applyEvaluatePayload = useCallback(
+    (payload: PremarketResultResponse, thresholdPct: number) => {
+      setResult(payload);
+      setPremarketResultCache(payload);
+      setThreshold(thresholdPct);
+      const activeNotice = syncNoticeFromResult(payload);
+      if (activeNotice) {
+        setNotice(activeNotice);
+      } else if (monitorActiveRef.current) {
+        setNotice(continuousMonitorNotice(intervalMinutesRef.current, assessmentMode));
+      }
+    },
+    [assessmentMode],
+  );
+
+  const followAfterPostAssessDelay = useCallback(
+    async (runId: string | null | undefined, thresholdPct: number) => {
+      const waitResult = await waitPostAssessRefresh();
+      if (waitResult === "cleared" || !monitorActiveRef.current) {
+        return null;
+      }
+
+      const refreshed = await fetchPremarketResult(runId, { force: true });
+      applyEvaluatePayload(refreshed, thresholdPct);
+
+      if (isPremarketEvaluateTerminal(refreshed.status)) {
+        return refreshed;
+      }
+
+      const polled = await pollPremarketEvaluate(runId, (progress) => {
+        if (!monitorActiveRef.current) return;
+        applyEvaluatePayload(progress, thresholdPct);
+      });
+      if (polled && monitorActiveRef.current) {
+        applyEvaluatePayload(polled, thresholdPct);
+      }
+      return polled ?? refreshed;
+    },
+    [applyEvaluatePayload, waitPostAssessRefresh],
+  );
+
+  const runEvaluateCycle = useCallback(async () => {
+    if (evaluateInFlightRef.current) return;
+    if (assessmentMode === "et" && assessmentError) return;
+    if (
+      assessmentMode === "et" &&
+      candleCoverage &&
+      blocksAssess(assessmentAt, candleCoverage, { historicalOnly: true })
+    ) {
+      return;
+    }
+    if (activeStrategyIds.length === 0) {
+      setError(
+        "No active dynamic strategies — save a screen in Strategy builder and activate it.",
+      );
+      return;
+    }
+
+    evaluateInFlightRef.current = true;
+    setStartPending(true);
+    setError(null);
+    const thresholdPct = threshold;
+
+    try {
+      const payload = await postDynamicEvaluate({
+        strategyIds: activeStrategyIds,
+        ...resolveEvaluateRequest(),
+        options: { signalThresholdPct: thresholdPct },
+      });
+      applyEvaluatePayload(payload, thresholdPct);
+      setStartPending(false);
+
+      if (!isPremarketEvaluateTerminal(payload.status)) {
+        await followAfterPostAssessDelay(payload.runId, thresholdPct);
+      }
+
+      if (monitorActiveRef.current) {
+        setNotice(continuousMonitorNotice(intervalMinutesRef.current, assessmentMode));
+      }
+    } catch (err) {
+      if (isEvaluateConflict(err)) {
+        const existing = await loadResult();
+        if (existing && isPremarketEvaluateActive(existing.status)) {
+          setNotice(syncNoticeFromResult(existing));
+          await followAfterPostAssessDelay(existing.runId, thresholdPct);
+          return;
+        }
+      }
+      setError(resolveError(err));
+    } finally {
+      evaluateInFlightRef.current = false;
+      setStartPending(false);
+    }
+  }, [
+    activeStrategyIds,
+    applyEvaluatePayload,
+    assessmentAt,
+    assessmentError,
+    assessmentMode,
+    candleCoverage,
+    followAfterPostAssessDelay,
+    loadResult,
+    resolveEvaluateRequest,
+    threshold,
+  ]);
+
   const previewBuilderRules = useCallback(
     async (rows: BuilderRuleRow[]) => {
       if (rows.length === 0) {
@@ -458,7 +639,7 @@ export function usePremarketWorkspace() {
   );
 
   const startEvaluate = useCallback(async () => {
-    if (evaluateInFlightRef.current) return;
+    if (monitorActiveRef.current) return;
     if (assessmentMode === "et" && assessmentError) return;
     if (
       assessmentMode === "et" &&
@@ -467,82 +648,95 @@ export function usePremarketWorkspace() {
     ) {
       return;
     }
-
-    evaluateInFlightRef.current = true;
-    setStartPending(true);
-    setError(null);
-    setNotice(null);
-
-    try {
-      if (activeStrategyIds.length === 0) {
-        setError(
-          "No active dynamic strategies — save a screen in Strategy builder and activate it.",
-        );
-        return;
-      }
-      await runEvaluateRequest({
-        strategyIds: activeStrategyIds,
-        ...resolveEvaluateRequest(),
-        options: { signalThresholdPct: threshold },
-      });
-    } catch (err) {
-      if (isEvaluateConflict(err)) {
-        const existing = await loadResult();
-        if (existing && isPremarketEvaluateActive(existing.status)) {
-          setNotice(syncNoticeFromResult(existing));
-          return;
-        }
-      }
-      setError(resolveError(err));
-    } finally {
-      evaluateInFlightRef.current = false;
-      setStartPending(false);
+    if (activeStrategyIds.length === 0) {
+      setError(
+        "No active dynamic strategies — save a screen in Strategy builder and activate it.",
+      );
+      return;
     }
+
+    const minutes = clampIntervalMinutes(intervalMinutesRef.current);
+    setIntervalMinutesState(minutes);
+    intervalMinutesRef.current = minutes;
+
+    monitorActiveRef.current = true;
+    setMonitorActive(true);
+    setError(null);
+    setNotice(continuousMonitorNotice(minutes, assessmentMode));
+
+    clearMonitorTimers();
+
+    evaluateTimerRef.current = window.setInterval(() => {
+      if (!monitorActiveRef.current) return;
+      if (evaluateInFlightRef.current) return;
+      if (isPremarketEvaluateActive(resultRef.current?.status)) return;
+      void runEvaluateCycle();
+    }, minutes * 60_000);
+
+    await runEvaluateCycle();
   }, [
+    activeStrategyIds,
     assessmentAt,
     assessmentError,
     assessmentMode,
     candleCoverage,
-    evaluateGroupLabel,
-    activeStrategyIds,
-    loadResult,
-    resolveEvaluateRequest,
-    runEvaluateRequest,
-    threshold,
+    clearMonitorTimers,
+    runEvaluateCycle,
   ]);
 
   const stopEvaluate = useCallback(async () => {
+    const wasMonitoring = monitorActiveRef.current;
+    monitorActiveRef.current = false;
+    setMonitorActive(false);
+    clearMonitorTimers();
+
     setStopPending(true);
-    setNotice(null);
+    setError(null);
     try {
-      const payload = await postPremarketStop();
-      setNotice(payload.message ?? "Stop requested.");
-      setResult((prev) =>
-        prev ? { ...prev, status: payload.status ?? "stopping", stopped: true } : prev,
-      );
+      if (
+        isPremarketEvaluateActive(resultRef.current?.status) ||
+        evaluateInFlightRef.current
+      ) {
+        const payload = await postPremarketStop();
+        setResult((prev) =>
+          prev ? { ...prev, status: payload.status ?? "stopping", stopped: true } : prev,
+        );
+        setNotice(
+          wasMonitoring
+            ? "Continuous evaluate stopped."
+            : (payload.message ?? "Stop requested."),
+        );
+      } else {
+        setNotice(wasMonitoring ? "Continuous evaluate stopped." : null);
+      }
     } catch (err) {
       setError(resolveError(err));
+      if (wasMonitoring) {
+        setNotice("Continuous evaluate stopped.");
+      }
     } finally {
       setStopPending(false);
     }
-  }, []);
+  }, [clearMonitorTimers]);
 
   const refreshResult = useCallback(async () => {
     setResultLoading(true);
     setError(null);
     try {
       await loadResult(result?.runId);
+      if (monitorActiveRef.current && !isPremarketEvaluateActive(resultRef.current?.status)) {
+        setNotice(continuousMonitorNotice(intervalMinutesRef.current, assessmentMode));
+      }
     } finally {
       setResultLoading(false);
     }
-  }, [loadResult, result?.runId]);
+  }, [assessmentMode, loadResult, result?.runId]);
 
-  const evaluateRunning = startPending || isPremarketEvaluateActive(result?.status);
-  const canStopEvaluate = canStopPremarketEvaluate(
-    result?.status,
-    startPending,
-    result?.canStop,
-  );
+  const evaluateRunning =
+    startPending || monitorActive || isPremarketEvaluateActive(result?.status);
+  const canStopEvaluate =
+    monitorActive ||
+    canStopPremarketEvaluate(result?.status, startPending, result?.canStop);
 
   const activeStrategyCount = countActiveDynamicStrategies(dynamicStrategies);
 
@@ -561,6 +755,9 @@ export function usePremarketWorkspace() {
     evaluateRunning,
     canStopEvaluate,
     stopPending,
+    monitorActive,
+    intervalMinutes,
+    setIntervalMinutes,
     error,
     notice,
     threshold: result?.signalThresholdPct ?? threshold,

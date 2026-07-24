@@ -48,6 +48,7 @@ export function PremarketPage() {
     Boolean(ws.result?.runId) &&
     (Boolean(ws.result?.evaluatedAt) || isPremarketEvaluateTerminal(ws.result?.status));
   const hasActiveRun =
+    ws.monitorActive ||
     ws.startPending ||
     ws.evaluateRunning ||
     (Boolean(ws.result?.runId) && !isPremarketEvaluateTerminal(ws.result?.status));
@@ -128,6 +129,9 @@ export function PremarketPage() {
         canStopEvaluate={ws.canStopEvaluate}
         startPending={ws.startPending}
         stopPending={ws.stopPending}
+        monitorActive={ws.monitorActive}
+        intervalMinutes={ws.intervalMinutes}
+        onIntervalMinutesChange={ws.setIntervalMinutes}
         loading={ws.loading}
         threshold={ws.thresholdInput}
         onThresholdChange={ws.setThresholdPct}
