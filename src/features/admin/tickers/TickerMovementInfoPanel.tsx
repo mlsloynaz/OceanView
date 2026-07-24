@@ -137,9 +137,35 @@ export function TickerMovementInfoPanel({
   const exhaustion = Boolean(p.exhaustionRisk);
   const remaining = pct(p.remainingMfePct) || pct(p.moveCapRemainingPct);
   const alreadyRan = pct(p.currentMfePct);
-  const typicalMove = pct(p.moveCapPct) || pct(p.expectedMfePct);
-  const stretchMove = pct(p.stretchMoveCapPct) || pct(p.p75MfePct);
-  const adverse = pct(p.expectedMaePct);
+  const typicalMovePct =
+    typeof p.moveCapPct === "number" && !Number.isNaN(p.moveCapPct)
+      ? p.moveCapPct
+      : typeof p.expectedMfePct === "number" && !Number.isNaN(p.expectedMfePct)
+        ? p.expectedMfePct
+        : null;
+  const stretchMovePct =
+    typeof p.stretchMoveCapPct === "number" && !Number.isNaN(p.stretchMoveCapPct)
+      ? p.stretchMoveCapPct
+      : typeof p.p75MfePct === "number" && !Number.isNaN(p.p75MfePct)
+        ? p.p75MfePct
+        : null;
+  const adversePct =
+    typeof p.expectedMaePct === "number" && !Number.isNaN(p.expectedMaePct)
+      ? p.expectedMaePct
+      : null;
+  const refPx =
+    typeof p.referencePrice === "number" && !Number.isNaN(p.referencePrice) && p.referencePrice > 0
+      ? p.referencePrice
+      : null;
+  const typicalMove = typicalMovePct != null ? pct(typicalMovePct) : null;
+  const stretchMove = stretchMovePct != null ? pct(stretchMovePct) : null;
+  const adverse = adversePct != null ? pct(adversePct) : null;
+  const typicalMoveDollars =
+    refPx != null && typicalMovePct != null ? refPx * (typicalMovePct / 100) : null;
+  const stretchMoveDollars =
+    refPx != null && stretchMovePct != null ? refPx * (stretchMovePct / 100) : null;
+  const adverseMoveDollars =
+    refPx != null && adversePct != null ? refPx * (adversePct / 100) : null;
   const adverseP75 = pct(p.p75MaePct);
   const pullback = pct(p.pullbackPct);
   const suggestedStop = pct(p.suggestedStopPct);
@@ -196,11 +222,21 @@ export function TickerMovementInfoPanel({
           value={typicalMove ? `${typicalMove} of the stock price` : null}
           hint="Median run after a historical Bollinger close breakout."
         />
+        <Metric
+          label="Typical favorable move ($)"
+          value={money(typicalMoveDollars)}
+          hint="Last close × typical favorable move %."
+        />
         <Metric label="Stronger exit price" value={money(p.stretchExitPrice)} />
         <Metric
           label="Stronger favorable move"
           value={stretchMove ? `${stretchMove} of the stock price` : null}
           hint="Upper-range history (75th percentile)."
+        />
+        <Metric
+          label="Stronger favorable move ($)"
+          value={money(stretchMoveDollars)}
+          hint="Last close × stronger favorable move %."
         />
         <Metric
           label="Room left in a typical move"
@@ -217,6 +253,11 @@ export function TickerMovementInfoPanel({
           label="Typical adverse move (risk)"
           value={adverse ? `${adverse} of the stock price` : null}
           hint={adverseP75 ? `75th percentile adverse: ${adverseP75}` : undefined}
+        />
+        <Metric
+          label="Typical adverse move ($)"
+          value={money(adverseMoveDollars)}
+          hint="Last close × typical adverse move %."
         />
       </dl>
 

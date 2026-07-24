@@ -227,6 +227,26 @@ export async function patchTickerName(symbol: string, name: string | null): Prom
   return patchTicker(symbol, { name });
 }
 
+export async function deleteTicker(symbol: string): Promise<{ symbol: string; deleted: boolean }> {
+  const upper = symbol.trim().toUpperCase();
+  if (!upper) {
+    throw new Error("Symbol is required.");
+  }
+  if (USE_MOCK) {
+    await delay();
+    const index = mockCatalog.findIndex((row) => row.symbol === upper);
+    if (index < 0) {
+      throw new Error(`Unknown symbol: ${upper}`);
+    }
+    mockCatalog.splice(index, 1);
+    return { symbol: upper, deleted: true };
+  }
+  return fetchJson<{ symbol: string; deleted: boolean }>(
+    `/tickers/${encodeURIComponent(upper)}`,
+    { method: "DELETE" },
+  );
+}
+
 export async function patchTickersActive(
   symbols: string[],
   active: boolean,

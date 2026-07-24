@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   createTicker,
+  deleteTicker,
   fetchMovementProfilesForSymbols,
   getBestFitWatchlist,
   getTickersCatalog,
@@ -388,6 +389,40 @@ export function useTickersPane(open: boolean) {
     }
   }, []);
 
+  const removeTicker = useCallback(async (symbol: string): Promise<boolean> => {
+    const upper = symbol.toUpperCase();
+    const ok = window.confirm(
+      `Delete ${upper} from the catalog?\n\nThis removes it from Watchlist / Market / Premarket. Related movement and tradability profiles are deleted too.`,
+    );
+    if (!ok) return false;
+
+    setMessage(null);
+    setError(null);
+    setPending((prev) => ({ ...prev, [upper]: true }));
+    try {
+      await deleteTicker(upper);
+      setTickers((prev) => prev.filter((row) => row.symbol.toUpperCase() !== upper));
+      setExpandedSymbol((prev) => (prev === upper ? null : prev));
+      setProfileCache((prev) => {
+        if (!(upper in prev)) return prev;
+        const next = { ...prev };
+        delete next[upper];
+        return next;
+      });
+      setMessage(`${upper} deleted from the catalog.`);
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete ticker.");
+      return false;
+    } finally {
+      setPending((prev) => {
+        const next = { ...prev };
+        delete next[upper];
+        return next;
+      });
+    }
+  }, []);
+
   const pageActiveState = useMemo((): "all" | "none" | "mixed" => {
     if (pageTickers.length === 0) return "none";
     if (pageCounts.active === pageTickers.length) return "all";
@@ -484,6 +519,7 @@ export function useTickersPane(open: boolean) {
     addTicker,
     setActive,
     renameTicker,
+    removeTicker,
     activatePage,
     deactivatePage,
     activateAll,

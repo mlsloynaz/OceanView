@@ -22,6 +22,7 @@ type Props = {
   onToggleExpanded: (symbol: string) => void;
   onToggleActive: (symbol: string, active: boolean) => void;
   onRename: (symbol: string, name: string) => Promise<boolean>;
+  onDelete: (symbol: string) => void;
   onPageActiveChange: (active: boolean) => void;
 };
 
@@ -57,6 +58,7 @@ export function TickersTable({
   onToggleExpanded,
   onToggleActive,
   onRename,
+  onDelete,
   onPageActiveChange,
 }: Props) {
   const pageCheckboxRef = useRef<HTMLInputElement>(null);
@@ -228,19 +230,30 @@ export function TickersTable({
                   </span>
                 </div>
 
-                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs text-ocean-sand">
-                  <span className="sr-only">Active for Market and Candles</span>
-                  <input
-                    type="checkbox"
-                    checked={row.active}
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
                     disabled={rowPending}
-                    onChange={(event) => onToggleActive(row.symbol, event.target.checked)}
-                    className="h-4 w-4 rounded border-ocean-mid/60 bg-ocean-deep accent-ocean-teal disabled:opacity-50"
-                  />
-                  <span className="hidden sm:inline" aria-hidden>
-                    {rowPending ? "…" : row.active ? "On" : "Off"}
-                  </span>
-                </label>
+                    onClick={() => onDelete(row.symbol)}
+                    className="rounded px-1.5 py-0.5 text-[11px] font-medium text-ocean-danger hover:bg-ocean-danger-muted/60 disabled:opacity-50"
+                    title={`Delete ${row.symbol} from catalog`}
+                  >
+                    Delete
+                  </button>
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-ocean-sand">
+                    <span className="sr-only">Active for Market and Candles</span>
+                    <input
+                      type="checkbox"
+                      checked={row.active}
+                      disabled={rowPending}
+                      onChange={(event) => onToggleActive(row.symbol, event.target.checked)}
+                      className="h-4 w-4 rounded border-ocean-mid/60 bg-ocean-deep accent-ocean-teal disabled:opacity-50"
+                    />
+                    <span className="hidden sm:inline" aria-hidden>
+                      {rowPending ? "…" : row.active ? "On" : "Off"}
+                    </span>
+                  </label>
+                </div>
               </div>
 
               {expanded && (

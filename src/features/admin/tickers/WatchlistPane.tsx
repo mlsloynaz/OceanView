@@ -50,6 +50,7 @@ export function WatchlistPane({ onBack }: Props) {
     deactivateAll,
     setActive,
     renameTicker,
+    removeTicker,
   } = useTickersPane(true);
 
   const filters: { id: TickerCatalogFilter; label: string; count: number }[] = [
@@ -184,6 +185,7 @@ export function WatchlistPane({ onBack }: Props) {
         onPageActiveChange={(active) => (active ? activatePage() : deactivatePage())}
         onToggleActive={setActive}
         onRename={renameTicker}
+        onDelete={(symbol) => void removeTicker(symbol)}
         emptyMessage={search.trim() ? `No tickers match “${search.trim()}”.` : undefined}
       />
 
