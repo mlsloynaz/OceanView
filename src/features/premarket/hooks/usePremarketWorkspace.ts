@@ -638,6 +638,60 @@ export function usePremarketWorkspace() {
     ],
   );
 
+  /** One-shot evaluate (simulate / no continuous polling). */
+  const evaluateAdhoc = useCallback(async () => {
+    if (monitorActiveRef.current || evaluateInFlightRef.current) return;
+    if (assessmentMode === "et" && assessmentError) return;
+    if (
+      assessmentMode === "et" &&
+      candleCoverage &&
+      blocksAssess(assessmentAt, candleCoverage, { historicalOnly: true })
+    ) {
+      return;
+    }
+    if (activeStrategyIds.length === 0) {
+      setError(
+        "No active dynamic strategies — save a screen in Strategy builder and activate it.",
+      );
+      return;
+    }
+
+    evaluateInFlightRef.current = true;
+    setStartPending(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await runEvaluateRequest({
+        strategyIds: activeStrategyIds,
+        ...resolveEvaluateRequest(),
+        options: { signalThresholdPct: threshold },
+      });
+    } catch (err) {
+      if (isEvaluateConflict(err)) {
+        const existing = await loadResult();
+        if (existing && isPremarketEvaluateActive(existing.status)) {
+          setNotice(syncNoticeFromResult(existing));
+          return;
+        }
+      }
+      setError(resolveError(err));
+    } finally {
+      evaluateInFlightRef.current = false;
+      setStartPending(false);
+    }
+  }, [
+    activeStrategyIds,
+    assessmentAt,
+    assessmentError,
+    assessmentMode,
+    candleCoverage,
+    loadResult,
+    resolveEvaluateRequest,
+    runEvaluateRequest,
+    threshold,
+  ]);
+
+  /** Continuous evaluate on an interval (Start). */
   const startEvaluate = useCallback(async () => {
     if (monitorActiveRef.current) return;
     if (assessmentMode === "et" && assessmentError) return;
@@ -771,6 +825,7 @@ export function usePremarketWorkspace() {
     coverageBounds,
     setAssessmentMode,
     setAssessmentFromLocal,
+    evaluateAdhoc,
     startEvaluate,
     previewBuilderRules,
     stopEvaluate,

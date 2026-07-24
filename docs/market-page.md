@@ -94,6 +94,7 @@ Returns `{ version, updatedAt, strategies[] }`. Each strategy: `id`, `name`, `sh
 
 Only strategies with **`active: true`** appear in Market grids, rule cards, and Assess. Inactive playbook entries stay in the JSON for reference but are hidden in the UI. See [Strategy catalog](#strategy-catalog-source-of-truth).
 
+**Entry window:** On Assess (Live “now” or Simulate ET time), strategies with a structured `entryWindow` are included only when that clock falls inside `startEt`–`endEt`. Strategies outside the window are omitted from scoring (not shown as pending / out-of-window rows).
 ### Snapshots — `GET /market/{mode}/snapshot`
 
 Response shape: `{ runId, items[] }`.

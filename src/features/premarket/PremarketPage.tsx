@@ -143,6 +143,7 @@ export function PremarketPage() {
         coverageMax={ws.coverageBounds?.max}
         onAssessmentModeChange={ws.setAssessmentMode}
         onAssessmentTimeChange={ws.setAssessmentFromLocal}
+        onEvaluateAdhoc={() => void ws.evaluateAdhoc()}
         onStart={() => void ws.startEvaluate()}
         onStop={() => void ws.stopEvaluate()}
         onRefresh={() => void ws.refreshResult()}

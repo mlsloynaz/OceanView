@@ -214,6 +214,7 @@ Mount: call `loadResult()` once (shows cached result immediately if present, the
 ### Simulation time (v1)
 
 - Default: **omit** `simulationTimeEt` in start body (API uses today 9:25 ET).
+- Strategies with a structured `entryWindow` are evaluated only when Live “now” or Simulate ET time falls inside that window; otherwise they are omitted from the run.
 - **Advanced (optional v1.1):** datetime-local input hidden behind “Advanced” — format with same helper as Market (`formatSimulationTimeEt` from `assessment-time.ts`).
 
 ### Threshold (v1)

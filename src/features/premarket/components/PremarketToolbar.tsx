@@ -31,6 +31,7 @@ type Props = {
   coverageMax?: string;
   onAssessmentModeChange: (mode: AssessmentTimeMode) => void;
   onAssessmentTimeChange: (localValue: string) => void;
+  onEvaluateAdhoc: () => void;
   onStart: () => void;
   onStop: () => void;
   onRefresh: () => void;
@@ -61,6 +62,7 @@ export function PremarketToolbar({
   coverageMax,
   onAssessmentModeChange,
   onAssessmentTimeChange,
+  onEvaluateAdhoc,
   onStart,
   onStop,
   onRefresh,
@@ -68,9 +70,13 @@ export function PremarketToolbar({
   const busy = evaluateRunning || stopPending || loading;
   const evaluateControlsBusy = evaluateRunning || stopPending;
   const refreshDisabled = stopPending || loading;
+  const adhocDisabled =
+    monitorActive || busy || activeStrategyCount === 0 || Boolean(assessmentError);
   const startDisabled =
     monitorActive || busy || activeStrategyCount === 0 || Boolean(assessmentError);
   const intervalDisabled = monitorActive || stopPending;
+  const adhocPending = startPending && !monitorActive;
+  const startLoopPending = startPending && monitorActive;
 
   return (
     <div className="space-y-3 rounded-xl border border-ocean-mid/50 bg-ocean-surface p-4">
@@ -176,6 +182,24 @@ export function PremarketToolbar({
         <button
           type="button"
           className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105")}
+          disabled={adhocDisabled}
+          title={
+            monitorActive
+              ? "Continuous evaluate is already running — hit Stop first"
+              : activeStrategyCount === 0
+                ? "Activate at least one dynamic strategy first"
+                : `Run one evaluate of ${activeStrategyCount} dynamic strateg${activeStrategyCount === 1 ? "y" : "ies"} (no interval polling)`
+          }
+          onClick={onEvaluateAdhoc}
+        >
+          {adhocPending ? "Evaluating…" : "Evaluate adhoc"}
+        </button>
+        <button
+          type="button"
+          className={cn(
+            BTN,
+            "border border-ocean-teal/50 bg-ocean-deep text-ocean-teal-dim hover:border-ocean-teal hover:text-ocean-teal dark:text-ocean-teal",
+          )}
           disabled={startDisabled}
           title={
             monitorActive
@@ -186,7 +210,7 @@ export function PremarketToolbar({
           }
           onClick={onStart}
         >
-          {startPending ? "Evaluating…" : "Start"}
+          {startLoopPending ? "Evaluating…" : "Start"}
         </button>
         <label
           htmlFor="premarket-evaluate-interval"
@@ -257,9 +281,11 @@ export function PremarketToolbar({
           <strong className="text-ocean-foam">
             {monitorActive && !startPending
               ? "Monitoring"
-              : startPending
-                ? "Starting…"
-                : formatPremarketStatus(result?.status)}
+              : adhocPending
+                ? "Evaluating…"
+                : startLoopPending
+                  ? "Starting…"
+                  : formatPremarketStatus(result?.status)}
           </strong>
         </span>
         {result?.progress?.total != null && result.progress.total > 0 && (
