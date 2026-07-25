@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { cn } from "@/shared/lib/cn";
 import { SimulationTimeControl } from "@/shared/components/SimulationTimeControl";
+import { PollControls } from "@/shared/components/PollControls";
 import type { AssessmentTimeMode } from "@/features/market/lib/assessment-time";
 import { formatPremarketStatus, formatSimTimeEt } from "../display";
 import type { PremarketResultResponse } from "../types";
@@ -69,7 +70,6 @@ export function PremarketToolbar({
 }: Props) {
   const busy = evaluateRunning || stopPending || loading;
   const evaluateControlsBusy = evaluateRunning || stopPending;
-  const refreshDisabled = stopPending || loading;
   const adhocDisabled =
     monitorActive || busy || activeStrategyCount === 0 || Boolean(assessmentError);
   const startDisabled =
@@ -194,86 +194,43 @@ export function PremarketToolbar({
         >
           {adhocPending ? "Evaluating…" : "Evaluate adhoc"}
         </button>
-        <button
-          type="button"
-          className={cn(
-            BTN,
-            "border border-ocean-teal/50 bg-ocean-deep text-ocean-teal-dim hover:border-ocean-teal hover:text-ocean-teal dark:text-ocean-teal",
-          )}
-          disabled={startDisabled}
-          title={
+        <PollControls
+          density="default"
+          monitorActive={monitorActive}
+          startPending={startPending}
+          stopPending={stopPending}
+          canStop={canStopEvaluate}
+          refreshPending={loading}
+          intervalValue={intervalMinutes}
+          intervalUnit="min"
+          units={["min"]}
+          intervalMax={60}
+          onIntervalValueChange={onIntervalMinutesChange}
+          onStart={onStart}
+          onStop={onStop}
+          onRefresh={onRefresh}
+          showRefresh
+          startDisabled={startDisabled}
+          intervalDisabled={intervalDisabled}
+          intervalInputId="premarket-evaluate-interval"
+          startLabel={startLoopPending ? "Evaluating…" : "Start"}
+          refreshLabel={loading ? "Loading…" : "Refresh result"}
+          monitoringMessage={
             monitorActive
-              ? "Continuous evaluate is already running — hit Stop first"
-              : activeStrategyCount === 0
-                ? "Activate at least one dynamic strategy first"
-                : `Start continuous evaluate every ${intervalMinutes} min`
+              ? `Monitoring — next evaluate every ${intervalMinutes} min · result refresh ~20s after each assess starts${
+                  assessmentMode === "et"
+                    ? " · Simulate mode reuses the same assessment time each tick"
+                    : ""
+                }`
+              : null
           }
-          onClick={onStart}
-        >
-          {startLoopPending ? "Evaluating…" : "Start"}
-        </button>
-        <label
-          htmlFor="premarket-evaluate-interval"
-          className="flex items-center gap-1.5 text-xs text-ocean-sand"
-        >
-          Every
-          <input
-            id="premarket-evaluate-interval"
-            type="number"
-            min={1}
-            max={60}
-            step={1}
-            value={intervalMinutes}
-            disabled={intervalDisabled}
-            onChange={(e) => {
-              const next = Number.parseInt(e.target.value, 10);
-              if (!Number.isNaN(next)) onIntervalMinutesChange(next);
-            }}
-            className="w-14 rounded-md border border-ocean-mid/50 bg-ocean-deep px-2 py-1 text-xs tabular-nums text-ocean-foam focus:border-ocean-teal/60 focus:outline-none disabled:opacity-50"
-          />
-          min
-        </label>
-        <button
-          type="button"
-          className={cn(
-            BTN,
-            "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-ocean-teal/50",
-          )}
-          disabled={!canStopEvaluate || stopPending}
-          onClick={onStop}
-          title={
-            monitorActive
-              ? "Stop continuous evaluate and cancel any in-flight run"
-              : "Request stop after the current symbol"
-          }
-        >
-          {stopPending ? "Stopping…" : "Stop"}
-        </button>
-        <button
-          type="button"
-          className={cn(
-            BTN,
-            "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-ocean-teal/50",
-          )}
-          disabled={refreshDisabled}
-          onClick={onRefresh}
-        >
-          {loading ? "Loading…" : "Refresh result"}
-        </button>
+          ariaLabel="Continuous evaluate"
+          className="inline-flex flex-wrap items-center"
+        />
         <span className="ml-auto text-xs text-ocean-sand">
           {activeStrategyCount} active dynamic strateg{activeStrategyCount === 1 ? "y" : "ies"}
         </span>
       </div>
-
-      {monitorActive ? (
-        <p className="text-[11px] text-ocean-teal-dim dark:text-ocean-teal" role="status">
-          Monitoring — next evaluate every {intervalMinutes} min · result refresh ~20s after each
-          assess starts
-          {assessmentMode === "et"
-            ? " · Simulate mode reuses the same assessment time each tick"
-            : ""}
-        </p>
-      ) : null}
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ocean-sand">
         <span>

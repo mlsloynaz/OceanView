@@ -8,6 +8,8 @@ import {
   writeStoredMarketMode,
 } from "./lib/market-routes";
 import type { MarketViewMode } from "./types";
+import { MarketAlarmPanel } from "./alarm/MarketAlarmPanel";
+import { useMarketAlarms } from "./alarm/useMarketAlarms";
 import { AssessmentTimeControl } from "./components/AssessmentTimeControl";
 import { MarketSearchInput } from "./components/MarketSearchInput";
 import { MarketSummaryStrip } from "./components/MarketSummaryStrip";
@@ -21,6 +23,7 @@ import { TickerDetailModal } from "./components/TickerDetailModal";
 export function MarketPage() {
   const { mode: modeParam } = useParams<{ mode: string }>();
   const navigate = useNavigate();
+  const alarms = useMarketAlarms();
 
   useEffect(() => {
     if (!isMarketViewMode(modeParam)) {
@@ -171,6 +174,27 @@ export function MarketPage() {
           No assessment run yet. Click <strong className="text-ocean-foam">Assess</strong> to evaluate active tickers.
         </p>
       )}
+
+      <MarketAlarmPanel
+        watches={alarms.watches}
+        tickers={alarms.tickers}
+        tickersLoading={alarms.tickersLoading}
+        tickersError={alarms.tickersError}
+        formError={alarms.formError}
+        banner={alarms.banner}
+        metPopup={alarms.metPopup}
+        metCount={alarms.metCount}
+        runningCount={alarms.runningCount}
+        onClearBanner={alarms.clearMetBanner}
+        onClearMetPopup={alarms.clearMetPopup}
+        onAdd={alarms.addWatch}
+        onStart={alarms.startWatch}
+        onStop={alarms.stopWatch}
+        onRemove={alarms.removeWatch}
+        onCheckNow={(id) => void alarms.runCheckNow(id)}
+        onUpdateInterval={alarms.updateWatchInterval}
+        onRequestNotify={() => void alarms.requestNotifyPermission()}
+      />
 
       {showGrids && viewMode === "strategies" && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">

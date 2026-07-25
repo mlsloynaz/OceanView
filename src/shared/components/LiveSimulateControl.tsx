@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import {
   formatAssessmentDisplay,
@@ -32,7 +32,6 @@ type Props = {
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_RE = /^\d{1,2}:\d{2}$/;
 
 function splitDatetimeLocal(value: string): { date: string; time: string } {
   const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
@@ -53,11 +52,6 @@ function normalizeTimeHm(raw: string): string | null {
   const minute = Number(match[2]);
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
-function boundDate(bound: string | undefined): string | undefined {
-  if (!bound) return undefined;
-  return bound.length >= 10 ? bound.slice(0, 10) : bound;
 }
 
 function LiveEtClock() {
@@ -100,8 +94,8 @@ export function LiveSimulateControl({
   onSimulateChange,
   simulateInputId = "live-simulate-input",
   simulateLabel,
-  simulateMin,
-  simulateMax,
+  simulateMin: _simulateMin,
+  simulateMax: _simulateMax,
   simulateInputError = false,
   showLiveClock = true,
   liveHint,
@@ -111,10 +105,13 @@ export function LiveSimulateControl({
   const parsed = splitDatetimeLocal(simulateValue);
   const [dateDraft, setDateDraft] = useState(parsed.date);
   const [timeDraft, setTimeDraft] = useState(parsed.time);
+  const dateFocusedRef = useRef(false);
+  const timeFocusedRef = useRef(false);
 
+  // Don't clobber drafts while the user is editing (delete / type mid-value).
   useEffect(() => {
-    setDateDraft(parsed.date);
-    setTimeDraft(parsed.time);
+    if (!dateFocusedRef.current) setDateDraft(parsed.date);
+    if (!timeFocusedRef.current) setTimeDraft(parsed.time);
   }, [parsed.date, parsed.time]);
 
   const isCompact = variant === "compact";
@@ -135,8 +132,6 @@ export function LiveSimulateControl({
     "border-transparent text-ocean-sand hover:border-ocean-mid/50 hover:text-ocean-foam";
 
   const showSimulateInput = mode === "simulate" && simulateInput && onSimulateChange;
-  const dateMin = boundDate(simulateMin);
-  const dateMax = boundDate(simulateMax);
 
   const commitDatetime = (date: string, time: string) => {
     const normalizedTime = normalizeTimeHm(time);
@@ -206,24 +201,23 @@ export function LiveSimulateControl({
               autoComplete="off"
               spellCheck={false}
               value={dateDraft}
-              min={dateMin}
-              max={dateMax}
               disabled={inputDisabled}
               aria-invalid={simulateInputError || undefined}
-              title="Session date (YYYY-MM-DD) — type or paste"
+              title="Session date (YYYY-MM-DD) — type freely, then Tab or Enter"
               className={cn(fieldClass(simulateInputError, inputDisabled), "w-[7.25rem] tabular-nums")}
-              onChange={(e) => {
-                const date = e.target.value;
-                setDateDraft(date);
-                if (DATE_RE.test(date)) commitDatetime(date, timeDraft);
+              onFocus={() => {
+                dateFocusedRef.current = true;
               }}
+              onChange={(e) => setDateDraft(e.target.value)}
               onBlur={() => {
+                dateFocusedRef.current = false;
                 if (!commitDatetime(dateDraft, timeDraft)) setDateDraft(parsed.date);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
                   if (!commitDatetime(dateDraft, timeDraft)) setDateDraft(parsed.date);
+                  else (e.target as HTMLInputElement).blur();
                 }
               }}
             />
@@ -242,12 +236,12 @@ export function LiveSimulateControl({
               aria-invalid={simulateInputError || undefined}
               title="Eastern time (24h HH:MM) — type freely, e.g. 12:00 or 09:30"
               className={cn(fieldClass(simulateInputError, inputDisabled), "w-[4.5rem] tabular-nums")}
-              onChange={(e) => {
-                const time = e.target.value;
-                setTimeDraft(time);
-                if (normalizeTimeHm(time) && dateDraft) commitDatetime(dateDraft, time);
+              onFocus={() => {
+                timeFocusedRef.current = true;
               }}
+              onChange={(e) => setTimeDraft(e.target.value)}
               onBlur={() => {
+                timeFocusedRef.current = false;
                 const normalized = normalizeTimeHm(timeDraft);
                 if (normalized && commitDatetime(dateDraft || parsed.date, normalized)) {
                   setTimeDraft(normalized);
@@ -261,6 +255,7 @@ export function LiveSimulateControl({
                   const normalized = normalizeTimeHm(timeDraft);
                   if (normalized && commitDatetime(dateDraft || parsed.date, normalized)) {
                     setTimeDraft(normalized);
+                    (e.target as HTMLInputElement).blur();
                   } else {
                     setTimeDraft(parsed.time);
                   }
@@ -274,22 +269,74 @@ export function LiveSimulateControl({
             <label htmlFor={simulateInputId} className="shrink-0">
               {simulateLabel ?? "Session"}
             </label>
-            <input
+            <DateOnlyInput
               id={simulateInputId}
-              type="text"
-              inputMode="numeric"
-              placeholder="YYYY-MM-DD"
-              autoComplete="off"
-              spellCheck={false}
               value={simulateValue}
               disabled={inputDisabled}
-              aria-invalid={simulateInputError || undefined}
-              className={cn(fieldClass(simulateInputError, inputDisabled), "w-[7.25rem] tabular-nums")}
-              onChange={(e) => onSimulateChange?.(e.target.value)}
+              error={simulateInputError}
+              onCommit={(next) => onSimulateChange?.(next)}
             />
           </div>
         )
       ) : null}
     </div>
+  );
+}
+
+/** Single date field — draft while typing, commit on blur/Enter. */
+function DateOnlyInput({
+  id,
+  value,
+  disabled,
+  error,
+  onCommit,
+}: {
+  id: string;
+  value: string;
+  disabled: boolean;
+  error: boolean;
+  onCommit: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const focusedRef = useRef(false);
+
+  useEffect(() => {
+    if (!focusedRef.current) setDraft(value);
+  }, [value]);
+
+  return (
+    <input
+      id={id}
+      type="text"
+      inputMode="numeric"
+      placeholder="YYYY-MM-DD"
+      autoComplete="off"
+      spellCheck={false}
+      value={draft}
+      disabled={disabled}
+      aria-invalid={error || undefined}
+      title="Session date (YYYY-MM-DD) — type freely, then Tab or Enter"
+      className={cn(fieldClass(error, disabled), "w-[7.25rem] tabular-nums")}
+      onFocus={() => {
+        focusedRef.current = true;
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        focusedRef.current = false;
+        if (DATE_RE.test(draft.trim())) onCommit(draft.trim());
+        else setDraft(value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (DATE_RE.test(draft.trim())) {
+            onCommit(draft.trim());
+            (e.target as HTMLInputElement).blur();
+          } else {
+            setDraft(value);
+          }
+        }
+      }}
+    />
   );
 }

@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { useStrategiesPane } from "@/features/admin/strategies/hooks/useStrategiesPane";
 import { useAuth } from "@/shared/auth/AuthProvider";
-import { PremarketAlarmPanel } from "./components/PremarketAlarmPanel";
 import { PremarketAuxPanels } from "./components/PremarketAuxPanels";
 import { PremarketBanner } from "./components/PremarketBanner";
 import { PremarketBestResults } from "./components/PremarketBestResults";
@@ -9,7 +8,6 @@ import { PremarketEmptyState } from "./components/PremarketEmptyState";
 import { PremarketStrategySection } from "./components/PremarketStrategySection";
 import { PremarketToolbar } from "./components/PremarketToolbar";
 import { useBestResultMonitor } from "./hooks/useBestResultMonitor";
-import { usePremarketAlarms } from "./hooks/usePremarketAlarms";
 import { usePremarketWorkspace } from "./hooks/usePremarketWorkspace";
 import {
   anyTickerMeetsThreshold,
@@ -22,10 +20,6 @@ export function PremarketPage() {
   const { isAdmin } = useAuth();
   const ws = usePremarketWorkspace();
   const builder = useStrategiesPane({ enabled: isAdmin });
-  const alarms = usePremarketAlarms({
-    strategies: ws.dynamicStrategies,
-    thresholdPct: ws.thresholdInput,
-  });
 
   const displayThreshold = ws.thresholdInput;
   const rawStrategies = ws.result?.strategies ?? [];
@@ -82,9 +76,11 @@ export function PremarketPage() {
               .
             </>
           ) : null}{" "}
-          Extended-hours bars stay in memory only. Use{" "}
-          <strong className="font-medium text-ocean-foam">Alarm</strong> to watch a custom ticker +
-          strategy on a candle poll interval.
+          Extended-hours bars stay in memory only. Rule alarms (confirmation candle) live on{" "}
+          <Link to="/market" className="text-ocean-teal hover:underline">
+            Market
+          </Link>
+          .
         </p>
       </div>
 
@@ -170,28 +166,6 @@ export function PremarketPage() {
           {ws.activeStrategyCount === 1 ? "y" : "ies"} ({ws.evaluateGroupLabel})…
         </p>
       )}
-
-      <PremarketAlarmPanel
-        watches={alarms.watches}
-        tickers={alarms.tickers}
-        tickersLoading={alarms.tickersLoading}
-        tickersError={alarms.tickersError}
-        formError={alarms.formError}
-        banner={alarms.banner}
-        activeStrategies={alarms.activeStrategies}
-        metCount={alarms.metCount}
-        runningCount={alarms.runningCount}
-        thresholdPct={
-          displayThreshold > 0 ? displayThreshold : 50
-        }
-        onClearBanner={alarms.clearMetBanner}
-        onAdd={alarms.addWatch}
-        onStart={alarms.startWatch}
-        onStop={alarms.stopWatch}
-        onRemove={alarms.removeWatch}
-        onCheckNow={(id) => void alarms.runCheckNow(id)}
-        onRequestNotify={() => void alarms.requestNotifyPermission()}
-      />
 
       {hasResults && (
         <div className="space-y-4">

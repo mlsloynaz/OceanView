@@ -11,24 +11,17 @@ import {
   liveSimulateToAssessment,
 } from "@/shared/components/SimulationTimeControl";
 import { LiveSimulateControl } from "@/shared/components/LiveSimulateControl";
+import {
+  PollControls,
+  type PollIntervalUnit,
+} from "@/shared/components/PollControls";
 import { cn } from "@/shared/lib/cn";
 
-export type PollIntervalUnit = "min" | "sec";
+export type { PollIntervalUnit };
 
 const BTN =
   "rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
-const BTN_SECONDARY = cn(
-  BTN,
-  "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-ocean-teal/50",
-);
-const BTN_PRIMARY = cn(
-  BTN,
-  "bg-ocean-teal text-ocean-deep hover:brightness-105",
-);
-const BTN_TEAL_OUTLINE = cn(
-  BTN,
-  "border border-ocean-teal/50 bg-ocean-deep text-ocean-teal-dim hover:border-ocean-teal hover:text-ocean-teal dark:text-ocean-teal",
-);
+const BTN_PRIMARY = cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105");
 
 type Props = {
   mode: AssessmentTimeMode;
@@ -85,8 +78,6 @@ export function AssessmentTimeControl({
   const outOfCoverage = blocksAssess(assessAt, coverage, { historicalOnly: mode === "et" });
   const busy = pending || stopPending;
   const assessDisabled = busy || monitorActive || outOfCoverage;
-  const startDisabled = busy || monitorActive || outOfCoverage;
-  const intervalDisabled = monitorActive || stopPending;
   const bounds = coverageBoundsForInput(coverage);
   const intervalLabel = intervalUnit === "min" ? "min" : "sec";
 
@@ -134,90 +125,33 @@ export function AssessmentTimeControl({
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <label
-          htmlFor="market-assess-interval"
-          className="flex items-center gap-1 text-[11px] text-ocean-sand"
-        >
-          Every
-          <input
-            id="market-assess-interval"
-            type="number"
-            min={1}
-            max={intervalUnit === "min" ? 60 : 3600}
-            step={1}
-            value={intervalValue}
-            disabled={intervalDisabled}
-            onChange={(e) => {
-              const next = Number.parseInt(e.target.value, 10);
-              if (!Number.isNaN(next)) onIntervalValueChange(next);
-            }}
-            className="w-14 rounded-md border border-ocean-mid/50 bg-ocean-deep px-2 py-1 text-[11px] tabular-nums text-ocean-foam focus:border-ocean-teal/60 focus:outline-none disabled:opacity-50"
-          />
-          <select
-            aria-label="Interval unit"
-            value={intervalUnit}
-            disabled={intervalDisabled}
-            onChange={(e) => onIntervalUnitChange(e.target.value === "sec" ? "sec" : "min")}
-            className="rounded-md border border-ocean-mid/50 bg-ocean-deep px-1.5 py-1 text-[11px] text-ocean-foam focus:border-ocean-teal/60 focus:outline-none disabled:opacity-50"
-          >
-            <option value="min">min</option>
-            <option value="sec">sec</option>
-          </select>
-        </label>
-
-        <div
-          className="inline-flex items-center gap-1.5"
-          role="group"
-          aria-label="Continuous assess"
-        >
-          <button
-            type="button"
-            onClick={onStartPolling}
-            disabled={startDisabled}
-            title={
-              monitorActive
-                ? "Continuous assess is already running — hit Stop first"
-                : `Start continuous assess every ${intervalValue} ${intervalLabel}`
-            }
-            className={BTN_TEAL_OUTLINE}
-          >
-            {pending && monitorActive ? "…" : "Start"}
-          </button>
-
-          <button
-            type="button"
-            onClick={onStop}
-            disabled={!canStop || stopPending}
-            title={
-              monitorActive
-                ? "Stop continuous assess and cancel any in-flight run"
-                : "Request stop after the current symbol"
-            }
-            className={BTN_SECONDARY}
-          >
-            {stopPending ? "Stopping…" : "Stop"}
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={onRefreshResult}
-          disabled={refreshPending || stopPending}
-          title="Reload the latest assessment snapshot"
-          className={BTN_SECONDARY}
-        >
-          {refreshPending ? "Loading…" : "Refresh result"}
-        </button>
-      </div>
-
-      {monitorActive ? (
-        <p className="text-[11px] text-ocean-teal-dim dark:text-ocean-teal" role="status">
-          Monitoring — next assess every {intervalValue} {intervalLabel}
-          {mode === "et" ? " · Simulate reuses the same time each tick" : ""}
-          . Results update when each run finishes. Strategies outside their entry window are skipped.
-        </p>
-      ) : null}
+      <PollControls
+        density="compact"
+        monitorActive={monitorActive}
+        startPending={pending}
+        stopPending={stopPending}
+        canStop={canStop}
+        refreshPending={refreshPending}
+        intervalValue={intervalValue}
+        intervalUnit={intervalUnit === "hour" ? "min" : intervalUnit}
+        units={["min", "sec"]}
+        onIntervalValueChange={onIntervalValueChange}
+        onIntervalUnitChange={(u) => onIntervalUnitChange(u === "sec" ? "sec" : "min")}
+        onStart={onStartPolling}
+        onStop={onStop}
+        onRefresh={onRefreshResult}
+        showRefresh
+        startDisabled={busy || outOfCoverage}
+        intervalInputId="market-assess-interval"
+        monitoringMessage={
+          monitorActive
+            ? `Monitoring — next assess every ${intervalValue} ${intervalLabel}${
+                mode === "et" ? " · Simulate reuses the same time each tick" : ""
+              }. Results update when each run finishes. Strategies outside their entry window are skipped.`
+            : null
+        }
+        ariaLabel="Continuous assess"
+      />
 
       {mode === "now" ? (
         <p className="text-[10px] text-ocean-sand/70">

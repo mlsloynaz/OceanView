@@ -41,7 +41,7 @@ import {
   resolveMarketNowAssessmentMoment,
 } from "../lib/assessment-time";
 import { isStrategyInEntryWindow } from "../lib/entry-window";
-import type { PollIntervalUnit } from "../components/AssessmentTimeControl";
+import type { PollIntervalUnit } from "@/shared/components/PollControls";
 import { defaultSimulationSessionDate } from "@/shared/lib/market-calendar";
 import type {
   CandleCoverage,
