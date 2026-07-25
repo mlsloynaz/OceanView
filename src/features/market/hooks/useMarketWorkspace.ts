@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   loadMarketBootstrap,
@@ -15,8 +14,11 @@ import {
 import {
   MARKET_ERROR_MESSAGES,
   MarketApiError,
+  fetchEvaluateStatus,
   fetchMarketEnvelope,
+  isMarketAssessActive,
   postMarketEvaluate,
+  postMarketEvaluateStop,
   pollMarketEvaluate,
 } from "../api/market-client";
 import { buildRuleCards, buildStrategyCards, buildTickerCards } from "../display";
@@ -38,6 +40,8 @@ import {
   validateAssessmentTime,
   resolveMarketNowAssessmentMoment,
 } from "../lib/assessment-time";
+import { isStrategyInEntryWindow } from "../lib/entry-window";
+import type { PollIntervalUnit } from "../components/AssessmentTimeControl";
 import { defaultSimulationSessionDate } from "@/shared/lib/market-calendar";
 import type {
   CandleCoverage,
@@ -72,6 +76,46 @@ type SnapshotCache = Partial<
   >
 >;
 
+const DEFAULT_INTERVAL_VALUE = 5;
+const POST_ASSESS_REFRESH_MS = 20_000;
+
+function clampIntervalValue(value: number, unit: PollIntervalUnit): number {
+  if (!Number.isFinite(value)) return DEFAULT_INTERVAL_VALUE;
+  if (unit === "sec") {
+    return Math.max(5, Math.min(3600, Math.round(value)));
+  }
+  return Math.max(1, Math.min(60, Math.round(value)));
+}
+
+function intervalToMs(value: number, unit: PollIntervalUnit): number {
+  const clamped = clampIntervalValue(value, unit);
+  return unit === "sec" ? clamped * 1000 : clamped * 60_000;
+}
+
+function continuousMonitorNotice(
+  value: number,
+  unit: PollIntervalUnit,
+  mode: AssessmentTimeMode,
+): string {
+  const label = unit === "min" ? "min" : "sec";
+  const base = `Monitoring — assessing every ${value} ${label} · result refresh ~20s after each assess starts`;
+  if (mode === "et") {
+    return `${base}. Simulate mode reuses the same assessment time each tick.`;
+  }
+  return `${base}. Strategies outside their entry window are skipped.`;
+}
+
+function validationBlocks(
+  at: Date,
+  coverage: CandleCoverage,
+  historicalOnly: boolean,
+): boolean {
+  const validation = validateAssessmentTime(at, coverage, { historicalOnly });
+  if (validation.error) return true;
+  if (historicalOnly && blocksAssess(at, coverage, { historicalOnly: true })) return true;
+  return false;
+}
+
 export function useMarketWorkspace(viewMode: MarketViewMode) {
   const useMock = marketDataUsesMock();
   const cached = peekMarketWorkspaceCache();
@@ -100,13 +144,74 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   const [assessNotice, setAssessNotice] = useState<string | null>(null);
   const [assessPending, setAssessPending] = useState(false);
   const [refreshPending, setRefreshPending] = useState(false);
+  const [stopPending, setStopPending] = useState(false);
+  const [monitorActive, setMonitorActive] = useState(false);
+  const [intervalValue, setIntervalValueState] = useState(DEFAULT_INTERVAL_VALUE);
+  const [intervalUnit, setIntervalUnitState] = useState<PollIntervalUnit>("min");
   const [pendingRunId, setPendingRunId] = useState<string | null>(null);
+  const [jobActive, setJobActive] = useState(false);
   const [coverageInitialized, setCoverageInitialized] = useState(false);
 
   const catalogRef = useRef<StrategiesCatalogFile | null>(null);
   catalogRef.current = catalog;
   const snapshotCacheRef = useRef(snapshotCache);
   snapshotCacheRef.current = snapshotCache;
+  const assessInFlightRef = useRef(false);
+  const monitorActiveRef = useRef(false);
+  const intervalValueRef = useRef(DEFAULT_INTERVAL_VALUE);
+  const intervalUnitRef = useRef<PollIntervalUnit>("min");
+  const evaluateTimerRef = useRef<number | null>(null);
+  const refreshTimerRef = useRef<number | null>(null);
+  const postAssessWaitRef = useRef<{ resolve: (value: "done" | "cleared") => void } | null>(
+    null,
+  );
+  const jobActiveRef = useRef(false);
+
+  monitorActiveRef.current = monitorActive;
+  intervalValueRef.current = intervalValue;
+  intervalUnitRef.current = intervalUnit;
+  jobActiveRef.current = jobActive;
+
+  const clearMonitorTimers = useCallback(() => {
+    if (evaluateTimerRef.current != null) {
+      window.clearInterval(evaluateTimerRef.current);
+      evaluateTimerRef.current = null;
+    }
+    if (refreshTimerRef.current != null) {
+      window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+    if (postAssessWaitRef.current) {
+      postAssessWaitRef.current.resolve("cleared");
+      postAssessWaitRef.current = null;
+    }
+  }, []);
+
+  const waitPostAssessRefresh = useCallback((): Promise<"done" | "cleared"> => {
+    if (refreshTimerRef.current != null) {
+      window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+    if (postAssessWaitRef.current) {
+      postAssessWaitRef.current.resolve("cleared");
+      postAssessWaitRef.current = null;
+    }
+    return new Promise((resolve) => {
+      postAssessWaitRef.current = { resolve };
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        postAssessWaitRef.current = null;
+        resolve("done");
+      }, POST_ASSESS_REFRESH_MS);
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearMonitorTimers();
+      monitorActiveRef.current = false;
+    };
+  }, [clearMonitorTimers]);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,6 +247,10 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
             }
             const sim = parseSimulationTimeEt(data.envelope.simulationTimeEt);
             if (sim) setLastAssessedAt(sim);
+            else if (data.envelope.evaluatedAt) {
+              const evaluated = new Date(data.envelope.evaluatedAt);
+              if (!Number.isNaN(evaluated.getTime())) setLastAssessedAt(evaluated);
+            }
           });
         })();
 
@@ -304,6 +413,23 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     return assessmentMode === "now" ? resolveMarketNowAssessmentMoment() : assessmentAt;
   }, [assessmentAt, assessmentMode]);
 
+  const setIntervalValue = useCallback((value: number) => {
+    setIntervalValueState(clampIntervalValue(value, intervalUnitRef.current));
+  }, []);
+
+  const setIntervalUnit = useCallback((unit: PollIntervalUnit) => {
+    setIntervalUnitState(unit);
+    setIntervalValueState((prev) => clampIntervalValue(prev, unit));
+  }, []);
+
+  const eligibleStrategyIds = useCallback((at: Date): string[] => {
+    const cat = catalogRef.current;
+    if (!cat) return [];
+    return activeCatalogStrategies(cat.strategies)
+      .filter((s) => isStrategyInEntryWindow(s.entryWindow, at))
+      .map((s) => s.id);
+  }, []);
+
   const refreshAfterAssess = useCallback(
     async (newRunId: string, simulationTimeEt?: string | null) => {
       const env = await fetchMarketEnvelope();
@@ -318,6 +444,9 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
           setAssessmentModeState("et");
           setAssessmentAt(sim);
         }
+      } else if (env.evaluatedAt) {
+        const evaluated = new Date(env.evaluatedAt);
+        if (!Number.isNaN(evaluated.getTime())) setLastAssessedAt(evaluated);
       } else {
         const at = resolveAssessmentMoment();
         setLastAssessedAt(at);
@@ -345,55 +474,139 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     [applyAssessmentValidation, resolveAssessmentMoment, viewMode],
   );
 
-  const runAssessment = useCallback(() => {
-    if (!candleCoverage) return;
-    const at = resolveAssessmentMoment();
-    const historicalOnly = assessmentMode === "et";
-    const validation = validateAssessmentTime(at, candleCoverage, { historicalOnly });
-    if (
-      validation.error ||
-      (historicalOnly && blocksAssess(at, candleCoverage, { historicalOnly: true }))
-    ) {
-      setAssessmentError(validation.error);
-      setAssessNotice(null);
-      return;
-    }
+  const followAfterPostAssessDelay = useCallback(
+    async (activeRunId: string) => {
+      const waitResult = await waitPostAssessRefresh();
+      if (waitResult === "cleared") return;
+      try {
+        const historicalOnly = assessmentMode === "et";
+        const at = resolveAssessmentMoment();
+        await refreshAfterAssess(
+          activeRunId,
+          historicalOnly ? formatSimulationTimeEt(at) : null,
+        );
+        setPendingRunId(null);
+        if (monitorActiveRef.current) {
+          setAssessNotice(
+            continuousMonitorNotice(
+              intervalValueRef.current,
+              intervalUnitRef.current,
+              assessmentMode,
+            ),
+          );
+        } else {
+          setAssessNotice(null);
+        }
+        const status = await fetchEvaluateStatus(activeRunId);
+        if (isMarketAssessActive(status.status) && monitorActiveRef.current) {
+          // Keep pulling briefly so the interval does not stack a second job.
+          const deadline = Date.now() + 90_000;
+          let latest = status;
+          while (Date.now() < deadline && isMarketAssessActive(latest.status)) {
+            await pollMarketEvaluate(activeRunId);
+            latest = await fetchEvaluateStatus(activeRunId);
+            if (!monitorActiveRef.current) break;
+          }
+          if (monitorActiveRef.current) {
+            await refreshAfterAssess(
+              activeRunId,
+              historicalOnly ? formatSimulationTimeEt(at) : null,
+            );
+          }
+        }
+        setJobActive(false);
+      } catch {
+        /* keep partial UI; next cycle or Refresh can recover */
+      }
+    },
+    [assessmentMode, refreshAfterAssess, resolveAssessmentMoment, waitPostAssessRefresh],
+  );
 
-    if (useMock) {
+  const runAssessCycle = useCallback(
+    async (opts?: { continuous?: boolean }) => {
+      const continuous = Boolean(opts?.continuous);
+      if (!candleCoverage) return;
+      if (assessInFlightRef.current) return;
+      const at = resolveAssessmentMoment();
+      const historicalOnly = assessmentMode === "et";
+      const validation = validateAssessmentTime(at, candleCoverage, { historicalOnly });
+      if (
+        validation.error ||
+        (historicalOnly && blocksAssess(at, candleCoverage, { historicalOnly: true }))
+      ) {
+        setAssessmentError(validation.error);
+        setAssessNotice(null);
+        return;
+      }
+
+      const strategyIds = eligibleStrategyIds(at);
+      if (strategyIds.length === 0) {
+        setAssessmentError(null);
+        setAssessNotice(
+          continuous
+            ? "No standard strategies in entry window — skipping this tick."
+            : "No standard strategies are inside their entry window right now.",
+        );
+        return;
+      }
+
+      if (useMock) {
+        setAssessmentError(null);
+        setAssessNotice(
+          "Mock mode: assessment time updated only. Run npm run dev:local for live Assess against SAM.",
+        );
+        setAssessPending(true);
+        window.setTimeout(() => {
+          setLastAssessedAt(new Date(at.getTime()));
+          setAssessPending(false);
+        }, 400);
+        return;
+      }
+
+      assessInFlightRef.current = true;
+      setAssessPending(true);
+      setJobActive(true);
       setAssessmentError(null);
       setAssessNotice(
-        "Mock mode: assessment time updated only. Run npm run dev:local for live Assess against SAM.",
+        continuous
+          ? continuousMonitorNotice(
+              intervalValueRef.current,
+              intervalUnitRef.current,
+              assessmentMode,
+            )
+          : historicalOnly
+            ? null
+            : validation.notice,
       );
-      setAssessPending(true);
-      window.setTimeout(() => {
-        setLastAssessedAt(new Date(at.getTime()));
-        setAssessPending(false);
-      }, 400);
-      return;
-    }
 
-    setAssessmentError(null);
-    setAssessNotice(historicalOnly ? null : validation.notice);
-    setAssessPending(true);
-    void postMarketEvaluate({
-      assessmentTimeMode: assessmentMode,
-      ...(historicalOnly ? { simulationTimeEt: formatSimulationTimeEt(at) } : {}),
-      options: { signalThresholdPct: envelope?.signalThresholdPct ?? 50 },
-    })
-      .then(async (start) => {
+      try {
+        const start = await postMarketEvaluate({
+          assessmentTimeMode: assessmentMode,
+          strategyIds,
+          ...(historicalOnly ? { simulationTimeEt: formatSimulationTimeEt(at) } : {}),
+          options: { signalThresholdPct: envelope?.signalThresholdPct ?? 50 },
+        });
         setPendingRunId(start.runId);
+        setRunId(start.runId);
         await pollMarketEvaluate(start.runId);
-        setAssessNotice(
-          start.message ?? "Assessment started. Use Refresh result to load results.",
-        );
-      })
-      .catch((err) => {
+        void followAfterPostAssessDelay(start.runId);
+        if (!continuous) {
+          setAssessNotice(
+            start.message ?? "Assessment started. Results refresh automatically in ~20s.",
+          );
+        }
+      } catch (err) {
+        setJobActive(false);
         if (err instanceof MarketApiError) {
           const fallback = err.code ? MARKET_ERROR_MESSAGES[err.code] : undefined;
           const message = err.message || fallback || "Assessment failed.";
           if (err.code === "MARKET_EVAL_OUT_OF_COVERAGE" || err.code === "MARKET_NO_CANDLES") {
             setAssessmentError(null);
             setAssessNotice(message);
+          } else if (err.code === "MARKET_EVAL_CONFLICT") {
+            setAssessmentError(null);
+            setAssessNotice(message);
+            setJobActive(true);
           } else {
             setAssessmentError(message);
             setAssessNotice(null);
@@ -402,16 +615,96 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
           setAssessmentError(err instanceof Error ? err.message : "Assessment failed.");
           setAssessNotice(null);
         }
-      })
-      .finally(() => setAssessPending(false));
+      } finally {
+        assessInFlightRef.current = false;
+        setAssessPending(false);
+      }
+    },
+    [
+      assessmentMode,
+      candleCoverage,
+      eligibleStrategyIds,
+      envelope,
+      followAfterPostAssessDelay,
+      resolveAssessmentMoment,
+      useMock,
+    ],
+  );
+
+  const runAssessment = useCallback(() => {
+    if (monitorActiveRef.current || assessInFlightRef.current) return;
+    void runAssessCycle({ continuous: false });
+  }, [runAssessCycle]);
+
+  const startPolling = useCallback(() => {
+    if (monitorActiveRef.current) return;
+    if (!candleCoverage) return;
+    const at = resolveAssessmentMoment();
+    const historicalOnly = assessmentMode === "et";
+    if (
+      validationBlocks(at, candleCoverage, historicalOnly) ||
+      (historicalOnly && assessmentError)
+    ) {
+      return;
+    }
+
+    const value = clampIntervalValue(intervalValueRef.current, intervalUnitRef.current);
+    const unit = intervalUnitRef.current;
+    setIntervalValueState(value);
+    intervalValueRef.current = value;
+
+    monitorActiveRef.current = true;
+    setMonitorActive(true);
+    setAssessmentError(null);
+    setAssessNotice(continuousMonitorNotice(value, unit, assessmentMode));
+    clearMonitorTimers();
+
+    evaluateTimerRef.current = window.setInterval(() => {
+      if (!monitorActiveRef.current) return;
+      if (assessInFlightRef.current || jobActiveRef.current) return;
+      void runAssessCycle({ continuous: true });
+    }, intervalToMs(value, unit));
+
+    void runAssessCycle({ continuous: true });
   }, [
+    assessmentError,
     assessmentMode,
     candleCoverage,
-    envelope,
-    refreshAfterAssess,
+    clearMonitorTimers,
     resolveAssessmentMoment,
-    useMock,
+    runAssessCycle,
   ]);
+
+  const stopAssessment = useCallback(async () => {
+    const wasMonitoring = monitorActiveRef.current;
+    monitorActiveRef.current = false;
+    setMonitorActive(false);
+    clearMonitorTimers();
+
+    setStopPending(true);
+    setError(null);
+    try {
+      if (jobActiveRef.current || assessInFlightRef.current || wasMonitoring) {
+        const payload = await postMarketEvaluateStop();
+        setJobActive(isMarketAssessActive(payload.status));
+        setAssessNotice(
+          wasMonitoring
+            ? "Continuous assess stopped."
+            : (payload.message ?? "Stop requested."),
+        );
+      } else {
+        setAssessNotice(wasMonitoring ? "Continuous assess stopped." : null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to stop assessment.");
+      if (wasMonitoring) setAssessNotice("Continuous assess stopped.");
+    } finally {
+      setStopPending(false);
+      setJobActive(false);
+      assessInFlightRef.current = false;
+      setAssessPending(false);
+    }
+  }, [clearMonitorTimers]);
 
   const refreshResult = useCallback(async () => {
     if (useMock) return;
@@ -430,7 +723,17 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
         historicalOnly ? formatSimulationTimeEt(at) : null,
       );
       setPendingRunId(null);
-      setAssessNotice(null);
+      if (monitorActiveRef.current) {
+        setAssessNotice(
+          continuousMonitorNotice(
+            intervalValueRef.current,
+            intervalUnitRef.current,
+            assessmentMode,
+          ),
+        );
+      } else {
+        setAssessNotice(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to refresh assessment results.");
     } finally {
@@ -570,7 +873,16 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     return `${prefix} ${formatAssessmentDisplay(at)}`;
   }, [lastAssessedAt, assessmentAt]);
 
+  const lastAssessmentLabel = useMemo(() => {
+    if (!lastAssessedAt && !envelope?.evaluatedAt) return null;
+    const at =
+      lastAssessedAt ?? (envelope?.evaluatedAt ? new Date(envelope.evaluatedAt) : null);
+    if (!at || Number.isNaN(at.getTime())) return null;
+    return formatAssessmentDisplay(at);
+  }, [envelope?.evaluatedAt, lastAssessedAt]);
+
   const needsAssess = !useMock && !runId && !loading;
+  const canStop = monitorActive || jobActive || assessPending;
 
   const hasModeCards =
     viewMode === "strategies"
@@ -613,10 +925,20 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     assessNotice,
     assessPending,
     refreshPending,
+    monitorActive,
+    stopPending,
+    canStop,
+    intervalValue,
+    intervalUnit,
+    setIntervalValue,
+    setIntervalUnit,
     setAssessmentMode,
     setAssessmentFromLocal,
     runAssessment,
+    startPolling,
+    stopAssessment,
     refreshResult,
     assessmentLabel,
+    lastAssessmentLabel,
   };
 }

@@ -110,19 +110,16 @@ export async function fetchPremarketResult(
     return payload;
   }
 
-  // Polling / explicit runId always hits the network.
-  if (runId) {
-    const payload = await fetchJson<PremarketResultResponse>(
-      withRunId("/premarket/evaluate/result", runId),
-    );
-    setPremarketResultCache(payload);
-    return payload;
-  }
+  const wantRun = typeof runId === "string" ? runId.trim() : "";
+  const force = opts?.force === true;
 
   try {
     return await getPremarketResultCached(
-      () => fetchJson<PremarketResultResponse>("/premarket/evaluate/result"),
-      opts,
+      () =>
+        fetchJson<PremarketResultResponse>(
+          withRunId("/premarket/evaluate/result", wantRun || null),
+        ),
+      { force, runId: wantRun || null },
     );
   } catch (err) {
     if (err instanceof PremarketApiError && err.code === "PREMARKET_NOT_FOUND") {
@@ -152,7 +149,7 @@ export function isPremarketJobActive(status: string | undefined): boolean {
 
 /**
  * Poll result until the job is terminal (or max duration).
- * Stops when done — does not leave a background interval running.
+ * Always hits the network (force) so progress stays live; each payload updates the UI cache.
  */
 export async function pollPremarketEvaluate(
   runId?: string | null,
@@ -161,7 +158,7 @@ export async function pollPremarketEvaluate(
   const deadline = Date.now() + POLL_MAX_DURATION_MS;
   let last: PremarketResultResponse | null = null;
   while (Date.now() < deadline) {
-    last = await fetchPremarketResult(runId);
+    last = await fetchPremarketResult(runId, { force: true });
     onProgress?.(last);
     if (isEvaluateTerminal(last.status)) {
       return last;

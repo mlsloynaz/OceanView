@@ -135,6 +135,15 @@ export async function postMarketEvaluate(
   });
 }
 
+export async function postMarketEvaluateStop(): Promise<{
+  runId?: string;
+  status: string;
+  message?: string;
+  stopRequested?: boolean;
+}> {
+  return fetchJson("/market/evaluate/stop", { method: "POST", body: "{}" });
+}
+
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_DURATION_MS = 10_000;
 
@@ -144,12 +153,22 @@ function delay(ms: number) {
 
 function isAssessUsable(status: string | undefined): boolean {
   const value = (status ?? "").toLowerCase();
-  return value === "ready" || value === "complete" || value === "partial";
+  return value === "ready" || value === "complete" || value === "partial" || value === "stopped";
 }
 
 function isAssessTerminal(status: string | undefined): boolean {
   const value = (status ?? "").toLowerCase();
-  return value === "complete" || value === "partial" || value === "failed";
+  return (
+    value === "complete" ||
+    value === "partial" ||
+    value === "failed" ||
+    value === "stopped"
+  );
+}
+
+export function isMarketAssessActive(status: string | undefined): boolean {
+  const value = (status ?? "").toLowerCase();
+  return value === "running" || value === "ready" || value === "stopping";
 }
 
 /** Poll up to 10s after start — does not throw on timeout. */

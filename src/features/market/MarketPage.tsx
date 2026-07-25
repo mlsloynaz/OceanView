@@ -73,11 +73,21 @@ export function MarketPage() {
     assessNotice,
     assessPending,
     refreshPending,
+    monitorActive,
+    stopPending,
+    canStop,
+    intervalValue,
+    intervalUnit,
+    setIntervalValue,
+    setIntervalUnit,
     setAssessmentMode,
     setAssessmentFromLocal,
     runAssessment,
+    startPolling,
+    stopAssessment,
     refreshResult,
     assessmentLabel,
+    lastAssessmentLabel,
   } = useMarketWorkspace(viewMode);
 
   const searchPlaceholder =
@@ -128,11 +138,20 @@ export function MarketPage() {
             notice={assessNotice}
             pending={assessPending}
             refreshPending={refreshPending}
+            monitorActive={monitorActive}
+            stopPending={stopPending}
+            canStop={canStop}
+            intervalValue={intervalValue}
+            intervalUnit={intervalUnit}
+            onIntervalValueChange={setIntervalValue}
+            onIntervalUnitChange={setIntervalUnit}
             onModeChange={setAssessmentMode}
             onChange={setAssessmentFromLocal}
             onAssess={runAssessment}
+            onStartPolling={startPolling}
+            onStop={() => void stopAssessment()}
             onRefreshResult={() => void refreshResult()}
-            className="sm:flex-1 sm:max-w-lg"
+            className="sm:flex-1 sm:max-w-2xl"
           />
         )}
       </div>
@@ -160,6 +179,7 @@ export function MarketPage() {
               key={card.strategy.id}
               card={card}
               threshold={threshold}
+              lastAssessmentLabel={lastAssessmentLabel}
               onOpen={openStrategy}
             />
           ))}

@@ -6,10 +6,11 @@ import { cn } from "@/shared/lib/cn";
 type Props = {
   card: StrategyCardModel;
   threshold: number;
+  lastAssessmentLabel?: string | null;
   onOpen: (strategyId: string) => void;
 };
 
-export function StrategyCard({ card, threshold, onOpen }: Props) {
+export function StrategyCard({ card, threshold, lastAssessmentLabel, onOpen }: Props) {
   const { strategy, signalCount, previewTickers } = card;
   const hasSignals = signalCount > 0;
   const entryWindowLabel = formatEntryWindow(strategy.entryWindow);
@@ -24,6 +25,12 @@ export function StrategyCard({ card, threshold, onOpen }: Props) {
           {entryWindowLabel && (
             <p className="mt-0.5 line-clamp-1 text-[11px] text-ocean-sand">{entryWindowLabel}</p>
           )}
+          {lastAssessmentLabel ? (
+            <p className="mt-0.5 text-[10px] text-ocean-sand/80">
+              Last assess:{" "}
+              <span className="tabular-nums text-ocean-foam/90">{lastAssessmentLabel}</span>
+            </p>
+          ) : null}
         </div>
         <button
           type="button"

@@ -307,11 +307,29 @@ export function usePremarketWorkspace() {
 
   useEffect(() => {
     let cancelled = false;
-    const hadResult = Boolean(peekPremarketResultCache());
-    if (!hadResult) setResultLoading(true);
+    const cached = peekPremarketResultCache();
+    if (cached) {
+      setResult(cached);
+      if (cached.signalThresholdPct != null) {
+        setThreshold(cached.signalThresholdPct);
+      }
+      setNotice(syncNoticeFromResult(cached));
+      setResultLoading(false);
+      // Soft revalidate only while a job is still running; terminal results stay cached.
+      if (!isPremarketEvaluateActive(cached.status)) {
+        return () => {
+          cancelled = true;
+        };
+      }
+    } else {
+      setResultLoading(true);
+    }
+
     void (async () => {
       try {
-        const payload = await fetchPremarketResult(undefined, { force: true });
+        const payload = await fetchPremarketResult(cached?.runId, {
+          force: Boolean(cached && isPremarketEvaluateActive(cached.status)),
+        });
         if (!cancelled) {
           setResult(payload);
           setPremarketResultCache(payload);
@@ -326,7 +344,7 @@ export function usePremarketWorkspace() {
             setResult(null);
             invalidatePremarketResultCache();
             setNotice(null);
-          } else {
+          } else if (!cached) {
             setError(resolveError(err));
           }
         }
@@ -416,6 +434,7 @@ export function usePremarketWorkspace() {
 
   const runEvaluateRequest = useCallback(
     async (body: DynamicEvaluateRequest) => {
+      invalidatePremarketResultCache();
       const payload = await postDynamicEvaluate(body);
       return followEvaluateRun(payload, body.options?.signalThresholdPct ?? threshold);
     },
@@ -549,6 +568,7 @@ export function usePremarketWorkspace() {
     const thresholdPct = threshold;
 
     try {
+      invalidatePremarketResultCache();
       const payload = await postDynamicEvaluate({
         strategyIds: activeStrategyIds,
         ...resolveEvaluateRequest(),
