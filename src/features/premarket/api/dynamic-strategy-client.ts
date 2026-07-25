@@ -22,6 +22,8 @@ export type DynamicRuleTemplate = {
   /** Catalog: off | auto | set */
   operation?: "off" | "auto" | "set";
   defaultTrend?: "up" | "down" | "lateral";
+  /** Catalog default bias behaviour: sets | requires | none */
+  biasRole?: "sets" | "requires" | "none";
 };
 
 
@@ -71,6 +73,8 @@ export type DynamicStrategy = {
   direction?: "CALL" | "PUT" | null;
   /** Movement strategies rank below non-movement in Best results. */
   isMovement?: boolean;
+  /** Rule row id that generates strategy CALL/PUT bias. */
+  biasRuleId?: string | null;
   /** Structured ET window (enforced) or legacy display string. */
   entryWindow?: import("@/features/market/lib/entry-window").EntryWindow | null;
   active: boolean;
@@ -110,6 +114,7 @@ export type CreateDynamicStrategyRequest = {
   direction?: "CALL" | "PUT" | "";
   active?: boolean;
   isMovement?: boolean;
+  biasRuleId?: string | null;
   entryWindow?: import("@/features/market/lib/entry-window").EntryWindow | null;
   ruleKeys?: string[];
   rules?: DynamicStrategyRuleInput[];
@@ -122,6 +127,7 @@ export type PatchDynamicStrategyRequest = {
   direction?: "CALL" | "PUT" | "";
   active?: boolean;
   isMovement?: boolean;
+  biasRuleId?: string | null;
   entryWindow?: import("@/features/market/lib/entry-window").EntryWindow | null;
   ruleKeys?: string[];
   rules?: DynamicStrategyRuleInput[];

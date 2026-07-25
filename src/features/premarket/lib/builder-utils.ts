@@ -345,11 +345,25 @@ export function formatRoleLabel(type: RuleType): string {
   return "Must pass";
 }
 
+export function biasRuleOptionLabel(
+  row: BuilderRuleRow,
+  template: Pick<DynamicRuleTemplate, "label"> | undefined,
+  rowNumber: number,
+): string {
+  const label = template?.label?.trim() || row.ruleKey;
+  const path =
+    row.operation === "call" ? "CALL" : row.operation === "put" ? "PUT" : "shared";
+  return `${rowNumber}. ${label} · ${path}`;
+}
+
 export function rowSummaryFriendly(
   row: BuilderRuleRow,
   template: RuleTemplateShape,
+  options?: { isBiasRule?: boolean },
 ): string {
+  const isBiasRule = options?.isBiasRule === true;
   const parts: string[] = [formatRoleLabel(row.type)];
+  if (isBiasRule) parts.push("Sets bias");
   if (template.trend === "set" || template.trend === "auto") {
     parts.push(row.trend ? formatTrendLabelFriendly(row.trend) : "Bias: auto");
   }

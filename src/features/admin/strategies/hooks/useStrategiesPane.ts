@@ -125,6 +125,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   const [builderEntryEnd, setBuilderEntryEnd] = useState("");
   const [builderEntryLegacyLabel, setBuilderEntryLegacyLabel] = useState<string | null>(null);
   const [builderRows, setBuilderRows] = useState<BuilderRuleRow[]>([]);
+  const [builderBiasRuleId, setBuilderBiasRuleId] = useState("");
 
   /** Strategy ids with local edits not yet written to Dynamo. */
   const [dirtyActiveIds, setDirtyActiveIds] = useState<Set<string>>(() => new Set());
@@ -188,6 +189,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setBuilderEntryEnd("");
     setBuilderEntryLegacyLabel(null);
     setBuilderRows([]);
+    setBuilderBiasRuleId("");
     setError(null);
     setNotice(null);
   }, []);
@@ -207,6 +209,10 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       setBuilderEntryEnd(windowFields.endEt);
       setBuilderEntryLegacyLabel(windowFields.legacyLabel);
       setBuilderRows(builderRowsFromStrategyRules(source.rules));
+      const sourceBias = String(source.biasRuleId || "").trim();
+      setBuilderBiasRuleId(
+        sourceBias && source.rules.some((r) => r.id === sourceBias) ? sourceBias : "",
+      );
       setError(null);
       setNotice(`Loaded rules from ${source.id}. Set a new ID before saving.`);
     },
@@ -222,6 +228,10 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setBuilderEntryEnd(windowFields.endEt);
     setBuilderEntryLegacyLabel(windowFields.legacyLabel);
     setBuilderRows(builderRowsFromStrategyRules(strategy.rules));
+    const biasId = String(strategy.biasRuleId || "").trim();
+    setBuilderBiasRuleId(
+      biasId && strategy.rules.some((r) => r.id === biasId) ? biasId : "",
+    );
     setError(null);
   }, []);
 
@@ -248,6 +258,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
 
   const removeRuleFromBuilder = useCallback((rowId: string) => {
     setBuilderRows((prev) => removeBuilderRow(prev, rowId));
+    setBuilderBiasRuleId((prev) => (prev === rowId ? "" : prev));
   }, []);
 
   const setRuleTrend = useCallback((rowId: string, trend: RuleTrendValue) => {
@@ -299,6 +310,10 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       entryWindow = builderEntryLegacyLabel;
     }
     const existing = wasEdit ? strategies.find((row) => row.id === strategyId) : undefined;
+    const resolvedBias =
+      builderBiasRuleId && builderRows.some((row) => row.id === builderBiasRuleId)
+        ? builderBiasRuleId
+        : null;
     const staged = normalizeStrategy({
       id: strategyId,
       name,
@@ -306,6 +321,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       description: existing?.description,
       tier: existing?.tier ?? "dynamic",
       direction: existing?.direction,
+      biasRuleId: resolvedBias,
       entryWindow: entryWindow ?? null,
       active: true,
       rules: ruleInputs.map((rule, index) => {
@@ -348,6 +364,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     );
     return staged;
   }, [
+    builderBiasRuleId,
     builderEntryEnd,
     builderEntryLegacyLabel,
     builderEntryStart,
@@ -405,6 +422,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
               shortName: strategy.shortName ?? undefined,
               description: strategy.description,
               direction: strategy.direction ?? undefined,
+              biasRuleId: strategy.biasRuleId ?? null,
               entryWindow: strategy.entryWindow ?? null,
               active: strategy.active,
               rules: strategyRulesToInput(strategy.rules),
@@ -413,6 +431,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
             await patchDynamicStrategy(id, {
               name: strategy.name,
               active: strategy.active,
+              biasRuleId: strategy.biasRuleId ?? null,
               entryWindow: strategy.entryWindow ?? null,
               rules: strategyRulesToInput(strategy.rules),
             });
@@ -583,6 +602,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     builderEntryEnd,
     builderEntryLegacyLabel,
     builderRows,
+    builderBiasRuleId,
     loading,
     saving,
     previewPending,
@@ -595,6 +615,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setBuilderName,
     setBuilderEntryStart,
     setBuilderEntryEnd,
+    setBuilderBiasRuleId,
     setRuleTrend,
     setRuleOperation,
     setRuleType,

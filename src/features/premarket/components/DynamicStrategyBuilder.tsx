@@ -3,6 +3,7 @@ import { cn } from "@/shared/lib/cn";
 import type { DynamicRuleTemplate, DynamicStrategy, RuleOperationValue, RuleTrendValue, RuleType } from "../api/dynamic-strategy-client";
 import {
   TIMEFRAME_FILTERS,
+  biasRuleOptionLabel,
   builderPathStats,
   filterRules,
   formatOperationLabel,
@@ -44,6 +45,8 @@ type Props = {
   entryStartEt: string;
   entryEndEt: string;
   entryLegacyLabel?: string | null;
+  /** Selected rule row id that sets strategy CALL/PUT bias. */
+  biasRuleId?: string;
   editingStrategyId: string | null;
   templateStrategies?: DynamicStrategy[];
   saving: boolean;
@@ -53,6 +56,7 @@ type Props = {
   onStrategyIdChange: (value: string) => void;
   onEntryStartChange: (value: string) => void;
   onEntryEndChange: (value: string) => void;
+  onBiasRuleIdChange?: (rowId: string) => void;
   onCloneFrom?: (strategy: DynamicStrategy) => void;
   onTrendChange: (rowId: string, trend: RuleTrendValue) => void;
   onOperationChange: (rowId: string, operation: RuleOperationValue) => void;
@@ -91,6 +95,7 @@ function BuilderRuleRowCard({
   rowNumber,
   instance,
   expanded,
+  isBiasRule,
   onToggleExpand,
   onTrendChange,
   onOperationChange,
@@ -105,6 +110,7 @@ function BuilderRuleRowCard({
   rowNumber: number;
   instance: { index: number; total: number };
   expanded: boolean;
+  isBiasRule: boolean;
   onToggleExpand: () => void;
   onTrendChange: (rowId: string, trend: RuleTrendValue) => void;
   onOperationChange: (rowId: string, operation: RuleOperationValue) => void;
@@ -120,7 +126,7 @@ function BuilderRuleRowCard({
   const showTrend = template.trend === "set" || template.trend === "auto";
   const showOperation = template.operation === "set" || template.operation === "auto";
   const missing = rowMissingRequiredFields(row, template);
-  const summary = rowSummaryFriendly(row, template);
+  const summary = rowSummaryFriendly(row, template, { isBiasRule });
 
   const operationTone =
     row.operation === "call" ? "call" : row.operation === "put" ? "put" : "neutral";
@@ -152,6 +158,7 @@ function BuilderRuleRowCard({
             )}
             {row.operation === "call" && <SummaryChip tone="call">CALL</SummaryChip>}
             {row.operation === "put" && <SummaryChip tone="put">PUT</SummaryChip>}
+            {isBiasRule && <SummaryChip tone="neutral">Sets bias</SummaryChip>}
             {instance.total > 1 && (
               <span className="rounded bg-ocean-teal/15 px-1.5 py-px text-[10px] font-medium text-ocean-teal">
                 {instance.index}/{instance.total}
@@ -323,6 +330,7 @@ export function DynamicStrategyBuilder({
   entryStartEt,
   entryEndEt,
   entryLegacyLabel = null,
+  biasRuleId = "",
   editingStrategyId,
   templateStrategies = [],
   saving,
@@ -332,6 +340,7 @@ export function DynamicStrategyBuilder({
   onStrategyIdChange,
   onEntryStartChange,
   onEntryEndChange,
+  onBiasRuleIdChange,
   onCloneFrom,
   onTrendChange,
   onOperationChange,
@@ -610,6 +619,27 @@ export function DynamicStrategyBuilder({
             ) : null}
           </p>
 
+          <label className="mt-3 block">
+            <span className="text-[11px] text-ocean-sand">Bias generator</span>
+            <select
+              value={biasRuleId}
+              onChange={(e) => onBiasRuleIdChange?.(e.target.value)}
+              disabled={!onBiasRuleIdChange || builderRows.length === 0}
+              className={cn(SELECT, "mt-0.5")}
+            >
+              <option value="">None — infer from path / met rules</option>
+              {composedRules.map(({ row, template }, index) => (
+                <option key={row.id} value={row.id}>
+                  {biasRuleOptionLabel(row, template, index + 1)}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-[10px] leading-relaxed text-ocean-sand/80">
+              One rule that sets strategy CALL/PUT (e.g. Vela confirmación). Leave empty for dual-path
+              strategies that already encode direction per row.
+            </span>
+          </label>
+
           <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-ocean-sand/90">
             <span className="rounded-full bg-ocean-mid/35 px-2 py-0.5">
               {pathStats.total} rule{pathStats.total === 1 ? "" : "s"}
@@ -731,6 +761,7 @@ export function DynamicStrategyBuilder({
                     rowNumber={index + 1}
                     instance={instanceMeta.get(row.id) ?? { index: 1, total: 1 }}
                     expanded={expandedRows.has(row.id)}
+                    isBiasRule={biasRuleId === row.id}
                     onToggleExpand={() => toggleRowExpanded(row.id)}
                     onTrendChange={onTrendChange}
                     onOperationChange={onOperationChange}

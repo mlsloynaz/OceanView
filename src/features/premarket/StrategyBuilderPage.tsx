@@ -169,6 +169,7 @@ export function StrategyBuilderPage() {
             entryStartEt={ws.builderEntryStart}
             entryEndEt={ws.builderEntryEnd}
             entryLegacyLabel={ws.builderEntryLegacyLabel}
+            biasRuleId={ws.builderBiasRuleId}
             editingStrategyId={ws.editingStrategyId}
             templateStrategies={ws.strategies}
             saving={ws.saving}
@@ -178,6 +179,7 @@ export function StrategyBuilderPage() {
             onStrategyIdChange={ws.setBuilderStrategyId}
             onEntryStartChange={ws.setBuilderEntryStart}
             onEntryEndChange={ws.setBuilderEntryEnd}
+            onBiasRuleIdChange={ws.setBuilderBiasRuleId}
             onCloneFrom={isNew ? ws.cloneBuilderFromStrategy : undefined}
             onTrendChange={ws.setRuleTrend}
             onOperationChange={ws.setRuleOperation}
