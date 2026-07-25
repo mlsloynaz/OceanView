@@ -367,8 +367,8 @@ Both show rule check strips, quality badges, and expandable rule requirement lis
 | `RuleCard` | Rule grid tile (no detail modal in v1) |
 | `StrategyDetailModal` | Full ticker table for one strategy |
 | `TickerDetailModal` | Per-strategy accordion for one symbol |
-| `RuleCheckStrip` / `RuleCheckIcon` | Rule status icons on cards and modals |
-| `RuleRequirementsList` | Expanded rule rows in modals |
+| `RuleCheckStrip` / `RuleCheckIcon` | Rule status icons on cards, Best-result thumbnails, and modals — **required first**, then **bonus** (`extra`) with a smaller glyph |
+| `RuleRequirementsList` | Expanded rule rows in modals (same required→bonus order) |
 
 State and data loading live in `useMarketWorkspace` (`src/features/market/hooks/useMarketWorkspace.ts`).
 

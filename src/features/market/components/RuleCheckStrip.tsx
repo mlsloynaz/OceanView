@@ -1,4 +1,5 @@
 import type { RuleDisplayRow } from "../types";
+import { isBonusRuleType, sortRulesForDisplay } from "../display";
 import { RuleCheckIcon } from "./RuleCheckIcon";
 
 type Props = {
@@ -9,14 +10,26 @@ type Props = {
 export function RuleCheckStrip({ rules, className = "" }: Props) {
   if (rules.length === 0) return null;
 
+  const ordered = sortRulesForDisplay(rules);
+
   return (
     <span
-      className={`inline-flex items-center gap-0.5 shrink-0 ${className}`.trim()}
-      title={rules.map((r) => `${r.label}: ${r.status}`).join(" · ")}
+      className={`inline-flex items-baseline gap-0.5 shrink-0 ${className}`.trim()}
+      title={ordered
+        .map((r) => `${r.label}${isBonusRuleType(r.type) ? " (bonus)" : ""}: ${r.status}`)
+        .join(" · ")}
     >
-      {rules.map((rule) => (
-        <RuleCheckIcon key={rule.ruleKey} status={rule.status} title={rule.label} />
-      ))}
+      {ordered.map((rule) => {
+        const bonus = isBonusRuleType(rule.type);
+        return (
+          <RuleCheckIcon
+            key={`${rule.ruleKey}-${rule.type}-${rule.status}`}
+            status={rule.status}
+            title={bonus ? `${rule.label} (bonus)` : rule.label}
+            size={bonus ? "sm" : "md"}
+          />
+        );
+      })}
     </span>
   );
 }

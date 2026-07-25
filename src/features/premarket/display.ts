@@ -1,5 +1,10 @@
 import type { DangerEval, RuleDisplayRow, TradeDirection } from "@/features/market/types";
-import { qualityBadgeClass, normalizeRuleStatus } from "@/features/market/display";
+import {
+  normalizeDisplayRuleType,
+  normalizeRuleStatus,
+  qualityBadgeClass,
+  sortRulesForDisplay,
+} from "@/features/market/display";
 import { formatAchievedTimeEt } from "@/features/market/display";
 import { evalDedupeKey } from "@/shared/lib/rule-dedupe";
 import type {
@@ -284,7 +289,7 @@ export function toPremarketDisplayRules(
     rows.push({
       ruleKey: row.ruleKey,
       label: row.label,
-      type: row.type as RuleDisplayRow["type"],
+      type: normalizeDisplayRuleType(row.type) === "extra" ? "extra" : "required",
       status: normalizeRuleStatus(row.status),
       metAtEt: row.metAtEt,
       evidence: row.evidence,
@@ -292,7 +297,7 @@ export function toPremarketDisplayRules(
       suggestedDirection: row.suggestedDirection,
     });
   }
-  return rows;
+  return sortRulesForDisplay(rows);
 }
 
 export function strategyGroupSubtitle(

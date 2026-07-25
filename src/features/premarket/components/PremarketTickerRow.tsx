@@ -59,7 +59,6 @@ export function PremarketTickerRow({
   const rules = toPremarketDisplayRules(ticker.rules);
   const hasDangerPenalty =
     typeof ticker.dangerPenaltyPct === "number" && ticker.dangerPenaltyPct < 0;
-  const multiStrategy = (strategyScores?.length ?? 0) > 1;
   const scoresLine =
     strategyScores && strategyScores.length > 0 ? formatStrategyScores(strategyScores) : null;
   const profile = monitor?.movementProfile ?? ticker.movementProfile ?? null;
@@ -123,7 +122,7 @@ export function PremarketTickerRow({
             <span className="font-semibold tabular-nums">{formatMoneyPrice(estimatedExit)}</span>
           </span>
         )}
-        {!multiStrategy && !monitor && rules.length > 0 && <RuleCheckStrip rules={rules} />}
+        {rules.length > 0 && <RuleCheckStrip rules={rules} />}
       </button>
     </li>
   );

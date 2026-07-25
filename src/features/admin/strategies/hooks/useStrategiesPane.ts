@@ -327,8 +327,9 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       rules: ruleInputs.map((rule, index) => {
         const prior = existing?.rules.find((row) => row.id === rule.id);
         const template = rules.find((r) => r.ruleKey === rule.ruleKey);
+        const ruleId = rule.id ?? prior?.id ?? `${strategyId}-${rule.ruleKey}-${index}`;
         return {
-          id: rule.id ?? prior?.id ?? `${strategyId}-${rule.ruleKey}-${index}`,
+          id: ruleId,
           ruleKey: rule.ruleKey,
           label: prior?.label ?? template?.label ?? rule.ruleKey,
           type: rule.type ?? "required",
@@ -337,6 +338,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
           operation: rule.operation,
           pathVariant: rule.pathVariant,
           when: prior?.when ?? template?.when,
+          ...(resolvedBias && ruleId === resolvedBias ? { setsBias: true } : {}),
         };
       }),
     });

@@ -57,6 +57,33 @@ export function ruleStatusTitle(status: RuleStatus): string {
   }
 }
 
+/** Normalize catalog/eval rule role for display ordering and icons. */
+export function normalizeDisplayRuleType(
+  type: string | null | undefined,
+): "gate" | "required" | "extra" {
+  const t = String(type ?? "required")
+    .trim()
+    .toLowerCase();
+  if (t === "gate") return "gate";
+  if (t === "extra" || t === "bonus" || t === "optional") return "extra";
+  return "required";
+}
+
+export function isBonusRuleType(type: string | null | undefined): boolean {
+  return normalizeDisplayRuleType(type) === "extra";
+}
+
+/** Required (and gate) first, then bonus/extra — stable within each group. */
+export function sortRulesForDisplay<T extends { type?: string | null }>(rules: T[]): T[] {
+  const rank = (type: string | null | undefined) => {
+    const t = normalizeDisplayRuleType(type);
+    if (t === "gate") return 0;
+    if (t === "extra") return 2;
+    return 1;
+  };
+  return [...rules].sort((a, b) => rank(a.type) - rank(b.type));
+}
+
 export function ruleStatusClass(status: RuleStatus): string {
   return cn(
     status === "met" && "text-ocean-teal-dim dark:text-ocean-teal",
@@ -231,7 +258,7 @@ export function mergeRuleDisplay(
     rows.push({
       ruleKey: rule.ruleKey,
       label: rule.label,
-      type: rule.type,
+      type: normalizeDisplayRuleType(rule.type) === "extra" ? "extra" : "required",
       status: normalizeRuleStatus(ev?.status),
       metAtEt: ev?.metAtEt,
       evidence: ev?.evidence,
@@ -239,7 +266,7 @@ export function mergeRuleDisplay(
       suggestedDirection: ev?.suggestedDirection,
     });
   }
-  return rows;
+  return sortRulesForDisplay(rows);
 }
 
 export function formatEvaluatedAt(iso: string): string {

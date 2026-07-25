@@ -3,8 +3,10 @@ import {
   extractTimeFromEvidence,
   formatRulePassedTimeOnly,
   formatRuleThresholdSummary,
+  isBonusRuleType,
   ruleStatusClass,
   ruleStatusTitle,
+  sortRulesForDisplay,
 } from "../display";
 import { RuleCheckIcon } from "./RuleCheckIcon";
 import { cn } from "@/shared/lib/cn";
@@ -21,7 +23,7 @@ type Props = {
 };
 
 function suffixForRow(row: RuleDisplayRow): string | null {
-  if (row.type === "extra") return null;
+  if (isBonusRuleType(row.type)) return null;
   if (row.status === "partial") return "near";
   if (row.status === "not_met") return ruleStatusTitle("not_met").toLowerCase();
   return null;
@@ -81,9 +83,11 @@ export function RuleRequirementsList({
     return <p className="text-xs text-ocean-sand">No rules defined.</p>;
   }
 
+  const ordered = sortRulesForDisplay(rules);
+
   return (
     <ul className={cn("space-y-2 overflow-visible", className)}>
-      {rules.map((row) => {
+      {ordered.map((row) => {
         const suffix = suffixForRow(row);
         const passedTime = passedTimeForRow(row);
         const showTime = showTimeForRow(passedTime, highlightPassedTime, showPassedTime);
@@ -101,6 +105,7 @@ export function RuleRequirementsList({
           !showMetricsLine &&
           row.status !== "pending" &&
           (row.status === "not_met" || row.status === "met" || row.status === "partial" || Boolean(verdict));
+        const isBonus = isBonusRuleType(row.type);
 
         return (
           <li key={row.ruleKey} className="min-w-0 overflow-visible">
@@ -108,22 +113,23 @@ export function RuleRequirementsList({
               className={cn(
                 "flex items-start gap-2 leading-snug",
                 highlightPassedTime ? "text-sm" : "text-xs",
+                isBonus && "opacity-90",
                 ruleStatusClass(row.status),
               )}
             >
-              <span className="mt-px shrink-0" aria-hidden>
-                <RuleCheckIcon status={row.status} />
+              <span className={cn("shrink-0", isBonus ? "mt-0.5" : "mt-px")} aria-hidden>
+                <RuleCheckIcon status={row.status} size={isBonus ? "sm" : "md"} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className={row.type === "required" ? "font-medium" : undefined}>
+                <span className={!isBonus ? "font-medium" : undefined}>
                   {row.label}
                 </span>
-                {row.type === "extra" && (
+                {isBonus && (
                   <span
                     className="ml-1.5 inline-block text-[10px] uppercase tracking-wide text-ocean-sand"
-                    title="Informational only — does not affect quality %"
+                    title="Bonus — does not affect quality %"
                   >
-                    extra
+                    bonus
                   </span>
                 )}
                 {suffix && (

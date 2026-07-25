@@ -6,15 +6,22 @@ type Props = {
   status: RuleStatus;
   title?: string;
   className?: string;
+  /** Bonus/extra rules use a smaller glyph. */
+  size?: "md" | "sm";
 };
 
-export function RuleCheckIcon({ status, title, className }: Props) {
+export function RuleCheckIcon({ status, title, className, size = "md" }: Props) {
   const tip = title ?? ruleStatusTitle(status);
+  const sm = size === "sm";
 
   if (status === "met") {
     return (
       <span
-        className={cn("inline-flex w-3.5 font-bold leading-none text-ocean-teal-dim dark:text-ocean-teal", className)}
+        className={cn(
+          "inline-flex font-bold leading-none text-ocean-teal-dim dark:text-ocean-teal",
+          sm ? "w-2.5 text-[9px]" : "w-3.5 text-[13px]",
+          className,
+        )}
         title={tip}
         aria-label={tip}
       >
@@ -27,7 +34,8 @@ export function RuleCheckIcon({ status, title, className }: Props) {
     return (
       <span
         className={cn(
-          "inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-sky-500 text-[7px] font-bold leading-none text-white",
+          "inline-flex shrink-0 items-center justify-center rounded-full bg-sky-500 font-bold leading-none text-white",
+          sm ? "h-2.5 w-2.5 text-[6px]" : "h-3.5 w-3.5 text-[7px]",
           className,
         )}
         title={tip}
@@ -40,7 +48,15 @@ export function RuleCheckIcon({ status, title, className }: Props) {
 
   if (status === "partial") {
     return (
-      <span className={cn("inline-flex w-3.5 leading-none text-amber-600 dark:text-amber-400", className)} title={tip} aria-label={tip}>
+      <span
+        className={cn(
+          "inline-flex leading-none text-amber-600 dark:text-amber-400",
+          sm ? "w-2.5 text-[9px]" : "w-3.5 text-[13px]",
+          className,
+        )}
+        title={tip}
+        aria-label={tip}
+      >
         ○
       </span>
     );
@@ -48,7 +64,15 @@ export function RuleCheckIcon({ status, title, className }: Props) {
 
   if (status === "pending") {
     return (
-      <span className={cn("inline-flex w-3.5 leading-none text-ocean-sand", className)} title={tip} aria-label={tip}>
+      <span
+        className={cn(
+          "inline-flex leading-none text-ocean-sand",
+          sm ? "w-2.5 text-[9px]" : "w-3.5",
+          className,
+        )}
+        title={tip}
+        aria-label={tip}
+      >
         ·
       </span>
     );
@@ -58,19 +82,33 @@ export function RuleCheckIcon({ status, title, className }: Props) {
     return (
       <span
         className={cn(
-          "inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center",
+          "inline-flex shrink-0 items-center justify-center",
+          sm ? "h-2.5 w-2.5" : "h-3.5 w-3.5",
           className,
         )}
         title={tip}
         aria-label={tip}
       >
-        <span className="h-2.5 w-2.5 rounded-full bg-orange-500 dark:bg-orange-400" />
+        <span
+          className={cn(
+            "rounded-full bg-orange-500 dark:bg-orange-400",
+            sm ? "h-1.5 w-1.5" : "h-2.5 w-2.5",
+          )}
+        />
       </span>
     );
   }
 
   return (
-    <span className={cn("inline-flex w-3.5 leading-none text-ocean-sand", className)} title={tip} aria-label={tip}>
+    <span
+      className={cn(
+        "inline-flex leading-none text-ocean-sand",
+        sm ? "w-2.5 text-[9px]" : "w-3.5",
+        className,
+      )}
+      title={tip}
+      aria-label={tip}
+    >
       ·
     </span>
   );
