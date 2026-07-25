@@ -111,18 +111,48 @@ export async function fetchRulesSnapshot(runId?: string | null) {
 export async function fetchStrategyDetail(
   strategyId: string,
   runId?: string | null,
+  opts?: { force?: boolean },
 ): Promise<StrategyDetailResponse> {
-  return fetchJson<StrategyDetailResponse>(
-    withRunId(`/market/strategies/${encodeURIComponent(strategyId)}/detail`, runId),
+  const sid = strategyId.trim();
+  const rid = runId?.trim() || "";
+  if (!rid) {
+    return fetchJson<StrategyDetailResponse>(
+      withRunId(`/market/strategies/${encodeURIComponent(sid)}/detail`, runId),
+    );
+  }
+  const { getStrategyDetailCached } = await import("./market-workspace-cache");
+  return getStrategyDetailCached(
+    sid,
+    rid,
+    () =>
+      fetchJson<StrategyDetailResponse>(
+        withRunId(`/market/strategies/${encodeURIComponent(sid)}/detail`, rid),
+      ),
+    opts,
   );
 }
 
 export async function fetchTickerDetail(
   symbol: string,
   runId?: string | null,
+  opts?: { force?: boolean },
 ): Promise<TickerDetailResponse> {
-  return fetchJson<TickerDetailResponse>(
-    withRunId(`/market/tickers/${encodeURIComponent(symbol.toUpperCase())}/detail`, runId),
+  const sym = symbol.toUpperCase();
+  const rid = runId?.trim() || "";
+  if (!rid) {
+    return fetchJson<TickerDetailResponse>(
+      withRunId(`/market/tickers/${encodeURIComponent(sym)}/detail`, runId),
+    );
+  }
+  const { getTickerDetailCached } = await import("./market-workspace-cache");
+  return getTickerDetailCached(
+    sym,
+    rid,
+    () =>
+      fetchJson<TickerDetailResponse>(
+        withRunId(`/market/tickers/${encodeURIComponent(sym)}/detail`, rid),
+      ),
+    opts,
   );
 }
 
@@ -145,7 +175,10 @@ export async function postMarketEvaluateStop(): Promise<{
 }
 
 const POLL_INTERVAL_MS = 2000;
+/** Short poll after start — UI continues with settle poll until the run finishes. */
 const POLL_MAX_DURATION_MS = 10_000;
+/** Wait for a full market assess (multi-ticker) before loading snapshots. */
+const SETTLE_MAX_DURATION_MS = 5 * 60_000;
 
 function delay(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -186,6 +219,31 @@ export async function pollMarketEvaluate(
     }
     if (Date.now() + POLL_INTERVAL_MS >= deadline) {
       break;
+    }
+    await delay(POLL_INTERVAL_MS);
+  }
+  return last;
+}
+
+/**
+ * Poll until the run reaches a terminal status (or deadline).
+ * Used so the UI can load snapshots as soon as Assess finishes — no fixed delay.
+ */
+export async function pollMarketEvaluateUntilSettled(
+  runId: string,
+  onProgress?: (payload: MarketEvaluateStatusResponse) => void,
+  maxDurationMs = SETTLE_MAX_DURATION_MS,
+): Promise<MarketEvaluateStatusResponse | null> {
+  const deadline = Date.now() + maxDurationMs;
+  let last: MarketEvaluateStatusResponse | null = null;
+  while (Date.now() < deadline) {
+    last = await fetchEvaluateStatus(runId);
+    onProgress?.(last);
+    if (isAssessTerminal(last.status)) {
+      return last;
+    }
+    if (!isMarketAssessActive(last.status) && isAssessUsable(last.status)) {
+      return last;
     }
     await delay(POLL_INTERVAL_MS);
   }

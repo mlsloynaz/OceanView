@@ -122,12 +122,12 @@ export function MarketPage() {
         <MarketViewToggle mode={viewMode} onChange={setViewMode} />
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <MarketSearchInput
           value={search}
           onChange={setSearch}
           placeholder={searchPlaceholder}
-          className="min-w-0 flex-1 sm:max-w-xs"
+          className="min-w-0 w-full lg:max-w-xs"
         />
         {candleCoverage && (
           <AssessmentTimeControl
@@ -151,7 +151,7 @@ export function MarketPage() {
             onStartPolling={startPolling}
             onStop={() => void stopAssessment()}
             onRefreshResult={() => void refreshResult()}
-            className="sm:flex-1 sm:max-w-2xl"
+            className="min-w-0 flex-1 lg:max-w-3xl"
           />
         )}
       </div>

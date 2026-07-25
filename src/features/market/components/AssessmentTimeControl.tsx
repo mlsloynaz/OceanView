@@ -15,6 +15,21 @@ import { cn } from "@/shared/lib/cn";
 
 export type PollIntervalUnit = "min" | "sec";
 
+const BTN =
+  "rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+const BTN_SECONDARY = cn(
+  BTN,
+  "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-ocean-teal/50",
+);
+const BTN_PRIMARY = cn(
+  BTN,
+  "bg-ocean-teal text-ocean-deep hover:brightness-105",
+);
+const BTN_TEAL_OUTLINE = cn(
+  BTN,
+  "border border-ocean-teal/50 bg-ocean-deep text-ocean-teal-dim hover:border-ocean-teal hover:text-ocean-teal dark:text-ocean-teal",
+);
+
 type Props = {
   mode: AssessmentTimeMode;
   value: Date;
@@ -76,7 +91,7 @@ export function AssessmentTimeControl({
   const intervalLabel = intervalUnit === "min" ? "min" : "sec";
 
   return (
-    <div className={cn("min-w-0", className)}>
+    <div className={cn("min-w-0 space-y-2", className)}>
       <div className="flex flex-wrap items-center gap-2">
         <LiveSimulateControl
           mode={assessmentToLiveSimulate(mode)}
@@ -113,25 +128,13 @@ export function AssessmentTimeControl({
                   ? "Run one assessment at the current Eastern time"
                   : "Run one assessment at the selected time"
           }
-          className="rounded-md bg-ocean-teal px-2.5 py-1 text-[11px] font-semibold text-ocean-deep transition-colors hover:brightness-105 disabled:opacity-40"
+          className={BTN_PRIMARY}
         >
-          {pending && !monitorActive ? "…" : "Assess"}
+          {pending && !monitorActive ? "Assessing…" : "Assess"}
         </button>
+      </div>
 
-        <button
-          type="button"
-          onClick={onStartPolling}
-          disabled={startDisabled}
-          title={
-            monitorActive
-              ? "Continuous assess is already running — hit Stop first"
-              : `Start continuous assess every ${intervalValue} ${intervalLabel}`
-          }
-          className="rounded-md border border-ocean-teal/50 bg-ocean-deep px-2.5 py-1 text-[11px] font-semibold text-ocean-teal-dim transition-colors hover:border-ocean-teal hover:text-ocean-teal disabled:opacity-40 dark:text-ocean-teal"
-        >
-          {pending && monitorActive ? "…" : "Start"}
-        </button>
-
+      <div className="flex flex-wrap items-center gap-2">
         <label
           htmlFor="market-assess-interval"
           className="flex items-center gap-1 text-[11px] text-ocean-sand"
@@ -163,61 +166,82 @@ export function AssessmentTimeControl({
           </select>
         </label>
 
-        <button
-          type="button"
-          onClick={onStop}
-          disabled={!canStop || stopPending}
-          title={
-            monitorActive
-              ? "Stop continuous assess and cancel any in-flight run"
-              : "Request stop after the current symbol"
-          }
-          className="rounded-md border border-ocean-mid/60 bg-ocean-deep px-2.5 py-1 text-[11px] font-semibold text-ocean-foam transition-colors hover:border-ocean-teal/50 disabled:opacity-40"
+        <div
+          className="inline-flex items-center gap-1.5"
+          role="group"
+          aria-label="Continuous assess"
         >
-          {stopPending ? "Stopping…" : "Stop"}
-        </button>
+          <button
+            type="button"
+            onClick={onStartPolling}
+            disabled={startDisabled}
+            title={
+              monitorActive
+                ? "Continuous assess is already running — hit Stop first"
+                : `Start continuous assess every ${intervalValue} ${intervalLabel}`
+            }
+            className={BTN_TEAL_OUTLINE}
+          >
+            {pending && monitorActive ? "…" : "Start"}
+          </button>
+
+          <button
+            type="button"
+            onClick={onStop}
+            disabled={!canStop || stopPending}
+            title={
+              monitorActive
+                ? "Stop continuous assess and cancel any in-flight run"
+                : "Request stop after the current symbol"
+            }
+            className={BTN_SECONDARY}
+          >
+            {stopPending ? "Stopping…" : "Stop"}
+          </button>
+        </div>
 
         <button
           type="button"
           onClick={onRefreshResult}
           disabled={refreshPending || stopPending}
-          className="rounded-md border border-ocean-mid/60 bg-ocean-deep px-2.5 py-1 text-[11px] font-semibold text-ocean-foam transition-colors hover:border-ocean-teal/50 disabled:opacity-40"
+          title="Reload the latest assessment snapshot"
+          className={BTN_SECONDARY}
         >
           {refreshPending ? "Loading…" : "Refresh result"}
         </button>
       </div>
 
       {monitorActive ? (
-        <p className="mt-1 text-[11px] text-ocean-teal-dim dark:text-ocean-teal" role="status">
-          Monitoring — next assess every {intervalValue} {intervalLabel} · result refresh ~20s after
-          each assess starts
-          {mode === "et" ? " · Simulate mode reuses the same assessment time each tick" : ""}
-          . Strategies outside their entry window are skipped.
+        <p className="text-[11px] text-ocean-teal-dim dark:text-ocean-teal" role="status">
+          Monitoring — next assess every {intervalValue} {intervalLabel}
+          {mode === "et" ? " · Simulate reuses the same time each tick" : ""}
+          . Results update when each run finishes. Strategies outside their entry window are skipped.
         </p>
       ) : null}
 
       {mode === "now" ? (
-        <p className="mt-1 text-[10px] text-ocean-sand/70">
+        <p className="text-[10px] text-ocean-sand/70">
           Live mode uses the current Eastern time during the session; after hours it assesses at 4:00
           PM ET. Candles refresh from Schwab when stored data is behind.
         </p>
       ) : (
-        <p className="mt-1 text-[10px] text-ocean-sand/70">
+        <p className="text-[10px] text-ocean-sand/70">
           Simulate — stored regular-session candles from Dynamo only, sliced through the selected
-          time (9:30 AM–4:00 PM ET, no refresh).
+          time (9:30 AM–4:00 PM ET, no refresh). Type session as YYYY-MM-DD and time as HH:MM (24h
+          ET).
         </p>
       )}
 
       {error ? (
-        <p id="market-assessment-time-error" className="mt-1 text-[11px] text-ocean-danger">
+        <p id="market-assessment-time-error" className="text-[11px] text-ocean-danger">
           {error}
         </p>
       ) : null}
       {notice ? (
-        <p className="mt-1 text-[11px] text-ocean-teal-dim dark:text-ocean-teal">{notice}</p>
+        <p className="text-[11px] text-ocean-teal-dim dark:text-ocean-teal">{notice}</p>
       ) : null}
       {!error && !notice ? (
-        <p className="mt-1 text-[10px] text-ocean-sand/70">
+        <p className="text-[10px] text-ocean-sand/70">
           Candles: {formatAssessmentDisplay(new Date(coverage.earliestAt))}
           {" – "}
           {formatAssessmentDisplay(new Date(coverage.latestAt))}

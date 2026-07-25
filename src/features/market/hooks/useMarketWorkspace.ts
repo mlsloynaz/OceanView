@@ -14,12 +14,12 @@ import {
 import {
   MARKET_ERROR_MESSAGES,
   MarketApiError,
-  fetchEvaluateStatus,
   fetchMarketEnvelope,
   isMarketAssessActive,
   postMarketEvaluate,
   postMarketEvaluateStop,
   pollMarketEvaluate,
+  pollMarketEvaluateUntilSettled,
 } from "../api/market-client";
 import { buildRuleCards, buildStrategyCards, buildTickerCards } from "../display";
 import {
@@ -77,7 +77,6 @@ type SnapshotCache = Partial<
 >;
 
 const DEFAULT_INTERVAL_VALUE = 5;
-const POST_ASSESS_REFRESH_MS = 20_000;
 
 function clampIntervalValue(value: number, unit: PollIntervalUnit): number {
   if (!Number.isFinite(value)) return DEFAULT_INTERVAL_VALUE;
@@ -98,7 +97,7 @@ function continuousMonitorNotice(
   mode: AssessmentTimeMode,
 ): string {
   const label = unit === "min" ? "min" : "sec";
-  const base = `Monitoring — assessing every ${value} ${label} · result refresh ~20s after each assess starts`;
+  const base = `Monitoring — assessing every ${value} ${label} · results update when each run finishes`;
   if (mode === "et") {
     return `${base}. Simulate mode reuses the same assessment time each tick.`;
   }
@@ -161,10 +160,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   const intervalValueRef = useRef(DEFAULT_INTERVAL_VALUE);
   const intervalUnitRef = useRef<PollIntervalUnit>("min");
   const evaluateTimerRef = useRef<number | null>(null);
-  const refreshTimerRef = useRef<number | null>(null);
-  const postAssessWaitRef = useRef<{ resolve: (value: "done" | "cleared") => void } | null>(
-    null,
-  );
+  const settleAbortRef = useRef(0);
   const jobActiveRef = useRef(false);
 
   monitorActiveRef.current = monitorActive;
@@ -177,33 +173,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       window.clearInterval(evaluateTimerRef.current);
       evaluateTimerRef.current = null;
     }
-    if (refreshTimerRef.current != null) {
-      window.clearTimeout(refreshTimerRef.current);
-      refreshTimerRef.current = null;
-    }
-    if (postAssessWaitRef.current) {
-      postAssessWaitRef.current.resolve("cleared");
-      postAssessWaitRef.current = null;
-    }
-  }, []);
-
-  const waitPostAssessRefresh = useCallback((): Promise<"done" | "cleared"> => {
-    if (refreshTimerRef.current != null) {
-      window.clearTimeout(refreshTimerRef.current);
-      refreshTimerRef.current = null;
-    }
-    if (postAssessWaitRef.current) {
-      postAssessWaitRef.current.resolve("cleared");
-      postAssessWaitRef.current = null;
-    }
-    return new Promise((resolve) => {
-      postAssessWaitRef.current = { resolve };
-      refreshTimerRef.current = window.setTimeout(() => {
-        refreshTimerRef.current = null;
-        postAssessWaitRef.current = null;
-        resolve("done");
-      }, POST_ASSESS_REFRESH_MS);
-    });
+    settleAbortRef.current += 1;
   }, []);
 
   useEffect(() => {
@@ -476,15 +446,20 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
 
   const followAfterPostAssessDelay = useCallback(
     async (activeRunId: string) => {
-      const waitResult = await waitPostAssessRefresh();
-      if (waitResult === "cleared") return;
+      const settleToken = ++settleAbortRef.current;
       try {
+        setAssessNotice("Assessment running… results will appear when it finishes.");
+        await pollMarketEvaluateUntilSettled(activeRunId);
+        if (settleToken !== settleAbortRef.current) return;
+
         const historicalOnly = assessmentMode === "et";
         const at = resolveAssessmentMoment();
         await refreshAfterAssess(
           activeRunId,
           historicalOnly ? formatSimulationTimeEt(at) : null,
         );
+        if (settleToken !== settleAbortRef.current) return;
+
         setPendingRunId(null);
         if (monitorActiveRef.current) {
           setAssessNotice(
@@ -497,29 +472,16 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
         } else {
           setAssessNotice(null);
         }
-        const status = await fetchEvaluateStatus(activeRunId);
-        if (isMarketAssessActive(status.status) && monitorActiveRef.current) {
-          // Keep pulling briefly so the interval does not stack a second job.
-          const deadline = Date.now() + 90_000;
-          let latest = status;
-          while (Date.now() < deadline && isMarketAssessActive(latest.status)) {
-            await pollMarketEvaluate(activeRunId);
-            latest = await fetchEvaluateStatus(activeRunId);
-            if (!monitorActiveRef.current) break;
-          }
-          if (monitorActiveRef.current) {
-            await refreshAfterAssess(
-              activeRunId,
-              historicalOnly ? formatSimulationTimeEt(at) : null,
-            );
-          }
-        }
         setJobActive(false);
       } catch {
         /* keep partial UI; next cycle or Refresh can recover */
+        if (settleToken === settleAbortRef.current) {
+          setJobActive(false);
+          setAssessNotice("Assessment finished, but loading results failed — try Refresh result.");
+        }
       }
     },
-    [assessmentMode, refreshAfterAssess, resolveAssessmentMoment, waitPostAssessRefresh],
+    [assessmentMode, refreshAfterAssess, resolveAssessmentMoment],
   );
 
   const runAssessCycle = useCallback(
@@ -592,7 +554,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
         void followAfterPostAssessDelay(start.runId);
         if (!continuous) {
           setAssessNotice(
-            start.message ?? "Assessment started. Results refresh automatically in ~20s.",
+            start.message ?? "Assessment running… results will appear when it finishes.",
           );
         }
       } catch (err) {

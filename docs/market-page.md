@@ -140,7 +140,7 @@ Optional body fields (UI does not send today unless extended):
 
 During regular session (Mon–Fri 9:30 AM – 4:00 PM ET), when `simulationTimeEt` is today, the API may refresh candles incrementally before scoring — no separate Admin candle refresh required for Assess during the session.
 
-**Assess UX:** button and datetime are disabled while pending; Schwab refresh + eval can take **10–30 seconds** per small universe. With more than ~5 symbols the API may return `202` async — UI does not poll yet (`fetchEvaluateStatus` exists for future use).
+**Assess UX:** **Assess** is the only solid primary button. While a run is in flight the UI polls status (up to ~5 minutes) and **loads the snapshot as soon as the run finishes** — no manual Refresh required (Refresh remains as a fallback). Simulate Session/Time are typeable (`YYYY-MM-DD`, `HH:MM` ET). Continuous Start uses the same settle-then-refresh path each tick.
 
 **Error codes** (HTTP 400/409, body `{ error, code }`):
 
@@ -278,7 +278,7 @@ flowchart TB
   TickCard --> TD
 ```
 
-**No client-side polling** after Assess. The UI waits for `POST /market/evaluate` to complete, then re-fetches envelope + the active view snapshot.
+**After Assess:** the client polls evaluate status until terminal, then re-fetches envelope + the active view snapshot so grids update without clicking Refresh.
 
 ---
 
@@ -361,7 +361,8 @@ Both show rule check strips, quality badges, and expandable rule requirement lis
 | `MarketViewToggle` | Switch strategies / tickers / rules |
 | `MarketSearchInput` | Client-side grid filter |
 | `MarketSummaryStrip` | Counts + assessment label under page title |
-| `AssessmentTimeControl` | ET datetime, Now, Assess |
+| `AssessmentTimeControl` | Live/Simulate + typeable Session/Time · **Assess** (only primary CTA) · continuous Start/Stop/Refresh |
+| `LiveSimulateControl` | Soft Live/Simulate toggle (not primary); Session `YYYY-MM-DD` + Time `HH:MM` text fields |
 | `StrategyCard` | Strategy grid tile + “View detail” |
 | `TickerCard` | Ticker grid tile; rule icon strip from `topStrategyEval` |
 | `RuleCard` | Rule grid tile (no detail modal in v1) |
