@@ -91,19 +91,24 @@ export function MarketAlarmPanel({
       ? `${metCount} alarm${metCount === 1 ? "" : "s"} fired · ${runningCount} polling`
       : runningCount > 0
         ? `${runningCount} watch${runningCount === 1 ? "" : "es"} polling`
-        : "Ticker + confirmation candle rule + trend · poll until met";
+        : "Pick ticker + confirmation candle (1h / 15m) + trend · Start polls until met";
 
   return (
     <>
       <CollapsibleSection
         id="market-alarms"
-        title="Alarm"
+        title="Rule Alarm"
         subtitle={subtitle}
         open={open}
         onOpenChange={setOpen}
-        className="min-w-0"
+        className="min-w-0 border-ocean-teal/35 bg-ocean-deep/20"
       >
         <div className="space-y-3 text-sm">
+          <p className="text-xs leading-relaxed text-ocean-sand">
+            Moved here from Premarket. Watch an active ticker until the confirmation candle rule
+            is <span className="font-medium text-ocean-foam">met</span> for the chosen trend
+            (popup + bell). Expand this section if collapsed.
+          </p>
           {banner ? (
             <div
               className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-ocean-teal/40 bg-ocean-teal/15 px-3 py-2"

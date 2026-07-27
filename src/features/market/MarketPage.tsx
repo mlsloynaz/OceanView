@@ -109,6 +109,11 @@ export function MarketPage() {
           <h1 className="font-display text-xl font-semibold text-ocean-foam sm:text-2xl">Market</h1>
           <p className="mt-1 text-sm text-ocean-sand">
             Standard strategy playbooks only — activate in Admin. Dynamic screens run on Premarket.
+            Rule alarms (confirmation candle) are in the{" "}
+            <a href="#market-alarms" className="text-ocean-teal hover:underline">
+              Alarm
+            </a>{" "}
+            section below.
           </p>
           {catalog && (snapshot || !useMock) && (
             <div className="mt-1">
@@ -124,6 +129,27 @@ export function MarketPage() {
         </div>
         <MarketViewToggle mode={viewMode} onChange={setViewMode} />
       </div>
+
+      <MarketAlarmPanel
+        watches={alarms.watches}
+        tickers={alarms.tickers}
+        tickersLoading={alarms.tickersLoading}
+        tickersError={alarms.tickersError}
+        formError={alarms.formError}
+        banner={alarms.banner}
+        metPopup={alarms.metPopup}
+        metCount={alarms.metCount}
+        runningCount={alarms.runningCount}
+        onClearBanner={alarms.clearMetBanner}
+        onClearMetPopup={alarms.clearMetPopup}
+        onAdd={alarms.addWatch}
+        onStart={alarms.startWatch}
+        onStop={alarms.stopWatch}
+        onRemove={alarms.removeWatch}
+        onCheckNow={(id) => void alarms.runCheckNow(id)}
+        onUpdateInterval={alarms.updateWatchInterval}
+        onRequestNotify={() => void alarms.requestNotifyPermission()}
+      />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <MarketSearchInput
@@ -174,27 +200,6 @@ export function MarketPage() {
           No assessment run yet. Click <strong className="text-ocean-foam">Assess</strong> to evaluate active tickers.
         </p>
       )}
-
-      <MarketAlarmPanel
-        watches={alarms.watches}
-        tickers={alarms.tickers}
-        tickersLoading={alarms.tickersLoading}
-        tickersError={alarms.tickersError}
-        formError={alarms.formError}
-        banner={alarms.banner}
-        metPopup={alarms.metPopup}
-        metCount={alarms.metCount}
-        runningCount={alarms.runningCount}
-        onClearBanner={alarms.clearMetBanner}
-        onClearMetPopup={alarms.clearMetPopup}
-        onAdd={alarms.addWatch}
-        onStart={alarms.startWatch}
-        onStop={alarms.stopWatch}
-        onRemove={alarms.removeWatch}
-        onCheckNow={(id) => void alarms.runCheckNow(id)}
-        onUpdateInterval={alarms.updateWatchInterval}
-        onRequestNotify={() => void alarms.requestNotifyPermission()}
-      />
 
       {showGrids && viewMode === "strategies" && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">

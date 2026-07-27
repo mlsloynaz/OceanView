@@ -381,7 +381,9 @@ export function TradablePane({ onBack }: Props) {
     >
       <p className="mb-3 text-xs text-ocean-sand">
         Samples the <strong className="font-medium text-ocean-foam">entire catalog</strong>. Click{" "}
-        <strong className="font-medium text-ocean-foam">Collect</strong> once — each ticker gets{" "}
+        <strong className="font-medium text-ocean-foam">Collect</strong> anytime — or rely on the
+        schedule (weekdays 10:00 / 12:30 / 3:15 ET while building to Ready; then Mon + Thu 12:30
+        only). Each ticker gets{" "}
         <strong className="font-medium text-ocean-foam">one</strong> option-chain call this run (≤
         {batchSize} every {pollSeconds}s until all are done). This pane polls on the same cadence.
         Need ≥{tradable?.minSamplesReady ?? 8} intakes over time for Ready (run Collect on later
