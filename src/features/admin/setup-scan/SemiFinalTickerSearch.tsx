@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/shared/lib/cn";
-import type { PreselectionTickerRow } from "./types";
+import type { PreselectionTickerGroup } from "./types";
 
 type Props = {
   value: string;
-  suggestions: PreselectionTickerRow[];
+  suggestions: PreselectionTickerGroup[];
   disabled?: boolean;
   onChange: (value: string) => void;
   onSelect: (symbol: string) => void;

@@ -10,11 +10,15 @@ import {
   postSetupScanRun,
   SetupScanApiError,
 } from "../api/preselection-client";
+import {
+  buildSemiFinalTickerGroups,
+  filterSemiFinalTickerGroups,
+  semiFinalTickerMatchCount,
+  semiFinalTickerSearchSuggestions,
+} from "../group-by-ticker";
 import { mergePreselectionWithCatalogActive } from "../merge-catalog-active";
 import {
   filterSemiFinalResult,
-  semiFinalMatchCount,
-  semiFinalSearchSuggestions,
 } from "../search";
 import type { PreselectionResultResponse, PreselectionTickerRow } from "../types";
 
@@ -126,14 +130,24 @@ export function useSetupScanPane(open: boolean) {
     [result, search],
   );
 
+  const tickerGroups = useMemo(
+    () => buildSemiFinalTickerGroups(filteredResult),
+    [filteredResult],
+  );
+
+  const filteredTickerGroups = useMemo(
+    () => filterSemiFinalTickerGroups(tickerGroups, search),
+    [tickerGroups, search],
+  );
+
   const searchSuggestions = useMemo(
-    () => semiFinalSearchSuggestions(result, search),
-    [result, search],
+    () => semiFinalTickerSearchSuggestions(tickerGroups, search),
+    [tickerGroups, search],
   );
 
   const searchMatchCount = useMemo(
-    () => semiFinalMatchCount(result, search),
-    [result, search],
+    () => semiFinalTickerMatchCount(tickerGroups, search),
+    [tickerGroups, search],
   );
 
   const runScan = useCallback(() => {
@@ -243,6 +257,7 @@ export function useSetupScanPane(open: boolean) {
   return {
     result,
     filteredResult,
+    tickerGroups: filteredTickerGroups,
     search,
     setSearch,
     searchSuggestions,

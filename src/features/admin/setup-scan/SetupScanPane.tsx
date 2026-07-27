@@ -11,7 +11,12 @@ import {
 } from "./criterion-help";
 import { useSetupScanPane } from "./hooks/useSetupScanPane";
 import { SemiFinalTickerSearch } from "./SemiFinalTickerSearch";
-import type { PreselectionBreakdownRow, PreselectionTickerRow } from "./types";
+import type {
+  PreselectionBreakdownRow,
+  PreselectionStrategySuggestion,
+  PreselectionTickerGroup,
+  PreselectionTickerRow,
+} from "./types";
 
 const TIER_CLASS: Record<string, string> = {
   excellent: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200",
@@ -83,6 +88,107 @@ function AvoidLine({ line }: { line: string }) {
         <p className="mt-0.5 text-[11px] text-amber-900/90 dark:text-amber-100/90">{help.description}</p>
       ) : null}
       <p className="mt-0.5 text-xs text-amber-800/80 dark:text-amber-100/80">{line}</p>
+    </li>
+  );
+}
+
+function suggestionToTickerRow(
+  group: PreselectionTickerGroup,
+  suggestion: PreselectionStrategySuggestion,
+): PreselectionTickerRow {
+  return {
+    symbol: group.symbol,
+    name: group.name,
+    currentlyActive: group.currentlyActive,
+    ready: true,
+    score: suggestion.score,
+    maxScore: suggestion.maxScore,
+    tier: suggestion.tier,
+    directionBias: group.directionBias,
+    reasons: suggestion.reasons,
+    avoidReasons: suggestion.avoidReasons,
+    breakdown: suggestion.breakdown,
+  };
+}
+
+function StrategySuggestionBlock({
+  suggestion,
+  onOpenDetail,
+}: {
+  suggestion: PreselectionStrategySuggestion;
+  onOpenDetail: () => void;
+}) {
+  const metCriteria = (suggestion.breakdown ?? []).filter((row) => row.met);
+  const unmetCriteria = (suggestion.breakdown ?? []).filter((row) => !row.met);
+
+  return (
+    <li className="rounded-lg border border-ocean-mid/35 bg-ocean-deep/25 px-3 py-2">
+      <button
+        type="button"
+        className="flex w-full flex-wrap items-center gap-2 text-left"
+        onClick={onOpenDetail}
+      >
+        <span className="font-medium text-ocean-foam">
+          {suggestion.shortName || suggestion.strategyName}
+        </span>
+        <span
+          className={cn(
+            "inline rounded px-1.5 py-0.5 text-[10px] font-medium",
+            TIER_CLASS[suggestion.tier] ?? TIER_CLASS.skip,
+          )}
+        >
+          {suggestion.score}/{suggestion.maxScore} · {tierLabel(String(suggestion.tier))}
+        </span>
+      </button>
+
+      {metCriteria.length > 0 && (
+        <div className="mt-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-ocean-teal">
+            Criteria met
+          </p>
+          <ul className="mt-1 space-y-1">
+            {metCriteria.map((row) => (
+              <CriterionSummary key={row.key} row={row} met />
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {unmetCriteria.length > 0 && (
+        <div className="mt-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">
+            Not met
+          </p>
+          <ul className="mt-1 space-y-1">
+            {unmetCriteria.map((row) => (
+              <CriterionSummary key={row.key} row={row} met={false} />
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(suggestion.avoidReasons ?? []).length > 0 && (
+        <ul className="mt-2 space-y-1 border-t border-ocean-mid/30 pt-2">
+          {suggestion.avoidReasons.map((line) => (
+            <AvoidLine key={line} line={line} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function CriterionSummary({ row, met }: { row: PreselectionBreakdownRow; met: boolean }) {
+  const help = helpForCriterion(row.key);
+  return (
+    <li className="text-xs leading-relaxed text-ocean-sand">
+      <span className={met ? "text-ocean-teal" : "text-ocean-sand/90"}>
+        {help?.title ?? row.key}
+      </span>
+      <span className="ml-1 tabular-nums text-ocean-sand/80">
+        ({row.points}/{row.maxPoints})
+      </span>
+      <span className="block text-[11px] text-ocean-sand/85">{row.label}</span>
     </li>
   );
 }
@@ -176,7 +282,7 @@ export function SetupScanPane() {
         subtitle={
           usesMock
             ? "Mock data (VITE_USE_MOCK_SETUP_SCAN or VITE_USE_MOCK_CANDLES)"
-            : "D+1h preselection — scores catalog strategies with a SemiFinal profile (active or not)"
+            : "D+1h preselection — tickers with CALL/PUT bias after assessment, grouped by symbol"
         }
         className="min-w-0"
         headerExtra={
@@ -232,9 +338,11 @@ export function SetupScanPane() {
         )}
 
         <p className="mb-3 text-xs text-ocean-sand">
-          Scans all catalog tickers (active and inactive). Live mode refreshes stale candles through
-          the last completed session. Simulate mode scores post-market of a chosen session day using
-          stored bars only — no candle refresh.
+          Scans all catalog tickers (active and inactive). Only symbols with a resolved direction
+          bias (CALL or PUT from daily/hourly trend) appear here, grouped by ticker with strategy
+          suggestions from assessed criteria. Live mode refreshes stale candles through the last
+          completed session. Simulate mode scores post-market of a chosen session day using stored
+          bars only — no candle refresh.
         </p>
 
         {ws.scanMode === "simulate" && (
@@ -303,67 +411,60 @@ export function SetupScanPane() {
           <p className="text-sm text-ocean-sand">No Tickers SemiFinal result yet — run a scan to begin.</p>
         )}
 
-        {ws.result && ws.search.trim() && (ws.filteredResult?.strategies?.length ?? 0) === 0 && (
+        {ws.result && ws.search.trim() && ws.tickerGroups.length === 0 && (
           <p className="mb-3 text-sm text-ocean-sand">
-            No tickers match “{ws.search.trim()}”.
+            No tickers with a selected bias match “{ws.search.trim()}”.
           </p>
         )}
 
-        {(ws.filteredResult?.strategies ?? []).map((group) => (
-          <section key={group.strategyId} className="mb-6 last:mb-0">
-            <h3 className="mb-2 font-display text-lg text-ocean-foam">
-              {group.shortName || group.name}
-              <span className="ml-2 text-sm font-normal text-ocean-sand">({group.tickerCount})</span>
-            </h3>
-            {(group.tickers ?? []).length === 0 ? (
-              <p className="text-sm text-ocean-sand">No tickers at or above min score.</p>
-            ) : (
+        {ws.tickerGroups.map((group) => {
+          const pending = Boolean(ws.tickerPending[group.symbol]);
+          return (
+            <section key={group.symbol} className="mb-6 last:mb-0">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <h3 className="font-display text-lg text-ocean-foam">{group.symbol}</h3>
+                {group.name && <span className="text-sm text-ocean-sand">{group.name}</span>}
+                <span className="rounded bg-ocean-teal/15 px-2 py-0.5 text-xs font-medium text-ocean-teal-dim dark:text-ocean-teal">
+                  {group.directionBias}
+                </span>
+                <span className="text-xs text-ocean-sand">
+                  {group.suggestions.length} strateg
+                  {group.suggestions.length === 1 ? "y" : "ies"}
+                </span>
+                <button
+                  type="button"
+                  disabled={pending}
+                  className="ml-auto rounded border border-ocean-mid/60 px-2 py-1 text-xs text-ocean-foam hover:border-ocean-teal/50 disabled:opacity-50"
+                  onClick={() => void ws.setActive(group.symbol, !group.currentlyActive)}
+                >
+                  {pending ? "…" : group.currentlyActive ? "Deactivate" : "Activate"}
+                </button>
+              </div>
+
               <ul className="space-y-2">
-                {(group.tickers ?? []).map((ticker) => {
-                  const pending = Boolean(ws.tickerPending[ticker.symbol]);
-                  return (
-                    <li
-                      key={`${group.strategyId}-${ticker.symbol}`}
-                      className="flex flex-wrap items-center gap-2 rounded-lg border border-ocean-mid/40 bg-ocean-deep/20 px-3 py-2"
-                    >
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 text-left"
-                        onClick={() =>
-                          ws.setDetail({ strategyName: group.shortName || group.name, ticker })
-                        }
-                      >
-                        <span className="font-medium text-ocean-foam">{ticker.symbol}</span>
-                        {ticker.name && (
-                          <span className="ml-2 text-xs text-ocean-sand">{ticker.name}</span>
-                        )}
-                        <span
-                          className={cn(
-                            "ml-2 inline rounded px-1.5 py-0.5 text-[10px] font-medium",
-                            TIER_CLASS[ticker.tier] ?? TIER_CLASS.skip,
-                          )}
-                        >
-                          {ticker.score} · {tierLabel(ticker.tier)}
-                        </span>
-                        {ticker.directionBias && (
-                          <span className="ml-1 text-[10px] text-ocean-teal">{ticker.directionBias}</span>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={pending}
-                        className="rounded border border-ocean-mid/60 px-2 py-1 text-xs text-ocean-foam hover:border-ocean-teal/50 disabled:opacity-50"
-                        onClick={() => void ws.setActive(ticker.symbol, !ticker.currentlyActive)}
-                      >
-                        {pending ? "…" : ticker.currentlyActive ? "Deactivate" : "Activate"}
-                      </button>
-                    </li>
-                  );
-                })}
+                {group.suggestions.map((suggestion) => (
+                  <StrategySuggestionBlock
+                    key={suggestion.strategyId}
+                    suggestion={suggestion}
+                    onOpenDetail={() =>
+                      ws.setDetail({
+                        strategyName: suggestion.shortName || suggestion.strategyName,
+                        ticker: suggestionToTickerRow(group, suggestion),
+                      })
+                    }
+                  />
+                ))}
               </ul>
-            )}
-          </section>
-        ))}
+            </section>
+          );
+        })}
+
+        {ws.result && !ws.search.trim() && ws.tickerGroups.length === 0 && (
+          <p className="text-sm text-ocean-sand">
+            No tickers with a selected bias (CALL/PUT) at or above min score — neutral trend symbols
+            are hidden.
+          </p>
+        )}
       </AdminExpandedPane>
 
       {ws.detail && (

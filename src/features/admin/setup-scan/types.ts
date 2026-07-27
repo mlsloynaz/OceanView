@@ -31,6 +31,27 @@ export type PreselectionStrategyGroup = {
   tickers: PreselectionTickerRow[];
 };
 
+export type PreselectionStrategySuggestion = {
+  strategyId: string;
+  strategyName: string;
+  shortName?: string | null;
+  profileId?: string;
+  score: number;
+  maxScore: number;
+  tier: PreselectionTier | string;
+  reasons: string[];
+  avoidReasons: string[];
+  breakdown: PreselectionBreakdownRow[];
+};
+
+export type PreselectionTickerGroup = {
+  symbol: string;
+  name?: string | null;
+  directionBias: "CALL" | "PUT";
+  currentlyActive: boolean;
+  suggestions: PreselectionStrategySuggestion[];
+};
+
 export type PreselectionCandlesMeta = {
   referenceThroughEt?: string;
   tradeDate?: string;

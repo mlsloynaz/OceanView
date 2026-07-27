@@ -12,7 +12,10 @@ export function matchesSemiFinalSearch(
   );
 }
 
-function rankSemiFinalSearch(row: PreselectionTickerRow, query: string): number {
+export function rankSemiFinalSearch(
+  row: Pick<PreselectionTickerRow, "symbol" | "name">,
+  query: string,
+): number {
   const q = query.trim().toLowerCase();
   if (!q) return 0;
   const sym = row.symbol.toLowerCase();
@@ -28,11 +31,21 @@ export function filterSemiFinalResult(
   if (!result) return null;
   const q = query.trim();
   const strategies = Array.isArray(result.strategies) ? result.strategies : [];
-  if (!q) return { ...result, strategies };
+  const withBiasOnly = strategies
+    .map((group) => {
+      const tickers = (Array.isArray(group.tickers) ? group.tickers : []).filter(
+        (row) => row.directionBias === "CALL" || row.directionBias === "PUT",
+      );
+      return { ...group, tickers, tickerCount: tickers.length };
+    })
+    .filter((group) => group.tickers.length > 0);
+
+  if (!q) return { ...result, strategies: withBiasOnly };
 
   const filtered = strategies
     .map((group) => {
       const tickers = (Array.isArray(group.tickers) ? group.tickers : [])
+        .filter((row) => row.directionBias === "CALL" || row.directionBias === "PUT")
         .filter((row) => matchesSemiFinalSearch(row, q))
         .sort(
           (a, b) =>
@@ -61,6 +74,7 @@ export function semiFinalSearchSuggestions(
 
   for (const group of result.strategies ?? []) {
     for (const row of group.tickers ?? []) {
+      if (row.directionBias !== "CALL" && row.directionBias !== "PUT") continue;
       const upper = row.symbol.toUpperCase();
       if (seen.has(upper) || !matchesSemiFinalSearch(row, query)) continue;
       seen.add(upper);
@@ -83,6 +97,7 @@ export function semiFinalMatchCount(result: PreselectionResultResponse | null, q
   let count = 0;
   for (const group of result.strategies ?? []) {
     for (const row of group.tickers ?? []) {
+      if (row.directionBias !== "CALL" && row.directionBias !== "PUT") continue;
       const upper = row.symbol.toUpperCase();
       if (seen.has(upper) || !matchesSemiFinalSearch(row, query)) continue;
       seen.add(upper);
