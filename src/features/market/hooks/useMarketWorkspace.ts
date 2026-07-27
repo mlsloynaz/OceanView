@@ -47,6 +47,7 @@ import type {
   CandleCoverage,
   MarketEnvelope,
   MarketSnapshotFile,
+  MarketSnapshotMode,
   MarketViewMode,
   RuleCardModel,
   StrategiesCatalogFile,
@@ -55,6 +56,7 @@ import type {
   TickerCardModel,
   TickerEvalResult,
 } from "../types";
+import { isMarketSnapshotMode } from "../lib/market-routes";
 
 function resolveCoverage(snapshot: MarketSnapshotFile): CandleCoverage {
   if (snapshot.candleCoverage) return snapshot.candleCoverage;
@@ -67,7 +69,7 @@ function resolveCoverage(snapshot: MarketSnapshotFile): CandleCoverage {
 
 type SnapshotCache = Partial<
   Record<
-    MarketViewMode,
+    MarketSnapshotMode,
     {
       strategyCards?: StrategyCardModel[];
       tickerCards?: TickerCardModel[];
@@ -323,7 +325,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
 
   const fetchSnapshot = useCallback(
     async (mode: MarketViewMode, activeRunId: string | null, force = false) => {
-      if (useMock) return;
+      if (useMock || !isMarketSnapshotMode(mode)) return;
       if (!force && snapshotCacheRef.current[mode]) return;
 
       const cat = catalogRef.current;
@@ -432,7 +434,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
 
       const cat = catalogRef.current;
       const activeRunId = newRunId || env.runId;
-      if (cat && activeRunId) {
+      if (cat && activeRunId && isMarketSnapshotMode(viewMode)) {
         const payload = await loadSnapshotForModeWithCatalog(viewMode, activeRunId, cat);
         setSnapshotCache({
           [viewMode]: {
@@ -849,11 +851,13 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   const canStop = monitorActive || jobActive || assessPending;
 
   const hasModeCards =
-    viewMode === "strategies"
-      ? Boolean(snapshotCache.strategies?.strategyCards?.length)
-      : viewMode === "tickers"
-        ? Boolean(snapshotCache.tickers?.tickerCards?.length)
-        : Boolean(snapshotCache.rules?.ruleCards?.length);
+    viewMode === "alarm"
+      ? true
+      : viewMode === "strategies"
+        ? Boolean(snapshotCache.strategies?.strategyCards?.length)
+        : viewMode === "tickers"
+          ? Boolean(snapshotCache.tickers?.tickerCards?.length)
+          : Boolean(snapshotCache.rules?.ruleCards?.length);
 
   return {
     loading: loading || (snapshotLoading && !hasModeCards),

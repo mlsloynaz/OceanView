@@ -4,9 +4,16 @@ import type { PollIntervalUnit } from "@/shared/components/PollControls";
 export const ALARM_ELIGIBLE_RULES = [
   { ruleKey: "candle_confirm_1h", label: "Confirmation candle (1h)" },
   { ruleKey: "candle_confirm_15m", label: "Confirmation candle (15m)" },
+  {
+    ruleKey: "touch_disipador",
+    label: "Disipador touch (candle + BB)",
+  },
 ] as const;
 
 export type AlarmEligibleRuleKey = (typeof ALARM_ELIGIBLE_RULES)[number]["ruleKey"];
+
+/** Same TF for candle + Bollinger (touch_disipador). */
+export type AlarmBandTimeframe = "1m" | "15m" | "1h";
 
 export type AlarmTrend = "alcista" | "bajista";
 
@@ -18,6 +25,8 @@ export type MarketAlarmWatch = {
   ruleKey: AlarmEligibleRuleKey;
   ruleLabel: string;
   trend: AlarmTrend;
+  /** Used by touch_disipador — candle + BB timeframe (same TF). */
+  bandTimeframe?: AlarmBandTimeframe;
   frequencyValue: number;
   frequencyUnit: PollIntervalUnit;
   status: AlarmWatchStatus;
@@ -34,4 +43,8 @@ export function alarmRuleLabel(ruleKey: string): string {
 
 export function formatAlarmTrend(trend: AlarmTrend): string {
   return trend === "alcista" ? "Alcista" : "Bajista";
+}
+
+export function needsBandTimeframe(ruleKey: string): boolean {
+  return ruleKey === "touch_disipador";
 }

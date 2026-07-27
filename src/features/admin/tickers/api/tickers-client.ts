@@ -257,8 +257,73 @@ export async function patchTickersActive(
 ): Promise<CatalogTicker[]> {
   const unique = [...new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))];
   if (unique.length === 0) return [];
-  const results = await Promise.all(unique.map((symbol) => patchTickerActive(symbol, active)));
-  return results;
+  if (USE_MOCK) {
+    await delay();
+    return unique.map((symbol) => {
+      const index = mockCatalog.findIndex((row) => row.symbol === symbol);
+      if (index < 0) throw new Error(`Unknown symbol: ${symbol}`);
+      mockCatalog[index] = { ...mockCatalog[index], active };
+      return { ...mockCatalog[index] };
+    });
+  }
+  const payload = await fetchJson<{
+    tickers?: CatalogTicker[];
+    updatedCount?: number;
+    message?: string;
+  }>("/tickers/active", {
+    method: "POST",
+    body: JSON.stringify({ active, symbols: unique }),
+  });
+  return (payload.tickers ?? []).map(mapTicker);
+}
+
+/** Activate or deactivate the entire catalog (Activate all / Deactivate all). */
+export async function patchAllTickersActive(active: boolean): Promise<{
+  tickers: CatalogTicker[];
+  updatedCount: number;
+  skippedCount: number;
+  totalConsidered: number;
+  message: string;
+}> {
+  if (USE_MOCK) {
+    await delay();
+    let updatedCount = 0;
+    let skippedCount = 0;
+    mockCatalog = mockCatalog.map((row) => {
+      if (row.active === active) {
+        skippedCount += 1;
+        return row;
+      }
+      updatedCount += 1;
+      return { ...row, active };
+    });
+    return {
+      tickers: mockCatalog.filter((row) => row.active === active).map((row) => ({ ...row })),
+      updatedCount,
+      skippedCount,
+      totalConsidered: mockCatalog.length,
+      message: `${active ? "Activated" : "Deactivated"} ${updatedCount} ticker(s).`,
+    };
+  }
+  const payload = await fetchJson<{
+    tickers?: CatalogTicker[];
+    updatedCount?: number;
+    skippedCount?: number;
+    totalConsidered?: number;
+    message?: string;
+  }>("/tickers/active", {
+    method: "POST",
+    body: JSON.stringify({ active }),
+  });
+  return {
+    tickers: (payload.tickers ?? []).map(mapTicker),
+    updatedCount: payload.updatedCount ?? 0,
+    skippedCount: payload.skippedCount ?? 0,
+    totalConsidered: payload.totalConsidered ?? 0,
+    message:
+      payload.message ??
+      `${active ? "Activated" : "Deactivated"} ${payload.updatedCount ?? 0} ticker(s).`,
+  };
 }
 
 /** Active symbols for Candles pane and other admin bulk actions. */
@@ -577,7 +642,6 @@ export async function resetTradabilitySamples(): Promise<TradableResetResponse> 
           typicalBidAskDollars: null,
         })),
         watchlist: [],
-        ranked: [],
         message: "Cleared mock tradability samples. Run Collect to resample.",
       };
     }

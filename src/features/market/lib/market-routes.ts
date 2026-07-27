@@ -1,11 +1,17 @@
-import type { MarketViewMode } from "../types";
+import type { MarketSnapshotMode, MarketViewMode } from "../types";
 
 export const MARKET_MODE_STORAGE_KEY = "oceanview.market.viewMode";
 
-export const MARKET_MODES: MarketViewMode[] = ["strategies", "tickers", "rules"];
+export const MARKET_MODES: MarketViewMode[] = ["strategies", "tickers", "rules", "alarm"];
+
+export const MARKET_SNAPSHOT_MODES: MarketSnapshotMode[] = ["strategies", "tickers", "rules"];
 
 export function isMarketViewMode(value: string | undefined): value is MarketViewMode {
   return MARKET_MODES.includes(value as MarketViewMode);
+}
+
+export function isMarketSnapshotMode(value: MarketViewMode): value is MarketSnapshotMode {
+  return MARKET_SNAPSHOT_MODES.includes(value as MarketSnapshotMode);
 }
 
 export function marketPath(mode: MarketViewMode): string {

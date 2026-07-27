@@ -9,6 +9,7 @@ import {
   patchTickerActive,
   patchTickerName,
   patchTickersActive,
+  patchAllTickersActive,
   postTradableOceanDeskExport,
   refineTradableWatchlist,
   resolveBestFitWatchlist,
@@ -500,28 +501,66 @@ export function useTickersPane(open: boolean) {
 
   const bulkSetActive = useCallback(
     (nextActive: boolean, scope: "page" | "all") => {
-      const source = scope === "page" ? pageTickers : tickers;
+      if (scope === "all") {
+        const total = tickers.length;
+        if (total === 0) {
+          setMessage("Catalog is empty.");
+          return;
+        }
+        const already = tickers.filter((row) => row.active === nextActive).length;
+        const changing = total - already;
+        if (changing === 0) {
+          setMessage(
+            nextActive
+              ? "All tickers are already active."
+              : "All tickers are already inactive.",
+          );
+          return;
+        }
+        if (!nextActive) {
+          const ok = window.confirm(
+            `Deactivate all ${total} ticker(s) in the catalog?\n\n${changing} will change; ${already} already inactive.\nThey will be excluded from Market Assess and Candles bulk actions.`,
+          );
+          if (!ok) return;
+        } else {
+          const ok = window.confirm(
+            `Activate all ${total} ticker(s) in the catalog?\n\n${changing} will change; ${already} already active.`,
+          );
+          if (!ok) return;
+        }
+        setMessage(null);
+        setError(null);
+        startTransition(async () => {
+          try {
+            const result = await patchAllTickersActive(nextActive);
+            // Reload full catalog so every row reflects the new active flag.
+            const { tickers: rows } = await getTickersCatalog();
+            setTickers(sortTickersAlphabetically(rows));
+            setMessage(
+              result.message ||
+                `${nextActive ? "Activated" : "Deactivated"} ${result.updatedCount} of ${result.totalConsidered} ticker(s).`,
+            );
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to update tickers.");
+          }
+        });
+        return;
+      }
+
+      const source = pageTickers;
       const targets = source.filter((row) => row.active !== nextActive);
       if (targets.length === 0) {
         setMessage(
           nextActive
-            ? scope === "page"
-              ? "All tickers on this page are already active."
-              : "All tickers are already active."
-            : scope === "page"
-              ? "No active tickers on this page."
-              : "No active tickers to deactivate.",
+            ? "All tickers on this page are already active."
+            : "No active tickers on this page.",
         );
         return;
       }
 
       if (!nextActive) {
-        const label =
-          scope === "page"
-            ? `${targets.length} ticker(s) on this page`
-            : `${targets.length} ticker(s)`;
         const ok = window.confirm(
-          `${label} will be excluded from Market Assess and default Candles bulk actions. Continue?`,
+          `${targets.length} ticker(s) on this page will be excluded from Market Assess and default Candles bulk actions. Continue?`,
         );
         if (!ok) return;
       }
@@ -536,7 +575,12 @@ export function useTickersPane(open: boolean) {
           );
           const bySymbol = new Map(updated.map((row) => [row.symbol, row]));
           setTickers((prev) =>
-            sortTickersAlphabetically(prev.map((row) => bySymbol.get(row.symbol) ?? row)),
+            sortTickersAlphabetically(
+              prev.map((row) => {
+                const hit = bySymbol.get(row.symbol);
+                return hit ? { ...row, active: hit.active } : row;
+              }),
+            ),
           );
           setMessage(
             nextActive

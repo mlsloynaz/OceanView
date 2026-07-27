@@ -13,12 +13,13 @@ const MODES: { id: MarketViewMode; label: string }[] = [
   { id: "strategies", label: "By strategy" },
   { id: "tickers", label: "By ticker" },
   { id: "rules", label: "By rule" },
+  { id: "alarm", label: "Alarm" },
 ];
 
 export function MarketViewToggle({ mode, onChange }: Props) {
   return (
     <div
-      className="inline-flex rounded-md border border-ocean-mid/40 bg-ocean-deep/30 p-0.5"
+      className="flex w-full flex-wrap gap-0.5 rounded-md border border-ocean-mid/40 bg-ocean-deep/30 p-0.5 sm:inline-flex sm:w-auto"
       role="group"
       aria-label="Market view mode"
     >
@@ -28,6 +29,7 @@ export function MarketViewToggle({ mode, onChange }: Props) {
           type="button"
           className={cn(
             BTN,
+            "min-w-0 flex-1 sm:flex-none",
             mode === id
               ? "bg-ocean-teal text-ocean-deep shadow-sm"
               : "text-ocean-sand hover:text-ocean-foam",

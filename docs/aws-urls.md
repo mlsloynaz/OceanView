@@ -32,6 +32,7 @@ Quick reference for hosted OceanView in **us-east-1**. Region and IDs match the 
 | Market — by strategy | https://d1xsxf8zu41xgt.cloudfront.net/market/strategies |
 | Market — by ticker | https://d1xsxf8zu41xgt.cloudfront.net/market/tickers |
 | Market — by rule | https://d1xsxf8zu41xgt.cloudfront.net/market/rules |
+| Market — alarm | https://d1xsxf8zu41xgt.cloudfront.net/market/alarm |
 | Admin | https://d1xsxf8zu41xgt.cloudfront.net/admin |
 | Premarket | https://d1xsxf8zu41xgt.cloudfront.net/premarket |
 | Operations | https://d1xsxf8zu41xgt.cloudfront.net/operations |
@@ -90,6 +91,7 @@ That is expected. API Gateway has no route on `/prod` itself — only on named p
 | `GET` | `/market/tickers/{symbol}/detail` | …/prod/market/tickers/AAPL/detail |
 | `POST` | `/market/evaluate` | …/prod/market/evaluate |
 | `GET` | `/market/evaluate/{runId}` | …/prod/market/evaluate/{runId} |
+| `POST` | `/market/alarm/check` | …/prod/market/alarm/check |
 
 Contract and field shapes: [market-page.md](./market-page.md) (APIs section). Implementation notes: `OceanView-API/docs/market-plan.md`.
 

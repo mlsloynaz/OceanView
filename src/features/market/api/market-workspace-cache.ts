@@ -6,7 +6,7 @@
  */
 import type {
   MarketEnvelope,
-  MarketViewMode,
+  MarketSnapshotMode,
   RuleCardModel,
   StrategiesCatalogFile,
   StrategyCardModel,
@@ -26,7 +26,7 @@ export type MarketWorkspaceCache = {
   envelope: MarketEnvelope | null;
   catalog: StrategiesCatalogFile | null;
   runId: string | null;
-  snapshots: Partial<Record<MarketViewMode, MarketModeSnapshot>>;
+  snapshots: Partial<Record<MarketSnapshotMode, MarketModeSnapshot>>;
 };
 
 const bootstrapCache = createAsyncCache<{
@@ -89,7 +89,7 @@ export function setMarketBootstrapCache(
 }
 
 export function setMarketModeSnapshot(
-  mode: MarketViewMode,
+  mode: MarketSnapshotMode,
   snapshot: MarketModeSnapshot,
   runId?: string | null,
 ): void {
@@ -140,7 +140,7 @@ export async function getMarketBootstrapCached(
 }
 
 export async function getMarketModeSnapshotCached(
-  mode: MarketViewMode,
+  mode: MarketSnapshotMode,
   runId: string | null,
   loader: () => Promise<MarketModeSnapshot & { runId: string }>,
   opts?: { force?: boolean },

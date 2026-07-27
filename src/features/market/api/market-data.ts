@@ -11,7 +11,7 @@ import {
   adaptStrategySnapshotItems,
   adaptTickerSnapshotItems,
 } from "./adapters";
-import type { MarketViewMode } from "../types";
+import type { MarketSnapshotMode } from "../types";
 import type { RuleCardModel, StrategyCardModel, TickerCardModel } from "../types";
 import { getMarketBootstrapCached } from "./market-workspace-cache";
 
@@ -70,7 +70,7 @@ export async function loadMarketBootstrap(opts?: {
 }
 
 export async function loadSnapshotForModeWithCatalog(
-  mode: MarketViewMode,
+  mode: MarketSnapshotMode,
   runId: string | null,
   catalog: StrategiesCatalogFile,
 ): Promise<{

@@ -8,7 +8,7 @@ Index of docs in this repo. Feature pages are the **source of truth** for UI beh
 
 | Doc | Area | Route |
 |-----|------|-------|
-| [market-page.md](./market-page.md) | Market — strategies, tickers, rules, Assess | `/market/*` |
+| [market-page.md](./market-page.md) | Market — strategies, tickers, rules, alarm, Assess | `/market/*` |
 | [premarket-page.md](./premarket-page.md) | Premarket — evaluate + BestResult strike monitor + Alarm | `/premarket` |
 | [operations-page.md](./operations-page.md) | Operations — option picks and buy | `/operations` |
 | [candles-pane.md](./candles-pane.md) | Admin — candle intake and status | `/admin` |

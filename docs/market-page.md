@@ -1,6 +1,6 @@
 # Market Page
 
-Strategy evaluation workspace — browse signals **by strategy**, **by ticker**, or **by rule**, run historical or live **Assess**, and open detail modals per strategy or ticker.
+Strategy evaluation workspace — browse signals **by strategy**, **by ticker**, or **by rule**, run historical or live **Assess**, and manage **Rule Alarms** on a dedicated tab.
 
 ## Contents
 
@@ -29,6 +29,7 @@ Strategy evaluation workspace — browse signals **by strategy**, **by ticker**,
 | `/market/strategies` | Strategy thumbnail grid |
 | `/market/tickers` | Ticker thumbnail grid |
 | `/market/rules` | Rule thumbnail grid |
+| `/market/alarm` | Rule Alarm — multi-ticker watches until eligible rule is met |
 
 **UI title:** Market  
 **Default home:** `/` redirects to `/market`.
@@ -67,6 +68,7 @@ Base path: `{VITE_API_BASE_URL}/market/...` — production uses `/api/market/...
 | `GET` | `/market/envelope` | After Assess (refresh metadata) | Yes |
 | `GET` | `/market/evaluate/{runId}` | — | No (client exists; sync assess only today) |
 | `GET` | `/market/rules/{ruleKey}/detail` | — | No (v2 rule modal) |
+| `POST` | `/market/alarm/check` | Rule Alarm tab — poll watch until rule met | Yes |
 
 **Snapshot/detail query:** optional `?runId=` from envelope. Omit `runId` when envelope has none — API returns fixture preview or latest persisted run.
 
@@ -215,7 +217,7 @@ Grids, rule cards, envelope `summary.strategyCount`, and Assess all use **active
 
 ### In scope
 
-- Three view modes (strategies / tickers / rules) with client-side search
+- Four view modes (strategies / tickers / rules / alarm) with client-side search on grid modes
 - Summary strip (strategy count, active signals, ticker count, rules, assessment label)
 - Assessment time picker bounded by candle coverage + **Assess** action
 - Thumbnail grids with signal badges and preview rows
@@ -305,13 +307,14 @@ flowchart TB
 
 ## View modes
 
-| Mode | Route | Snapshot endpoint | Grid component | Search fields |
-|------|-------|-------------------|----------------|---------------|
+| Mode | Route | Snapshot endpoint | Grid / panel | Search fields |
+|------|-------|-------------------|--------------|---------------|
 | By strategy | `/market/strategies` | `/market/strategies/snapshot` | `StrategyCard` | strategy name, id |
 | By ticker | `/market/tickers` | `/market/tickers/snapshot` | `TickerCard` | symbol, name |
 | By rule | `/market/rules` | `/market/rules/snapshot` | `RuleCard` | rule label, ruleKey, strategy name |
+| Alarm | `/market/alarm` | — (no Assess snapshot) | `MarketAlarmPanel` | — |
 
-Last-selected mode is stored in `localStorage` key `oceanview.market.viewMode`.
+Last-selected mode is stored in `localStorage` key `oceanview.market.viewMode`. Alarm mode hides search, Assess toolbar, and summary strip, but keeps the **view toggle** (By strategy / ticker / rule / Alarm) so you can leave Alarm. Watches keep polling while any Market URL is open.
 
 ---
 
@@ -358,11 +361,12 @@ Both show rule check strips, quality badges, and expandable rule requirement lis
 
 | Component | Role |
 |-----------|------|
-| `MarketViewToggle` | Switch strategies / tickers / rules |
+| `MarketViewToggle` | Switch strategies / tickers / rules / alarm |
 | `MarketSearchInput` | Client-side grid filter |
 | `MarketSummaryStrip` | Counts + assessment label under page title |
 | `AssessmentTimeControl` | Live/Simulate + typeable Session/Time · **Assess** (only primary CTA) · continuous Start/Stop/Refresh |
 | `LiveSimulateControl` | Soft Live/Simulate toggle (not primary); Session `YYYY-MM-DD` + Time `HH:MM` text fields |
+| `MarketAlarmPanel` | `/market/alarm` — multi-select tickers; **Disipador touch** + Timeframe; **met** = first touch/pass only; **not_met** = no touch or 2+ consecutive (≥3) |
 | `StrategyCard` | Strategy grid tile + “View detail” |
 | `TickerCard` | Ticker grid tile; rule icon strip from `topStrategyEval` |
 | `RuleCard` | Rule grid tile (no detail modal in v1) |
@@ -393,7 +397,7 @@ State and data loading live in `useMarketWorkspace` (`src/features/market/hooks/
 
 | Symptom | Likely cause | What to check |
 |---------|--------------|---------------|
-| “Unexpected Application Error! 404 Not Found” | Unknown URL (no matching route) | Use `/market/strategies`, `/market/tickers`, `/admin`; deploy must include `RouteNotFound` catch-all |
+| “Unexpected Application Error! 404 Not Found” | Unknown URL (no matching route) | Use `/market/strategies`, `/market/tickers`, `/market/alarm`, `/admin`; deploy must include `RouteNotFound` catch-all |
 | Empty strategy grid, no error | Was: snapshot not fetched when `envelope.runId` is null (fixed in UI) | Deploy latest UI; confirm `GET /market/strategies/snapshot` returns items |
 | “No assessment run yet” banner | No persisted Assess run (`runId: null`) | Expected until **Assess**; banner can show alongside fixture preview cards |
 | Assess button seems to do nothing (local) | Mock mode (`VITE_USE_MOCK_MARKET=true`) only updates the time label | Use `npm run dev:local` (sets live Market API); or read the mock notice under Assess |
@@ -458,6 +462,7 @@ Open http://localhost:5173/market/strategies — grids should load from API when
 | `src/features/market/lib/market-routes.ts` | Routes + localStorage mode |
 | `src/features/market/lib/assessment-time.ts` | ET parsing, coverage validation |
 | `src/features/market/components/*` | Cards, modals, controls, summary |
+| `src/features/market/alarm/*` | Rule Alarm panel, hook, client (`/market/alarm`) |
 | `src/app/router.tsx` | Route registration |
 | `data/strategies.json` | Mock catalog fallback (sync from API) |
 | `data/market-snapshot.json` | Mock eval snapshot |
@@ -494,6 +499,11 @@ Open http://localhost:5173/market/strategies — grids should load from API when
 
 - [ ] Strategy detail modal loads rule rows with correct statuses
 - [ ] Ticker detail shows per-strategy accordion
+
+### Alarm
+
+- [ ] `/market/alarm` opens Rule Alarm from the view toggle (same row as By strategy / ticker / rule)
+- [ ] Multi-select + Select all creates one watch per ticker; Start polls until met
 
 ### Mock fallback
 

@@ -115,6 +115,7 @@ export function useMarketAlarms() {
           ruleKey: watch.ruleKey,
           trend: watch.trend,
           refreshCandles: true,
+          ...(watch.bandTimeframe ? { bandTimeframe: watch.bandTimeframe } : {}),
         });
 
         if (result.met) {
@@ -260,15 +261,23 @@ export function useMarketAlarms() {
 
   const addWatch = useCallback(
     (input: {
-      symbol: string;
+      symbols: string[];
       ruleKey: AlarmEligibleRuleKey;
       trend: AlarmTrend;
+      bandTimeframe?: "1m" | "15m" | "1h";
       frequencyValue: number;
       frequencyUnit: PollIntervalUnit;
+      startAfterAdd?: boolean;
     }) => {
-      const symbol = input.symbol.trim().toUpperCase();
-      if (!symbol) {
-        setFormError("Pick a ticker.");
+      const symbols = [
+        ...new Set(
+          input.symbols
+            .map((s) => s.trim().toUpperCase())
+            .filter(Boolean),
+        ),
+      ];
+      if (symbols.length === 0) {
+        setFormError("Pick at least one ticker.");
         return false;
       }
       if (!ALARM_ELIGIBLE_RULES.some((r) => r.ruleKey === input.ruleKey)) {
@@ -284,39 +293,83 @@ export function useMarketAlarms() {
           ? input.frequencyUnit
           : "min";
       const frequencyValue = clampPollInterval(input.frequencyValue, frequencyUnit);
-      const dup = watchesRef.current.some(
-        (w) =>
-          w.symbol === symbol &&
-          w.ruleKey === input.ruleKey &&
-          w.trend === input.trend &&
-          w.status !== "met",
-      );
-      if (dup) {
-        setFormError("That ticker + rule + trend watch already exists.");
+
+      const existing = watchesRef.current;
+      const toAdd: MarketAlarmWatch[] = [];
+      const skipped: string[] = [];
+      for (const symbol of symbols) {
+        const bandTf = input.ruleKey === "touch_disipador" ? input.bandTimeframe ?? "1m" : undefined;
+        const dup = existing.some(
+          (w) =>
+            w.symbol === symbol &&
+            w.ruleKey === input.ruleKey &&
+            w.trend === input.trend &&
+            (w.bandTimeframe ?? undefined) === bandTf &&
+            w.status !== "met",
+        );
+        if (dup || toAdd.some((w) => w.symbol === symbol)) {
+          skipped.push(symbol);
+          continue;
+        }
+        toAdd.push({
+          id: `alarm-${Date.now()}-${symbol}-${Math.random().toString(36).slice(2, 7)}`,
+          symbol,
+          ruleKey: input.ruleKey,
+          ruleLabel: alarmRuleLabel(input.ruleKey),
+          trend: input.trend,
+          ...(bandTf ? { bandTimeframe: bandTf } : {}),
+          frequencyValue,
+          frequencyUnit,
+          status: "idle",
+          lastRuleStatus: null,
+          lastEvidence: null,
+          lastCheckedAt: null,
+          lastError: null,
+          metAt: null,
+        });
+      }
+
+      if (toAdd.length === 0) {
+        setFormError(
+          skipped.length
+            ? "Those ticker + rule + trend watches already exist."
+            : "Pick at least one ticker.",
+        );
         return false;
       }
 
-      const watch: MarketAlarmWatch = {
-        id: `alarm-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        symbol,
-        ruleKey: input.ruleKey,
-        ruleLabel: alarmRuleLabel(input.ruleKey),
-        trend: input.trend,
-        frequencyValue,
-        frequencyUnit,
-        status: "idle",
-        lastRuleStatus: null,
-        lastEvidence: null,
-        lastCheckedAt: null,
-        lastError: null,
-        metAt: null,
-      };
-      setFormError(null);
-      setWatches((prev) => [watch, ...prev]);
+      setFormError(
+        skipped.length
+          ? `Added ${toAdd.length}; skipped duplicates: ${skipped.join(", ")}.`
+          : null,
+      );
+      setWatches((prev) => [...toAdd, ...prev]);
+
+      if (input.startAfterAdd) {
+        const ids = toAdd.map((w) => w.id);
+        window.setTimeout(() => {
+          for (const id of ids) startWatch(id);
+        }, 0);
+      }
+
       return true;
     },
-    [],
+    [startWatch],
   );
+
+  const startAllIdle = useCallback(() => {
+    const ids = watchesRef.current
+      .filter((w) => w.status === "idle" || w.status === "stopped" || w.status === "error")
+      .map((w) => w.id);
+    for (const id of ids) startWatch(id);
+  }, [startWatch]);
+
+  const stopAllRunning = useCallback(() => {
+    const ids = watchesRef.current
+      .filter((w) => w.status === "running" || w.status === "checking")
+      .map((w) => w.id);
+    for (const id of ids) stopWatch(id);
+  }, [stopWatch]);
 
   const requestNotifyPermission = useCallback(async () => {
     if (typeof Notification === "undefined") return;
@@ -349,6 +402,8 @@ export function useMarketAlarms() {
     addWatch,
     startWatch,
     stopWatch,
+    startAllIdle,
+    stopAllRunning,
     removeWatch,
     updateWatchInterval,
     runCheckNow: runCheck,

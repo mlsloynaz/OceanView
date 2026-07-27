@@ -21,6 +21,8 @@ export type MarketAlarmCheckRequest = {
   ruleKey: AlarmEligibleRuleKey;
   trend: AlarmTrend;
   refreshCandles?: boolean;
+  /** touch_disipador only — candle + BB TF (default 1m). */
+  bandTimeframe?: "1m" | "15m" | "1h";
 };
 
 export type MarketAlarmCheckResponse = {
@@ -96,6 +98,7 @@ export async function postMarketAlarmCheck(
       ruleKey,
       trend,
       refreshCandles: body.refreshCandles ?? true,
+      ...(body.bandTimeframe ? { bandTimeframe: body.bandTimeframe } : {}),
     }),
   });
 }

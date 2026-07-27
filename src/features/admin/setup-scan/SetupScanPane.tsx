@@ -1,4 +1,5 @@
 import { cn } from "@/shared/lib/cn";
+import { useEffect, useState } from "react";
 import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane";
 import { LiveSimulateControl } from "@/shared/components/LiveSimulateControl";
 import { maxSimulationSessionDate } from "@/shared/lib/market-calendar";
@@ -190,6 +191,84 @@ function CriterionSummary({ row, met }: { row: PreselectionBreakdownRow; met: bo
       </span>
       <span className="block text-[11px] text-ocean-sand/85">{row.label}</span>
     </li>
+  );
+}
+
+function TickerGroupSection({
+  group,
+  pending,
+  defaultOpen = false,
+  onToggleActive,
+  onOpenDetail,
+}: {
+  group: PreselectionTickerGroup;
+  pending: boolean;
+  defaultOpen?: boolean;
+  onToggleActive: () => void;
+  onOpenDetail: (suggestion: PreselectionStrategySuggestion) => void;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  useEffect(() => {
+    if (defaultOpen) setOpen(true);
+  }, [defaultOpen]);
+
+  return (
+    <section className="mb-3 last:mb-0 overflow-hidden rounded-lg border border-ocean-mid/40 bg-ocean-deep/20">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-left"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <svg
+            aria-hidden
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className={cn(
+              "h-4 w-4 shrink-0 text-ocean-sand transition-transform",
+              open && "rotate-180",
+            )}
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <h3 className="font-display text-lg text-ocean-foam">{group.symbol}</h3>
+          {group.name && <span className="text-sm text-ocean-sand">{group.name}</span>}
+          <span className="rounded bg-ocean-teal/15 px-2 py-0.5 text-xs font-medium text-ocean-teal-dim dark:text-ocean-teal">
+            {group.directionBias}
+          </span>
+          <span className="text-xs text-ocean-sand">
+            {group.suggestions.length} strateg
+            {group.suggestions.length === 1 ? "y" : "ies"}
+          </span>
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          className="rounded border border-ocean-mid/60 px-2 py-1 text-xs text-ocean-foam hover:border-ocean-teal/50 disabled:opacity-50"
+          onClick={onToggleActive}
+        >
+          {pending ? "…" : group.currentlyActive ? "Deactivate" : "Activate"}
+        </button>
+      </div>
+
+      {open ? (
+        <ul className="space-y-2 border-t border-ocean-mid/30 px-3 py-2">
+          {group.suggestions.map((suggestion) => (
+            <StrategySuggestionBlock
+              key={suggestion.strategyId}
+              suggestion={suggestion}
+              onOpenDetail={() => onOpenDetail(suggestion)}
+            />
+          ))}
+        </ul>
+      ) : null}
+    </section>
   );
 }
 
@@ -419,43 +498,21 @@ export function SetupScanPane() {
 
         {ws.tickerGroups.map((group) => {
           const pending = Boolean(ws.tickerPending[group.symbol]);
+          const searchExact = ws.search.trim().toUpperCase() === group.symbol.toUpperCase();
           return (
-            <section key={group.symbol} className="mb-6 last:mb-0">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <h3 className="font-display text-lg text-ocean-foam">{group.symbol}</h3>
-                {group.name && <span className="text-sm text-ocean-sand">{group.name}</span>}
-                <span className="rounded bg-ocean-teal/15 px-2 py-0.5 text-xs font-medium text-ocean-teal-dim dark:text-ocean-teal">
-                  {group.directionBias}
-                </span>
-                <span className="text-xs text-ocean-sand">
-                  {group.suggestions.length} strateg
-                  {group.suggestions.length === 1 ? "y" : "ies"}
-                </span>
-                <button
-                  type="button"
-                  disabled={pending}
-                  className="ml-auto rounded border border-ocean-mid/60 px-2 py-1 text-xs text-ocean-foam hover:border-ocean-teal/50 disabled:opacity-50"
-                  onClick={() => void ws.setActive(group.symbol, !group.currentlyActive)}
-                >
-                  {pending ? "…" : group.currentlyActive ? "Deactivate" : "Activate"}
-                </button>
-              </div>
-
-              <ul className="space-y-2">
-                {group.suggestions.map((suggestion) => (
-                  <StrategySuggestionBlock
-                    key={suggestion.strategyId}
-                    suggestion={suggestion}
-                    onOpenDetail={() =>
-                      ws.setDetail({
-                        strategyName: suggestion.shortName || suggestion.strategyName,
-                        ticker: suggestionToTickerRow(group, suggestion),
-                      })
-                    }
-                  />
-                ))}
-              </ul>
-            </section>
+            <TickerGroupSection
+              key={group.symbol}
+              group={group}
+              pending={pending}
+              defaultOpen={searchExact}
+              onToggleActive={() => void ws.setActive(group.symbol, !group.currentlyActive)}
+              onOpenDetail={(suggestion) =>
+                ws.setDetail({
+                  strategyName: suggestion.shortName || suggestion.strategyName,
+                  ticker: suggestionToTickerRow(group, suggestion),
+                })
+              }
+            />
           );
         })}
 

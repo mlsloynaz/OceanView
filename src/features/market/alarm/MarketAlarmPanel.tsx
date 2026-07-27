@@ -1,12 +1,17 @@
 import { useState } from "react";
-import { CollapsibleSection } from "@/shared/components/CollapsibleSection";
-import { PollControls, type PollIntervalUnit } from "@/shared/components/PollControls";
+import {
+  PollControls,
+  clampPollInterval,
+  type PollIntervalUnit,
+} from "@/shared/components/PollControls";
 import { cn } from "@/shared/lib/cn";
 import type { CatalogTicker } from "@/features/admin/tickers/types";
 import { AlarmMetModal } from "./AlarmMetModal";
 import {
   ALARM_ELIGIBLE_RULES,
   formatAlarmTrend,
+  needsBandTimeframe,
+  type AlarmBandTimeframe,
   type AlarmEligibleRuleKey,
   type AlarmTrend,
   type MarketAlarmWatch,
@@ -28,14 +33,18 @@ type Props = {
   onClearBanner: () => void;
   onClearMetPopup: () => void;
   onAdd: (input: {
-    symbol: string;
+    symbols: string[];
     ruleKey: AlarmEligibleRuleKey;
     trend: AlarmTrend;
+    bandTimeframe?: AlarmBandTimeframe;
     frequencyValue: number;
     frequencyUnit: PollIntervalUnit;
+    startAfterAdd?: boolean;
   }) => boolean;
   onStart: (id: string) => void;
   onStop: (id: string) => void;
+  onStartAllIdle: () => void;
+  onStopAllRunning: () => void;
   onRemove: (id: string) => void;
   onCheckNow: (id: string) => void;
   onUpdateInterval: (id: string, value: number, unit: PollIntervalUnit) => void;
@@ -74,40 +83,70 @@ export function MarketAlarmPanel({
   onAdd,
   onStart,
   onStop,
+  onStartAllIdle,
+  onStopAllRunning,
   onRemove,
   onCheckNow,
   onUpdateInterval,
   onRequestNotify,
 }: Props) {
-  const [open, setOpen] = useState(true);
-  const [symbol, setSymbol] = useState("");
+  const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
   const [ruleKey, setRuleKey] = useState<AlarmEligibleRuleKey>("candle_confirm_1h");
   const [trend, setTrend] = useState<AlarmTrend>("alcista");
+  const [bandTimeframe, setBandTimeframe] = useState<AlarmBandTimeframe>("1m");
   const [frequencyValue, setFrequencyValue] = useState(5);
   const [frequencyUnit, setFrequencyUnit] = useState<PollIntervalUnit>("min");
+  const showBandTf = needsBandTimeframe(ruleKey);
+
+  const setIntervalValue = (raw: number) => {
+    setFrequencyValue(clampPollInterval(raw, frequencyUnit));
+  };
+  const setIntervalUnit = (unit: PollIntervalUnit) => {
+    setFrequencyUnit(unit);
+    setFrequencyValue((v) => clampPollInterval(v, unit));
+  };
+
+  const allSelected =
+    tickers.length > 0 && selectedSymbols.length > 0 && selectedSymbols.length === tickers.length;
+
+  const toggleSymbol = (symbol: string) => {
+    const upper = symbol.toUpperCase();
+    setSelectedSymbols((prev) =>
+      prev.includes(upper) ? prev.filter((s) => s !== upper) : [...prev, upper],
+    );
+  };
+
+  const selectAllTickers = () => {
+    setSelectedSymbols(tickers.map((t) => t.symbol.toUpperCase()));
+  };
+
+  const clearTickerSelection = () => setSelectedSymbols([]);
 
   const subtitle =
     metCount > 0
       ? `${metCount} alarm${metCount === 1 ? "" : "s"} fired · ${runningCount} polling`
       : runningCount > 0
         ? `${runningCount} watch${runningCount === 1 ? "" : "es"} polling`
-        : "Pick ticker + confirmation candle (1h / 15m) + trend · Start polls until met";
+        : "Pick tickers + rule + trend + interval · Start polls until met";
 
   return (
     <>
-      <CollapsibleSection
+      <section
         id="market-alarms"
-        title="Rule Alarm"
-        subtitle={subtitle}
-        open={open}
-        onOpenChange={setOpen}
-        className="min-w-0 border-ocean-teal/35 bg-ocean-deep/20"
+        aria-labelledby="market-alarms-title"
+        className="min-w-0 rounded-lg border border-ocean-teal/35 bg-ocean-deep/20 px-4 py-4"
       >
+        <header className="mb-3">
+          <h2 id="market-alarms-title" className="text-base font-semibold text-ocean-foam">
+            Rule Alarm
+          </h2>
+          <p className="mt-0.5 text-xs text-ocean-sand">{subtitle}</p>
+        </header>
         <div className="space-y-3 text-sm">
           <p className="text-xs leading-relaxed text-ocean-sand">
-            Moved here from Premarket. Watch an active ticker until the confirmation candle rule
-            is <span className="font-medium text-ocean-foam">met</span> for the chosen trend
-            (popup + bell). Expand this section if collapsed.
+            Watch an active ticker until an eligible rule is{" "}
+            <span className="font-medium text-ocean-foam">met</span> for the chosen trend
+            (popup + bell). Set how often to check below (sec / min / hour).
           </p>
           {banner ? (
             <div
@@ -126,9 +165,12 @@ export function MarketAlarmPanel({
           ) : null}
 
           <p className="text-xs leading-relaxed text-ocean-sand">
-            Eligible rules: confirmation candle 1h / 15m. Pick ticker, rule, and trend (alcista or
-            bajista). Start polls until the rule is met — then a popup and bell fire and polling
-            stops.
+            Eligible: confirmation candle 1h / 15m, or Disipador touch (candle + BB on the
+            Timeframe you pick: 1m / 15m / 1h). Alarm fires on the{" "}
+            <strong className="font-medium text-ocean-foam">first</strong> touch/pass only;
+            no touch or 2+ consecutive (including ≥3) = not met. Select tickers (or{" "}
+            <strong className="font-medium text-ocean-foam">Select all</strong>), rule, trend, and
+            check interval. Add creates one watch per ticker; Start polls until met.
           </p>
 
           <div className="flex flex-wrap gap-2">
@@ -147,33 +189,80 @@ export function MarketAlarmPanel({
             onSubmit={(e) => {
               e.preventDefault();
               const ok = onAdd({
-                symbol,
+                symbols: selectedSymbols,
                 ruleKey,
                 trend,
+                ...(showBandTf ? { bandTimeframe } : {}),
                 frequencyValue,
                 frequencyUnit,
               });
-              if (ok) setSymbol("");
+              if (ok) setSelectedSymbols([]);
             }}
           >
-            <label className="flex flex-col gap-1 text-xs text-ocean-sand lg:col-span-2">
-              Ticker
-              <select
-                className="rounded-md border border-ocean-mid/40 bg-ocean-surface px-2 py-1.5 text-sm text-ocean-foam"
-                value={symbol}
-                disabled={tickersLoading}
-                onChange={(e) => setSymbol(e.target.value)}
-                required
+            <div className="flex flex-col gap-1.5 text-xs text-ocean-sand sm:col-span-2 lg:col-span-6">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  Tickers
+                  {selectedSymbols.length > 0 ? (
+                    <span className="ml-1 text-ocean-foam">({selectedSymbols.length} selected)</span>
+                  ) : null}
+                </span>
+                <span className="inline-flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    className={cn(BTN, "border border-ocean-teal/40 text-ocean-teal-dim dark:text-ocean-teal")}
+                    disabled={tickersLoading || tickers.length === 0 || allSelected}
+                    onClick={selectAllTickers}
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
+                    disabled={selectedSymbols.length === 0}
+                    onClick={clearTickerSelection}
+                  >
+                    Clear
+                  </button>
+                </span>
+              </div>
+              <div
+                className="max-h-40 overflow-y-auto rounded-md border border-ocean-mid/40 bg-ocean-surface px-2 py-1.5"
+                role="group"
+                aria-label="Tickers to watch"
               >
-                <option value="">{tickersLoading ? "Loading…" : "Select ticker"}</option>
-                {tickers.map((t) => (
-                  <option key={t.symbol} value={t.symbol}>
-                    {t.symbol}
-                    {t.name ? ` — ${t.name}` : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
+                {tickersLoading ? (
+                  <p className="py-1 text-ocean-sand">Loading tickers…</p>
+                ) : tickers.length === 0 ? (
+                  <p className="py-1 text-ocean-sand">No active tickers in catalog.</p>
+                ) : (
+                  <ul className="columns-2 gap-x-4 sm:columns-3 md:columns-4">
+                    {tickers.map((t) => {
+                      const upper = t.symbol.toUpperCase();
+                      const checked = selectedSymbols.includes(upper);
+                      return (
+                        <li key={t.symbol} className="break-inside-avoid py-0.5">
+                          <label className="flex cursor-pointer items-center gap-1.5 text-sm text-ocean-foam hover:text-ocean-teal">
+                            <input
+                              type="checkbox"
+                              className="rounded border-ocean-mid accent-ocean-teal"
+                              checked={checked}
+                              onChange={() => toggleSymbol(t.symbol)}
+                            />
+                            <span className="font-semibold tabular-nums">{t.symbol}</span>
+                            {t.name ? (
+                              <span className="truncate text-[11px] font-normal text-ocean-sand">
+                                {t.name}
+                              </span>
+                            ) : null}
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
 
             <label className="flex flex-col gap-1 text-xs text-ocean-sand lg:col-span-2">
               Rule
@@ -204,28 +293,129 @@ export function MarketAlarmPanel({
               </select>
             </label>
 
-            <div className="flex items-end lg:col-span-6">
+            {showBandTf ? (
+              <label className="flex flex-col gap-1 text-xs text-ocean-sand">
+                Timeframe
+                <select
+                  className="rounded-md border border-ocean-mid/40 bg-ocean-surface px-2 py-1.5 text-sm text-ocean-foam"
+                  value={bandTimeframe}
+                  onChange={(e) => setBandTimeframe(e.target.value as AlarmBandTimeframe)}
+                  title="Candle and Bollinger both use this timeframe"
+                >
+                  <option value="1m">1m</option>
+                  <option value="15m">15m</option>
+                  <option value="1h">1h</option>
+                </select>
+                <span className="text-[11px] leading-snug text-ocean-sand/90">
+                  Candle and Bollinger both use this timeframe
+                </span>
+              </label>
+            ) : null}
+
+            <label className="flex flex-col gap-1 text-xs text-ocean-sand lg:col-span-2">
+              Check every
+              <span className="flex flex-wrap items-center gap-1.5">
+                <input
+                  type="number"
+                  min={frequencyUnit === "sec" ? 5 : 1}
+                  max={frequencyUnit === "hour" ? 24 : frequencyUnit === "sec" ? 3600 : 60}
+                  step={1}
+                  value={frequencyValue}
+                  onChange={(e) => {
+                    const next = Number.parseInt(e.target.value, 10);
+                    if (!Number.isNaN(next)) setIntervalValue(next);
+                  }}
+                  className="w-16 rounded-md border border-ocean-mid/40 bg-ocean-surface px-2 py-1.5 text-sm tabular-nums text-ocean-foam"
+                  aria-label="Check interval value"
+                />
+                <select
+                  value={frequencyUnit}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "sec" || v === "min" || v === "hour") setIntervalUnit(v);
+                  }}
+                  className="rounded-md border border-ocean-mid/40 bg-ocean-surface px-2 py-1.5 text-sm text-ocean-foam"
+                  aria-label="Check interval unit"
+                >
+                  <option value="sec">sec</option>
+                  <option value="min">min</option>
+                  <option value="hour">hour</option>
+                </select>
+              </span>
+            </label>
+
+            <div className="flex flex-wrap items-end gap-2 lg:col-span-6">
               <button
                 type="submit"
-                className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-110")}
-                disabled={tickers.length === 0}
+                className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
+                disabled={tickers.length === 0 || selectedSymbols.length === 0}
               >
-                Add watch
+                {selectedSymbols.length > 1
+                  ? `Add ${selectedSymbols.length} watches`
+                  : "Add watch"}
+              </button>
+              <button
+                type="button"
+                className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-110")}
+                disabled={tickers.length === 0 || selectedSymbols.length === 0}
+                onClick={() => {
+                  const ok = onAdd({
+                    symbols: selectedSymbols,
+                    ruleKey,
+                    trend,
+                    ...(showBandTf ? { bandTimeframe } : {}),
+                    frequencyValue,
+                    frequencyUnit,
+                    startAfterAdd: true,
+                  });
+                  if (ok) setSelectedSymbols([]);
+                }}
+              >
+                {selectedSymbols.length > 1
+                  ? `Add & start ${selectedSymbols.length}`
+                  : "Add & start"}
               </button>
             </div>
           </form>
 
           {(formError || tickersError) && (
-            <p className="text-xs text-ocean-danger" role="alert">
+            <p className="text-xs text-ocean-sand" role="status">
               {formError || tickersError}
             </p>
           )}
 
           {watches.length === 0 ? (
             <p className="text-xs text-ocean-sand">
-              No watches yet — add a ticker + rule + trend above.
+              No watches yet — select tickers + rule + trend above.
             </p>
           ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-110")}
+                  onClick={onStartAllIdle}
+                  disabled={
+                    !watches.some(
+                      (w) =>
+                        w.status === "idle" || w.status === "stopped" || w.status === "error",
+                    )
+                  }
+                >
+                  Start all idle
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    BTN,
+                    "border border-amber-600/50 bg-amber-500/10 text-amber-900 dark:text-amber-100",
+                  )}
+                  onClick={onStopAllRunning}
+                  disabled={runningCount === 0}
+                >
+                  Stop all polling
+                </button>
+              </div>
             <ul className="space-y-3">
               {watches.map((w) => {
                 const polling = w.status === "running" || w.status === "checking";
@@ -244,7 +434,9 @@ export function MarketAlarmPanel({
                         <p className="font-semibold text-ocean-foam">
                           {w.symbol}{" "}
                           <span className="font-normal text-ocean-sand">
-                            · {w.ruleLabel} · {formatAlarmTrend(w.trend)}
+                            · {w.ruleLabel}
+                            {w.bandTimeframe ? ` · ${w.bandTimeframe} candle+BB` : ""} ·{" "}
+                            {formatAlarmTrend(w.trend)}
                           </span>
                         </p>
                         <p className="mt-0.5 text-[11px] text-ocean-sand">
@@ -319,9 +511,10 @@ export function MarketAlarmPanel({
                 );
               })}
             </ul>
+            </>
           )}
         </div>
-      </CollapsibleSection>
+      </section>
 
       {metPopup ? <AlarmMetModal watch={metPopup} onClose={onClearMetPopup} /> : null}
     </>
