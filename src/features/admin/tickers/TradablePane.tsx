@@ -189,6 +189,8 @@ export function TradablePane({ onBack }: Props) {
     tradableError,
     refineTradable,
     stopTradable,
+    resettingTradable,
+    resetTradableSamples,
     exportingDesk,
     downloadOceanDeskJson,
     message,
@@ -265,7 +267,7 @@ export function TradablePane({ onBack }: Props) {
 
   const canCollect = (tradable?.sourceCount ?? tickers.length) > 0;
   const collecting = tradableCollecting || tradableRefining;
-  const busy = tradableLoading || collecting || promoting || exportingDesk;
+  const busy = tradableLoading || collecting || promoting || exportingDesk || resettingTradable;
 
   const promoteSelected = async () => {
     if (selectedSymbols.length === 0) {
@@ -347,6 +349,24 @@ export function TradablePane({ onBack }: Props) {
           </button>
           <button
             type="button"
+            disabled={busy || collecting}
+            onClick={() => {
+              const ok = window.confirm(
+                "Clear all tradability samples and ticker bid–ask summaries?\n\n" +
+                  "Use this after changing how bid–ask is measured. Then run Collect again.",
+              );
+              if (ok) void resetTradableSamples();
+            }}
+            className={cn(
+              BTN,
+              "border border-ocean-danger/50 bg-ocean-danger/10 text-ocean-danger hover:bg-ocean-danger/15",
+            )}
+            title="Delete stored samples so Collect rebuilds with the new ATM bid–ask zone"
+          >
+            {resettingTradable ? "Clearing…" : "Clear samples"}
+          </button>
+          <button
+            type="button"
             disabled={busy || selectedSymbols.length === 0}
             onClick={() => void promoteSelected()}
             className={cn(
@@ -365,10 +385,14 @@ export function TradablePane({ onBack }: Props) {
         <strong className="font-medium text-ocean-foam">one</strong> option-chain call this run (≤
         {batchSize} every {pollSeconds}s until all are done). This pane polls on the same cadence.
         Need ≥{tradable?.minSamplesReady ?? 8} intakes over time for Ready (run Collect on later
-        days to accumulate). Soft{" "}
+        days to accumulate). Typical bid–ask $ uses the{" "}
+        <strong className="font-medium text-ocean-foam">nearest 3 strikes</strong> to ATM on the
+        front expiration. Soft{" "}
         <strong className="font-medium text-ocean-foam">WARNING</strong> can flag a day whose
         bid–ask differs from the majority (does not skip ranking). Bid–ask $ and $ move for ~12%
         option gain are saved on each ticker.{" "}
+        <strong className="font-medium text-ocean-foam">Clear samples</strong> wipes old data after
+        a measurement change.{" "}
         <strong className="font-medium text-ocean-foam">Download OceanDesk JSON</strong> exports
         stops (from movement profiles) plus bid–ask / $→12% — drop into OceanDesk as{" "}
         <code className="text-[11px]">stop_metrics.json</code>. Click a column header to sort;

@@ -12,6 +12,7 @@ import {
   postTradableOceanDeskExport,
   refineTradableWatchlist,
   resolveBestFitWatchlist,
+  resetTradabilitySamples,
   stopTradableCollect,
 } from "../api/tickers-client";
 import type { AddTickerFormValues } from "../AddTickerForm";
@@ -180,6 +181,29 @@ export function useTickersPane(open: boolean) {
       setTradable(payload);
     } catch (err) {
       setTradableError(err instanceof Error ? err.message : "Failed to stop tradable collect.");
+    }
+  }, []);
+
+  const [resettingTradable, setResettingTradable] = useState(false);
+
+  const resetTradableSamples = useCallback(async () => {
+    setTradableError(null);
+    setResettingTradable(true);
+    try {
+      const ack = await resetTradabilitySamples();
+      setMessage(ack.message ?? "Tradability samples cleared.");
+      const [tradablePayload, catalog] = await Promise.all([
+        getTradableWatchlist(),
+        getTickersCatalog(),
+      ]);
+      setTradable(tradablePayload);
+      setTickers(catalog.tickers ?? []);
+    } catch (err) {
+      setTradableError(
+        err instanceof Error ? err.message : "Failed to clear tradability samples.",
+      );
+    } finally {
+      setResettingTradable(false);
     }
   }, []);
 
@@ -583,6 +607,8 @@ export function useTickersPane(open: boolean) {
     tradableError,
     refineTradable,
     stopTradable,
+    resettingTradable,
+    resetTradableSamples,
     exportingDesk,
     downloadOceanDeskJson,
     tickers,

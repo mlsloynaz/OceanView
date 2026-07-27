@@ -553,6 +553,48 @@ export async function stopTradableCollect(): Promise<{
   });
 }
 
+export type TradableResetResponse = {
+  kind?: string;
+  status?: string;
+  profilesDeleted?: number;
+  tickersCleared?: number;
+  message?: string;
+};
+
+/** Wipe all tradability samples + ticker summaries (recollect after zone change). */
+export async function resetTradabilitySamples(): Promise<TradableResetResponse> {
+  if (USE_MOCK) {
+    await delay(150);
+    if (mockTradable) {
+      mockTradable = {
+        ...mockTradable,
+        status: "idle",
+        readyCount: 0,
+        progress: (mockTradable.progress ?? []).map((row) => ({
+          ...row,
+          sampleCount: 0,
+          ready: false,
+          typicalBidAskDollars: null,
+        })),
+        watchlist: [],
+        ranked: [],
+        message: "Cleared mock tradability samples. Run Collect to resample.",
+      };
+    }
+    return {
+      kind: "tradable_watchlist",
+      status: "idle",
+      profilesDeleted: mockCatalog.length,
+      tickersCleared: mockCatalog.length,
+      message: "Cleared mock tradability samples. Run Collect to resample.",
+    };
+  }
+  return fetchJson<TradableResetResponse>("/tickers/tradable/reset", {
+    method: "POST",
+    body: "{}",
+  });
+}
+
 /** OceanDesk stop_metrics.json — movement stops + tradability bid–ask / $→12%. */
 export type OceanDeskMetricsExport = {
   version: number;
