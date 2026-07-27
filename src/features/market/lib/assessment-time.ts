@@ -185,7 +185,7 @@ export function validateAssessmentTime(
     }
     return {
       error: null,
-      notice: `Candle data ends ${formatAssessmentDisplay(new Date(max))}. Assess will refresh candles first.`,
+      notice: `Stored candles end ${formatAssessmentDisplay(new Date(max))}. Assess is allowed — Live will refresh from Schwab first.`,
     };
   }
   return { error: null, notice: null };

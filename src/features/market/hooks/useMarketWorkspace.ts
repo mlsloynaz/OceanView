@@ -155,6 +155,8 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   catalogRef.current = catalog;
   const snapshotCacheRef = useRef(snapshotCache);
   snapshotCacheRef.current = snapshotCache;
+  const assessmentModeRef = useRef(assessmentMode);
+  assessmentModeRef.current = assessmentMode;
   const assessInFlightRef = useRef(false);
   const monitorActiveRef = useRef(false);
   const intervalValueRef = useRef(DEFAULT_INTERVAL_VALUE);
@@ -407,11 +409,12 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       setRunId(newRunId || env.runId);
       setSnapshotCache({});
       invalidateMarketSnapshotsCache();
+      const mode = assessmentModeRef.current;
       const sim = parseSimulationTimeEt(simulationTimeEt ?? env.simulationTimeEt);
       if (sim) {
         setLastAssessedAt(sim);
-        if (!isAssessmentNow(sim)) {
-          setAssessmentModeState("et");
+        // Stay in Live after a now-mode run; only mirror Simulate when the user was in ET mode.
+        if (mode === "et") {
           setAssessmentAt(sim);
         }
       } else if (env.evaluatedAt) {
@@ -423,9 +426,8 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       }
 
       if (env.candleCoverage) {
-        const at = sim ?? resolveAssessmentMoment();
-        const historicalOnly = sim != null && !isAssessmentNow(sim);
-        applyAssessmentValidation(at, env.candleCoverage, historicalOnly);
+        const at = mode === "now" ? new Date() : (sim ?? resolveAssessmentMoment());
+        applyAssessmentValidation(at, env.candleCoverage, mode === "et");
       }
 
       const cat = catalogRef.current;
