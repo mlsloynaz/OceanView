@@ -79,7 +79,7 @@ flowchart TB
   end
 
   subgraph Catalog["Ticker catalog"]
-    T["GET /tickers?activeOnly=true"]
+    T["GET /tickers"]
     P["PATCH /tickers/{symbol}"]
   end
 
@@ -110,7 +110,7 @@ flowchart TB
 | **Ticker catalog** add | Form submit | `POST /tickers` | Create catalog symbol |
 | **Ticker catalog** toggle / rename | User click | `PATCH /tickers/{symbol}` `{ active }` or `{ name }` | Include/exclude from Market + Candles bulk; edit display name |
 | **Ticker catalog** reload | User click | `GET /tickers` | Full catalog (active + inactive) |
-| *(Candles panel open)* | After catalog loads | `GET /tickers?activeOnly=true` | Active symbols only |
+| *(Candles panel open)* | After catalog loads | `GET /tickers` | Full catalog (active + inactive) |
 | *(Candles panel open)* | Immediately after | `POST /candles/result` | Last **candles job** outcome + per-symbol candle context |
 | **Refresh status** | User click | `POST /candles/status` | Live collection state for requested tickers (no new job) |
 | **Refresh candles** | User click | `POST /candles/refresh` | Start incremental intake; show acknowledgment message |
@@ -148,7 +148,7 @@ Base path: `/api` or same-origin `/` (CloudFront → API Gateway). All requests 
 
 **Purpose:** Catalog for Admin — not candle data.
 
-**Query:** `activeOnly=true` — return only rows with `active: true` (used by Candles pane).
+**Query:** optional `activeOnly=true` — Candles pane loads the **full catalog** (no filter) so Refresh covers every symbol.
 
 **Response `200`:**
 

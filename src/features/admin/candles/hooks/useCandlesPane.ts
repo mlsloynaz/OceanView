@@ -206,13 +206,13 @@ export function useCandlesPane(open: boolean) {
         setCatalog(tickers);
         const symbolsList = tickers.map((t) => t.symbol.trim().toUpperCase()).filter(Boolean);
         if (symbolsList.length === 0) {
-          setMessage("No active tickers — activate symbols in Tickers first.");
+          setMessage("No tickers in catalog.");
           return;
         }
         const pendingKeys = Object.fromEntries(symbolsList.map((s) => [s, true]));
         setRowPending(pendingKeys);
         const ack = await postCandlesRefresh({ tickers: symbolsList });
-        setMessage(`${ack.message} (${symbolsList.length} active ticker(s))`);
+        setMessage(`${ack.message} (${symbolsList.length} catalog ticker(s))`);
         if (String(ack.status).toLowerCase() === "running") {
           await pollJobUntilDone(symbolsList);
         } else {

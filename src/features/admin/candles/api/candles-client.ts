@@ -1,4 +1,4 @@
-import { getActiveTickersForAdmin } from "../../tickers/api/tickers-client";
+import { getTickersCatalog } from "../../tickers/api/tickers-client";
 import {
   buildMockResult,
   buildMockStatus,
@@ -157,12 +157,10 @@ function mapActiveTicker(row: AdminTicker & { active?: boolean }): AdminTicker {
 export async function getAdminTickers(): Promise<AdminTickersResponse> {
   if (USE_MOCK) {
     await delay();
-    const { tickers } = await getActiveTickersForAdmin();
-    return { tickers };
+    const { tickers } = await getTickersCatalog();
+    return { tickers: tickers.map(mapActiveTicker) };
   }
-  const payload = await fetchJson<{ tickers: (AdminTicker & { active?: boolean })[] }>(
-    "/tickers?activeOnly=true",
-  );
+  const payload = await fetchJson<{ tickers: (AdminTicker & { active?: boolean })[] }>("/tickers");
   return { tickers: (payload.tickers ?? []).map(mapActiveTicker) };
 }
 

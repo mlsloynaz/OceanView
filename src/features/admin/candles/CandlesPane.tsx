@@ -61,7 +61,7 @@ export function CandlesPane() {
               "bg-ocean-teal font-semibold text-ocean-deep hover:brightness-105",
             )}
             disabled={busy || loading || rows.length === 0}
-            title="Incremental D + 1h + 15m fetch for all active tickers"
+            title="Incremental D + 1h + 15m fetch for all catalog tickers"
             onClick={refreshAll}
           >
             {bulkPending ? "Refreshing…" : "Refresh candles"}
@@ -128,7 +128,7 @@ export function CandlesPane() {
         </p>
       )}
       <p className="mb-2 text-xs text-ocean-sand">
-        Bulk actions use <strong className="font-medium text-ocean-foam">active</strong> tickers
+        Bulk actions use <strong className="font-medium text-ocean-foam">all catalog</strong> tickers
         from Tickers ({rows.length} shown).{" "}
         <strong className="font-medium text-ocean-foam">Build movement profiles</strong> pulls ~1
         year of hourly bars in memory only (batches of 5) and stores the compact profile — not the
