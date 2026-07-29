@@ -29,6 +29,8 @@ export type MarketAlarmCheckResponse = {
   symbol: string;
   ruleKey: string;
   trend: string;
+  /** Winning side when trend was auto (breakout_quality). */
+  detectedTrend?: string | null;
   met: boolean;
   ruleStatus: string;
   qualityPct?: number;
@@ -42,6 +44,7 @@ export type MarketAlarmCheckResponse = {
   /** Present when ruleKey is breakout_quality. */
   breakoutScore?: number;
   continuationScore?: number;
+  rankingScore?: number;
   trendAlignment?: string;
   relativeVolume15m?: number;
   bbExpansion15m?: number;
@@ -49,6 +52,7 @@ export type MarketAlarmCheckResponse = {
   aboveVwap?: boolean;
   breakoutLevel?: number;
   lifecycle?: string;
+  bandWalk1m?: boolean;
   reasons?: string[];
   warnings?: string[];
 };
@@ -89,15 +93,20 @@ export async function postMarketAlarmCheck(
     const next = prev + 1;
     mockHits.set(key, next);
     const met = next >= 3;
+    const side =
+      trend === "auto" ? (next % 2 === 0 ? "bajista" : "alcista") : trend === "bajista" ? "bajista" : "alcista";
     return {
       symbol,
       ruleKey,
       trend,
+      detectedTrend: side,
       met,
       ruleStatus: met ? "met" : "not_met",
-      evidence: met ? `Mock ${trend} confirmation met` : "Mock waiting for confirmation",
-      suggestedTrend: trend,
-      suggestedDirection: trend === "alcista" ? "CALL" : "PUT",
+      evidence: met
+        ? `Mock ${side} confirmation met`
+        : `Mock waiting (${trend === "auto" ? "auto" : side})`,
+      suggestedTrend: side,
+      suggestedDirection: side === "alcista" ? "CALL" : "PUT",
       checkedAt: new Date().toISOString(),
       candle: { symbol, status: "ok" },
     };

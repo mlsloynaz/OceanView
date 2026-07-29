@@ -7,19 +7,27 @@ type Props = {
 };
 
 export function AlarmMetModal({ watch, onClose }: Props) {
+  const side =
+    watch.lastDetectedTrend === "alcista" || watch.lastDetectedTrend === "bajista"
+      ? watch.lastDetectedTrend
+      : watch.trend;
   return (
     <MarketDetailModal
       open
       onClose={onClose}
       title={`Alarm: ${watch.symbol}`}
-      subtitle={`${watch.ruleLabel} · ${formatAlarmTrend(watch.trend)}`}
+      subtitle={`${watch.ruleLabel} · ${formatAlarmTrend(side)}`}
     >
       <div className="space-y-3 text-sm text-ocean-foam">
         <p className="text-base font-semibold text-ocean-teal-dim dark:text-ocean-teal">
-          Rule met — polling stopped.
+          Rule met — polling stopped
+          {side === "alcista" || side === "bajista" ? ` (${formatAlarmTrend(side)})` : ""}.
         </p>
         {watch.lastEvidence ? (
           <p className="text-ocean-sand">{watch.lastEvidence}</p>
+        ) : null}
+        {typeof watch.lastBreakoutScore === "number" ? (
+          <p className="text-xs text-ocean-sand">Score {Math.round(watch.lastBreakoutScore)}</p>
         ) : null}
         {watch.metAt ? (
           <p className="text-xs text-ocean-sand">

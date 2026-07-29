@@ -19,7 +19,8 @@ export type AlarmEligibleRuleKey = (typeof ALARM_ELIGIBLE_RULES)[number]["ruleKe
 /** Same TF for candle + Bollinger (touch_disipador). */
 export type AlarmBandTimeframe = "1m" | "15m" | "1h";
 
-export type AlarmTrend = "alcista" | "bajista";
+/** ``auto`` = both directions (breakout_quality only). */
+export type AlarmTrend = "alcista" | "bajista" | "auto";
 
 export type AlarmWatchStatus = "idle" | "running" | "checking" | "met" | "stopped" | "error";
 
@@ -41,6 +42,8 @@ export type MarketAlarmWatch = {
   metAt: string | null;
   /** Latest breakout quality score when rule is breakout_quality. */
   lastBreakoutScore?: number | null;
+  /** Detected side when trend is auto (or last suggested side). */
+  lastDetectedTrend?: AlarmTrend | null;
 };
 
 export function alarmRuleLabel(ruleKey: string): string {
@@ -48,9 +51,15 @@ export function alarmRuleLabel(ruleKey: string): string {
 }
 
 export function formatAlarmTrend(trend: AlarmTrend): string {
+  if (trend === "auto") return "Auto (alcista/bajista)";
   return trend === "alcista" ? "Alcista" : "Bajista";
 }
 
 export function needsBandTimeframe(ruleKey: string): boolean {
   return ruleKey === "touch_disipador";
+}
+
+/** Breakout quality evaluates both sides — no trend picker. */
+export function needsTrendPicker(ruleKey: string): boolean {
+  return ruleKey !== "breakout_quality";
 }

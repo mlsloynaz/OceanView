@@ -11,6 +11,7 @@ import {
   ALARM_ELIGIBLE_RULES,
   formatAlarmTrend,
   needsBandTimeframe,
+  needsTrendPicker,
   type AlarmBandTimeframe,
   type AlarmEligibleRuleKey,
   type AlarmTrend,
@@ -97,6 +98,7 @@ export function MarketAlarmPanel({
   const [frequencyValue, setFrequencyValue] = useState(5);
   const [frequencyUnit, setFrequencyUnit] = useState<PollIntervalUnit>("min");
   const showBandTf = needsBandTimeframe(ruleKey);
+  const showTrend = needsTrendPicker(ruleKey);
 
   const setIntervalValue = (raw: number) => {
     setFrequencyValue(clampPollInterval(raw, frequencyUnit));
@@ -191,7 +193,7 @@ export function MarketAlarmPanel({
               const ok = onAdd({
                 symbols: selectedSymbols,
                 ruleKey,
-                trend,
+                trend: showTrend ? trend : "auto",
                 ...(showBandTf ? { bandTimeframe } : {}),
                 frequencyValue,
                 frequencyUnit,
@@ -287,18 +289,20 @@ export function MarketAlarmPanel({
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 text-xs text-ocean-sand">
-              Trend
-              <select
-                className="rounded-md border border-ocean-mid/40 bg-ocean-surface px-2 py-1.5 text-sm text-ocean-foam"
-                value={trend}
-                onChange={(e) => setTrend(e.target.value as AlarmTrend)}
-                required
-              >
-                <option value="alcista">Alcista</option>
-                <option value="bajista">Bajista</option>
-              </select>
-            </label>
+            {showTrend ? (
+              <label className="flex flex-col gap-1 text-xs text-ocean-sand">
+                Trend
+                <select
+                  className="rounded-md border border-ocean-mid/40 bg-ocean-surface px-2 py-1.5 text-sm text-ocean-foam"
+                  value={trend}
+                  onChange={(e) => setTrend(e.target.value as AlarmTrend)}
+                  required
+                >
+                  <option value="alcista">Alcista</option>
+                  <option value="bajista">Bajista</option>
+                </select>
+              </label>
+            ) : null}
 
             {showBandTf ? (
               <label className="flex flex-col gap-1 text-xs text-ocean-sand">
@@ -369,7 +373,7 @@ export function MarketAlarmPanel({
                   const ok = onAdd({
                     symbols: selectedSymbols,
                     ruleKey,
-                    trend,
+                    trend: showTrend ? trend : "auto",
                     ...(showBandTf ? { bandTimeframe } : {}),
                     frequencyValue,
                     frequencyUnit,
@@ -443,7 +447,12 @@ export function MarketAlarmPanel({
                           <span className="font-normal text-ocean-sand">
                             · {w.ruleLabel}
                             {w.bandTimeframe ? ` · ${w.bandTimeframe} candle+BB` : ""} ·{" "}
-                            {formatAlarmTrend(w.trend)}
+                            {w.trend === "auto"
+                              ? w.lastDetectedTrend === "alcista" ||
+                                w.lastDetectedTrend === "bajista"
+                                ? `Auto → ${formatAlarmTrend(w.lastDetectedTrend)}`
+                                : "Auto (both)"
+                              : formatAlarmTrend(w.trend)}
                           </span>
                         </p>
                         <p className="mt-0.5 text-[11px] text-ocean-sand">
@@ -510,7 +519,14 @@ export function MarketAlarmPanel({
                           intervalInputId={`alarm-interval-${w.id}`}
                           monitoringMessage={
                             polling
-                              ? `Polling ${w.symbol} · ${w.ruleLabel} · ${formatAlarmTrend(w.trend)}`
+                              ? `Polling ${w.symbol} · ${w.ruleLabel} · ${
+                                  w.trend === "auto"
+                                    ? w.lastDetectedTrend === "alcista" ||
+                                      w.lastDetectedTrend === "bajista"
+                                      ? formatAlarmTrend(w.lastDetectedTrend)
+                                      : "auto"
+                                    : formatAlarmTrend(w.trend)
+                                }`
                               : null
                           }
                           ariaLabel={`Alarm poll ${w.symbol}`}

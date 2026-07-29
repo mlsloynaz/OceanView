@@ -52,6 +52,8 @@ export function useMarketAlarms() {
 
   const timersRef = useRef<Map<string, number>>(new Map());
   const inFlightRef = useRef<Set<string>>(new Set());
+  /** Per-symbol candle refresh timestamps — avoid duplicate Schwab pulls. */
+  const lastCandleRefreshRef = useRef<Map<string, number>>(new Map());
   const watchesRef = useRef(watches);
   watchesRef.current = watches;
 
@@ -98,6 +100,29 @@ export function useMarketAlarms() {
     return () => stopAllTimers();
   }, [stopAllTimers]);
 
+  /** Skip candle refresh if same symbol was refreshed recently (shared across watches). */
+  const shouldRefreshCandles = useCallback((symbol: string) => {
+    const upper = symbol.toUpperCase();
+    const last = lastCandleRefreshRef.current.get(upper) ?? 0;
+    const sameSymbolWatches = watchesRef.current.filter(
+      (w) =>
+        w.symbol === upper &&
+        (w.status === "running" || w.status === "checking" || timersRef.current.has(w.id)),
+    );
+    let minMs = 25_000;
+    for (const w of sameSymbolWatches) {
+      const ms = pollIntervalToMs(w.frequencyValue, w.frequencyUnit);
+      if (ms > 0 && ms < minMs) minMs = ms;
+    }
+    // Refresh at most as often as the fastest watch on this symbol (floor 15s).
+    const cooldown = Math.max(15_000, Math.min(minMs, 60_000));
+    return Date.now() - last >= cooldown;
+  }, []);
+
+  const markCandleRefreshed = useCallback((symbol: string) => {
+    lastCandleRefreshRef.current.set(symbol.toUpperCase(), Date.now());
+  }, []);
+
   const runCheck = useCallback(
     async (id: string) => {
       if (inFlightRef.current.has(id)) return;
@@ -109,14 +134,32 @@ export function useMarketAlarms() {
         prev.map((w) => (w.id === id ? { ...w, status: "checking", lastError: null } : w)),
       );
 
+      const refreshCandles = shouldRefreshCandles(watch.symbol);
+
       try {
         const result = await postMarketAlarmCheck({
           symbol: watch.symbol,
           ruleKey: watch.ruleKey,
           trend: watch.trend,
-          refreshCandles: true,
+          refreshCandles,
           ...(watch.bandTimeframe ? { bandTimeframe: watch.bandTimeframe } : {}),
         });
+
+        if (refreshCandles && result.candle?.status !== "failed") {
+          markCandleRefreshed(watch.symbol);
+        }
+
+        const detectedRaw = result.detectedTrend || result.suggestedTrend || null;
+        const detectedTrend =
+          detectedRaw === "alcista" || detectedRaw === "bajista" || detectedRaw === "auto"
+            ? detectedRaw
+            : null;
+        const sideLabel =
+          detectedTrend === "alcista" || detectedTrend === "bajista"
+            ? detectedTrend
+            : watch.trend === "auto"
+              ? "auto"
+              : watch.trend;
 
         if (result.met) {
           clearTimer(id);
@@ -129,18 +172,21 @@ export function useMarketAlarms() {
             metAt: result.checkedAt,
             lastError: null,
             lastBreakoutScore:
-              typeof result.breakoutScore === "number" ? result.breakoutScore : watch.lastBreakoutScore ?? null,
+              typeof result.breakoutScore === "number"
+                ? result.breakoutScore
+                : (watch.lastBreakoutScore ?? null),
+            lastDetectedTrend: detectedTrend ?? watch.trend,
           };
           setWatches((prev) => prev.map((w) => (w.id === id ? metWatch : w)));
           setBanner(
-            `${result.symbol} · ${watch.ruleLabel} (${watch.trend}) met — polling stopped.`,
+            `${result.symbol} · ${watch.ruleLabel} (${sideLabel}) met — polling stopped.`,
           );
           setMetPopup(metWatch);
           playAlarmBell();
           try {
             if (typeof Notification !== "undefined" && Notification.permission === "granted") {
               new Notification(`Alarm: ${watch.symbol}`, {
-                body: `${watch.ruleLabel} · ${watch.trend} met`,
+                body: `${watch.ruleLabel} · ${sideLabel} met`,
                 tag: `ov-market-alarm-${watch.id}`,
               });
             }
@@ -163,7 +209,8 @@ export function useMarketAlarms() {
                   lastBreakoutScore:
                     typeof result.breakoutScore === "number"
                       ? result.breakoutScore
-                      : w.lastBreakoutScore ?? null,
+                      : (w.lastBreakoutScore ?? null),
+                  lastDetectedTrend: detectedTrend ?? w.lastDetectedTrend ?? null,
                 }
               : w,
           ),
@@ -190,7 +237,7 @@ export function useMarketAlarms() {
         inFlightRef.current.delete(id);
       }
     },
-    [clearTimer],
+    [clearTimer, markCandleRefreshed, shouldRefreshCandles],
   );
 
   const startWatch = useCallback(
@@ -290,7 +337,13 @@ export function useMarketAlarms() {
         setFormError("Pick an eligible rule.");
         return false;
       }
-      if (input.trend !== "alcista" && input.trend !== "bajista") {
+      const trend: AlarmTrend =
+        input.ruleKey === "breakout_quality"
+          ? "auto"
+          : input.trend === "bajista"
+            ? "bajista"
+            : "alcista";
+      if (input.ruleKey !== "breakout_quality" && input.trend !== "alcista" && input.trend !== "bajista") {
         setFormError("Pick a trend (alcista or bajista).");
         return false;
       }
@@ -309,7 +362,7 @@ export function useMarketAlarms() {
           (w) =>
             w.symbol === symbol &&
             w.ruleKey === input.ruleKey &&
-            w.trend === input.trend &&
+            w.trend === trend &&
             (w.bandTimeframe ?? undefined) === bandTf &&
             w.status !== "met",
         );
@@ -322,7 +375,7 @@ export function useMarketAlarms() {
           symbol,
           ruleKey: input.ruleKey,
           ruleLabel: alarmRuleLabel(input.ruleKey),
-          trend: input.trend,
+          trend,
           ...(bandTf ? { bandTimeframe: bandTf } : {}),
           frequencyValue,
           frequencyUnit,
@@ -332,6 +385,7 @@ export function useMarketAlarms() {
           lastCheckedAt: null,
           lastError: null,
           metAt: null,
+          lastDetectedTrend: null,
         });
       }
 
