@@ -21,7 +21,7 @@ export const BEST_FIT_COLUMN_HELP: BestFitColumnHelp[] = [
   {
     column: "Score",
     meaning:
-      "Overall fitness from 0 to 100 based on past movement history. Higher = better fit for our style of trades.",
+      "Overall fitness from 0 to 100 from past breakout movement (MFE, MAE, win rate, ATR, sample size) — not how often named strategies fired. Higher = better fit for our style. Click a symbol for % and $ detail.",
   },
   {
     column: "Tier",
@@ -31,31 +31,32 @@ export const BEST_FIT_COLUMN_HELP: BestFitColumnHelp[] = [
   {
     column: "MFE",
     meaning:
-      "Max Favorable Excursion — on average, how far price moved in your favor after a breakout (as a %). Bigger can be good, but huge moves can also mean wild stocks.",
+      "Max Favorable Excursion — typical upside after a breakout. Table shows %; click the symbol for the same move in dollars (using last close).",
   },
   {
     column: "MAE",
     meaning:
-      "Max Adverse Excursion — on average, how far price moved against you before recovering (as a %). Lower is usually safer.",
+      "Max Adverse Excursion — typical drawdown against you. Table shows %; click the symbol for $ as well. Lower is usually safer.",
   },
   {
     column: "Win",
     meaning:
-      "How often past setups worked out in the sample (as a %). Higher means the pattern paid off more often historically.",
+      "How often past breakouts in the sample worked (movement win rate, not strategy hit rate). Click the symbol to see ~wins out of n.",
   },
   {
     column: "ATR%",
     meaning:
-      "Average True Range as a % of price — how much the stock typically moves day to day. Mid-range is often easier to trade than very quiet or very wild names.",
+      "Average True Range as a % of price — typical day-to-day range. Mid-range is often easier than very quiet or wild names. Detail also shows $.",
   },
   {
     column: "Stop",
     meaning:
-      "Suggested stop distance from the movement profile (as a %). Rough guide for how far a protective stop might sit.",
+      "Suggested stop distance from the movement profile. Table shows %; click the symbol for approximate $.",
   },
   {
     column: "n",
-    meaning: "Sample size — how many past setups the stats are based on. More samples = more trustworthy numbers.",
+    meaning:
+      "Sample size — how many past breakouts the stats are based on. More samples = more trustworthy numbers.",
   },
   {
     column: "Active",

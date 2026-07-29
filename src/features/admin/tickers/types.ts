@@ -35,6 +35,13 @@ export type BestFitMetrics = {
   timeframe?: string | null;
   historyStart?: string | null;
   historyEnd?: string | null;
+  /** Last close used to convert % → $ (from movement profile). */
+  referencePrice?: number | null;
+  moveCapDollars?: number | null;
+  expectedMaeDollars?: number | null;
+  suggestedStopDollars?: number | null;
+  atrDollars?: number | null;
+  expectedExitPrice?: number | null;
 };
 
 export type BestFitWatchlistRow = {

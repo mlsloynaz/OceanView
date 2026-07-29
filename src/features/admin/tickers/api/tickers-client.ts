@@ -412,6 +412,16 @@ export async function resolveBestFitWatchlist(input?: {
         winRate: 0.58,
         atrPct: 1.0,
         suggestedStopPct: 0.65,
+        referencePrice: 100 + index * 12,
+        moveCapDollars: Number(((100 + index * 12) * 0.016).toFixed(2)),
+        expectedMaeDollars: Number(((100 + index * 12) * 0.004).toFixed(2)),
+        suggestedStopDollars: Number(((100 + index * 12) * 0.0065).toFixed(2)),
+        atrDollars: Number(((100 + index * 12) * 0.01).toFixed(2)),
+        expectedExitPrice: Number(((100 + index * 12) * 1.016).toFixed(2)),
+        reachProb5: 0.2,
+        reachProb10: 0.07,
+        reachProb12: 0.03,
+        timeframe: "1h",
       },
     }));
     const watchlist = ranked.slice(0, Math.min(limit, ranked.length)).map((row) => ({

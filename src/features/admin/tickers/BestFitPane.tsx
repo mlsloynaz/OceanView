@@ -4,6 +4,7 @@ import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane
 import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
 import { patchTickersActive } from "./api/tickers-client";
 import { BEST_FIT_COLUMN_HELP } from "./best-fit-column-help";
+import { BestFitTickerDetail } from "./BestFitTickerDetail";
 import { useTickersPane } from "./hooks/useTickersPane";
 import type { BestFitWatchlistRow } from "./types";
 
@@ -23,9 +24,42 @@ function fmtPct(value: number | null | undefined, digits = 2): string {
   return `${value.toFixed(digits)}%`;
 }
 
+function fmtMoney(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value) || value <= 0) return "";
+  return `$${value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function fmtPctWithDollars(
+  pct: number | null | undefined,
+  dollars: number | null | undefined,
+): { primary: string; secondary: string | null } {
+  const primary = fmtPct(pct);
+  const secondary = fmtMoney(dollars) || null;
+  return { primary, secondary };
+}
+
 function fmtRate(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "—";
   return `${(value * 100).toFixed(0)}%`;
+}
+
+function MetricCell({
+  pct,
+  dollars,
+}: {
+  pct: number | null | undefined;
+  dollars?: number | null | undefined;
+}) {
+  const { primary, secondary } = fmtPctWithDollars(pct, dollars);
+  return (
+    <td className="px-2 py-1.5 tabular-nums">
+      <div>{primary}</div>
+      {secondary ? <div className="text-[10px] text-ocean-sand/80">{secondary}</div> : null}
+    </td>
+  );
 }
 
 type Props = {
@@ -56,6 +90,7 @@ export function BestFitPane({ onBack }: Props) {
   const [promoteError, setPromoteError] = useState<string | null>(null);
   const [promoteMessage, setPromoteMessage] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [detailRow, setDetailRow] = useState<BestFitWatchlistRow | null>(null);
 
   const filteredRanked = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -169,7 +204,7 @@ export function BestFitPane({ onBack }: Props) {
           <span>Best-fit</span>
         </span>
       }
-      subtitle="All scored tickers from movement profiles — best on top. Check boxes to promote."
+      subtitle="Movement-profile fitness (not strategy hit rate). Click a symbol for % and $. Check boxes to promote."
       headerExtra={
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -204,8 +239,10 @@ export function BestFitPane({ onBack }: Props) {
       }
     >
       <p className="mb-3 text-xs text-ocean-sand">
-        Ranking uses stored movement profiles (Candles → Build movement profiles). Display is
-        always sorted by score. Promotion is only what you check — not automatic top N.
+        Ranking uses stored movement profiles (Candles → Build movement profiles). Score reflects
+        historical breakout movement fitness — not how often strategies were true. Display is
+        sorted by score. Click a symbol for dollars next to percentages. Promotion is only what
+        you check — not automatic top N.
       </p>
 
       {bestFitError ? <p className="mb-2 text-xs text-ocean-danger">{bestFitError}</p> : null}
@@ -329,7 +366,14 @@ export function BestFitPane({ onBack }: Props) {
                   </td>
                   <td className="px-2 py-1.5 tabular-nums text-ocean-sand">{row.rank}</td>
                   <td className="px-2 py-1.5 font-semibold">
-                    {row.symbol}
+                    <button
+                      type="button"
+                      onClick={() => setDetailRow(row)}
+                      className="text-left text-ocean-foam underline-offset-2 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-ocean-teal"
+                      title={`Open detail for ${row.symbol}`}
+                    >
+                      {row.symbol}
+                    </button>
                     {row.name ? (
                       <span className="ml-1 font-normal text-ocean-sand/80">{row.name}</span>
                     ) : null}
@@ -345,11 +389,17 @@ export function BestFitPane({ onBack }: Props) {
                       {row.tier}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 tabular-nums">{fmtPct(row.metrics?.moveCapPct)}</td>
-                  <td className="px-2 py-1.5 tabular-nums">{fmtPct(row.metrics?.expectedMaePct)}</td>
+                  <MetricCell pct={row.metrics?.moveCapPct} dollars={row.metrics?.moveCapDollars} />
+                  <MetricCell
+                    pct={row.metrics?.expectedMaePct}
+                    dollars={row.metrics?.expectedMaeDollars}
+                  />
                   <td className="px-2 py-1.5 tabular-nums">{fmtRate(row.metrics?.winRate)}</td>
-                  <td className="px-2 py-1.5 tabular-nums">{fmtPct(row.metrics?.atrPct)}</td>
-                  <td className="px-2 py-1.5 tabular-nums">{fmtPct(row.metrics?.suggestedStopPct)}</td>
+                  <MetricCell pct={row.metrics?.atrPct} dollars={row.metrics?.atrDollars} />
+                  <MetricCell
+                    pct={row.metrics?.suggestedStopPct}
+                    dollars={row.metrics?.suggestedStopDollars}
+                  />
                   <td className="px-2 py-1.5 tabular-nums text-ocean-sand">
                     {row.metrics?.sampleSize ?? "—"}
                   </td>
@@ -399,6 +449,22 @@ export function BestFitPane({ onBack }: Props) {
           className="mt-4 rounded-md bg-ocean-teal px-3 py-1.5 text-xs font-semibold text-ocean-deep hover:brightness-105"
         >
           Got it
+        </button>
+      </MarketDetailModal>
+
+      <MarketDetailModal
+        open={detailRow != null}
+        onClose={() => setDetailRow(null)}
+        title={detailRow ? `${detailRow.symbol} — movement detail` : "Ticker detail"}
+        subtitle="Percentages and approximate dollars from the movement profile"
+      >
+        {detailRow ? <BestFitTickerDetail row={detailRow} /> : null}
+        <button
+          type="button"
+          onClick={() => setDetailRow(null)}
+          className="mt-4 rounded-md bg-ocean-teal px-3 py-1.5 text-xs font-semibold text-ocean-deep hover:brightness-105"
+        >
+          Close
         </button>
       </MarketDetailModal>
     </AdminExpandedPane>
