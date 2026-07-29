@@ -269,7 +269,14 @@ export function MarketAlarmPanel({
               <select
                 className="rounded-md border border-ocean-mid/40 bg-ocean-surface px-2 py-1.5 text-sm text-ocean-foam"
                 value={ruleKey}
-                onChange={(e) => setRuleKey(e.target.value as AlarmEligibleRuleKey)}
+                onChange={(e) => {
+                  const next = e.target.value as AlarmEligibleRuleKey;
+                  setRuleKey(next);
+                  if (next === "breakout_quality") {
+                    setFrequencyUnit("sec");
+                    setFrequencyValue(30);
+                  }
+                }}
                 required
               >
                 {ALARM_ELIGIBLE_RULES.map((r) => (
@@ -442,6 +449,9 @@ export function MarketAlarmPanel({
                         <p className="mt-0.5 text-[11px] text-ocean-sand">
                           {statusLabel(w.status)}
                           {w.lastRuleStatus ? ` · ${w.lastRuleStatus}` : ""}
+                          {typeof w.lastBreakoutScore === "number"
+                            ? ` · score ${Math.round(w.lastBreakoutScore)}`
+                            : ""}
                           {w.lastCheckedAt
                             ? ` · ${new Date(w.lastCheckedAt).toLocaleTimeString()}`
                             : ""}

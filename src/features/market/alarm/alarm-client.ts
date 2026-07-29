@@ -39,6 +39,18 @@ export type MarketAlarmCheckResponse = {
   simulationTimeEt?: string;
   error?: string | null;
   candle?: { symbol?: string; status?: string; error?: string } | null;
+  /** Present when ruleKey is breakout_quality. */
+  breakoutScore?: number;
+  continuationScore?: number;
+  trendAlignment?: string;
+  relativeVolume15m?: number;
+  bbExpansion15m?: number;
+  adx15m?: number;
+  aboveVwap?: boolean;
+  breakoutLevel?: number;
+  lifecycle?: string;
+  reasons?: string[];
+  warnings?: string[];
 };
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {

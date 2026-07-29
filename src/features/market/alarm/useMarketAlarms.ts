@@ -128,6 +128,8 @@ export function useMarketAlarms() {
             lastCheckedAt: result.checkedAt,
             metAt: result.checkedAt,
             lastError: null,
+            lastBreakoutScore:
+              typeof result.breakoutScore === "number" ? result.breakoutScore : watch.lastBreakoutScore ?? null,
           };
           setWatches((prev) => prev.map((w) => (w.id === id ? metWatch : w)));
           setBanner(
@@ -158,6 +160,10 @@ export function useMarketAlarms() {
                   lastEvidence: result.evidence ?? null,
                   lastCheckedAt: result.checkedAt,
                   lastError: result.error ?? null,
+                  lastBreakoutScore:
+                    typeof result.breakoutScore === "number"
+                      ? result.breakoutScore
+                      : w.lastBreakoutScore ?? null,
                 }
               : w,
           ),

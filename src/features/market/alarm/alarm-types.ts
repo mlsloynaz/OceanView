@@ -8,6 +8,10 @@ export const ALARM_ELIGIBLE_RULES = [
     ruleKey: "touch_disipador",
     label: "Disipador touch (candle + BB)",
   },
+  {
+    ruleKey: "breakout_quality",
+    label: "Breakout quality (15M multi-TF)",
+  },
 ] as const;
 
 export type AlarmEligibleRuleKey = (typeof ALARM_ELIGIBLE_RULES)[number]["ruleKey"];
@@ -35,6 +39,8 @@ export type MarketAlarmWatch = {
   lastCheckedAt: string | null;
   lastError: string | null;
   metAt: string | null;
+  /** Latest breakout quality score when rule is breakout_quality. */
+  lastBreakoutScore?: number | null;
 };
 
 export function alarmRuleLabel(ruleKey: string): string {
