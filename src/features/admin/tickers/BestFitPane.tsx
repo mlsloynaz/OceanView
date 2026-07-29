@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane";
+import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
 import { patchTickersActive } from "./api/tickers-client";
+import { BEST_FIT_COLUMN_HELP } from "./best-fit-column-help";
 import { useTickersPane } from "./hooks/useTickersPane";
 import type { BestFitWatchlistRow } from "./types";
 
@@ -48,10 +50,22 @@ export function BestFitPane({ onBack }: Props) {
     return rows;
   }, [bestFit]);
 
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [promoting, setPromoting] = useState(false);
   const [promoteError, setPromoteError] = useState<string | null>(null);
   const [promoteMessage, setPromoteMessage] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  const filteredRanked = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return ranked;
+    return ranked.filter(
+      (row) =>
+        row.symbol.toLowerCase().includes(q) ||
+        (row.name?.toLowerCase().includes(q) ?? false),
+    );
+  }, [ranked, search]);
 
   useEffect(() => {
     if (!ranked.length) {
@@ -160,6 +174,15 @@ export function BestFitPane({ onBack }: Props) {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
+            onClick={() => setHelpOpen(true)}
+            className={cn(BTN, "border border-ocean-mid/50 text-ocean-sand hover:border-ocean-teal/40")}
+            title="What do these columns mean?"
+            aria-haspopup="dialog"
+          >
+            Column help
+          </button>
+          <button
+            type="button"
             disabled={busy}
             onClick={() => void resolveBestFit()}
             className={cn(BTN, "border border-ocean-teal/50 bg-ocean-teal/15 text-ocean-foam")}
@@ -204,7 +227,28 @@ export function BestFitPane({ onBack }: Props) {
       ) : null}
 
       {ranked.length > 0 ? (
-        <div className="mb-3 flex flex-wrap gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <label className="relative min-w-0 max-w-sm flex-1">
+            <span className="sr-only">Search best-fit tickers</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search symbol or name…"
+              disabled={busy}
+              className="w-full rounded-md border border-ocean-mid/40 bg-ocean-surface px-3 py-1.5 text-sm text-ocean-foam placeholder:text-ocean-sand/60 focus:border-ocean-teal/50 focus:outline-none"
+            />
+          </label>
+          {search.trim() ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setSearch("")}
+              className="rounded border border-ocean-mid/50 px-2 py-1 text-[11px] text-ocean-sand hover:border-ocean-teal/40"
+            >
+              Clear search
+            </button>
+          ) : null}
           <button
             type="button"
             disabled={busy}
@@ -221,6 +265,11 @@ export function BestFitPane({ onBack }: Props) {
           >
             Clear checks
           </button>
+          {search.trim() ? (
+            <span className="text-[11px] text-ocean-sand">
+              Showing {filteredRanked.length} of {ranked.length}
+            </span>
+          ) : null}
         </div>
       ) : null}
 
@@ -239,6 +288,10 @@ export function BestFitPane({ onBack }: Props) {
             </ul>
           ) : null}
         </div>
+      ) : filteredRanked.length === 0 ? (
+        <p className="text-xs text-ocean-sand">
+          No tickers match “{search.trim()}”.
+        </p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-collapse text-left text-xs">
@@ -259,8 +312,11 @@ export function BestFitPane({ onBack }: Props) {
               </tr>
             </thead>
             <tbody>
-              {ranked.map((row) => (
-                <tr key={row.symbol} className="border-b border-ocean-mid/25 text-ocean-foam">
+              {filteredRanked.map((row) => (
+                <tr
+                  key={row.symbol}
+                  className="border-b border-ocean-mid/25 text-ocean-foam transition-colors hover:bg-ocean-teal/15"
+                >
                   <td className="px-2 py-1.5">
                     <input
                       type="checkbox"
@@ -322,6 +378,29 @@ export function BestFitPane({ onBack }: Props) {
           </ul>
         </details>
       ) : null}
+
+      <MarketDetailModal
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        title="Best-fit columns"
+        subtitle="Simple meanings — no jargon required"
+      >
+        <ul className="space-y-3 text-sm text-ocean-foam">
+          {BEST_FIT_COLUMN_HELP.map((item) => (
+            <li key={item.column} className="border-b border-ocean-mid/25 pb-3 last:border-0 last:pb-0">
+              <p className="font-semibold text-ocean-teal-dim dark:text-ocean-teal">{item.column}</p>
+              <p className="mt-0.5 text-ocean-sand">{item.meaning}</p>
+            </li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          onClick={() => setHelpOpen(false)}
+          className="mt-4 rounded-md bg-ocean-teal px-3 py-1.5 text-xs font-semibold text-ocean-deep hover:brightness-105"
+        >
+          Got it
+        </button>
+      </MarketDetailModal>
     </AdminExpandedPane>
   );
 }
