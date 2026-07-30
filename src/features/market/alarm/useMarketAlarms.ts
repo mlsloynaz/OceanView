@@ -25,16 +25,33 @@ import { playAlarmBell } from "./play-alarm-bell";
 const STORAGE_KEY = "oceanview.market.alarms";
 const SIM_STORAGE_KEY = "oceanview.market.alarms.simulate";
 
+/** Migrate watches saved before confirmation_change_trend replaced candle_confirm. */
+const LEGACY_ALARM_RULE_KEYS: Record<string, AlarmEligibleRuleKey> = {
+  candle_confirm_1h: "confirmation_change_trend_1h",
+  candle_confirm_15m: "confirmation_change_trend_15m",
+};
+
+function migrateWatch(row: MarketAlarmWatch): MarketAlarmWatch {
+  const legacy = LEGACY_ALARM_RULE_KEYS[row.ruleKey];
+  const ruleKey = legacy ?? row.ruleKey;
+  const status =
+    row.status === "running" || row.status === "checking" ? "stopped" : row.status;
+  if (!legacy && status === row.status) return { ...row, status };
+  return {
+    ...row,
+    ruleKey,
+    ruleLabel: alarmRuleLabel(ruleKey),
+    status,
+  };
+}
+
 function loadStored(): MarketAlarmWatch[] {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as MarketAlarmWatch[];
     if (!Array.isArray(parsed)) return [];
-    return parsed.map((row) => ({
-      ...row,
-      status: row.status === "running" || row.status === "checking" ? "stopped" : row.status,
-    }));
+    return parsed.map((row) => migrateWatch(row));
   } catch {
     return [];
   }
