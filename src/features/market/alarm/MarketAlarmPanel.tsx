@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   PollControls,
   clampPollInterval,
@@ -10,7 +10,7 @@ import {
 } from "@/shared/components/LiveSimulateControl";
 import { cn } from "@/shared/lib/cn";
 import type { CatalogTicker } from "@/features/admin/tickers/types";
-import { AlarmMetModal } from "./AlarmMetModal";
+import { AlarmTradeModal } from "./AlarmTradeModal";
 import {
   ALARM_ELIGIBLE_RULES,
   formatAlarmTrend,
@@ -18,12 +18,35 @@ import {
   needsTrendPicker,
   type AlarmBandTimeframe,
   type AlarmEligibleRuleKey,
+  type AlarmPopupKind,
   type AlarmTrend,
   type MarketAlarmWatch,
 } from "./alarm-types";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+
+function groupWatchesBySymbol(
+  watches: MarketAlarmWatch[],
+): { symbol: string; watches: MarketAlarmWatch[] }[] {
+  const map = new Map<string, MarketAlarmWatch[]>();
+  for (const w of watches) {
+    const list = map.get(w.symbol) ?? [];
+    list.push(w);
+    map.set(w.symbol, list);
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([symbol, rows]) => ({ symbol, watches: rows }));
+}
+
+function groupStatusTone(rows: MarketAlarmWatch[]): "met" | "exit" | "in_trade" | "active" | "idle" {
+  if (rows.some((w) => w.status === "met")) return "met";
+  if (rows.some((w) => w.status === "exit")) return "exit";
+  if (rows.some((w) => w.status === "in_trade")) return "in_trade";
+  if (rows.some((w) => w.status === "running" || w.status === "checking")) return "active";
+  return "idle";
+}
 
 type Props = {
   watches: MarketAlarmWatch[];
@@ -32,7 +55,7 @@ type Props = {
   tickersError: string | null;
   formError: string | null;
   banner: string | null;
-  metPopup: MarketAlarmWatch | null;
+  alarmPopup: { kind: AlarmPopupKind; watch: MarketAlarmWatch } | null;
   metCount: number;
   runningCount: number;
   timeMode: LiveSimulateMode;
@@ -40,10 +63,12 @@ type Props = {
   onTimeModeChange: (mode: LiveSimulateMode) => void;
   onSimulateLocalChange: (value: string) => void;
   onClearBanner: () => void;
-  onClearMetPopup: () => void;
+  onClearAlarmPopup: () => void;
+  onConfirmEnter: (id: string) => void;
+  onConfirmExit: (id: string) => void;
   onAdd: (input: {
     symbols: string[];
-    ruleKey: AlarmEligibleRuleKey;
+    ruleKeys: AlarmEligibleRuleKey[];
     trend: AlarmTrend;
     bandTimeframe?: AlarmBandTimeframe;
     frequencyValue: number;
@@ -65,11 +90,15 @@ type Props = {
 function statusLabel(status: MarketAlarmWatch["status"]): string {
   switch (status) {
     case "running":
-      return "Polling";
+      return "Polling for enter";
     case "checking":
       return "Checking…";
     case "met":
-      return "Met — stopped";
+      return "ENTER — confirm";
+    case "in_trade":
+      return "In trade — watching exit";
+    case "exit":
+      return "EXIT — confirm";
     case "stopped":
       return "Stopped";
     case "error":
@@ -86,7 +115,7 @@ export function MarketAlarmPanel({
   tickersError,
   formError,
   banner,
-  metPopup,
+  alarmPopup,
   metCount,
   runningCount,
   timeMode,
@@ -94,7 +123,9 @@ export function MarketAlarmPanel({
   onTimeModeChange,
   onSimulateLocalChange,
   onClearBanner,
-  onClearMetPopup,
+  onClearAlarmPopup,
+  onConfirmEnter,
+  onConfirmExit,
   onAdd,
   onStart,
   onStop,
@@ -108,13 +139,26 @@ export function MarketAlarmPanel({
   onRequestNotify,
 }: Props) {
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
-  const [ruleKey, setRuleKey] = useState<AlarmEligibleRuleKey>("confirmation_change_trend_1h");
+  const [selectedRules, setSelectedRules] = useState<AlarmEligibleRuleKey[]>([
+    "confirmation_change_trend_1h",
+  ]);
   const [trend, setTrend] = useState<AlarmTrend>("alcista");
   const [bandTimeframe, setBandTimeframe] = useState<AlarmBandTimeframe>("1m");
   const [frequencyValue, setFrequencyValue] = useState(5);
   const [frequencyUnit, setFrequencyUnit] = useState<PollIntervalUnit>("min");
-  const showBandTf = needsBandTimeframe(ruleKey);
-  const showTrend = needsTrendPicker(ruleKey);
+  const showBandTf = needsBandTimeframe(selectedRules);
+  const showTrend = needsTrendPicker(selectedRules);
+
+  const toggleRule = (key: AlarmEligibleRuleKey) => {
+    setSelectedRules((prev) => {
+      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key];
+      if (next.length === 1 && next[0] === "breakout_quality") {
+        setFrequencyUnit("sec");
+        setFrequencyValue(30);
+      }
+      return next;
+    });
+  };
 
   const setIntervalValue = (raw: number) => {
     setFrequencyValue(clampPollInterval(raw, frequencyUnit));
@@ -126,6 +170,15 @@ export function MarketAlarmPanel({
 
   const allSelected =
     tickers.length > 0 && selectedSymbols.length > 0 && selectedSymbols.length === tickers.length;
+
+  const watchesByTicker = useMemo(() => groupWatchesBySymbol(watches), [watches]);
+  const tickerNameBySymbol = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of tickers) {
+      if (t.name) map.set(t.symbol.toUpperCase(), t.name);
+    }
+    return map;
+  }, [tickers]);
 
   const toggleSymbol = (symbol: string) => {
     const upper = symbol.toUpperCase();
@@ -142,10 +195,10 @@ export function MarketAlarmPanel({
 
   const subtitle =
     metCount > 0
-      ? `${metCount} alarm${metCount === 1 ? "" : "s"} fired · ${runningCount} polling`
+      ? `${metCount} in enter/exit cycle · ${runningCount} active`
       : runningCount > 0
         ? `${runningCount} watch${runningCount === 1 ? "" : "es"} polling`
-        : "Pick tickers + rule + trend + interval · Start polls until met";
+        : "Pick tickers + one or more rules (AND) · Start → ENTER → exit watch → EXIT → arm again";
 
   return (
     <>
@@ -162,9 +215,13 @@ export function MarketAlarmPanel({
         </header>
         <div className="space-y-3 text-sm">
           <p className="text-xs leading-relaxed text-ocean-sand">
-            Watch an active ticker until an eligible rule is{" "}
-            <span className="font-medium text-ocean-foam">met</span> for the chosen trend
-            (popup + bell). Set how often to check below (sec / min / hour).
+            Poll until <span className="font-medium text-ocean-foam">all</span> selected rules
+            are <span className="font-medium text-ocean-foam">met</span> (AND) →{" "}
+            <span className="font-medium text-ocean-foam">ENTER</span> popup. Confirm entry and
+            keep watching until the combined setup drops →{" "}
+            <span className="font-medium text-ocean-foam">EXIT</span> popup, then arm again.
+            Candles refresh once per check, paced to the longest interval among watches on that
+            ticker.
           </p>
           {banner ? (
             <div
@@ -183,11 +240,12 @@ export function MarketAlarmPanel({
           ) : null}
 
           <p className="text-xs leading-relaxed text-ocean-sand">
-            Eligible: confirmation candle 1h / 15m, or Disipador touch (candle + BB on the
-            Timeframe you pick: 1m / 15m / 1h). Alarm fires on the{" "}
-            <strong className="font-medium text-ocean-foam">first</strong> touch/pass only;
-            no touch or 2+ consecutive (including ≥3) = not met. Select tickers (or{" "}
-            <strong className="font-medium text-ocean-foam">Select all</strong>), rule, trend, and
+            Eligible: confirmation candle 1h / 15m, Disipador touch (candle + BB on the
+            Timeframe you pick: 1m / 15m / 1h), breakout quality. Select multiple criteria to
+            require all at once. Alarm fires on the{" "}
+            <strong className="font-medium text-ocean-foam">first</strong> combined met only.
+            Select tickers (or{" "}
+            <strong className="font-medium text-ocean-foam">Select all</strong>), rules, trend, and
             check interval. Add creates one watch per ticker; Start polls until met.
           </p>
 
@@ -230,9 +288,10 @@ export function MarketAlarmPanel({
             className="grid gap-2 rounded-md border border-ocean-mid/30 bg-ocean-deep/20 p-3 sm:grid-cols-2 lg:grid-cols-6"
             onSubmit={(e) => {
               e.preventDefault();
+              if (selectedRules.length === 0) return;
               const ok = onAdd({
                 symbols: selectedSymbols,
-                ruleKey,
+                ruleKeys: selectedRules,
                 trend: showTrend ? trend : "auto",
                 ...(showBandTf ? { bandTimeframe } : {}),
                 frequencyValue,
@@ -306,28 +365,43 @@ export function MarketAlarmPanel({
               </div>
             </div>
 
-            <label className="flex flex-col gap-1 text-xs text-ocean-sand lg:col-span-2">
-              Rule
-              <select
-                className="rounded-md border border-ocean-mid/40 bg-ocean-surface px-2 py-1.5 text-sm text-ocean-foam"
-                value={ruleKey}
-                onChange={(e) => {
-                  const next = e.target.value as AlarmEligibleRuleKey;
-                  setRuleKey(next);
-                  if (next === "breakout_quality") {
-                    setFrequencyUnit("sec");
-                    setFrequencyValue(30);
-                  }
-                }}
-                required
+            <div className="flex flex-col gap-1.5 text-xs text-ocean-sand sm:col-span-2 lg:col-span-6">
+              <span>
+                Rules (AND)
+                {selectedRules.length > 0 ? (
+                  <span className="ml-1 text-ocean-foam">({selectedRules.length} selected)</span>
+                ) : null}
+              </span>
+              <div
+                className="rounded-md border border-ocean-mid/40 bg-ocean-surface px-2 py-1.5"
+                role="group"
+                aria-label="Rules to combine"
               >
-                {ALARM_ELIGIBLE_RULES.map((r) => (
-                  <option key={r.ruleKey} value={r.ruleKey}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <ul className="space-y-1">
+                  {ALARM_ELIGIBLE_RULES.map((r) => {
+                    const checked = selectedRules.includes(r.ruleKey);
+                    return (
+                      <li key={r.ruleKey}>
+                        <label className="flex cursor-pointer items-start gap-1.5 text-sm text-ocean-foam hover:text-ocean-teal">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 rounded border-ocean-mid accent-ocean-teal"
+                            checked={checked}
+                            onChange={() => toggleRule(r.ruleKey)}
+                          />
+                          <span>
+                            <span className="font-medium">{r.label}</span>
+                            <span className="mt-0.5 block font-mono text-[10px] text-ocean-sand/80">
+                              {r.ruleKey}
+                            </span>
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
 
             {showTrend ? (
               <label className="flex flex-col gap-1 text-xs text-ocean-sand">
@@ -358,7 +432,7 @@ export function MarketAlarmPanel({
                   <option value="1h">1h</option>
                 </select>
                 <span className="text-[11px] leading-snug text-ocean-sand/90">
-                  Candle and Bollinger both use this timeframe
+                  Candle and Bollinger both use this timeframe (Disipador)
                 </span>
               </label>
             ) : null}
@@ -399,7 +473,11 @@ export function MarketAlarmPanel({
               <button
                 type="submit"
                 className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
-                disabled={tickers.length === 0 || selectedSymbols.length === 0}
+                disabled={
+                  tickers.length === 0 ||
+                  selectedSymbols.length === 0 ||
+                  selectedRules.length === 0
+                }
               >
                 {selectedSymbols.length > 1
                   ? `Add ${selectedSymbols.length} watches`
@@ -408,11 +486,15 @@ export function MarketAlarmPanel({
               <button
                 type="button"
                 className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-110")}
-                disabled={tickers.length === 0 || selectedSymbols.length === 0}
+                disabled={
+                  tickers.length === 0 ||
+                  selectedSymbols.length === 0 ||
+                  selectedRules.length === 0
+                }
                 onClick={() => {
                   const ok = onAdd({
                     symbols: selectedSymbols,
-                    ruleKey,
+                    ruleKeys: selectedRules,
                     trend: showTrend ? trend : "auto",
                     ...(showBandTf ? { bandTimeframe } : {}),
                     frequencyValue,
@@ -437,7 +519,7 @@ export function MarketAlarmPanel({
 
           {watches.length === 0 ? (
             <p className="text-xs text-ocean-sand">
-              No watches yet — select tickers + rule + trend above.
+              No watches yet — select tickers + one or more rules + trend above.
             </p>
           ) : (
             <>
@@ -476,155 +558,255 @@ export function MarketAlarmPanel({
                   disabled={metCount === 0}
                   title="Reset fired alarms so they can poll and fire again"
                 >
-                  Clear all met{metCount > 0 ? ` (${metCount})` : ""}
+                  Clear all signals{metCount > 0 ? ` (${metCount})` : ""}
                 </button>
               </div>
-            <ul className="space-y-3">
-              {watches.map((w) => {
-                const polling = w.status === "running" || w.status === "checking";
+            <div className="space-y-4">
+              {watchesByTicker.map((group) => {
+                const tone = groupStatusTone(group.watches);
+                const name = tickerNameBySymbol.get(group.symbol);
+                const activeCount = group.watches.filter(
+                  (w) =>
+                    w.status === "running" ||
+                    w.status === "checking" ||
+                    w.status === "in_trade",
+                ).length;
                 return (
-                  <li
-                    key={w.id}
+                  <section
+                    key={group.symbol}
                     className={cn(
-                      "rounded-md border px-3 py-2.5",
-                      w.status === "met"
-                        ? "border-ocean-teal/50 bg-ocean-teal/10"
-                        : "border-ocean-mid/30 bg-ocean-surface/40",
+                      "rounded-lg border px-3 py-2.5",
+                      tone === "met"
+                        ? "border-ocean-teal/45 bg-ocean-teal/5"
+                        : tone === "exit"
+                          ? "border-amber-500/40 bg-amber-500/5"
+                          : tone === "in_trade"
+                            ? "border-sky-500/35 bg-sky-500/5"
+                            : "border-ocean-mid/35 bg-ocean-deep/15",
                     )}
+                    aria-labelledby={`alarm-ticker-${group.symbol}`}
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
+                    <header className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-ocean-mid/25 pb-2">
                       <div className="min-w-0">
-                        <p className="font-semibold text-ocean-foam">
-                          {w.symbol}{" "}
-                          <span className="font-normal text-ocean-sand">
-                            · {w.ruleLabel}
-                            {w.bandTimeframe ? ` · ${w.bandTimeframe} candle+BB` : ""} ·{" "}
-                            {w.trend === "auto"
-                              ? w.lastDetectedTrend === "alcista" ||
-                                w.lastDetectedTrend === "bajista"
-                                ? `Auto → ${formatAlarmTrend(w.lastDetectedTrend)}`
-                                : "Auto (both)"
-                              : formatAlarmTrend(w.trend)}
-                          </span>
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-ocean-sand">
-                          {statusLabel(w.status)}
-                          {w.lastRuleStatus ? ` · ${w.lastRuleStatus}` : ""}
-                          {typeof w.lastBreakoutScore === "number"
-                            ? ` · score ${Math.round(w.lastBreakoutScore)}`
-                            : ""}
-                          {w.lastCheckedAt
-                            ? ` · ${new Date(w.lastCheckedAt).toLocaleTimeString()}`
-                            : ""}
-                        </p>
-                        {w.lastEvidence ? (
-                          <p className="mt-1 text-[11px] text-ocean-sand/90">{w.lastEvidence}</p>
-                        ) : null}
-                        {w.lastError ? (
-                          <p className="mt-1 text-[11px] text-ocean-danger">{w.lastError}</p>
-                        ) : null}
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {polling ? (
-                          <button
-                            type="button"
-                            className={cn(
-                              BTN,
-                              "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20",
-                            )}
-                            disabled={w.status === "checking"}
-                            onClick={() => onCheckNow(w.id)}
-                          >
-                            Check now
-                          </button>
-                        ) : null}
-                        {w.status === "met" ? (
-                          <>
-                            <button
-                              type="button"
-                              className={cn(
-                                BTN,
-                                "bg-ocean-teal text-ocean-deep hover:brightness-110",
-                              )}
-                              onClick={() => onClearMetStatus(w.id, { restart: true })}
-                              title="Clear met status and start polling again"
-                            >
-                              Clear & resume
-                            </button>
-                            <button
-                              type="button"
-                              className={cn(
-                                BTN,
-                                "border border-ocean-teal/50 text-ocean-foam hover:bg-ocean-teal/15",
-                              )}
-                              onClick={() => onClearMetStatus(w.id)}
-                              title="Clear met highlight; Start when ready"
-                            >
-                              Clear
-                            </button>
-                          </>
-                        ) : null}
-                        <button
-                          type="button"
-                          className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
-                          onClick={() => onRemove(w.id)}
+                        <h3
+                          id={`alarm-ticker-${group.symbol}`}
+                          className="text-sm font-semibold tabular-nums text-ocean-foam"
                         >
-                          Remove
-                        </button>
+                          {group.symbol}
+                          {name ? (
+                            <span className="ml-2 text-xs font-normal text-ocean-sand">
+                              {name}
+                            </span>
+                          ) : null}
+                        </h3>
                       </div>
-                    </div>
+                      <p className="text-[11px] text-ocean-sand">
+                        {group.watches.length} watch
+                        {group.watches.length === 1 ? "" : "es"}
+                        {activeCount > 0 ? ` · ${activeCount} active` : ""}
+                      </p>
+                    </header>
+                    <ul className="space-y-2">
+                      {group.watches.map((w) => {
+                        const polling =
+                          w.status === "running" ||
+                          w.status === "checking" ||
+                          w.status === "in_trade";
+                        const awaitingUser = w.status === "met" || w.status === "exit";
+                        return (
+                          <li
+                            key={w.id}
+                            className={cn(
+                              "rounded-md border px-3 py-2.5",
+                              w.status === "met"
+                                ? "border-ocean-teal/50 bg-ocean-teal/10"
+                                : w.status === "exit"
+                                  ? "border-amber-500/50 bg-amber-500/10"
+                                  : w.status === "in_trade"
+                                    ? "border-sky-500/40 bg-sky-500/10"
+                                    : "border-ocean-mid/30 bg-ocean-surface/40",
+                            )}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="font-semibold text-ocean-foam">
+                                  {w.ruleLabel}
+                                  <span className="font-normal text-ocean-sand">
+                                    {w.bandTimeframe ? ` · ${w.bandTimeframe} candle+BB` : ""} ·{" "}
+                                    {w.trend === "auto"
+                                      ? w.lastDetectedTrend === "alcista" ||
+                                        w.lastDetectedTrend === "bajista"
+                                        ? `Auto → ${formatAlarmTrend(w.lastDetectedTrend)}`
+                                        : "Auto (both)"
+                                      : formatAlarmTrend(w.trend)}
+                                  </span>
+                                </p>
+                                <p className="mt-0.5 text-[11px] text-ocean-sand">
+                                  {statusLabel(w.status)}
+                                  {w.lastRuleStatus ? ` · ${w.lastRuleStatus}` : ""}
+                                  {typeof w.lastBreakoutScore === "number"
+                                    ? ` · score ${Math.round(w.lastBreakoutScore)}`
+                                    : ""}
+                                  {w.lastCheckedAt
+                                    ? ` · ${new Date(w.lastCheckedAt).toLocaleTimeString()}`
+                                    : ""}
+                                </p>
+                                {w.lastEvidence ? (
+                                  <p className="mt-1 text-[11px] text-ocean-sand/90">
+                                    {w.lastEvidence}
+                                  </p>
+                                ) : null}
+                                {w.lastRuleResults && w.lastRuleResults.length > 1 ? (
+                                  <ul className="mt-1 space-y-0.5 text-[11px] text-ocean-sand/80">
+                                    {w.lastRuleResults.map((rr) => (
+                                      <li key={rr.ruleKey}>
+                                        <span
+                                          className={
+                                            rr.met || rr.status === "met"
+                                              ? "text-ocean-teal-dim dark:text-ocean-teal"
+                                              : ""
+                                          }
+                                        >
+                                          {rr.ruleKey}: {rr.status}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                                {w.exitEvidence && w.status === "exit" ? (
+                                  <p className="mt-1 text-[11px] text-amber-800 dark:text-amber-100/90">
+                                    {w.exitEvidence}
+                                  </p>
+                                ) : null}
+                                {w.lastError ? (
+                                  <p className="mt-1 text-[11px] text-ocean-danger">
+                                    {w.lastError}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {polling ? (
+                                  <button
+                                    type="button"
+                                    className={cn(
+                                      BTN,
+                                      "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20",
+                                    )}
+                                    disabled={w.status === "checking"}
+                                    onClick={() => onCheckNow(w.id)}
+                                  >
+                                    Check now
+                                  </button>
+                                ) : null}
+                                {w.status === "met" ? (
+                                  <button
+                                    type="button"
+                                    className={cn(
+                                      BTN,
+                                      "bg-ocean-teal text-ocean-deep hover:brightness-110",
+                                    )}
+                                    onClick={() => onConfirmEnter(w.id)}
+                                  >
+                                    Entered — watch exit
+                                  </button>
+                                ) : null}
+                                {w.status === "exit" ? (
+                                  <button
+                                    type="button"
+                                    className={cn(
+                                      BTN,
+                                      "bg-amber-500 text-ocean-deep hover:brightness-110",
+                                    )}
+                                    onClick={() => onConfirmExit(w.id)}
+                                  >
+                                    Exited — arm again
+                                  </button>
+                                ) : null}
+                                {awaitingUser || w.status === "in_trade" ? (
+                                  <button
+                                    type="button"
+                                    className={cn(
+                                      BTN,
+                                      "border border-ocean-mid/40 text-ocean-sand",
+                                    )}
+                                    onClick={() => onClearMetStatus(w.id)}
+                                    title="Reset without arming"
+                                  >
+                                    Clear
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  className={cn(
+                                    BTN,
+                                    "border border-ocean-mid/40 text-ocean-sand",
+                                  )}
+                                  onClick={() => onRemove(w.id)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
 
-                    {w.status !== "met" ? (
-                      <div className="mt-2 border-t border-ocean-mid/20 pt-2">
-                        <PollControls
-                          density="compact"
-                          monitorActive={polling}
-                          canStop={polling}
-                          startPending={w.status === "checking"}
-                          intervalValue={w.frequencyValue}
-                          intervalUnit={w.frequencyUnit === "hour" ? "hour" : w.frequencyUnit === "sec" ? "sec" : "min"}
-                          units={["min", "sec", "hour"]}
-                          onIntervalValueChange={(v) =>
-                            onUpdateInterval(w.id, v, w.frequencyUnit)
-                          }
-                          onIntervalUnitChange={(u) =>
-                            onUpdateInterval(w.id, w.frequencyValue, u)
-                          }
-                          onStart={() => onStart(w.id)}
-                          onStop={() => onStop(w.id)}
-                          startDisabled={polling}
-                          intervalDisabled={false}
-                          intervalInputId={`alarm-interval-${w.id}`}
-                          monitoringMessage={
-                            polling
-                              ? `Polling ${w.symbol} · ${w.ruleLabel} · ${
-                                  w.trend === "auto"
-                                    ? w.lastDetectedTrend === "alcista" ||
-                                      w.lastDetectedTrend === "bajista"
-                                      ? formatAlarmTrend(w.lastDetectedTrend)
-                                      : "auto"
-                                    : formatAlarmTrend(w.trend)
-                                }`
-                              : null
-                          }
-                          ariaLabel={`Alarm poll ${w.symbol}`}
-                        />
-                      </div>
-                    ) : null}
-                  </li>
+                            {!awaitingUser ? (
+                              <div className="mt-2 border-t border-ocean-mid/20 pt-2">
+                                <PollControls
+                                  density="compact"
+                                  monitorActive={polling}
+                                  canStop={polling}
+                                  startPending={w.status === "checking"}
+                                  intervalValue={w.frequencyValue}
+                                  intervalUnit={
+                                    w.frequencyUnit === "hour"
+                                      ? "hour"
+                                      : w.frequencyUnit === "sec"
+                                        ? "sec"
+                                        : "min"
+                                  }
+                                  units={["min", "sec", "hour"]}
+                                  onIntervalValueChange={(v) =>
+                                    onUpdateInterval(w.id, v, w.frequencyUnit)
+                                  }
+                                  onIntervalUnitChange={(u) =>
+                                    onUpdateInterval(w.id, w.frequencyValue, u)
+                                  }
+                                  onStart={() => onStart(w.id)}
+                                  onStop={() => onStop(w.id)}
+                                  startDisabled={polling}
+                                  intervalDisabled={false}
+                                  intervalInputId={`alarm-interval-${w.id}`}
+                                  monitoringMessage={
+                                    polling
+                                      ? `${w.status === "in_trade" ? "Exit watch" : "Enter watch"} ${w.symbol} · ${w.ruleLabel}`
+                                      : null
+                                  }
+                                  ariaLabel={`Alarm poll ${w.symbol}`}
+                                />
+                              </div>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
                 );
               })}
-            </ul>
+            </div>
             </>
           )}
         </div>
       </section>
 
-      {metPopup ? (
-        <AlarmMetModal
-          watch={metPopup}
-          onClose={onClearMetPopup}
-          onClearStatus={(restart) => onClearMetStatus(metPopup.id, { restart })}
+      {alarmPopup ? (
+        <AlarmTradeModal
+          watch={alarmPopup.watch}
+          kind={alarmPopup.kind}
+          onClose={onClearAlarmPopup}
+          onConfirm={() =>
+            alarmPopup.kind === "enter"
+              ? onConfirmEnter(alarmPopup.watch.id)
+              : onConfirmExit(alarmPopup.watch.id)
+          }
         />
       ) : null}
     </>

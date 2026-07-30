@@ -18,7 +18,10 @@ export class MarketAlarmApiError extends Error {
 
 export type MarketAlarmCheckRequest = {
   symbol: string;
-  ruleKey: AlarmEligibleRuleKey;
+  /** Single rule (legacy) or omitted when ``ruleKeys`` is set. */
+  ruleKey?: AlarmEligibleRuleKey;
+  /** Multiple criteria — all required (AND). Candles refreshed once. */
+  ruleKeys?: AlarmEligibleRuleKey[];
   trend: AlarmTrend;
   refreshCandles?: boolean;
   /** touch_disipador only — candle + BB TF (default 1m). */
@@ -30,22 +33,21 @@ export type MarketAlarmCheckRequest = {
 export type MarketAlarmCheckResponse = {
   symbol: string;
   ruleKey: string;
+  ruleKeys?: string[];
   trend: string;
-  /** Winning side when trend was auto (breakout_quality). */
   detectedTrend?: string | null;
   met: boolean;
   ruleStatus: string;
+  ruleResults?: { ruleKey: string; status: string; met?: boolean; evidence?: string | null }[];
   qualityPct?: number;
   evidence?: string | null;
   suggestedTrend?: string | null;
   suggestedDirection?: string | null;
   checkedAt: string;
   simulationTimeEt?: string;
-  /** True when request used an explicit simulationTimeEt. */
   simulated?: boolean;
   error?: string | null;
   candle?: { symbol?: string; status?: string; error?: string } | null;
-  /** Present when ruleKey is breakout_quality. */
   breakoutScore?: number;
   continuationScore?: number;
   rankingScore?: number;
@@ -87,12 +89,18 @@ export async function postMarketAlarmCheck(
   body: MarketAlarmCheckRequest,
 ): Promise<MarketAlarmCheckResponse> {
   const symbol = body.symbol.trim().toUpperCase();
-  const ruleKey = body.ruleKey;
+  const ruleKeys =
+    body.ruleKeys && body.ruleKeys.length > 0
+      ? body.ruleKeys
+      : body.ruleKey
+        ? [body.ruleKey]
+        : [];
+  const ruleKey = ruleKeys[0] ?? body.ruleKey;
   const trend = body.trend;
 
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 350));
-    const key = `${symbol}|${ruleKey}|${trend}`;
+    const key = `${symbol}|${ruleKeys.join("+")}|${trend}`;
     const prev = mockHits.get(key) ?? 0;
     const next = prev + 1;
     mockHits.set(key, next);
@@ -101,13 +109,19 @@ export async function postMarketAlarmCheck(
       trend === "auto" ? (next % 2 === 0 ? "bajista" : "alcista") : trend === "bajista" ? "bajista" : "alcista";
     return {
       symbol,
-      ruleKey,
+      ruleKey: ruleKey ?? "confirmation_change_trend_1h",
+      ruleKeys,
       trend,
       detectedTrend: side,
       met,
       ruleStatus: met ? "met" : "not_met",
+      ruleResults: ruleKeys.map((rk) => ({
+        ruleKey: rk,
+        status: met ? "met" : "not_met",
+        met,
+      })),
       evidence: met
-        ? `Mock ${side} confirmation met`
+        ? `Mock ${side} confirmation met (${ruleKeys.length} rules)`
         : `Mock waiting (${trend === "auto" ? "auto" : side})`,
       suggestedTrend: side,
       suggestedDirection: side === "alcista" ? "CALL" : "PUT",
@@ -120,7 +134,8 @@ export async function postMarketAlarmCheck(
     method: "POST",
     body: JSON.stringify({
       symbol,
-      ruleKey,
+      ruleKeys,
+      ruleKey: ruleKeys[0],
       trend,
       refreshCandles: body.refreshCandles ?? true,
       ...(body.bandTimeframe ? { bandTimeframe: body.bandTimeframe } : {}),

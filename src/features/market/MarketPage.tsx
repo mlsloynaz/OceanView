@@ -9,7 +9,7 @@ import {
 } from "./lib/market-routes";
 import type { MarketViewMode } from "./types";
 import { MarketAlarmPanel } from "./alarm/MarketAlarmPanel";
-import { AlarmMetModal } from "./alarm/AlarmMetModal";
+import { AlarmTradeModal } from "./alarm/AlarmTradeModal";
 import { useMarketAlarms } from "./alarm/useMarketAlarms";
 import { AssessmentTimeControl } from "./components/AssessmentTimeControl";
 import { MarketSearchInput } from "./components/MarketSearchInput";
@@ -141,7 +141,7 @@ export function MarketPage() {
           tickersError={alarms.tickersError}
           formError={alarms.formError}
           banner={alarms.banner}
-          metPopup={alarms.metPopup}
+          alarmPopup={alarms.alarmPopup}
           metCount={alarms.metCount}
           runningCount={alarms.runningCount}
           timeMode={alarms.timeMode}
@@ -149,7 +149,9 @@ export function MarketPage() {
           onTimeModeChange={alarms.setTimeMode}
           onSimulateLocalChange={alarms.setSimulateLocal}
           onClearBanner={alarms.clearMetBanner}
-          onClearMetPopup={alarms.clearMetPopup}
+          onClearAlarmPopup={alarms.clearAlarmPopup}
+          onConfirmEnter={alarms.confirmEnter}
+          onConfirmExit={alarms.confirmExit}
           onAdd={alarms.addWatch}
           onStart={alarms.startWatch}
           onStop={alarms.stopWatch}
@@ -164,12 +166,15 @@ export function MarketPage() {
         />
       ) : (
         <>
-          {alarms.metPopup ? (
-            <AlarmMetModal
-              watch={alarms.metPopup}
-              onClose={alarms.clearMetPopup}
-              onClearStatus={(restart) =>
-                alarms.clearMetStatus(alarms.metPopup!.id, { restart })
+          {alarms.alarmPopup ? (
+            <AlarmTradeModal
+              watch={alarms.alarmPopup.watch}
+              kind={alarms.alarmPopup.kind}
+              onClose={alarms.clearAlarmPopup}
+              onConfirm={() =>
+                alarms.alarmPopup!.kind === "enter"
+                  ? alarms.confirmEnter(alarms.alarmPopup!.watch.id)
+                  : alarms.confirmExit(alarms.alarmPopup!.watch.id)
               }
             />
           ) : null}

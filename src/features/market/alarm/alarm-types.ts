@@ -25,15 +25,28 @@ export type AlarmEligibleRuleKey = (typeof ALARM_ELIGIBLE_RULES)[number]["ruleKe
 /** Same TF for candle + Bollinger (touch_disipador). */
 export type AlarmBandTimeframe = "1m" | "15m" | "1h";
 
-/** ``auto`` = both directions (breakout_quality only). */
+/** ``auto`` = both directions (breakout_quality alone only). */
 export type AlarmTrend = "alcista" | "bajista" | "auto";
 
-export type AlarmWatchStatus = "idle" | "running" | "checking" | "met" | "stopped" | "error";
+export type AlarmWatchStatus =
+  | "idle"
+  | "running"
+  | "checking"
+  | "met"
+  | "in_trade"
+  | "exit"
+  | "stopped"
+  | "error";
+
+export type AlarmPopupKind = "enter" | "exit";
 
 export type MarketAlarmWatch = {
   id: string;
   symbol: string;
+  /** Primary rule (first selected) — kept for display / legacy. */
   ruleKey: AlarmEligibleRuleKey;
+  /** All criteria evaluated together (AND). */
+  ruleKeys: AlarmEligibleRuleKey[];
   ruleLabel: string;
   trend: AlarmTrend;
   /** Used by touch_disipador — candle + BB timeframe (same TF). */
@@ -46,14 +59,23 @@ export type MarketAlarmWatch = {
   lastCheckedAt: string | null;
   lastError: string | null;
   metAt: string | null;
-  /** Latest breakout quality score when rule is breakout_quality. */
+  enteredAt?: string | null;
+  exitedAt?: string | null;
+  exitEvidence?: string | null;
   lastBreakoutScore?: number | null;
-  /** Detected side when trend is auto (or last suggested side). */
   lastDetectedTrend?: AlarmTrend | null;
+  /** Per-rule status from last combined check. */
+  lastRuleResults?: { ruleKey: string; status: string; met?: boolean; evidence?: string | null }[] | null;
 };
 
 export function alarmRuleLabel(ruleKey: string): string {
   return ALARM_ELIGIBLE_RULES.find((r) => r.ruleKey === ruleKey)?.label ?? ruleKey;
+}
+
+export function alarmRulesLabel(ruleKeys: string[]): string {
+  if (ruleKeys.length === 0) return "";
+  if (ruleKeys.length === 1) return alarmRuleLabel(ruleKeys[0]!);
+  return ruleKeys.map(alarmRuleLabel).join(" + ");
 }
 
 export function formatAlarmTrend(trend: AlarmTrend): string {
@@ -61,11 +83,15 @@ export function formatAlarmTrend(trend: AlarmTrend): string {
   return trend === "alcista" ? "Alcista" : "Bajista";
 }
 
-export function needsBandTimeframe(ruleKey: string): boolean {
-  return ruleKey === "touch_disipador";
+export function needsBandTimeframe(ruleKeys: string | string[]): boolean {
+  const keys = Array.isArray(ruleKeys) ? ruleKeys : [ruleKeys];
+  return keys.includes("touch_disipador");
 }
 
-/** Breakout quality evaluates both sides — no trend picker. */
-export function needsTrendPicker(ruleKey: string): boolean {
-  return ruleKey !== "breakout_quality";
+/** Trend picker when any selected rule is not breakout-only auto. */
+export function needsTrendPicker(ruleKeys: string | string[]): boolean {
+  const keys = Array.isArray(ruleKeys) ? ruleKeys : [ruleKeys];
+  if (keys.length === 0) return true;
+  if (keys.length === 1 && keys[0] === "breakout_quality") return false;
+  return true;
 }

@@ -15,8 +15,9 @@ import type { LiveSimulateMode } from "@/shared/components/LiveSimulateControl";
 import { MarketAlarmApiError, postMarketAlarmCheck } from "./alarm-client";
 import {
   ALARM_ELIGIBLE_RULES,
-  alarmRuleLabel,
+  alarmRulesLabel,
   type AlarmEligibleRuleKey,
+  type AlarmPopupKind,
   type AlarmTrend,
   type MarketAlarmWatch,
 } from "./alarm-types";
@@ -31,16 +32,44 @@ const LEGACY_ALARM_RULE_KEYS: Record<string, AlarmEligibleRuleKey> = {
   candle_confirm_15m: "confirmation_change_trend_15m",
 };
 
+function mapRuleKey(key: string): AlarmEligibleRuleKey {
+  const mapped = LEGACY_ALARM_RULE_KEYS[key] ?? key;
+  return mapped as AlarmEligibleRuleKey;
+}
+
+function normalizeRuleKeys(keys: string[]): AlarmEligibleRuleKey[] {
+  const out: AlarmEligibleRuleKey[] = [];
+  for (const raw of keys) {
+    const key = mapRuleKey(String(raw || "").trim());
+    if (!key) continue;
+    if (!ALARM_ELIGIBLE_RULES.some((r) => r.ruleKey === key)) continue;
+    if (!out.includes(key)) out.push(key);
+  }
+  return out;
+}
+
+function ruleKeysSignature(keys: AlarmEligibleRuleKey[]): string {
+  return [...keys].sort().join("+");
+}
+
 function migrateWatch(row: MarketAlarmWatch): MarketAlarmWatch {
-  const legacy = LEGACY_ALARM_RULE_KEYS[row.ruleKey];
-  const ruleKey = legacy ?? row.ruleKey;
-  const status =
-    row.status === "running" || row.status === "checking" ? "stopped" : row.status;
-  if (!legacy && status === row.status) return { ...row, status };
+  const fromList =
+    Array.isArray(row.ruleKeys) && row.ruleKeys.length > 0
+      ? row.ruleKeys
+      : row.ruleKey
+        ? [row.ruleKey]
+        : [];
+  const ruleKeys = normalizeRuleKeys(fromList);
+  const ruleKey = ruleKeys[0] ?? mapRuleKey(row.ruleKey);
+  const status: MarketAlarmWatch["status"] =
+    row.status === "running" || row.status === "checking" || row.status === "in_trade"
+      ? "stopped"
+      : row.status;
   return {
     ...row,
     ruleKey,
-    ruleLabel: alarmRuleLabel(ruleKey),
+    ruleKeys: ruleKeys.length > 0 ? ruleKeys : [ruleKey],
+    ruleLabel: alarmRulesLabel(ruleKeys.length > 0 ? ruleKeys : [ruleKey]),
     status,
   };
 }
@@ -72,7 +101,10 @@ export function useMarketAlarms() {
   const [tickersError, setTickersError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
-  const [metPopup, setMetPopup] = useState<MarketAlarmWatch | null>(null);
+  const [alarmPopup, setAlarmPopup] = useState<{
+    kind: AlarmPopupKind;
+    watch: MarketAlarmWatch;
+  } | null>(null);
   const [timeMode, setTimeMode] = useState<LiveSimulateMode>(() => {
     try {
       return sessionStorage.getItem(SIM_STORAGE_KEY) === "simulate" ? "simulate" : "live";
@@ -144,22 +176,28 @@ export function useMarketAlarms() {
     return () => stopAllTimers();
   }, [stopAllTimers]);
 
-  /** Skip candle refresh if same symbol was refreshed recently (shared across watches). */
+  /**
+   * Skip candle refresh if same symbol was refreshed recently (shared across watches).
+   * Cooldown follows the *longest* poll interval among active watches on that symbol
+   * so multi-criteria / multi-watch setups pull Schwab candles once per big cadence.
+   */
   const shouldRefreshCandles = useCallback((symbol: string) => {
     const upper = symbol.toUpperCase();
     const last = lastCandleRefreshRef.current.get(upper) ?? 0;
     const sameSymbolWatches = watchesRef.current.filter(
       (w) =>
         w.symbol === upper &&
-        (w.status === "running" || w.status === "checking" || timersRef.current.has(w.id)),
+        (w.status === "running" ||
+          w.status === "checking" ||
+          w.status === "in_trade" ||
+          timersRef.current.has(w.id)),
     );
-    let minMs = 25_000;
+    let maxMs = 0;
     for (const w of sameSymbolWatches) {
       const ms = pollIntervalToMs(w.frequencyValue, w.frequencyUnit);
-      if (ms > 0 && ms < minMs) minMs = ms;
+      if (ms > maxMs) maxMs = ms;
     }
-    // Refresh at most as often as the fastest watch on this symbol (floor 15s).
-    const cooldown = Math.max(15_000, Math.min(minMs, 60_000));
+    const cooldown = Math.max(15_000, maxMs || 60_000);
     return Date.now() - last >= cooldown;
   }, []);
 
@@ -171,11 +209,21 @@ export function useMarketAlarms() {
     async (id: string) => {
       if (inFlightRef.current.has(id)) return;
       const watch = watchesRef.current.find((w) => w.id === id);
-      if (!watch || watch.status === "met") return;
+      // Waiting for user on enter/exit popup — do not poll.
+      if (!watch || watch.status === "met" || watch.status === "exit") return;
 
       inFlightRef.current.add(id);
+      const priorStatus = watch.status;
       setWatches((prev) =>
-        prev.map((w) => (w.id === id ? { ...w, status: "checking", lastError: null } : w)),
+        prev.map((w) =>
+          w.id === id
+            ? {
+                ...w,
+                status: priorStatus === "in_trade" ? "in_trade" : "checking",
+                lastError: null,
+              }
+            : w,
+        ),
       );
 
       const simulating = timeModeRef.current === "simulate";
@@ -188,7 +236,12 @@ export function useMarketAlarms() {
               w.id === id
                 ? {
                     ...w,
-                    status: timersRef.current.has(id) ? "running" : "error",
+                    status:
+                      priorStatus === "in_trade"
+                        ? "in_trade"
+                        : timersRef.current.has(id)
+                          ? "running"
+                          : "error",
                     lastError: "Invalid simulate date/time (ET).",
                   }
                 : w,
@@ -203,9 +256,12 @@ export function useMarketAlarms() {
       const refreshCandles = simulating ? false : shouldRefreshCandles(watch.symbol);
 
       try {
+        const ruleKeys =
+          watch.ruleKeys?.length > 0 ? watch.ruleKeys : [watch.ruleKey];
         const result = await postMarketAlarmCheck({
           symbol: watch.symbol,
-          ruleKey: watch.ruleKey,
+          ruleKeys,
+          ruleKey: ruleKeys[0],
           trend: watch.trend,
           refreshCandles,
           ...(watch.bandTimeframe ? { bandTimeframe: watch.bandTimeframe } : {}),
@@ -232,33 +288,89 @@ export function useMarketAlarms() {
             ? ` · sim ${new Date(result.simulationTimeEt).toLocaleString()}`
             : "";
 
+        const patchBase = {
+          lastRuleStatus: result.ruleStatus,
+          lastEvidence: result.evidence ?? null,
+          lastCheckedAt: result.checkedAt,
+          lastError: result.error ?? null,
+          lastRuleResults: result.ruleResults ?? null,
+          lastBreakoutScore:
+            typeof result.breakoutScore === "number"
+              ? result.breakoutScore
+              : (watch.lastBreakoutScore ?? null),
+          lastDetectedTrend: detectedTrend ?? watch.lastDetectedTrend ?? null,
+        };
+
+        // In trade: rule dropped → EXIT signal
+        if (priorStatus === "in_trade" && !result.met) {
+          clearTimer(id);
+          const exitWatch: MarketAlarmWatch = {
+            ...watch,
+            ...patchBase,
+            status: "exit",
+            exitedAt: result.checkedAt,
+            exitEvidence: result.evidence ?? "Setup no longer met — consider exit.",
+          };
+          setWatches((prev) => prev.map((w) => (w.id === id ? exitWatch : w)));
+          setBanner(
+            `${result.symbol} · ${watch.ruleLabel} (${sideLabel}) EXIT — setup gone.${simSuffix}`,
+          );
+          setAlarmPopup({ kind: "exit", watch: exitWatch });
+          playAlarmBell();
+          try {
+            if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+              new Notification(`Exit: ${watch.symbol}`, {
+                body: `${watch.ruleLabel} · ${sideLabel} — exit now`,
+                tag: `ov-market-alarm-exit-${watch.id}`,
+              });
+            }
+          } catch {
+            /* ignore */
+          }
+          return;
+        }
+
+        // In trade and still met — keep monitoring
+        if (priorStatus === "in_trade" && result.met) {
+          setWatches((prev) =>
+            prev.map((w) =>
+              w.id === id
+                ? {
+                    ...w,
+                    ...patchBase,
+                    status: "in_trade",
+                  }
+                : w,
+            ),
+          );
+          return;
+        }
+
+        // Fresh enter signal
         if (result.met) {
           clearTimer(id);
           const metWatch: MarketAlarmWatch = {
             ...watch,
+            ...patchBase,
             status: "met",
-            lastRuleStatus: result.ruleStatus,
-            lastEvidence: result.evidence ?? null,
-            lastCheckedAt: result.checkedAt,
             metAt: result.checkedAt,
+            enteredAt: null,
+            exitedAt: null,
+            exitEvidence: null,
             lastError: null,
-            lastBreakoutScore:
-              typeof result.breakoutScore === "number"
-                ? result.breakoutScore
-                : (watch.lastBreakoutScore ?? null),
             lastDetectedTrend: detectedTrend ?? watch.trend,
           };
           setWatches((prev) => prev.map((w) => (w.id === id ? metWatch : w)));
           setBanner(
-            `${result.symbol} · ${watch.ruleLabel} (${sideLabel}) met — polling stopped.${simSuffix}`,
+            `${result.symbol} · ${watch.ruleLabel} (${sideLabel}) ENTER — rule met.${simSuffix}`,
           );
-          setMetPopup(metWatch);
+          setAlarmPopup({ kind: "enter", watch: metWatch });
           playAlarmBell();
           try {
             if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-              new Notification(`Alarm: ${watch.symbol}`, {
-                body: `${watch.ruleLabel} · ${sideLabel} met`,
-                tag: `ov-market-alarm-${watch.id}`,
+              new Notification(`Enter: ${watch.symbol}`, {
+                body: `${watch.ruleLabel} · ${sideLabel} — enter now`,
+                tag: `ov-market-alarm-enter-${watch.id}`,
               });
             }
           } catch {
@@ -272,16 +384,8 @@ export function useMarketAlarms() {
             w.id === id
               ? {
                   ...w,
+                  ...patchBase,
                   status: "running",
-                  lastRuleStatus: result.ruleStatus,
-                  lastEvidence: result.evidence ?? null,
-                  lastCheckedAt: result.checkedAt,
-                  lastError: result.error ?? null,
-                  lastBreakoutScore:
-                    typeof result.breakoutScore === "number"
-                      ? result.breakoutScore
-                      : (w.lastBreakoutScore ?? null),
-                  lastDetectedTrend: detectedTrend ?? w.lastDetectedTrend ?? null,
                 }
               : w,
           ),
@@ -298,7 +402,12 @@ export function useMarketAlarms() {
             w.id === id
               ? {
                   ...w,
-                  status: timersRef.current.has(id) ? "running" : "error",
+                  status:
+                    priorStatus === "in_trade"
+                      ? "in_trade"
+                      : timersRef.current.has(id)
+                        ? "running"
+                        : "error",
                   lastError: message,
                 }
               : w,
@@ -312,28 +421,50 @@ export function useMarketAlarms() {
   );
 
   const startWatch = useCallback(
-    (id: string) => {
+    (id: string, opts?: { mode?: "hunt" | "in_trade" }) => {
       const watch = watchesRef.current.find((w) => w.id === id);
-      if (!watch || watch.status === "met") return;
+      if (!watch) return;
+      // Enter confirm may still see status "met" until state flushes.
+      if (watch.status === "met" && opts?.mode !== "in_trade") return;
+      if (watch.status === "exit" && opts?.mode !== "hunt") return;
+
+      const mode =
+        opts?.mode ?? (watch.status === "in_trade" ? "in_trade" : "hunt");
 
       clearTimer(id);
       setFormError(null);
       setWatches((prev) =>
         prev.map((w) =>
-          w.id === id ? { ...w, status: "running", lastError: null } : w,
+          w.id === id
+            ? {
+                ...w,
+                status: mode === "in_trade" ? "in_trade" : "running",
+                lastError: null,
+                ...(mode === "hunt"
+                  ? {
+                      metAt: null,
+                      enteredAt: null,
+                      exitedAt: null,
+                      exitEvidence: null,
+                    }
+                  : {}),
+              }
+            : w,
         ),
       );
 
-      const unit = watch.frequencyUnit === "hour" || watch.frequencyUnit === "sec"
-        ? watch.frequencyUnit
-        : "min";
-      const ms = pollIntervalToMs(
-        clampPollInterval(watch.frequencyValue, unit),
-        unit,
-      );
-      void runCheck(id);
-      const timer = window.setInterval(() => void runCheck(id), ms);
-      timersRef.current.set(id, timer);
+      const unit =
+        watch.frequencyUnit === "hour" || watch.frequencyUnit === "sec"
+          ? watch.frequencyUnit
+          : "min";
+      const ms = pollIntervalToMs(clampPollInterval(watch.frequencyValue, unit), unit);
+      window.setTimeout(() => {
+        void runCheck(id);
+        if (!timersRef.current.has(id)) {
+          const timer = window.setInterval(() => void runCheck(id), ms);
+          timersRef.current.set(id, timer);
+        }
+      }, 0);
     },
     [clearTimer, runCheck],
   );
@@ -343,7 +474,9 @@ export function useMarketAlarms() {
       clearTimer(id);
       setWatches((prev) =>
         prev.map((w) =>
-          w.id === id && w.status !== "met" ? { ...w, status: "stopped" } : w,
+          w.id === id && w.status !== "met" && w.status !== "exit"
+            ? { ...w, status: w.status === "in_trade" ? "stopped" : "stopped" }
+            : w,
         ),
       );
     },
@@ -362,7 +495,7 @@ export function useMarketAlarms() {
         ),
       );
       const watch = watchesRef.current.find((w) => w.id === id);
-      if (watch && (watch.status === "running" || watch.status === "checking")) {
+      if (watch && (watch.status === "running" || watch.status === "checking" || watch.status === "in_trade")) {
         clearTimer(id);
         const ms = pollIntervalToMs(nextValue, nextUnit);
         const timer = window.setInterval(() => void runCheck(id), ms);
@@ -381,20 +514,74 @@ export function useMarketAlarms() {
   );
 
   const clearMetBanner = useCallback(() => setBanner(null), []);
-  const clearMetPopup = useCallback(() => setMetPopup(null), []);
+  const clearAlarmPopup = useCallback(() => setAlarmPopup(null), []);
 
-  /** Reset a fired (met) watch so it can poll and alarm again. */
-  const clearMetStatus = useCallback(
-    (id: string, opts?: { restart?: boolean }) => {
-      clearTimer(id);
-      setMetPopup((popup) => (popup?.id === id ? null : popup));
+  /** User confirmed enter — keep polling until setup drops (exit). */
+  const confirmEnter = useCallback(
+    (id: string) => {
+      const now = new Date().toISOString();
+      setAlarmPopup(null);
+      setBanner(null);
       setWatches((prev) =>
         prev.map((w) =>
-          w.id === id && w.status === "met"
+          w.id === id
+            ? {
+                ...w,
+                status: "in_trade",
+                enteredAt: now,
+                exitedAt: null,
+                exitEvidence: null,
+                lastError: null,
+              }
+            : w,
+        ),
+      );
+      window.setTimeout(() => startWatch(id, { mode: "in_trade" }), 0);
+    },
+    [startWatch],
+  );
+
+  /** User confirmed exit — reset and arm for a new enter alarm. */
+  const confirmExit = useCallback(
+    (id: string) => {
+      setAlarmPopup(null);
+      setBanner(null);
+      setWatches((prev) =>
+        prev.map((w) =>
+          w.id === id
             ? {
                 ...w,
                 status: "idle",
                 metAt: null,
+                enteredAt: null,
+                exitedAt: null,
+                exitEvidence: null,
+                lastError: null,
+              }
+            : w,
+        ),
+      );
+      window.setTimeout(() => startWatch(id, { mode: "hunt" }), 0);
+    },
+    [startWatch],
+  );
+
+  /** Reset a fired (met/exit) watch so it can poll and alarm again. */
+  const clearMetStatus = useCallback(
+    (id: string, opts?: { restart?: boolean }) => {
+      clearTimer(id);
+      setAlarmPopup((popup) => (popup?.watch.id === id ? null : popup));
+      setWatches((prev) =>
+        prev.map((w) =>
+          w.id === id &&
+          (w.status === "met" || w.status === "exit" || w.status === "in_trade")
+            ? {
+                ...w,
+                status: "idle",
+                metAt: null,
+                enteredAt: null,
+                exitedAt: null,
+                exitEvidence: null,
                 lastError: null,
               }
             : w,
@@ -402,24 +589,29 @@ export function useMarketAlarms() {
       );
       setBanner(null);
       if (opts?.restart) {
-        window.setTimeout(() => startWatch(id), 0);
+        window.setTimeout(() => startWatch(id, { mode: "hunt" }), 0);
       }
     },
     [clearTimer, startWatch],
   );
 
   const clearAllMetStatuses = useCallback(() => {
-    const metIds = watchesRef.current.filter((w) => w.status === "met").map((w) => w.id);
-    for (const id of metIds) clearTimer(id);
-    setMetPopup(null);
+    const ids = watchesRef.current
+      .filter((w) => w.status === "met" || w.status === "exit" || w.status === "in_trade")
+      .map((w) => w.id);
+    for (const id of ids) clearTimer(id);
+    setAlarmPopup(null);
     setBanner(null);
     setWatches((prev) =>
       prev.map((w) =>
-        w.status === "met"
+        w.status === "met" || w.status === "exit" || w.status === "in_trade"
           ? {
               ...w,
               status: "idle",
               metAt: null,
+              enteredAt: null,
+              exitedAt: null,
+              exitEvidence: null,
               lastError: null,
             }
           : w,
@@ -430,7 +622,8 @@ export function useMarketAlarms() {
   const addWatch = useCallback(
     (input: {
       symbols: string[];
-      ruleKey: AlarmEligibleRuleKey;
+      ruleKeys?: AlarmEligibleRuleKey[];
+      ruleKey?: AlarmEligibleRuleKey;
       trend: AlarmTrend;
       bandTimeframe?: "1m" | "15m" | "1h";
       frequencyValue: number;
@@ -448,17 +641,25 @@ export function useMarketAlarms() {
         setFormError("Pick at least one ticker.");
         return false;
       }
-      if (!ALARM_ELIGIBLE_RULES.some((r) => r.ruleKey === input.ruleKey)) {
-        setFormError("Pick an eligible rule.");
+      const ruleKeys = normalizeRuleKeys(
+        input.ruleKeys && input.ruleKeys.length > 0
+          ? input.ruleKeys
+          : input.ruleKey
+            ? [input.ruleKey]
+            : [],
+      );
+      if (ruleKeys.length === 0) {
+        setFormError("Pick at least one eligible rule.");
         return false;
       }
-      const trend: AlarmTrend =
-        input.ruleKey === "breakout_quality"
-          ? "auto"
-          : input.trend === "bajista"
-            ? "bajista"
-            : "alcista";
-      if (input.ruleKey !== "breakout_quality" && input.trend !== "alcista" && input.trend !== "bajista") {
+      const primaryKey = ruleKeys[0]!;
+      const onlyBreakout = ruleKeys.length === 1 && primaryKey === "breakout_quality";
+      const trend: AlarmTrend = onlyBreakout
+        ? "auto"
+        : input.trend === "bajista"
+          ? "bajista"
+          : "alcista";
+      if (!onlyBreakout && input.trend !== "alcista" && input.trend !== "bajista") {
         setFormError("Pick a trend (alcista or bajista).");
         return false;
       }
@@ -467,20 +668,27 @@ export function useMarketAlarms() {
           ? input.frequencyUnit
           : "min";
       const frequencyValue = clampPollInterval(input.frequencyValue, frequencyUnit);
+      const sig = ruleKeysSignature(ruleKeys);
+      const label = alarmRulesLabel(ruleKeys);
 
       const existing = watchesRef.current;
       const toAdd: MarketAlarmWatch[] = [];
       const skipped: string[] = [];
       for (const symbol of symbols) {
-        const bandTf = input.ruleKey === "touch_disipador" ? input.bandTimeframe ?? "1m" : undefined;
-        const dup = existing.some(
-          (w) =>
+        const bandTf = ruleKeys.includes("touch_disipador")
+          ? input.bandTimeframe ?? "1m"
+          : undefined;
+        const dup = existing.some((w) => {
+          const wKeys =
+            w.ruleKeys?.length > 0 ? w.ruleKeys : [w.ruleKey];
+          return (
             w.symbol === symbol &&
-            w.ruleKey === input.ruleKey &&
+            ruleKeysSignature(wKeys) === sig &&
             w.trend === trend &&
             (w.bandTimeframe ?? undefined) === bandTf &&
-            w.status !== "met",
-        );
+            w.status !== "met"
+          );
+        });
         if (dup || toAdd.some((w) => w.symbol === symbol)) {
           skipped.push(symbol);
           continue;
@@ -488,8 +696,9 @@ export function useMarketAlarms() {
         toAdd.push({
           id: `alarm-${Date.now()}-${symbol}-${Math.random().toString(36).slice(2, 7)}`,
           symbol,
-          ruleKey: input.ruleKey,
-          ruleLabel: alarmRuleLabel(input.ruleKey),
+          ruleKey: primaryKey,
+          ruleKeys,
+          ruleLabel: label,
           trend,
           ...(bandTf ? { bandTimeframe: bandTf } : {}),
           frequencyValue,
@@ -501,13 +710,14 @@ export function useMarketAlarms() {
           lastError: null,
           metAt: null,
           lastDetectedTrend: null,
+          lastRuleResults: null,
         });
       }
 
       if (toAdd.length === 0) {
         setFormError(
           skipped.length
-            ? "Those ticker + rule + trend watches already exist."
+            ? "Those ticker + rules + trend watches already exist."
             : "Pick at least one ticker.",
         );
         return false;
@@ -541,7 +751,9 @@ export function useMarketAlarms() {
 
   const stopAllRunning = useCallback(() => {
     const ids = watchesRef.current
-      .filter((w) => w.status === "running" || w.status === "checking")
+      .filter(
+        (w) => w.status === "running" || w.status === "checking" || w.status === "in_trade",
+      )
       .map((w) => w.id);
     for (const id of ids) stopWatch(id);
   }, [stopWatch]);
@@ -556,9 +768,11 @@ export function useMarketAlarms() {
     }
   }, []);
 
-  const metCount = watches.filter((w) => w.status === "met").length;
+  const metCount = watches.filter(
+    (w) => w.status === "met" || w.status === "exit" || w.status === "in_trade",
+  ).length;
   const runningCount = watches.filter(
-    (w) => w.status === "running" || w.status === "checking",
+    (w) => w.status === "running" || w.status === "checking" || w.status === "in_trade",
   ).length;
 
   return {
@@ -568,9 +782,11 @@ export function useMarketAlarms() {
     tickersError,
     formError,
     banner,
-    metPopup,
+    alarmPopup,
     clearMetBanner,
-    clearMetPopup,
+    clearAlarmPopup,
+    confirmEnter,
+    confirmExit,
     clearMetStatus,
     clearAllMetStatuses,
     eligibleRules: ALARM_ELIGIBLE_RULES,
