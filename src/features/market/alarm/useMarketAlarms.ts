@@ -2,10 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getActiveTickersForAdmin } from "@/features/admin/tickers/api/tickers-client";
 import type { CatalogTicker } from "@/features/admin/tickers/types";
 import {
+  formatEtDatetimeLocal,
+  formatSimulationTimeEt,
+  parseEtDatetimeLocal,
+} from "@/features/market/lib/assessment-time";
+import {
   clampPollInterval,
   pollIntervalToMs,
   type PollIntervalUnit,
 } from "@/shared/components/PollControls";
+import type { LiveSimulateMode } from "@/shared/components/LiveSimulateControl";
 import { MarketAlarmApiError, postMarketAlarmCheck } from "./alarm-client";
 import {
   ALARM_ELIGIBLE_RULES,
@@ -17,6 +23,7 @@ import {
 import { playAlarmBell } from "./play-alarm-bell";
 
 const STORAGE_KEY = "oceanview.market.alarms";
+const SIM_STORAGE_KEY = "oceanview.market.alarms.simulate";
 
 function loadStored(): MarketAlarmWatch[] {
   try {
@@ -49,6 +56,14 @@ export function useMarketAlarms() {
   const [formError, setFormError] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [metPopup, setMetPopup] = useState<MarketAlarmWatch | null>(null);
+  const [timeMode, setTimeMode] = useState<LiveSimulateMode>(() => {
+    try {
+      return sessionStorage.getItem(SIM_STORAGE_KEY) === "simulate" ? "simulate" : "live";
+    } catch {
+      return "live";
+    }
+  });
+  const [simulateLocal, setSimulateLocal] = useState(() => formatEtDatetimeLocal(new Date()));
 
   const timersRef = useRef<Map<string, number>>(new Map());
   const inFlightRef = useRef<Set<string>>(new Set());
@@ -56,10 +71,22 @@ export function useMarketAlarms() {
   const lastCandleRefreshRef = useRef<Map<string, number>>(new Map());
   const watchesRef = useRef(watches);
   watchesRef.current = watches;
+  const timeModeRef = useRef(timeMode);
+  timeModeRef.current = timeMode;
+  const simulateLocalRef = useRef(simulateLocal);
+  simulateLocalRef.current = simulateLocal;
 
   useEffect(() => {
     persist(watches);
   }, [watches]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SIM_STORAGE_KEY, timeMode);
+    } catch {
+      /* ignore */
+    }
+  }, [timeMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -134,7 +161,29 @@ export function useMarketAlarms() {
         prev.map((w) => (w.id === id ? { ...w, status: "checking", lastError: null } : w)),
       );
 
-      const refreshCandles = shouldRefreshCandles(watch.symbol);
+      const simulating = timeModeRef.current === "simulate";
+      let simulationTimeEt: string | undefined;
+      if (simulating) {
+        const parsed = parseEtDatetimeLocal(simulateLocalRef.current);
+        if (!parsed) {
+          setWatches((prev) =>
+            prev.map((w) =>
+              w.id === id
+                ? {
+                    ...w,
+                    status: timersRef.current.has(id) ? "running" : "error",
+                    lastError: "Invalid simulate date/time (ET).",
+                  }
+                : w,
+            ),
+          );
+          inFlightRef.current.delete(id);
+          return;
+        }
+        simulationTimeEt = formatSimulationTimeEt(parsed);
+      }
+
+      const refreshCandles = simulating ? false : shouldRefreshCandles(watch.symbol);
 
       try {
         const result = await postMarketAlarmCheck({
@@ -143,9 +192,10 @@ export function useMarketAlarms() {
           trend: watch.trend,
           refreshCandles,
           ...(watch.bandTimeframe ? { bandTimeframe: watch.bandTimeframe } : {}),
+          ...(simulationTimeEt ? { simulationTimeEt } : {}),
         });
 
-        if (refreshCandles && result.candle?.status !== "failed") {
+        if (!simulating && refreshCandles && result.candle?.status !== "failed") {
           markCandleRefreshed(watch.symbol);
         }
 
@@ -160,6 +210,10 @@ export function useMarketAlarms() {
             : watch.trend === "auto"
               ? "auto"
               : watch.trend;
+        const simSuffix =
+          simulating && result.simulationTimeEt
+            ? ` · sim ${new Date(result.simulationTimeEt).toLocaleString()}`
+            : "";
 
         if (result.met) {
           clearTimer(id);
@@ -179,7 +233,7 @@ export function useMarketAlarms() {
           };
           setWatches((prev) => prev.map((w) => (w.id === id ? metWatch : w)));
           setBanner(
-            `${result.symbol} · ${watch.ruleLabel} (${sideLabel}) met — polling stopped.`,
+            `${result.symbol} · ${watch.ruleLabel} (${sideLabel}) met — polling stopped.${simSuffix}`,
           );
           setMetPopup(metWatch);
           playAlarmBell();
@@ -311,6 +365,50 @@ export function useMarketAlarms() {
 
   const clearMetBanner = useCallback(() => setBanner(null), []);
   const clearMetPopup = useCallback(() => setMetPopup(null), []);
+
+  /** Reset a fired (met) watch so it can poll and alarm again. */
+  const clearMetStatus = useCallback(
+    (id: string, opts?: { restart?: boolean }) => {
+      clearTimer(id);
+      setMetPopup((popup) => (popup?.id === id ? null : popup));
+      setWatches((prev) =>
+        prev.map((w) =>
+          w.id === id && w.status === "met"
+            ? {
+                ...w,
+                status: "idle",
+                metAt: null,
+                lastError: null,
+              }
+            : w,
+        ),
+      );
+      setBanner(null);
+      if (opts?.restart) {
+        window.setTimeout(() => startWatch(id), 0);
+      }
+    },
+    [clearTimer, startWatch],
+  );
+
+  const clearAllMetStatuses = useCallback(() => {
+    const metIds = watchesRef.current.filter((w) => w.status === "met").map((w) => w.id);
+    for (const id of metIds) clearTimer(id);
+    setMetPopup(null);
+    setBanner(null);
+    setWatches((prev) =>
+      prev.map((w) =>
+        w.status === "met"
+          ? {
+              ...w,
+              status: "idle",
+              metAt: null,
+              lastError: null,
+            }
+          : w,
+      ),
+    );
+  }, [clearTimer]);
 
   const addWatch = useCallback(
     (input: {
@@ -456,9 +554,15 @@ export function useMarketAlarms() {
     metPopup,
     clearMetBanner,
     clearMetPopup,
+    clearMetStatus,
+    clearAllMetStatuses,
     eligibleRules: ALARM_ELIGIBLE_RULES,
     metCount,
     runningCount,
+    timeMode,
+    setTimeMode,
+    simulateLocal,
+    setSimulateLocal,
     addWatch,
     startWatch,
     stopWatch,

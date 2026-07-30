@@ -144,6 +144,10 @@ export function MarketPage() {
           metPopup={alarms.metPopup}
           metCount={alarms.metCount}
           runningCount={alarms.runningCount}
+          timeMode={alarms.timeMode}
+          simulateLocal={alarms.simulateLocal}
+          onTimeModeChange={alarms.setTimeMode}
+          onSimulateLocalChange={alarms.setSimulateLocal}
           onClearBanner={alarms.clearMetBanner}
           onClearMetPopup={alarms.clearMetPopup}
           onAdd={alarms.addWatch}
@@ -151,6 +155,8 @@ export function MarketPage() {
           onStop={alarms.stopWatch}
           onStartAllIdle={alarms.startAllIdle}
           onStopAllRunning={alarms.stopAllRunning}
+          onClearMetStatus={alarms.clearMetStatus}
+          onClearAllMetStatuses={alarms.clearAllMetStatuses}
           onRemove={alarms.removeWatch}
           onCheckNow={(id) => void alarms.runCheckNow(id)}
           onUpdateInterval={alarms.updateWatchInterval}
@@ -159,7 +165,13 @@ export function MarketPage() {
       ) : (
         <>
           {alarms.metPopup ? (
-            <AlarmMetModal watch={alarms.metPopup} onClose={alarms.clearMetPopup} />
+            <AlarmMetModal
+              watch={alarms.metPopup}
+              onClose={alarms.clearMetPopup}
+              onClearStatus={(restart) =>
+                alarms.clearMetStatus(alarms.metPopup!.id, { restart })
+              }
+            />
           ) : null}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <MarketSearchInput

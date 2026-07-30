@@ -2,8 +2,14 @@ import type { PollIntervalUnit } from "@/shared/components/PollControls";
 
 /** Rules that can be used in Market Alarm watches. */
 export const ALARM_ELIGIBLE_RULES = [
-  { ruleKey: "candle_confirm_1h", label: "Confirmation candle (1h)" },
-  { ruleKey: "candle_confirm_15m", label: "Confirmation candle (15m)" },
+  {
+    ruleKey: "confirmation_change_trend_1h",
+    label: "Confirmation change-trend (1h)",
+  },
+  {
+    ruleKey: "confirmation_change_trend_15m",
+    label: "Confirmation change-trend (15m)",
+  },
   {
     ruleKey: "touch_disipador",
     label: "Disipador touch (candle + BB)",

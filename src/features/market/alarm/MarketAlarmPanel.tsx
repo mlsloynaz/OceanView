@@ -4,6 +4,10 @@ import {
   clampPollInterval,
   type PollIntervalUnit,
 } from "@/shared/components/PollControls";
+import {
+  LiveSimulateControl,
+  type LiveSimulateMode,
+} from "@/shared/components/LiveSimulateControl";
 import { cn } from "@/shared/lib/cn";
 import type { CatalogTicker } from "@/features/admin/tickers/types";
 import { AlarmMetModal } from "./AlarmMetModal";
@@ -31,6 +35,10 @@ type Props = {
   metPopup: MarketAlarmWatch | null;
   metCount: number;
   runningCount: number;
+  timeMode: LiveSimulateMode;
+  simulateLocal: string;
+  onTimeModeChange: (mode: LiveSimulateMode) => void;
+  onSimulateLocalChange: (value: string) => void;
   onClearBanner: () => void;
   onClearMetPopup: () => void;
   onAdd: (input: {
@@ -46,6 +54,8 @@ type Props = {
   onStop: (id: string) => void;
   onStartAllIdle: () => void;
   onStopAllRunning: () => void;
+  onClearMetStatus: (id: string, opts?: { restart?: boolean }) => void;
+  onClearAllMetStatuses: () => void;
   onRemove: (id: string) => void;
   onCheckNow: (id: string) => void;
   onUpdateInterval: (id: string, value: number, unit: PollIntervalUnit) => void;
@@ -79,6 +89,10 @@ export function MarketAlarmPanel({
   metPopup,
   metCount,
   runningCount,
+  timeMode,
+  simulateLocal,
+  onTimeModeChange,
+  onSimulateLocalChange,
   onClearBanner,
   onClearMetPopup,
   onAdd,
@@ -86,13 +100,15 @@ export function MarketAlarmPanel({
   onStop,
   onStartAllIdle,
   onStopAllRunning,
+  onClearMetStatus,
+  onClearAllMetStatuses,
   onRemove,
   onCheckNow,
   onUpdateInterval,
   onRequestNotify,
 }: Props) {
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
-  const [ruleKey, setRuleKey] = useState<AlarmEligibleRuleKey>("candle_confirm_1h");
+  const [ruleKey, setRuleKey] = useState<AlarmEligibleRuleKey>("confirmation_change_trend_1h");
   const [trend, setTrend] = useState<AlarmTrend>("alcista");
   const [bandTimeframe, setBandTimeframe] = useState<AlarmBandTimeframe>("1m");
   const [frequencyValue, setFrequencyValue] = useState(5);
@@ -184,6 +200,30 @@ export function MarketAlarmPanel({
             >
               Enable desktop notify
             </button>
+          </div>
+
+          <div className="rounded-md border border-ocean-mid/30 bg-ocean-surface/30 px-3 py-2">
+            <p className="mb-1.5 text-[11px] font-medium text-ocean-foam">
+              Time mode (testing)
+            </p>
+            <LiveSimulateControl
+              mode={timeMode}
+              onModeChange={onTimeModeChange}
+              simulateInput="datetime"
+              simulateValue={simulateLocal}
+              onSimulateChange={onSimulateLocalChange}
+              simulateInputId="market-alarm-simulate-time"
+              simulateLabel="As-of (ET)"
+              showLiveClock
+              liveHint="Live uses current market time + candle refresh."
+              ariaLabel="Alarm live or simulate time"
+            />
+            {timeMode === "simulate" ? (
+              <p className="mt-1.5 text-[11px] text-ocean-sand">
+                Simulate evaluates watches as-of the ET datetime using stored candles (no
+                Schwab refresh). Use Check now / Start to re-run at that moment.
+              </p>
+            ) : null}
           </div>
 
           <form
@@ -426,6 +466,18 @@ export function MarketAlarmPanel({
                 >
                   Stop all polling
                 </button>
+                <button
+                  type="button"
+                  className={cn(
+                    BTN,
+                    "border border-ocean-teal/50 bg-ocean-teal/10 text-ocean-foam hover:bg-ocean-teal/20",
+                  )}
+                  onClick={onClearAllMetStatuses}
+                  disabled={metCount === 0}
+                  title="Reset fired alarms so they can poll and fire again"
+                >
+                  Clear all met{metCount > 0 ? ` (${metCount})` : ""}
+                </button>
               </div>
             <ul className="space-y-3">
               {watches.map((w) => {
@@ -486,6 +538,32 @@ export function MarketAlarmPanel({
                             Check now
                           </button>
                         ) : null}
+                        {w.status === "met" ? (
+                          <>
+                            <button
+                              type="button"
+                              className={cn(
+                                BTN,
+                                "bg-ocean-teal text-ocean-deep hover:brightness-110",
+                              )}
+                              onClick={() => onClearMetStatus(w.id, { restart: true })}
+                              title="Clear met status and start polling again"
+                            >
+                              Clear & resume
+                            </button>
+                            <button
+                              type="button"
+                              className={cn(
+                                BTN,
+                                "border border-ocean-teal/50 text-ocean-foam hover:bg-ocean-teal/15",
+                              )}
+                              onClick={() => onClearMetStatus(w.id)}
+                              title="Clear met highlight; Start when ready"
+                            >
+                              Clear
+                            </button>
+                          </>
+                        ) : null}
                         <button
                           type="button"
                           className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
@@ -542,7 +620,13 @@ export function MarketAlarmPanel({
         </div>
       </section>
 
-      {metPopup ? <AlarmMetModal watch={metPopup} onClose={onClearMetPopup} /> : null}
+      {metPopup ? (
+        <AlarmMetModal
+          watch={metPopup}
+          onClose={onClearMetPopup}
+          onClearStatus={(restart) => onClearMetStatus(metPopup.id, { restart })}
+        />
+      ) : null}
     </>
   );
 }

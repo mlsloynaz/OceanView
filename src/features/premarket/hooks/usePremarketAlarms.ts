@@ -247,6 +247,36 @@ export function usePremarketAlarms({ strategies, thresholdPct }: Args) {
 
   const clearMetBanner = useCallback(() => setBanner(null), []);
 
+  /** Reset a fired (met) watch so it can poll and alarm again. */
+  const clearMetStatus = useCallback(
+    (id: string, opts?: { restart?: boolean }) => {
+      clearTimer(id);
+      setWatches((prev) =>
+        prev.map((w) =>
+          w.id === id && w.status === "met"
+            ? { ...w, status: "idle", metAt: null, lastError: null }
+            : w,
+        ),
+      );
+      setBanner(null);
+      if (opts?.restart) {
+        window.setTimeout(() => startWatch(id), 0);
+      }
+    },
+    [clearTimer, startWatch],
+  );
+
+  const clearAllMetStatuses = useCallback(() => {
+    const metIds = watchesRef.current.filter((w) => w.status === "met").map((w) => w.id);
+    for (const id of metIds) clearTimer(id);
+    setBanner(null);
+    setWatches((prev) =>
+      prev.map((w) =>
+        w.status === "met" ? { ...w, status: "idle", metAt: null, lastError: null } : w,
+      ),
+    );
+  }, [clearTimer]);
+
   const addWatch = useCallback(
     (input: {
       symbol: string;
@@ -320,6 +350,8 @@ export function usePremarketAlarms({ strategies, thresholdPct }: Args) {
     formError,
     banner,
     clearMetBanner,
+    clearMetStatus,
+    clearAllMetStatuses,
     activeStrategies,
     metCount,
     runningCount,

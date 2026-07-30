@@ -23,6 +23,8 @@ export type MarketAlarmCheckRequest = {
   refreshCandles?: boolean;
   /** touch_disipador only — candle + BB TF (default 1m). */
   bandTimeframe?: "1m" | "15m" | "1h";
+  /** Optional as-of ET datetime (ISO). When set, uses stored candles. */
+  simulationTimeEt?: string;
 };
 
 export type MarketAlarmCheckResponse = {
@@ -39,6 +41,8 @@ export type MarketAlarmCheckResponse = {
   suggestedDirection?: string | null;
   checkedAt: string;
   simulationTimeEt?: string;
+  /** True when request used an explicit simulationTimeEt. */
+  simulated?: boolean;
   error?: string | null;
   candle?: { symbol?: string; status?: string; error?: string } | null;
   /** Present when ruleKey is breakout_quality. */
@@ -120,6 +124,7 @@ export async function postMarketAlarmCheck(
       trend,
       refreshCandles: body.refreshCandles ?? true,
       ...(body.bandTimeframe ? { bandTimeframe: body.bandTimeframe } : {}),
+      ...(body.simulationTimeEt ? { simulationTimeEt: body.simulationTimeEt } : {}),
     }),
   });
 }

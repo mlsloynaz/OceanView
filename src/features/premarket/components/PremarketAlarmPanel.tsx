@@ -32,6 +32,8 @@ type Props = {
   }) => boolean;
   onStart: (id: string) => void;
   onStop: (id: string) => void;
+  onClearMetStatus: (id: string, opts?: { restart?: boolean }) => void;
+  onClearAllMetStatuses: () => void;
   onRemove: (id: string) => void;
   onCheckNow: (id: string) => void;
   onRequestNotify: () => void;
@@ -69,6 +71,8 @@ export function PremarketAlarmPanel({
   onAdd,
   onStart,
   onStop,
+  onClearMetStatus,
+  onClearAllMetStatuses,
   onRemove,
   onCheckNow,
   onRequestNotify,
@@ -126,6 +130,18 @@ export function PremarketAlarmPanel({
             title="Allow browser notifications for fired alarms"
           >
             Enable desktop notify
+          </button>
+          <button
+            type="button"
+            className={cn(
+              BTN,
+              "border border-ocean-teal/50 bg-ocean-teal/10 text-ocean-foam hover:bg-ocean-teal/20",
+            )}
+            onClick={onClearAllMetStatuses}
+            disabled={metCount === 0}
+            title="Reset fired alarms so they can poll and fire again"
+          >
+            Clear all met{metCount > 0 ? ` (${metCount})` : ""}
           </button>
         </div>
 
@@ -284,6 +300,27 @@ export function PremarketAlarmPanel({
                         </button>
                       </>
                     )}
+                    {w.status === "met" ? (
+                      <>
+                        <button
+                          type="button"
+                          className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-110")}
+                          onClick={() => onClearMetStatus(w.id, { restart: true })}
+                        >
+                          Clear & resume
+                        </button>
+                        <button
+                          type="button"
+                          className={cn(
+                            BTN,
+                            "border border-ocean-teal/50 text-ocean-foam hover:bg-ocean-teal/15",
+                          )}
+                          onClick={() => onClearMetStatus(w.id)}
+                        >
+                          Clear
+                        </button>
+                      </>
+                    ) : null}
                     <button
                       type="button"
                       className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
