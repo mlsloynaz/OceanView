@@ -178,9 +178,12 @@ function StrategyCatalogBody({
                   className="rounded bg-ocean-mid/30 px-2 py-0.5 text-[10px] text-ocean-sand"
                   title={rule.ruleKey}
                 >
-                  {rule.label}
+                  <span className="block">{rule.label}</span>
+                  <span className="mt-0.5 block font-mono text-[9px] text-ocean-sand/45">
+                    {rule.ruleKey}
+                  </span>
                   {rule.timeframe && (
-                    <span className="ml-1 opacity-70">· {normalizeTimeframe(rule.timeframe)}</span>
+                    <span className="opacity-70">· {normalizeTimeframe(rule.timeframe)}</span>
                   )}
                 </li>
               ))}

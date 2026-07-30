@@ -165,6 +165,12 @@ function BuilderRuleRowCard({
               </span>
             )}
           </div>
+          <p
+            className="mt-0.5 font-mono text-[10px] leading-snug text-ocean-sand/50"
+            title="Evaluator ruleKey (code)"
+          >
+            {row.ruleKey}
+          </p>
           <p className="mt-1 text-[11px] text-ocean-sand/85">{summary}</p>
           {missing.length > 0 && !expanded && (
             <div className="mt-1.5 flex flex-wrap gap-1">
@@ -311,10 +317,6 @@ function BuilderRuleRowCard({
               </p>
             )}
           </div>
-
-          <p className="border-t border-ocean-mid/20 px-3 py-1.5 font-mono text-[10px] text-ocean-sand/45">
-            {row.ruleKey}
-          </p>
         </>
       )}
     </li>
@@ -527,6 +529,12 @@ export function DynamicStrategyBuilder({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="font-medium text-ocean-foam">{rule.label}</span>
+                    <span
+                      className="mt-0.5 block font-mono text-[10px] leading-snug text-ocean-sand/50"
+                      title="Evaluator ruleKey (code)"
+                    >
+                      {rule.ruleKey}
+                    </span>
                     <span className="mt-1 flex flex-wrap gap-1.5 text-[10px] text-ocean-sand">
                       {rule.timeframe && (
                         <span className="rounded bg-ocean-mid/40 px-1 py-px">
