@@ -71,13 +71,29 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const body = await readResponseBody(response);
   if (!response.ok) {
     const record = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : null;
-    const message =
+    let message =
       typeof record?.error === "string"
         ? record.error
         : typeof record?.message === "string"
           ? record.message
           : `HTTP ${response.status}`;
     const code = typeof record?.code === "string" ? record.code : undefined;
+    // API Gateway returns a generic body when Lambda is throttled or the
+    // integration hits the ~29s REST timeout — map to something actionable.
+    const generic =
+      /^internal server error$/i.test(message) ||
+      /^endpoint request timed out$/i.test(message) ||
+      message === `HTTP ${response.status}`;
+    if (generic) {
+      if (response.status === 429) {
+        message = "Alarm API busy (throttled) — checks are queued; retry shortly.";
+      } else if (response.status === 504 || /timed out/i.test(String(record?.message ?? ""))) {
+        message = "Alarm check timed out (API Gateway ~29s). Try fewer watches or a longer interval.";
+      } else if (response.status >= 500) {
+        message =
+          "Alarm API overloaded or timed out. Polling continues; reduce concurrent watches if this repeats.";
+      }
+    }
     throw new MarketAlarmApiError(message, code, response.status);
   }
   return body as T;

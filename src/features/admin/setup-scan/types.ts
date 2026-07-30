@@ -1,11 +1,34 @@
 export type PreselectionTier = "excellent" | "strong" | "moderate" | "caution" | "skip";
 
+export type PreselectionCandidateMode = "eod" | "open";
+
 export type PreselectionBreakdownRow = {
   key: string;
   met: boolean;
   points: number;
   maxPoints: number;
   label: string;
+};
+
+export type PreselectionCandidateRuleRow = {
+  ruleKey: string;
+  label?: string;
+  type?: "required" | "bonus" | string;
+  when?: "eod" | "open" | "both" | string;
+  status: string;
+  met?: boolean;
+  evidence?: string | null;
+  suggestedDirection?: string | null;
+  suggestedTrend?: string | null;
+};
+
+export type PreselectionHintRow = {
+  id?: string;
+  message?: string;
+  label?: string;
+  severity?: string;
+  level?: string;
+  [key: string]: unknown;
 };
 
 export type PreselectionTickerRow = {
@@ -20,6 +43,13 @@ export type PreselectionTickerRow = {
   reasons: string[];
   avoidReasons: string[];
   breakdown: PreselectionBreakdownRow[];
+  candidateRules?: PreselectionCandidateRuleRow[];
+  requiredPassed?: boolean;
+  hintNudge?: number;
+  strategyHints?: PreselectionHintRow[];
+  flags?: PreselectionHintRow[];
+  summaryLines?: string[];
+  mode?: PreselectionCandidateMode | string;
 };
 
 export type PreselectionStrategyGroup = {
@@ -42,6 +72,12 @@ export type PreselectionStrategySuggestion = {
   reasons: string[];
   avoidReasons: string[];
   breakdown: PreselectionBreakdownRow[];
+  candidateRules?: PreselectionCandidateRuleRow[];
+  requiredPassed?: boolean;
+  hintNudge?: number;
+  strategyHints?: PreselectionHintRow[];
+  flags?: PreselectionHintRow[];
+  summaryLines?: string[];
 };
 
 export type PreselectionTickerGroup = {
@@ -69,6 +105,8 @@ export type PreselectionResultResponse = {
   runId: string;
   status: string;
   message?: string;
+  mode?: PreselectionCandidateMode | string;
+  visualOnly?: boolean;
   simulationTimeEt?: string;
   simulationDate?: string | null;
   simulated?: boolean;

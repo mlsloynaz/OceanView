@@ -221,7 +221,7 @@ export function MarketAlarmPanel({
             keep watching until the combined setup drops →{" "}
             <span className="font-medium text-ocean-foam">EXIT</span> popup, then arm again.
             Candles refresh once per check, paced to the longest interval among watches on that
-            ticker.
+            ticker. Checks run at most a few at a time so Start-all does not overload the API.
           </p>
           {banner ? (
             <div

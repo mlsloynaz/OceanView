@@ -20,12 +20,18 @@ import { mergePreselectionWithCatalogActive } from "../merge-catalog-active";
 import {
   filterSemiFinalResult,
 } from "../search";
-import type { PreselectionResultResponse, PreselectionTickerRow } from "../types";
+import type {
+  PreselectionCandidateMode,
+  PreselectionResultResponse,
+  PreselectionTickerRow,
+} from "../types";
 
 export type SetupScanMode = "live" | "simulate";
 
 export function useSetupScanPane(open: boolean) {
-  const [result, setResult] = useState<PreselectionResultResponse | null>(null);
+  const [eodResult, setEodResult] = useState<PreselectionResultResponse | null>(null);
+  const [openResult, setOpenResult] = useState<PreselectionResultResponse | null>(null);
+  const [candidateMode, setCandidateMode] = useState<PreselectionCandidateMode>("eod");
   const [minScore, setMinScore] = useState(0);
   const [scanMode, setScanModeState] = useState<SetupScanMode>("live");
   const [simulationDate, setSimulationDateState] = useState("");
@@ -39,6 +45,15 @@ export function useSetupScanPane(open: boolean) {
     strategyName: string;
     ticker: PreselectionTickerRow;
   } | null>(null);
+
+  const result = candidateMode === "open" ? openResult : eodResult;
+  const setResultForMode = useCallback(
+    (mode: PreselectionCandidateMode, payload: PreselectionResultResponse | null) => {
+      if (mode === "open") setOpenResult(payload);
+      else setEodResult(payload);
+    },
+    [],
+  );
 
   const setScanMode = useCallback((mode: SetupScanMode) => {
     setScanModeState(mode);
@@ -83,11 +98,11 @@ export function useSetupScanPane(open: boolean) {
     setError(null);
     try {
       const [payload, catalog] = await Promise.all([
-        getSetupScanResult(),
+        getSetupScanResult(undefined, "eod"),
         getTickersCatalog(),
       ]);
       const merged = mergePreselectionWithCatalogActive(payload, catalog.tickers ?? []);
-      setResult(merged);
+      setEodResult(merged);
       const status = (merged.status ?? "").toLowerCase();
       if (status === "running" || status === "pending") {
         setMessage(
@@ -103,8 +118,8 @@ export function useSetupScanPane(open: boolean) {
             if (done != null && total != null) {
               setMessage(`Scanning… ${done}/${total}`);
             }
-          });
-          setResult(await applyCatalogActive(finalPayload));
+          }, "eod");
+          setEodResult(await applyCatalogActive(finalPayload));
           setMessage(finalPayload.message ?? "Tickers SemiFinal complete.");
         } catch (err) {
           setError(err instanceof Error ? err.message : "Tickers SemiFinal failed.");
@@ -169,39 +184,48 @@ export function useSetupScanPane(open: boolean) {
         const ack = await postSetupScanRun({
           minScore,
           simulationDate: scanMode === "simulate" ? simulationDate.trim() : undefined,
+          mode: candidateMode,
         });
         const runId = ack.runId;
         if ((ack.status ?? "").toLowerCase() === "complete" && ack.strategies?.length) {
-          setResult(await applyCatalogActive(ack));
+          setResultForMode(candidateMode, await applyCatalogActive(ack));
           setMessage(ack.message ?? "Tickers SemiFinal complete.");
           return;
         }
         setMessage(
-          (ack.message ?? "").toLowerCase().includes("poll")
-            ? "Tickers SemiFinal started…"
+          candidateMode === "open"
+            ? "9:25 visual scan started…"
             : (ack.message ?? "Tickers SemiFinal started…"),
         );
-        const payload = await pollSetupScanResult(runId, (progress) => {
-          const done = progress.progress?.done;
-          const total = progress.progress?.total;
-          if (done != null && total != null) {
-            setMessage(`Scanning… ${done}/${total}`);
-          }
-        });
-        setResult(await applyCatalogActive(payload));
+        const payload = await pollSetupScanResult(
+          runId,
+          (progress) => {
+            const done = progress.progress?.done;
+            const total = progress.progress?.total;
+            if (done != null && total != null) {
+              setMessage(`Scanning… ${done}/${total}`);
+            }
+          },
+          candidateMode,
+        );
+        setResultForMode(candidateMode, await applyCatalogActive(payload));
         setMessage(payload.message ?? "Tickers SemiFinal complete.");
       } catch (err) {
         if (err instanceof SetupScanApiError && err.status === 504) {
           setMessage("Request timed out — scan may still be running. Loading result…");
           try {
-            const payload = await pollSetupScanResult(undefined, (progress) => {
-              const done = progress.progress?.done;
-              const total = progress.progress?.total;
-              if (done != null && total != null) {
-                setMessage(`Scanning… ${done}/${total}`);
-              }
-            });
-            setResult(await applyCatalogActive(payload));
+            const payload = await pollSetupScanResult(
+              undefined,
+              (progress) => {
+                const done = progress.progress?.done;
+                const total = progress.progress?.total;
+                if (done != null && total != null) {
+                  setMessage(`Scanning… ${done}/${total}`);
+                }
+              },
+              candidateMode,
+            );
+            setResultForMode(candidateMode, await applyCatalogActive(payload));
             setMessage(payload.message ?? "Tickers SemiFinal complete.");
             return;
           } catch (pollErr) {
@@ -214,7 +238,7 @@ export function useSetupScanPane(open: boolean) {
         setError(err instanceof Error ? err.message : "Tickers SemiFinal failed.");
       }
     });
-  }, [applyCatalogActive, minScore, scanMode, simulationDate]);
+  }, [applyCatalogActive, candidateMode, minScore, scanMode, setResultForMode, simulationDate]);
 
   const setActive = useCallback(async (symbol: string, active: boolean) => {
     const upper = symbol.trim().toUpperCase();
@@ -222,21 +246,22 @@ export function useSetupScanPane(open: boolean) {
     setError(null);
     try {
       const updated = await patchTickerActive(upper, active);
-      setResult((prev) => {
+      const patchActive = (prev: PreselectionResultResponse | null) => {
         if (!prev) return prev;
-        const strategies = Array.isArray(prev.strategies) ? prev.strategies : [];
         return {
           ...prev,
-          strategies: strategies.map((group) => ({
+          strategies: (prev.strategies ?? []).map((group) => ({
             ...group,
-            tickers: (Array.isArray(group.tickers) ? group.tickers : []).map((row) =>
+            tickers: (group.tickers ?? []).map((row) =>
               row.symbol.toUpperCase() === upper
                 ? { ...row, currentlyActive: updated.active }
                 : row,
             ),
           })),
         };
-      });
+      };
+      setEodResult(patchActive);
+      setOpenResult(patchActive);
       setDetail((prev) =>
         prev && prev.ticker.symbol.toUpperCase() === upper
           ? { ...prev, ticker: { ...prev.ticker, currentlyActive: updated.active } }
@@ -265,6 +290,8 @@ export function useSetupScanPane(open: boolean) {
     selectSearchTicker,
     minScore,
     setMinScore,
+    candidateMode,
+    setCandidateMode,
     scanMode,
     setScanMode,
     simulationDate,

@@ -109,6 +109,12 @@ function suggestionToTickerRow(
     reasons: suggestion.reasons,
     avoidReasons: suggestion.avoidReasons,
     breakdown: suggestion.breakdown,
+    candidateRules: suggestion.candidateRules,
+    requiredPassed: suggestion.requiredPassed,
+    hintNudge: suggestion.hintNudge,
+    strategyHints: suggestion.strategyHints,
+    flags: suggestion.flags,
+    summaryLines: suggestion.summaryLines,
   };
 }
 
@@ -331,10 +337,82 @@ function DetailModal({
           </div>
         )}
 
+        {Array.isArray(ticker.candidateRules) && ticker.candidateRules.length > 0 && (
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
+              Candidate rules
+            </h3>
+            <ul className="space-y-2">
+              {ticker.candidateRules.map((row) => (
+                <li
+                  key={row.ruleKey}
+                  className="rounded border border-ocean-mid/40 bg-ocean-deep/40 px-3 py-2 text-xs"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-ocean-foam">
+                      {row.label || row.ruleKey}
+                    </span>
+                    <span className="font-mono text-[10px] text-ocean-sand/80">{row.ruleKey}</span>
+                    <span className="text-[10px] uppercase text-ocean-sand">
+                      {row.type ?? "required"}
+                      {row.when ? ` · ${row.when}` : ""}
+                    </span>
+                    <span
+                      className={
+                        row.status === "met"
+                          ? "text-ocean-teal"
+                          : row.status === "skipped"
+                            ? "text-ocean-sand/70"
+                            : "text-amber-800 dark:text-amber-100"
+                      }
+                    >
+                      {row.status}
+                    </span>
+                  </div>
+                  {row.evidence ? (
+                    <p className="mt-1 text-ocean-sand/90">{row.evidence}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {Array.isArray(ticker.strategyHints) && ticker.strategyHints.length > 0 && (
+          <div>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
+              Strategy hints
+              {typeof ticker.hintNudge === "number" && ticker.hintNudge !== 0
+                ? ` (nudge ${ticker.hintNudge > 0 ? "+" : ""}${ticker.hintNudge})`
+                : ""}
+            </h3>
+            <ul className="list-none space-y-1 pl-0 text-xs text-ocean-sand">
+              {ticker.strategyHints.map((hint, idx) => (
+                <li key={`${hint.id ?? "h"}-${idx}`}>
+                  {String(hint.message || hint.label || hint.id || "hint")}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {Array.isArray(ticker.summaryLines) && ticker.summaryLines.length > 0 && (
+          <div>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
+              Summary
+            </h3>
+            <ul className="list-none space-y-1 pl-0 text-xs text-ocean-sand">
+              {ticker.summaryLines.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {Array.isArray(ticker.breakdown) && ticker.breakdown.length > 0 && (
           <div>
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
-              Full checklist
+              Soft profile checklist
             </h3>
             <ul className="space-y-2">
               {ticker.breakdown.map((row) => (
@@ -366,6 +444,40 @@ export function SetupScanPane() {
         className="min-w-0"
         headerExtra={
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <div
+              className="inline-flex rounded-md border border-ocean-mid/50 p-0.5"
+              role="group"
+              aria-label="SemiFinal candidate mode"
+            >
+              <button
+                type="button"
+                className={cn(
+                  BTN,
+                  "px-2 py-1",
+                  ws.candidateMode === "eod"
+                    ? "bg-ocean-teal text-ocean-deep"
+                    : "text-ocean-sand hover:bg-ocean-mid/20",
+                )}
+                disabled={ws.runPending || ws.loading}
+                onClick={() => ws.setCandidateMode("eod")}
+              >
+                EOD (history)
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  BTN,
+                  "px-2 py-1",
+                  ws.candidateMode === "open"
+                    ? "bg-ocean-teal text-ocean-deep"
+                    : "text-ocean-sand hover:bg-ocean-mid/20",
+                )}
+                disabled={ws.runPending || ws.loading}
+                onClick={() => ws.setCandidateMode("open")}
+              >
+                9:25 (visual)
+              </button>
+            </div>
             <LiveSimulateControl
               mode={ws.scanMode}
               onModeChange={ws.setScanMode}
@@ -397,7 +509,11 @@ export function SetupScanPane() {
               disabled={ws.runPending || ws.loading}
               onClick={() => ws.runScan()}
             >
-              {ws.runPending ? "Scanning…" : "Run Tickers SemiFinal"}
+              {ws.runPending
+                ? "Scanning…"
+                : ws.candidateMode === "open"
+                  ? "Run 9:25 visual"
+                  : "Run Tickers SemiFinal"}
             </button>
             <button
               type="button"
@@ -405,7 +521,7 @@ export function SetupScanPane() {
               disabled={ws.loading || ws.runPending}
               onClick={() => void ws.loadResult()}
             >
-              {ws.loading ? "…" : "Reload result"}
+              {ws.loading ? "…" : "Reload EOD result"}
             </button>
           </div>
         }
@@ -415,6 +531,26 @@ export function SetupScanPane() {
             API: {apiBase}
           </p>
         )}
+
+        <p className="mb-3 text-xs text-ocean-sand">
+          Soft profile score + per-strategy candidate rules + foundation hints.{" "}
+          <strong className="font-medium text-ocean-foam">EOD</strong> uses saved history and
+          persists the SemiFinal roster.{" "}
+          <strong className="font-medium text-ocean-foam">9:25 visual</strong> merges history with
+          in-memory premarket bars (not written to Dynamo) and does not overwrite the saved EOD
+          result.
+        </p>
+
+        {ws.candidateMode === "open" ? (
+          <div
+            className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100"
+            role="status"
+          >
+            Viewing 9:25 visual mode — results are session-only and do not replace the saved EOD
+            SemiFinal.
+            {!ws.result ? " Run a 9:25 scan to populate this view." : null}
+          </div>
+        ) : null}
 
         <p className="mb-3 text-xs text-ocean-sand">
           Scans all catalog tickers (active and inactive). Only symbols with a resolved direction

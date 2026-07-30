@@ -1,7 +1,7 @@
 import { MOCK_SETUP_SCAN_RESULT } from "./mock-data";
 import { mergePreselectionWithCatalogActive } from "../merge-catalog-active";
 import { getTickersCatalog } from "../../tickers/api/tickers-client";
-import type { PreselectionResultResponse } from "../types";
+import type { PreselectionCandidateMode, PreselectionResultResponse } from "../types";
 import { apiFetch, getApiBaseUrl, readResponseBody } from "@/shared/api/api-fetch";
 
 const API_BASE = getApiBaseUrl();
@@ -62,12 +62,15 @@ export type SetupScanRunOptions = {
   strategyIds?: string[];
   minScore?: number;
   simulationDate?: string;
+  /** eod = history SemiFinal; open = 9:25 visual (history + EH in memory). */
+  mode?: PreselectionCandidateMode;
 };
 
 export async function postSetupScanRun(body?: SetupScanRunOptions): Promise<PreselectionResultResponse> {
   if (USE_MOCK) {
     await delay(1200);
     const simDate = body?.simulationDate;
+    const mode = body?.mode ?? "eod";
     return {
       ...MOCK_SETUP_SCAN_RESULT,
       evaluatedAt: new Date().toISOString(),
@@ -75,6 +78,12 @@ export async function postSetupScanRun(body?: SetupScanRunOptions): Promise<Pres
       simulationDate: simDate ?? null,
       tradeDate: simDate ?? MOCK_SETUP_SCAN_RESULT.tradeDate,
       simulationTimeEt: simDate ? `${simDate}T16:00:00-04:00` : MOCK_SETUP_SCAN_RESULT.simulationTimeEt,
+      mode,
+      visualOnly: mode === "open",
+      message:
+        mode === "open"
+          ? "Mock 9:25 visual scan (not saved over EOD)."
+          : MOCK_SETUP_SCAN_RESULT.message,
     };
   }
   const { data } = await fetchJson<PreselectionResultResponse>(
@@ -84,7 +93,8 @@ export async function postSetupScanRun(body?: SetupScanRunOptions): Promise<Pres
       body: JSON.stringify({
         strategyIds: body?.strategyIds,
         simulationDate: body?.simulationDate,
-        options: { minScore: body?.minScore ?? 0 },
+        mode: body?.mode ?? "eod",
+        options: { minScore: body?.minScore ?? 0, mode: body?.mode ?? "eod" },
       }),
     },
     [200, 202],
@@ -92,13 +102,19 @@ export async function postSetupScanRun(body?: SetupScanRunOptions): Promise<Pres
   return data;
 }
 
-export async function getSetupScanResult(runId?: string): Promise<PreselectionResultResponse> {
+export async function getSetupScanResult(
+  runId?: string,
+  mode?: PreselectionCandidateMode,
+): Promise<PreselectionResultResponse> {
   if (USE_MOCK) {
     await delay();
     const { tickers } = await getTickersCatalog();
     return mergePreselectionWithCatalogActive({ ...MOCK_SETUP_SCAN_RESULT }, tickers);
   }
-  const query = runId?.trim() ? `?runId=${encodeURIComponent(runId.trim())}` : "";
+  const params = new URLSearchParams();
+  if (runId?.trim()) params.set("runId", runId.trim());
+  if (mode) params.set("mode", mode);
+  const query = params.toString() ? `?${params.toString()}` : "";
   const { data } = await fetchJson<PreselectionResultResponse>(`/preselection/result${query}`);
   return data;
 }
@@ -111,12 +127,13 @@ function isTerminalStatus(status: string | undefined): boolean {
 export async function pollSetupScanResult(
   runId?: string,
   onProgress?: (payload: PreselectionResultResponse) => void,
+  mode?: PreselectionCandidateMode,
 ): Promise<PreselectionResultResponse> {
   for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt += 1) {
     if (attempt > 0) {
       await delay(POLL_INTERVAL_MS);
     }
-    const payload = await getSetupScanResult(runId);
+    const payload = await getSetupScanResult(runId, mode);
     onProgress?.(payload);
     if (isTerminalStatus(payload.status)) {
       if ((payload.status ?? "").toLowerCase() === "failed") {

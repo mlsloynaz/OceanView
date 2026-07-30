@@ -115,7 +115,14 @@ export function useMarketAlarms() {
   const [simulateLocal, setSimulateLocal] = useState(() => formatEtDatetimeLocal(new Date()));
 
   const timersRef = useRef<Map<string, number>>(new Map());
+  /** Watch ids currently executing a check (HTTP in flight). */
   const inFlightRef = useRef<Set<string>>(new Set());
+  /** FIFO of watch ids waiting for a free check slot. */
+  const checkQueueRef = useRef<string[]>([]);
+  const queuedIdsRef = useRef<Set<string>>(new Set());
+  const activeChecksRef = useRef(0);
+  /** Cap parallel /market/alarm/check calls — avoids API Gateway throttle + ~29s timeouts. */
+  const MAX_PARALLEL_CHECKS = 3;
   /** Per-symbol candle refresh timestamps — avoid duplicate Schwab pulls. */
   const lastCandleRefreshRef = useRef<Map<string, number>>(new Map());
   const watchesRef = useRef(watches);
@@ -205,9 +212,8 @@ export function useMarketAlarms() {
     lastCandleRefreshRef.current.set(symbol.toUpperCase(), Date.now());
   }, []);
 
-  const runCheck = useCallback(
+  const executeCheck = useCallback(
     async (id: string) => {
-      if (inFlightRef.current.has(id)) return;
       const watch = watchesRef.current.find((w) => w.id === id);
       // Waiting for user on enter/exit popup — do not poll.
       if (!watch || watch.status === "met" || watch.status === "exit") return;
@@ -247,7 +253,6 @@ export function useMarketAlarms() {
                 : w,
             ),
           );
-          inFlightRef.current.delete(id);
           return;
         }
         simulationTimeEt = formatSimulationTimeEt(parsed);
@@ -268,7 +273,10 @@ export function useMarketAlarms() {
           ...(simulationTimeEt ? { simulationTimeEt } : {}),
         });
 
-        if (!simulating && refreshCandles && result.candle?.status !== "failed") {
+        const candleFailed =
+          result.candle?.status === "failed" ||
+          (result.candle as { outcome?: string } | null | undefined)?.outcome === "failed";
+        if (!simulating && refreshCandles && !candleFailed) {
           markCandleRefreshed(watch.symbol);
         }
 
@@ -418,6 +426,43 @@ export function useMarketAlarms() {
       }
     },
     [clearTimer, markCandleRefreshed, shouldRefreshCandles],
+  );
+
+  const pumpCheckQueue = useCallback(() => {
+    while (
+      activeChecksRef.current < MAX_PARALLEL_CHECKS &&
+      checkQueueRef.current.length > 0
+    ) {
+      const id = checkQueueRef.current.shift()!;
+      queuedIdsRef.current.delete(id);
+      const watch = watchesRef.current.find((w) => w.id === id);
+      if (
+        !watch ||
+        watch.status === "met" ||
+        watch.status === "exit" ||
+        inFlightRef.current.has(id)
+      ) {
+        continue;
+      }
+      activeChecksRef.current += 1;
+      void executeCheck(id).finally(() => {
+        activeChecksRef.current = Math.max(0, activeChecksRef.current - 1);
+        pumpCheckQueue();
+      });
+    }
+  }, [executeCheck]);
+
+  /** Enqueue a check; at most MAX_PARALLEL_CHECKS run at once across all watches. */
+  const runCheck = useCallback(
+    (id: string) => {
+      const watch = watchesRef.current.find((w) => w.id === id);
+      if (!watch || watch.status === "met" || watch.status === "exit") return;
+      if (inFlightRef.current.has(id) || queuedIdsRef.current.has(id)) return;
+      queuedIdsRef.current.add(id);
+      checkQueueRef.current.push(id);
+      pumpCheckQueue();
+    },
+    [pumpCheckQueue],
   );
 
   const startWatch = useCallback(

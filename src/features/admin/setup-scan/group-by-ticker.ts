@@ -26,6 +26,12 @@ function rowToSuggestion(
     reasons: ticker.reasons ?? [],
     avoidReasons: ticker.avoidReasons ?? [],
     breakdown: ticker.breakdown ?? [],
+    candidateRules: ticker.candidateRules ?? [],
+    requiredPassed: ticker.requiredPassed,
+    hintNudge: ticker.hintNudge,
+    strategyHints: ticker.strategyHints ?? [],
+    flags: ticker.flags ?? [],
+    summaryLines: ticker.summaryLines ?? [],
   };
 }
 
