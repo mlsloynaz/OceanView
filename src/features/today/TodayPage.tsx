@@ -37,7 +37,8 @@ export function TodayPage() {
   const [selected, setSelected] = useState<CandidateViewModel | null>(null);
 
   useEffect(() => {
-    if (!isTodayMode(modeParam)) {
+    // Legacy /today/replay bookmarks → Live (Simulate lives on each pane).
+    if (modeParam === "replay" || !isTodayMode(modeParam)) {
       navigate(todayPath(defaultTodayMode()), { replace: true });
     }
   }, [modeParam, navigate]);
@@ -92,8 +93,7 @@ export function TodayPage() {
     tradability.bySymbol,
   ]);
 
-  const candidateCount =
-    mode === "live" ? liveCandidates.length : mode === "preparation" ? prepCandidates.length : 0;
+  const candidateCount = mode === "live" ? liveCandidates.length : prepCandidates.length;
 
   const handleSelect = (candidate: CandidateViewModel | null) => {
     setSelected(candidate);
@@ -111,19 +111,15 @@ export function TodayPage() {
                 void liveWorkspace.refreshResult();
                 void tradability.refresh();
               }
-            : mode === "preparation"
-              ? () => {
-                  void premarketWorkspace.refreshResult();
-                  void tradability.refresh();
-                }
-              : () => void tradability.refresh()
+            : () => {
+                void premarketWorkspace.refreshResult();
+                void tradability.refresh();
+              }
         }
         refreshPending={
           mode === "live"
             ? liveWorkspace.refreshPending || tradability.loading
-            : mode === "preparation"
-              ? premarketWorkspace.loading || tradability.loading
-              : tradability.loading
+            : premarketWorkspace.loading || tradability.loading
         }
       />
 

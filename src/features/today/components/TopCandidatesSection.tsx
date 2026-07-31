@@ -306,21 +306,6 @@ export function TopCandidatesSection({
     );
   }
 
-  if (mode === "replay") {
-    return (
-      <TodaySection
-        id="today-top-candidates"
-        title="Top Candidates"
-        subtitle="Replay reconstructs historical assessments — use Live + Simulate for now"
-      >
-        <p className="text-sm text-ocean-sand">
-          Replay mode will isolate historical candles and outcome analysis. Until then, switch to{" "}
-          <strong className="text-ocean-foam">Live</strong> and set Assessment to Simulate.
-        </p>
-      </TodaySection>
-    );
-  }
-
   return (
     <TodaySection
       id="today-top-candidates"

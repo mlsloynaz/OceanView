@@ -1,11 +1,10 @@
-export type TodayMode = "preparation" | "live" | "replay";
+export type TodayMode = "preparation" | "live";
 
-export const TODAY_MODES: TodayMode[] = ["preparation", "live", "replay"];
+export const TODAY_MODES: TodayMode[] = ["preparation", "live"];
 
 export const TODAY_MODE_LABELS: Record<TodayMode, string> = {
   preparation: "Preparation",
   live: "Live",
-  replay: "Replay",
 };
 
 export function isTodayMode(value: string | undefined): value is TodayMode {
