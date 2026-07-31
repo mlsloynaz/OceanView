@@ -1,4 +1,5 @@
 import type { CandleCoverage } from "../types";
+import { isUsMarketDay, sessionCloseMinutesEt } from "@/shared/lib/market-calendar";
 
 const ET = "America/New_York";
 
@@ -95,7 +96,27 @@ export function defaultAssessmentTime(coverage: CandleCoverage): Date {
 /** `now` — assess at click time; `et` — user picks an Eastern datetime. */
 export type AssessmentTimeMode = "now" | "et";
 
+const REGULAR_SESSION_OPEN_MINUTES = 9 * 60 + 30;
 const REGULAR_SESSION_CLOSE_MINUTES = 16 * 60;
+
+/**
+ * True during US equity regular session (9:30–close ET) on a market day.
+ * Outside RTH (pre-open, after close, weekend/holiday) Live should be disabled.
+ */
+export function isRegularMarketSessionEt(now = new Date()): boolean {
+  const p = etParts(now);
+  const calendar = parseEtDatetimeLocal(`${p.year}-${p.month}-${p.day}T12:00`);
+  if (!calendar) return false;
+  // Local Y/M/D of that noon-ET instant ≈ calendar day in ET for market-calendar helpers.
+  const y = Number(p.year);
+  const mo = Number(p.month);
+  const d = Number(p.day);
+  const localNoon = new Date(y, mo - 1, d, 12, 0, 0);
+  if (!isUsMarketDay(localNoon)) return false;
+  const minutes = Number(p.hour) * 60 + Number(p.minute);
+  const close = sessionCloseMinutesEt(localNoon);
+  return minutes >= REGULAR_SESSION_OPEN_MINUTES && minutes < close;
+}
 
 function etWeekday(date: Date): number {
   const weekday = new Intl.DateTimeFormat("en-US", { timeZone: ET, weekday: "short" }).format(

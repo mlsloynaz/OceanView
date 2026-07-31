@@ -197,6 +197,7 @@ export function MarketPage() {
                 monitorActive={monitorActive}
                 stopPending={stopPending}
                 canStop={canStop}
+                liveEnabled={liveEnabled}
                 intervalValue={intervalValue}
                 intervalUnit={intervalUnit}
                 onIntervalValueChange={setIntervalValue}

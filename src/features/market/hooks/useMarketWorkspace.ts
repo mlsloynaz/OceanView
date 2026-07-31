@@ -42,6 +42,7 @@ import {
 } from "../lib/assessment-time";
 import { isStrategyInEntryWindow } from "../lib/entry-window";
 import type { PollIntervalUnit } from "@/shared/components/PollControls";
+import { useLiveMarketHours } from "@/shared/hooks/useLiveMarketHours";
 import { defaultSimulationSessionDate } from "@/shared/lib/market-calendar";
 import type {
   CandleCoverage,
@@ -152,6 +153,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   const [pendingRunId, setPendingRunId] = useState<string | null>(null);
   const [jobActive, setJobActive] = useState(false);
   const [coverageInitialized, setCoverageInitialized] = useState(false);
+  const { liveEnabled } = useLiveMarketHours();
 
   const catalogRef = useRef<StrategiesCatalogFile | null>(null);
   catalogRef.current = catalog;
@@ -287,6 +289,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
 
   const setAssessmentMode = useCallback(
     (mode: AssessmentTimeMode) => {
+      if (mode === "now" && !liveEnabled) return;
       setAssessmentModeState(mode);
       if (!candleCoverage) return;
       if (mode === "now") {
@@ -295,13 +298,31 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       }
       const historical =
         lastAssessedAt && !isAssessmentNow(lastAssessedAt) ? lastAssessedAt : null;
-      const fallbackSession = parseEtDatetimeLocal(`${defaultSimulationSessionDate()}T09:30`);
-      const et = clampAssessmentTime(historical ?? fallbackSession ?? new Date(), candleCoverage);
+      const closeSeed = resolveMarketNowAssessmentMoment();
+      const fallbackSession = parseEtDatetimeLocal(`${defaultSimulationSessionDate()}T16:00`);
+      const et = clampAssessmentTime(
+        historical ?? closeSeed ?? fallbackSession ?? new Date(),
+        candleCoverage,
+      );
       setAssessmentAt(et);
       applyAssessmentValidation(et, candleCoverage, true);
     },
-    [applyAssessmentValidation, candleCoverage, lastAssessedAt],
+    [applyAssessmentValidation, candleCoverage, lastAssessedAt, liveEnabled],
   );
+
+  // Outside RTH: Live assess is blocked — force Simulate at last session close.
+  useEffect(() => {
+    if (liveEnabled || assessmentMode !== "now") return;
+    const closeSeed = resolveMarketNowAssessmentMoment();
+    setAssessmentModeState("et");
+    if (candleCoverage) {
+      const et = clampAssessmentTime(closeSeed, candleCoverage);
+      setAssessmentAt(et);
+      applyAssessmentValidation(et, candleCoverage, true);
+    } else {
+      setAssessmentAt(closeSeed);
+    }
+  }, [applyAssessmentValidation, assessmentMode, candleCoverage, liveEnabled]);
 
   useEffect(() => {
     if (useMock) return;
@@ -900,6 +921,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     monitorActive,
     stopPending,
     canStop,
+    liveEnabled,
     intervalValue,
     intervalUnit,
     setIntervalValue,

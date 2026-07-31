@@ -6,7 +6,7 @@
       "id": "estrategia-01",
       "name": "Hourly Trend Change",
       "shortName": "Trend Change 1H",
-      "description": "Hourly trend change (L-T-2H-15): prior BB trend, combined 1h break, confirmation+mid flip, 15m BB trend. CALL and PUT paths via directional rule variants. Late entry: if 1h close already cleared MA20/40/100/200 in the trade direction, quality is wiped (nothing left to pass).",
+      "description": "Hourly trend change (L-T-2H-15): prior BB trend, then 1h confirmation (candle + mid + trendline + 15m BB mid at the same clock). CALL and PUT paths via directional rule variants. Late entry: if 1h close already cleared MA20/40/100/200 in the trade direction, quality is wiped (nothing left to pass).",
       "invalidations": [
         {
           "id": "e01-ma-stack-exhausted",
@@ -45,18 +45,6 @@
           "pathVariant": "CALL"
         },
         {
-          "id": "e01-call-req-bb-15m",
-          "ruleKey": "bb_mid_trend_15m_prior",
-          "label": "BB-medio-trend — prior 4 candle 15m",
-          "type": "required",
-          "timeframe": "15m",
-          "minTrendDuration": {
-            "value": 4,
-            "unit": "bars"
-          },
-          "pathVariant": "CALL"
-        },
-        {
           "id": "e01-put-req-prior-alcista",
           "ruleKey": "bb_mid_trend_1h_prior",
           "label": "BB mid previo ≥2 días (HORA)",
@@ -76,18 +64,6 @@
           "label": "Confirmación cambio tendencia (HORA)",
           "type": "required",
           "timeframe": "1h",
-          "pathVariant": "PUT"
-        },
-        {
-          "id": "e01-put-req-bb-15m",
-          "ruleKey": "bb_mid_trend_15m_prior",
-          "label": "BB-medio-trend — prior 4 candle 15m",
-          "type": "required",
-          "timeframe": "15m",
-          "minTrendDuration": {
-            "value": 4,
-            "unit": "bars"
-          },
           "pathVariant": "PUT"
         },
         {

@@ -114,6 +114,7 @@ function LiveCandidates({
             monitorActive={ws.monitorActive}
             stopPending={ws.stopPending}
             canStop={ws.canStop}
+            liveEnabled={ws.liveEnabled}
             intervalValue={ws.intervalValue}
             intervalUnit={ws.intervalUnit}
             onIntervalValueChange={ws.setIntervalValue}
