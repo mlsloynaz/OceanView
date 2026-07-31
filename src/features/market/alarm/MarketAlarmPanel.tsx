@@ -11,6 +11,7 @@ import {
 import { cn } from "@/shared/lib/cn";
 import type { CatalogTicker } from "@/features/admin/tickers/types";
 import { AlarmTradeModal } from "./AlarmTradeModal";
+import { BreakoutKanbanBoard, watchHasBreakout } from "./BreakoutKanbanBoard";
 import {
   ALARM_ELIGIBLE_RULES,
   formatAlarmTrend,
@@ -171,7 +172,11 @@ export function MarketAlarmPanel({
   const allSelected =
     tickers.length > 0 && selectedSymbols.length > 0 && selectedSymbols.length === tickers.length;
 
-  const watchesByTicker = useMemo(() => groupWatchesBySymbol(watches), [watches]);
+  const nonBreakoutWatchesByTicker = useMemo(
+    () => groupWatchesBySymbol(watches.filter((w) => !watchHasBreakout(w))),
+    [watches],
+  );
+  const hasBreakoutWatches = useMemo(() => watches.some(watchHasBreakout), [watches]);
   const tickerNameBySymbol = useMemo(() => {
     const map = new Map<string, string>();
     for (const t of tickers) {
@@ -217,11 +222,10 @@ export function MarketAlarmPanel({
           <p className="text-xs leading-relaxed text-ocean-sand">
             Poll until <span className="font-medium text-ocean-foam">all</span> selected rules
             are <span className="font-medium text-ocean-foam">met</span> (AND) →{" "}
-            <span className="font-medium text-ocean-foam">ENTER</span> popup. Confirm entry and
-            keep watching until the combined setup drops →{" "}
-            <span className="font-medium text-ocean-foam">EXIT</span> popup, then arm again.
-            Candles refresh once per check, paced to the longest interval among watches on that
-            ticker. Checks run at most a few at a time so Start-all does not overload the API.
+            <span className="font-medium text-ocean-foam">ENTER</span> popup. Breakout quality
+            alerts only on <span className="font-medium text-ocean-foam">Entry</span> (not Setup /
+            Testing / Confirmed). Confirm entry and keep watching until the setup drops →{" "}
+            <span className="font-medium text-ocean-foam">EXIT</span>, then arm again.
           </p>
           {banner ? (
             <div
@@ -561,8 +565,22 @@ export function MarketAlarmPanel({
                   Clear all signals{metCount > 0 ? ` (${metCount})` : ""}
                 </button>
               </div>
+            {hasBreakoutWatches ? (
+              <BreakoutKanbanBoard
+                watches={watches}
+                tickerNameBySymbol={tickerNameBySymbol}
+                onCheckNow={onCheckNow}
+                onStart={onStart}
+                onStop={onStop}
+                onRemove={onRemove}
+                onClearMetStatus={onClearMetStatus}
+              />
+            ) : null}
             <div className="space-y-4">
-              {watchesByTicker.map((group) => {
+              {hasBreakoutWatches && nonBreakoutWatchesByTicker.length > 0 ? (
+                <p className="text-[11px] font-medium text-ocean-sand">Other rule watches</p>
+              ) : null}
+              {nonBreakoutWatchesByTicker.map((group) => {
                 const tone = groupStatusTone(group.watches);
                 const name = tickerNameBySymbol.get(group.symbol);
                 const activeCount = group.watches.filter(
@@ -739,7 +757,7 @@ export function MarketAlarmPanel({
                                   type="button"
                                   className={cn(
                                     BTN,
-                                    "border border-ocean-mid/40 text-ocean-sand",
+                                    "border border-ocean-danger/50 text-ocean-danger hover:bg-ocean-danger/10",
                                   )}
                                   onClick={() => onRemove(w.id)}
                                 >

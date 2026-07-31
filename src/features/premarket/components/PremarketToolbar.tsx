@@ -120,7 +120,7 @@ export function PremarketToolbar({
       ) : (
         <p className="text-[10px] text-ocean-sand/70">
           {assessmentMode === "now"
-            ? "Live — Schwab bars including pre/post market (in memory only, never saved to Admin candles)."
+            ? "Live — Schwab premarket bars (in memory only). Before 9:30 ET the assess clock pins to the open so entry-window strategies are scored."
             : "Simulate — stored regular-session candles from Dynamo only, sliced through the selected time (9:30 AM–4:00 PM ET, no refresh)."}
         </p>
       )}

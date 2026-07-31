@@ -63,6 +63,12 @@ export type MarketAlarmWatch = {
   exitedAt?: string | null;
   exitEvidence?: string | null;
   lastBreakoutScore?: number | null;
+  lastContinuationScore?: number | null;
+  lastLifecycle?: string | null;
+  lastBreakoutType?: string | null;
+  lastSetupType?: string | null;
+  /** Breakout watches default to entry_ready (alert only on Entry). */
+  alarmTarget?: "confirmed" | "entry_ready";
   lastDetectedTrend?: AlarmTrend | null;
   /** Per-rule status from last combined check. */
   lastRuleResults?: { ruleKey: string; status: string; met?: boolean; evidence?: string | null }[] | null;

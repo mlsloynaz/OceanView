@@ -28,6 +28,8 @@ export type MarketAlarmCheckRequest = {
   bandTimeframe?: "1m" | "15m" | "1h";
   /** Optional as-of ET datetime (ISO). When set, uses stored candles. */
   simulationTimeEt?: string;
+  /** breakout_quality: confirmed | entry_ready (default entry_ready — alert on Entry only). */
+  alarmTarget?: "confirmed" | "entry_ready";
 };
 
 export type MarketAlarmCheckResponse = {
@@ -58,6 +60,8 @@ export type MarketAlarmCheckResponse = {
   aboveVwap?: boolean;
   breakoutLevel?: number;
   lifecycle?: string;
+  breakoutType?: string;
+  setupType?: string;
   bandWalk1m?: boolean;
   reasons?: string[];
   warnings?: string[];
@@ -156,6 +160,7 @@ export async function postMarketAlarmCheck(
       refreshCandles: body.refreshCandles ?? true,
       ...(body.bandTimeframe ? { bandTimeframe: body.bandTimeframe } : {}),
       ...(body.simulationTimeEt ? { simulationTimeEt: body.simulationTimeEt } : {}),
+      ...(body.alarmTarget ? { alarmTarget: body.alarmTarget } : {}),
     }),
   });
 }

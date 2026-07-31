@@ -271,6 +271,9 @@ export function useMarketAlarms() {
           refreshCandles,
           ...(watch.bandTimeframe ? { bandTimeframe: watch.bandTimeframe } : {}),
           ...(simulationTimeEt ? { simulationTimeEt } : {}),
+          ...(ruleKeys.includes("breakout_quality")
+            ? { alarmTarget: watch.alarmTarget ?? "entry_ready" }
+            : {}),
         });
 
         const candleFailed =
@@ -306,6 +309,22 @@ export function useMarketAlarms() {
             typeof result.breakoutScore === "number"
               ? result.breakoutScore
               : (watch.lastBreakoutScore ?? null),
+          lastContinuationScore:
+            typeof result.continuationScore === "number"
+              ? result.continuationScore
+              : (watch.lastContinuationScore ?? null),
+          lastLifecycle:
+            typeof result.lifecycle === "string"
+              ? result.lifecycle
+              : (watch.lastLifecycle ?? null),
+          lastBreakoutType:
+            typeof result.breakoutType === "string"
+              ? result.breakoutType
+              : (watch.lastBreakoutType ?? null),
+          lastSetupType:
+            typeof result.setupType === "string"
+              ? result.setupType
+              : (watch.lastSetupType ?? null),
           lastDetectedTrend: detectedTrend ?? watch.lastDetectedTrend ?? null,
         };
 
@@ -746,6 +765,9 @@ export function useMarketAlarms() {
           ruleLabel: label,
           trend,
           ...(bandTf ? { bandTimeframe: bandTf } : {}),
+          ...(ruleKeys.includes("breakout_quality")
+            ? { alarmTarget: "entry_ready" as const }
+            : {}),
           frequencyValue,
           frequencyUnit,
           status: "idle",
@@ -756,6 +778,11 @@ export function useMarketAlarms() {
           metAt: null,
           lastDetectedTrend: null,
           lastRuleResults: null,
+          lastLifecycle: null,
+          lastBreakoutScore: null,
+          lastContinuationScore: null,
+          lastBreakoutType: null,
+          lastSetupType: null,
         });
       }
 

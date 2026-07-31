@@ -323,7 +323,10 @@ export function PremarketAlarmPanel({
                     ) : null}
                     <button
                       type="button"
-                      className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
+                      className={cn(
+                        BTN,
+                        "border border-ocean-danger/50 text-ocean-danger hover:bg-ocean-danger/10",
+                      )}
                       onClick={() => onRemove(w.id)}
                     >
                       Remove
