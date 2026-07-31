@@ -1,13 +1,15 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { defaultMarketMode, marketPath } from "@/features/market/lib/market-routes";
+import { todayPath, defaultTodayMode } from "@/features/today/lib/today-routes";
 import { useAuth } from "@/shared/auth/AuthProvider";
 import { ThemeToggle } from "@/shared/components/ThemeToggle";
 import { cn } from "@/shared/lib/cn";
 
-const navItems = [
-  { to: marketPath(defaultMarketMode()), label: "Market", match: "/market" },
-  { to: "/premarket", label: "Premarket", match: "/premarket" },
-  { to: "/admin", label: "Admin", match: "/admin" },
+const primaryNav = [
+  { to: todayPath(defaultTodayMode()), label: "Today", match: "/today", adminOnly: false },
+  { to: "/research", label: "Research", match: "/research", adminOnly: true },
+  { to: "/strategies", label: "Strategies", match: "/strategies", adminOnly: true },
+  { to: "/universe", label: "Universe", match: "/universe", adminOnly: true },
+  { to: "/system", label: "System", match: "/system", adminOnly: true },
 ] as const;
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -24,7 +26,7 @@ export function TopNav() {
   const navigate = useNavigate();
   const { authRequired, username, isAdmin, signOut } = useAuth();
 
-  const visibleNavItems = navItems.filter((item) => item.match !== "/admin" || isAdmin);
+  const visibleNavItems = primaryNav.filter((item) => !item.adminOnly || isAdmin);
 
   function handleSignOut() {
     signOut();
@@ -44,7 +46,7 @@ export function TopNav() {
           <div className="flex items-baseline gap-2">
             <span className="font-display text-lg font-semibold text-ocean-teal">OceanView</span>
             <span className="hidden text-xs uppercase tracking-widest text-ocean-sand/60 sm:inline">
-              trading desk
+              market intelligence
             </span>
           </div>
         </div>
@@ -54,7 +56,14 @@ export function TopNav() {
             <NavLink
               key={item.to}
               to={item.to}
-              className={() => navClass({ isActive: pathname.startsWith(item.match) })}
+              className={() =>
+                navClass({
+                  isActive:
+                    item.match === "/strategies"
+                      ? pathname === "/strategies" || pathname.startsWith("/strategies/")
+                      : pathname.startsWith(item.match),
+                })
+              }
             >
               {item.label}
             </NavLink>

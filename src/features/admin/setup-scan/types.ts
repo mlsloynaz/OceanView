@@ -15,6 +15,8 @@ export type PreselectionCandidateRuleRow = {
   label?: string;
   type?: "required" | "bonus" | string;
   when?: "eod" | "open" | "both" | string;
+  pathGroup?: string | null;
+  pathVariant?: string | null;
   status: string;
   met?: boolean;
   evidence?: string | null;

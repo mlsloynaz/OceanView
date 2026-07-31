@@ -345,7 +345,7 @@ function DetailModal({
             <ul className="space-y-2">
               {ticker.candidateRules.map((row) => (
                 <li
-                  key={row.ruleKey}
+                  key={`${row.pathGroup ?? "default"}:${row.ruleKey}:${row.pathVariant ?? ""}`}
                   className="rounded border border-ocean-mid/40 bg-ocean-deep/40 px-3 py-2 text-xs"
                 >
                   <div className="flex flex-wrap items-center gap-2">
@@ -355,6 +355,10 @@ function DetailModal({
                     <span className="font-mono text-[10px] text-ocean-sand/80">{row.ruleKey}</span>
                     <span className="text-[10px] uppercase text-ocean-sand">
                       {row.type ?? "required"}
+                      {row.pathGroup && row.pathGroup !== "default"
+                        ? ` · ${row.pathGroup}`
+                        : ""}
+                      {row.pathVariant ? ` · ${row.pathVariant}` : ""}
                       {row.when ? ` · ${row.when}` : ""}
                     </span>
                     <span

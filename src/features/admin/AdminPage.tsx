@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { ADMIN_PANE_ORDER, ADMIN_PANES, adminPaneFromHash, type AdminPaneId } from "./admin-panes";
 import { CandlesPane } from "./candles/CandlesPane";
 import { ADMIN_PANE_ICONS, AdminPaneThumbnail } from "./components/AdminPaneThumbnail";
@@ -60,8 +61,11 @@ export function AdminPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold text-ocean-foam sm:text-4xl">Admin</h1>
         <p className="mt-3 max-w-3xl text-base leading-relaxed text-ocean-sand">
-          Configuration for tickers, candles, strategies, Lab studies, and job status. Choose a pane
-          below —{" "}
+          Compatibility hub — primary navigation now uses{" "}
+          <Link to="/today" className="text-ocean-teal hover:underline">
+            Today
+          </Link>
+          , Research, Strategies, Universe, and System. This page still opens every pane. Prefer{" "}
           <button
             type="button"
             className="text-ocean-teal hover:underline"
@@ -69,7 +73,7 @@ export function AdminPage() {
           >
             Tickers SemiFinal
           </button>{" "}
-          (preselection) ranks the full catalog — activate tickers from there before live evaluate.
+          (also under Universe) to rank the catalog before live evaluate.
         </p>
       </div>
 

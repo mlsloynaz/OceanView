@@ -10,7 +10,13 @@ import { MarketRedirect } from "@/features/market/MarketRedirect";
 import { PremarketPage } from "@/features/premarket/PremarketPage";
 import { StrategyBuilderPage } from "@/features/premarket/StrategyBuilderPage";
 import { AdminPage } from "@/features/admin/AdminPage";
-import { defaultMarketMode, marketPath } from "@/features/market/lib/market-routes";
+import { ResearchPage } from "@/features/research/ResearchPage";
+import { StrategiesHubPage } from "@/features/strategies/StrategiesHubPage";
+import { UniversePage } from "@/features/universe/UniversePage";
+import { SystemPage } from "@/features/system/SystemPage";
+import { TodayPage } from "@/features/today/TodayPage";
+import { TodayRedirect } from "@/features/today/TodayRedirect";
+import { todayPath, defaultTodayMode } from "@/features/today/lib/today-routes";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -23,10 +29,25 @@ export const router = createBrowserRouter([
     ),
     errorElement: <RouteErrorFallback />,
     children: [
-      { index: true, element: <Navigate to={marketPath(defaultMarketMode())} replace /> },
-      { path: "market", element: <MarketRedirect /> },
-      { path: "market/:mode", element: <MarketPage /> },
-      { path: "premarket", element: <PremarketPage /> },
+      { index: true, element: <Navigate to={todayPath(defaultTodayMode())} replace /> },
+      { path: "today", element: <TodayRedirect /> },
+      { path: "today/:mode", element: <TodayPage /> },
+      {
+        path: "research",
+        element: (
+          <RequireAdmin>
+            <ResearchPage />
+          </RequireAdmin>
+        ),
+      },
+      {
+        path: "strategies",
+        element: (
+          <RequireAdmin>
+            <StrategiesHubPage />
+          </RequireAdmin>
+        ),
+      },
       {
         path: "strategies/new",
         element: (
@@ -43,6 +64,26 @@ export const router = createBrowserRouter([
           </RequireAdmin>
         ),
       },
+      {
+        path: "universe",
+        element: (
+          <RequireAdmin>
+            <UniversePage />
+          </RequireAdmin>
+        ),
+      },
+      {
+        path: "system",
+        element: (
+          <RequireAdmin>
+            <SystemPage />
+          </RequireAdmin>
+        ),
+      },
+      // Compatibility routes — preserved; primary nav no longer highlights these
+      { path: "market", element: <MarketRedirect /> },
+      { path: "market/:mode", element: <MarketPage /> },
+      { path: "premarket", element: <PremarketPage /> },
       { path: "admin", element: <RequireAdmin><AdminPage /></RequireAdmin> },
       { path: "*", element: <RouteNotFound /> },
     ],
