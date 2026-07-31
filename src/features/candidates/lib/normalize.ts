@@ -93,35 +93,69 @@ function isExtraRule(type: string | null | undefined): boolean {
 }
 
 /**
- * Derive readiness from rule results + quality.
- * Does not invent Watching without an active watch session — adapters may override.
+ * Derive readiness from rule results + quality + optional preselection Near gate.
+ *
+ * When the backend evaluated catalog `preselection.candidateRules`:
+ * - `preselectionNear === true` → Near (unless already confirmed by quality/rules)
+ * - `preselectionNear === false` → never Near from partial playbook rules
+ *
+ * Explicit `readiness` from the API wins when present.
  */
 export function readinessFromRules(
   rules: RuleLike[] | null | undefined,
   qualityPct: number,
+  opts?: {
+    readiness?: string | null;
+    preselectionNear?: boolean | null;
+    preselectionNearApplicable?: boolean | null;
+  },
 ): CandidateReadiness {
-  const list = Array.isArray(rules) ? rules : [];
-  if (list.length === 0) {
-    if (qualityPct >= 100) return "confirmed";
-    if (qualityPct >= 60) return "near";
-    return "preparing";
+  const explicit = String(opts?.readiness ?? "")
+    .trim()
+    .toLowerCase();
+  if (
+    explicit === "confirmed" ||
+    explicit === "near" ||
+    explicit === "preparing" ||
+    explicit === "watching" ||
+    explicit === "triggered" ||
+    explicit === "invalidated"
+  ) {
+    return explicit as CandidateReadiness;
   }
 
+  const list = Array.isArray(rules) ? rules : [];
   const core = list.filter((r) => !isExtraRule(r.type));
   const focus = core.length > 0 ? core : list;
   let met = 0;
-  let near = 0;
   let failed = 0;
   for (const rule of focus) {
     const s = normalizeRuleStatus(rule.status);
     if (s === "met") met += 1;
-    else if (s === "partial" || s === "about_to_cross") near += 1;
     else if (s === "not_met") failed += 1;
   }
 
-  if (met === focus.length && focus.length > 0) return "confirmed";
-  if (qualityPct >= 100 && near === 0 && failed === 0) return "confirmed";
-  if (met > 0 || near > 0) return "near";
+  const allMet = focus.length > 0 && met === focus.length;
+  if (allMet) return "confirmed";
+  if (qualityPct >= 100 && failed === 0 && (focus.length === 0 || met === focus.length)) {
+    return "confirmed";
+  }
+  if (list.length === 0 && qualityPct >= 100) return "confirmed";
+
+  const gateApplicable =
+    opts?.preselectionNearApplicable === true ||
+    opts?.preselectionNear === true ||
+    opts?.preselectionNear === false;
+
+  if (gateApplicable) {
+    if (opts?.preselectionNear === true) return "near";
+    return "preparing";
+  }
+
+  // No preselection gate on this strategy: do not invent Near from partial rules.
+  if (list.length === 0) {
+    return "preparing";
+  }
   if (failed === focus.length && qualityPct < 40) return "preparing";
   return "preparing";
 }

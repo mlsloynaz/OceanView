@@ -21,7 +21,11 @@ import {
   type AlarmTrend,
   type MarketAlarmWatch,
 } from "./alarm-types";
-import { playAlarmBell } from "./play-alarm-bell";
+import {
+  startAlarmRing,
+  stopAlarmRing,
+  unlockAlarmAudio,
+} from "./play-alarm-bell";
 
 const STORAGE_KEY = "oceanview.market.alarms";
 const SIM_STORAGE_KEY = "oceanview.market.alarms.simulate";
@@ -343,7 +347,7 @@ export function useMarketAlarms() {
             `${result.symbol} · ${watch.ruleLabel} (${sideLabel}) EXIT — setup gone.${simSuffix}`,
           );
           setAlarmPopup({ kind: "exit", watch: exitWatch });
-          playAlarmBell();
+          startAlarmRing();
           try {
             if (typeof Notification !== "undefined" && Notification.permission === "granted") {
               new Notification(`Exit: ${watch.symbol}`, {
@@ -392,7 +396,8 @@ export function useMarketAlarms() {
             `${result.symbol} · ${watch.ruleLabel} (${sideLabel}) ENTER — rule met.${simSuffix}`,
           );
           setAlarmPopup({ kind: "enter", watch: metWatch });
-          playAlarmBell();
+          // Entry alarm: ring until confirm / dismiss / clear.
+          startAlarmRing();
           try {
             if (typeof Notification !== "undefined" && Notification.permission === "granted") {
               new Notification(`Enter: ${watch.symbol}`, {
@@ -474,6 +479,7 @@ export function useMarketAlarms() {
   /** Enqueue a check; at most MAX_PARALLEL_CHECKS run at once across all watches. */
   const runCheck = useCallback(
     (id: string) => {
+      unlockAlarmAudio();
       const watch = watchesRef.current.find((w) => w.id === id);
       if (!watch || watch.status === "met" || watch.status === "exit") return;
       if (inFlightRef.current.has(id) || queuedIdsRef.current.has(id)) return;
@@ -495,6 +501,7 @@ export function useMarketAlarms() {
       const mode =
         opts?.mode ?? (watch.status === "in_trade" ? "in_trade" : "hunt");
 
+      unlockAlarmAudio();
       clearTimer(id);
       setFormError(null);
       setWatches((prev) =>
@@ -572,18 +579,29 @@ export function useMarketAlarms() {
   const removeWatch = useCallback(
     (id: string) => {
       clearTimer(id);
+      setAlarmPopup((popup) => {
+        if (popup?.watch.id === id) {
+          stopAlarmRing();
+          return null;
+        }
+        return popup;
+      });
       setWatches((prev) => prev.filter((w) => w.id !== id));
     },
     [clearTimer],
   );
 
   const clearMetBanner = useCallback(() => setBanner(null), []);
-  const clearAlarmPopup = useCallback(() => setAlarmPopup(null), []);
+  const clearAlarmPopup = useCallback(() => {
+    stopAlarmRing();
+    setAlarmPopup(null);
+  }, []);
 
   /** User confirmed enter — keep polling until setup drops (exit). */
   const confirmEnter = useCallback(
     (id: string) => {
       const now = new Date().toISOString();
+      stopAlarmRing();
       setAlarmPopup(null);
       setBanner(null);
       setWatches((prev) =>
@@ -608,6 +626,7 @@ export function useMarketAlarms() {
   /** User confirmed exit — reset and arm for a new enter alarm. */
   const confirmExit = useCallback(
     (id: string) => {
+      stopAlarmRing();
       setAlarmPopup(null);
       setBanner(null);
       setWatches((prev) =>
@@ -634,7 +653,13 @@ export function useMarketAlarms() {
   const clearMetStatus = useCallback(
     (id: string, opts?: { restart?: boolean }) => {
       clearTimer(id);
-      setAlarmPopup((popup) => (popup?.watch.id === id ? null : popup));
+      setAlarmPopup((popup) => {
+        if (popup?.watch.id === id) {
+          stopAlarmRing();
+          return null;
+        }
+        return popup;
+      });
       setWatches((prev) =>
         prev.map((w) =>
           w.id === id &&
@@ -664,6 +689,7 @@ export function useMarketAlarms() {
       .filter((w) => w.status === "met" || w.status === "exit" || w.status === "in_trade")
       .map((w) => w.id);
     for (const id of ids) clearTimer(id);
+    stopAlarmRing();
     setAlarmPopup(null);
     setBanner(null);
     setWatches((prev) =>
@@ -831,6 +857,7 @@ export function useMarketAlarms() {
   }, [stopWatch]);
 
   const requestNotifyPermission = useCallback(async () => {
+    unlockAlarmAudio();
     if (typeof Notification === "undefined") return;
     if (Notification.permission === "granted" || Notification.permission === "denied") return;
     try {
@@ -838,6 +865,12 @@ export function useMarketAlarms() {
     } catch {
       /* ignore */
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopAlarmRing();
+    };
   }, []);
 
   const metCount = watches.filter(

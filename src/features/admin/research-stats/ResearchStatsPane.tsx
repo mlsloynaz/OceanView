@@ -62,9 +62,11 @@ function CommonalityBlock({ block }: { block: DirectionRuleCommonality }) {
 
 type Props = {
   onBack?: () => void;
+  /** Button label when `onBack` is set (default: Lab). */
+  backLabel?: string;
 };
 
-export function ResearchStatsPane({ onBack }: Props) {
+export function ResearchStatsPane({ onBack, backLabel = "Lab" }: Props) {
   const ws = useResearchStatsPane();
 
   return (
@@ -78,7 +80,7 @@ export function ResearchStatsPane({ onBack }: Props) {
               onClick={onBack}
               className="rounded border border-ocean-mid/50 px-2 py-0.5 text-xs font-medium text-ocean-sand hover:border-ocean-teal/50 hover:text-ocean-foam"
             >
-              ← Lab
+              ← {backLabel}
             </button>
             <span>Research-Stats</span>
           </span>

@@ -47,7 +47,11 @@ function adaptEval(args: {
   const { evalRow } = args;
   const qualityPct = Number(evalRow.qualityPct) || 0;
   const rules = evalRow.rules ?? [];
-  const readiness = readinessFromRules(rules, qualityPct);
+  const readiness = readinessFromRules(rules, qualityPct, {
+    readiness: evalRow.readiness,
+    preselectionNear: evalRow.preselectionNear,
+    preselectionNearApplicable: evalRow.preselectionNearApplicable,
+  });
   const direction = asDirection(evalRow.direction ?? null);
   const tradability = tradabilityFromTier(args.tradabilityTier);
   const move = movementFields(null);
@@ -114,7 +118,11 @@ export function adaptMarketTickerCard(
   const updatedAt = options.updatedAt ?? new Date().toISOString();
   const qualityPct = best?.qualityPct ?? evalRow?.qualityPct ?? 0;
   const rules = evalRow?.rules ?? [];
-  const readiness = readinessFromRules(rules, qualityPct);
+  const readiness = readinessFromRules(rules, qualityPct, {
+    readiness: evalRow?.readiness,
+    preselectionNear: evalRow?.preselectionNear,
+    preselectionNearApplicable: evalRow?.preselectionNearApplicable,
+  });
   const direction = asDirection(best?.direction ?? evalRow?.direction ?? null);
   const profile = card.movementProfile ?? null;
   const move = movementFields(profile);

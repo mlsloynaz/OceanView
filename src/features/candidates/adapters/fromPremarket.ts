@@ -63,7 +63,11 @@ export function adaptPremarketBestHit(
 
   const rules = bestTicker?.rules ?? [];
   const qualityPct = Number(hit.qualityPct) || Number(bestTicker?.qualityPct) || 0;
-  const readiness = readinessFromRules(rules, qualityPct);
+  const readiness = readinessFromRules(rules, qualityPct, {
+    readiness: bestTicker?.readiness,
+    preselectionNear: bestTicker?.preselectionNear,
+    preselectionNearApplicable: bestTicker?.preselectionNearApplicable,
+  });
   const direction = asDirection(hit.direction ?? bestTicker?.direction ?? null);
   const profile = hit.movementProfile ?? bestTicker?.movementProfile ?? null;
   const move = movementFields(profile);
@@ -138,7 +142,11 @@ export function adaptPremarketTickerHit(
   const updatedAt = options.updatedAt ?? new Date().toISOString();
   const qualityPct = Number(hit.qualityPct) || 0;
   const rules = hit.rules ?? [];
-  const readiness = readinessFromRules(rules, qualityPct);
+  const readiness = readinessFromRules(rules, qualityPct, {
+    readiness: hit.readiness,
+    preselectionNear: hit.preselectionNear,
+    preselectionNearApplicable: hit.preselectionNearApplicable,
+  });
   const direction = asDirection(hit.direction ?? null);
   const profile = hit.movementProfile ?? null;
   const move = movementFields(profile);

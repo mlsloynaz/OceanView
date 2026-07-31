@@ -97,6 +97,11 @@ export type TickerStrategyEval = StrategyAssessExtras & {
   /** When signal threshold was reached (ET), if applicable. */
   achievedAtEt?: string | null;
   rules: RuleEval[];
+  /** Backend readiness: confirmed | near | preparing — Near uses preselection gate. */
+  readiness?: string | null;
+  /** True when bias rules met + MA20/BB-mid forming (E01 Near). */
+  preselectionNear?: boolean | null;
+  preselectionNearApplicable?: boolean | null;
 };
 
 export type TickerEvalResult = {

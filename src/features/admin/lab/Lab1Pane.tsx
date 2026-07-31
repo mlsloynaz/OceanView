@@ -61,9 +61,13 @@ function Gate({ ok, label }: { ok: boolean | null | undefined; label: string }) 
   );
 }
 
-type Props = { onBack: () => void };
+type Props = {
+  onBack: () => void;
+  /** Button label for `onBack` (default: Lab). */
+  backLabel?: string;
+};
 
-export function Lab1Pane({ onBack }: Props) {
+export function Lab1Pane({ onBack, backLabel = "Lab" }: Props) {
   const { state, loading, error, running, start, stop } = useLab1Monitor(true);
   const results: Lab1TickerResult[] = state?.results?.length
     ? state.results
@@ -81,7 +85,7 @@ export function Lab1Pane({ onBack }: Props) {
             onClick={onBack}
             className="rounded border border-ocean-mid/50 px-2 py-0.5 text-xs font-medium text-ocean-sand hover:border-ocean-teal/50 hover:text-ocean-foam"
           >
-            ← Lab
+            ← {backLabel}
           </button>
           <span>Lab1 · ETF Bollinger</span>
         </span>

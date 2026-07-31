@@ -115,8 +115,9 @@ export function BreakoutKanbanBoard({
         <div>
           <p className="text-xs font-semibold text-ocean-foam">Breakout board</p>
           <p className="text-[11px] text-ocean-sand">
-            One card per watch · stage from last check · bell only when a card reaches{" "}
-            <span className="font-medium text-ocean-foam">Entry</span>
+            One card per watch · stage from last check · bell rings when a card reaches{" "}
+            <span className="font-medium text-ocean-foam">Entry</span> (until you confirm or
+            dismiss)
           </p>
         </div>
         <p className="text-[11px] tabular-nums text-ocean-sand">

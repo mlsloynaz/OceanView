@@ -25,7 +25,7 @@ describe("readinessFromRules", () => {
     ).toBe("confirmed");
   });
 
-  it("maps partial rules to near", () => {
+  it("uses preselectionNear gate instead of partial playbook rules", () => {
     expect(
       readinessFromRules(
         [
@@ -33,13 +33,29 @@ describe("readinessFromRules", () => {
           { label: "B", status: "partial", type: "required" },
         ],
         75,
+        { preselectionNear: false, preselectionNearApplicable: true },
+      ),
+    ).toBe("preparing");
+    expect(
+      readinessFromRules(
+        [
+          { label: "A", status: "not_met", type: "required" },
+          { label: "B", status: "not_met", type: "required" },
+        ],
+        6,
+        { preselectionNear: true, preselectionNearApplicable: true },
       ),
     ).toBe("near");
   });
 
-  it("handles empty rules via quality bands", () => {
+  it("honors explicit readiness from API", () => {
+    expect(readinessFromRules([], 6, { readiness: "near" })).toBe("near");
+    expect(readinessFromRules([], 100, { readiness: "preparing" })).toBe("preparing");
+  });
+
+  it("does not invent Near from quality bands when gate absent", () => {
     expect(readinessFromRules([], 100)).toBe("confirmed");
-    expect(readinessFromRules([], 70)).toBe("near");
+    expect(readinessFromRules([], 70)).toBe("preparing");
     expect(readinessFromRules([], 20)).toBe("preparing");
   });
 });
@@ -101,6 +117,9 @@ describe("adaptMarketTickerCard", () => {
         totalRequired: 3,
         direction: "CALL",
         directionConfidence: "medium",
+        preselectionNear: true,
+        preselectionNearApplicable: true,
+        readiness: "near",
         rules: [
           { ruleKey: "bb_expand_15m", status: "met", evidence: "BB width expanding" },
           { ruleKey: "rvol_15m", status: "partial" },
@@ -210,6 +229,6 @@ describe("adaptPremarketBestHit", () => {
     });
     expect(row.exhaustionRisk).toBe(true);
     expect(row.conflictReasons.some((r) => /Exhaustion|Resistance|RVOL/i.test(r))).toBe(true);
-    expect(row.readiness).toBe("near");
+    expect(row.readiness).toBe("preparing");
   });
 });

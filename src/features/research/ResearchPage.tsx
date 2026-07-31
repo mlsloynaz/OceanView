@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
-import { LabPane } from "@/features/admin/lab/LabPane";
+import { ResearchHub } from "./ResearchHub";
 
 /**
- * Research hub — historical evidence and lab studies.
- * Reuses Admin Lab (Research-Stats + Lab1). Compatibility: /admin#admin-lab-pane
+ * Research hub — outcomes learning + historical lab studies.
+ * Compatibility: /admin#admin-lab-pane still hosts Admin Lab.
  */
 export function ResearchPage() {
   return (
@@ -21,7 +21,7 @@ export function ResearchPage() {
           .
         </p>
       </div>
-      <LabPane />
+      <ResearchHub />
     </div>
   );
 }

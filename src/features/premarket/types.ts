@@ -20,6 +20,9 @@ export type PremarketTickerHit = StrategyAssessExtras & {
   achievedAtEt?: string;
   rules?: PremarketRuleRow[];
   movementProfile?: MovementProfile | null;
+  readiness?: string | null;
+  preselectionNear?: boolean | null;
+  preselectionNearApplicable?: boolean | null;
 };
 
 export type PremarketStrategyGroup = {
