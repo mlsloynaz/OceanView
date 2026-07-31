@@ -1,7 +1,18 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import type { CandidateViewModel } from "@/features/candidates";
+import {
+  adaptMarketTickerCards,
+  adaptPremarketBestHits,
+  sortCandidatesByRank,
+} from "@/features/candidates";
 import { useMarketAlarms } from "@/features/market/alarm/useMarketAlarms";
 import { useMarketWorkspace } from "@/features/market/hooks/useMarketWorkspace";
+import {
+  filterStrategyGroupsByThreshold,
+  resolvePremarketBestHits,
+} from "@/features/premarket/display";
+import { usePremarketWorkspace } from "@/features/premarket/hooks/usePremarketWorkspace";
 import { ActiveWatchesSection } from "./components/ActiveWatchesSection";
 import { CandidateDetailSection } from "./components/CandidateDetailSection";
 import { MarketContextStrip } from "./components/MarketContextStrip";
@@ -20,6 +31,8 @@ export function TodayPage() {
   const navigate = useNavigate();
   const alarms = useMarketAlarms();
   const liveWorkspace = useMarketWorkspace("tickers");
+  const premarketWorkspace = usePremarketWorkspace();
+  const [selected, setSelected] = useState<CandidateViewModel | null>(null);
 
   useEffect(() => {
     if (!isTodayMode(modeParam)) {
@@ -29,12 +42,52 @@ export function TodayPage() {
 
   const mode: TodayMode = isTodayMode(modeParam) ? modeParam : defaultTodayMode();
 
+  useEffect(() => {
+    setSelected(null);
+  }, [mode]);
+
   const setMode = (next: TodayMode) => {
     navigate(todayPath(next));
   };
 
+  const liveCandidates = useMemo(() => {
+    if (mode !== "live") return [];
+    return sortCandidatesByRank(
+      adaptMarketTickerCards(liveWorkspace.filteredTickerCards, {
+        updatedAt: liveWorkspace.assessmentAt?.toISOString?.() ?? new Date().toISOString(),
+      }),
+    );
+  }, [mode, liveWorkspace.filteredTickerCards, liveWorkspace.assessmentAt]);
+
+  const prepCandidates = useMemo(() => {
+    if (mode !== "preparation") return [];
+    const raw = premarketWorkspace.result?.strategies ?? [];
+    const threshold = premarketWorkspace.thresholdInput;
+    const hits = resolvePremarketBestHits(
+      filterStrategyGroupsByThreshold(raw, threshold),
+      premarketWorkspace.result?.bestResults,
+      10,
+      threshold,
+    );
+    return sortCandidatesByRank(
+      adaptPremarketBestHits(hits, {
+        updatedAt: premarketWorkspace.result?.evaluatedAt ?? new Date().toISOString(),
+      }),
+    );
+  }, [
+    mode,
+    premarketWorkspace.result?.strategies,
+    premarketWorkspace.result?.bestResults,
+    premarketWorkspace.result?.evaluatedAt,
+    premarketWorkspace.thresholdInput,
+  ]);
+
   const candidateCount =
-    mode === "live" ? liveWorkspace.filteredTickerCards.length : mode === "preparation" ? 0 : 0;
+    mode === "live" ? liveCandidates.length : mode === "preparation" ? prepCandidates.length : 0;
+
+  const handleSelect = (candidate: CandidateViewModel | null) => {
+    setSelected(candidate);
+  };
 
   return (
     <div className="w-full space-y-4">
@@ -43,18 +96,34 @@ export function TodayPage() {
         activeWatchCount={alarms.runningCount}
         candidateCount={candidateCount}
         onRefresh={
-          mode === "live" ? () => void liveWorkspace.refreshResult() : undefined
+          mode === "live"
+            ? () => void liveWorkspace.refreshResult()
+            : mode === "preparation"
+              ? () => void premarketWorkspace.refreshResult()
+              : undefined
         }
-        refreshPending={mode === "live" ? liveWorkspace.refreshPending : false}
+        refreshPending={
+          mode === "live"
+            ? liveWorkspace.refreshPending
+            : mode === "preparation"
+              ? premarketWorkspace.loading
+              : false
+        }
       />
 
       <TodayModeTabs mode={mode} onChange={setMode} />
 
       <MarketContextStrip />
 
-      <TopCandidatesSection mode={mode} liveWorkspace={liveWorkspace} />
+      <TopCandidatesSection
+        mode={mode}
+        liveWorkspace={liveWorkspace}
+        premarketWorkspace={premarketWorkspace}
+        selectedId={selected?.id ?? null}
+        onSelect={handleSelect}
+      />
 
-      <CandidateDetailSection selectedSymbol={liveWorkspace.selectedTicker} />
+      <CandidateDetailSection candidate={selected} />
 
       <ActiveWatchesSection alarms={alarms} />
     </div>

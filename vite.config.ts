@@ -63,6 +63,10 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(rootDir, "./src"),
       },
     },
+    test: {
+      environment: "node",
+      include: ["src/**/*.test.ts"],
+    },
     server: {
       proxy: {
         "/api": {
