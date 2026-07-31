@@ -41,10 +41,13 @@ function groupWatchesBySymbol(
     .map(([symbol, rows]) => ({ symbol, watches: rows }));
 }
 
-function groupStatusTone(rows: MarketAlarmWatch[]): "met" | "exit" | "in_trade" | "active" | "idle" {
+function groupStatusTone(
+  rows: MarketAlarmWatch[],
+): "met" | "exit" | "in_trade" | "paused" | "active" | "idle" {
   if (rows.some((w) => w.status === "met")) return "met";
   if (rows.some((w) => w.status === "exit")) return "exit";
   if (rows.some((w) => w.status === "in_trade")) return "in_trade";
+  if (rows.some((w) => w.status === "paused")) return "paused";
   if (rows.some((w) => w.status === "running" || w.status === "checking")) return "active";
   return "idle";
 }
@@ -94,6 +97,8 @@ function statusLabel(status: MarketAlarmWatch["status"]): string {
       return "Polling for enter";
     case "checking":
       return "Checking…";
+    case "paused":
+      return "Paused — wait for market hours";
     case "met":
       return "ENTER — confirm";
     case "in_trade":
@@ -587,6 +592,7 @@ export function MarketAlarmPanel({
                   (w) =>
                     w.status === "running" ||
                     w.status === "checking" ||
+                    w.status === "paused" ||
                     w.status === "in_trade",
                 ).length;
                 return (
@@ -600,7 +606,9 @@ export function MarketAlarmPanel({
                           ? "border-amber-500/40 bg-amber-500/5"
                           : tone === "in_trade"
                             ? "border-sky-500/35 bg-sky-500/5"
-                            : "border-ocean-mid/35 bg-ocean-deep/15",
+                            : tone === "paused"
+                              ? "border-ocean-sand/40 bg-ocean-sand/5"
+                              : "border-ocean-mid/35 bg-ocean-deep/15",
                     )}
                     aria-labelledby={`alarm-ticker-${group.symbol}`}
                   >
@@ -629,6 +637,7 @@ export function MarketAlarmPanel({
                         const polling =
                           w.status === "running" ||
                           w.status === "checking" ||
+                          w.status === "paused" ||
                           w.status === "in_trade";
                         const awaitingUser = w.status === "met" || w.status === "exit";
                         return (
@@ -642,7 +651,9 @@ export function MarketAlarmPanel({
                                   ? "border-amber-500/50 bg-amber-500/10"
                                   : w.status === "in_trade"
                                     ? "border-sky-500/40 bg-sky-500/10"
-                                    : "border-ocean-mid/30 bg-ocean-surface/40",
+                                    : w.status === "paused"
+                                      ? "border-ocean-sand/40 bg-ocean-sand/10"
+                                      : "border-ocean-mid/30 bg-ocean-surface/40",
                             )}
                           >
                             <div className="flex flex-wrap items-start justify-between gap-2">

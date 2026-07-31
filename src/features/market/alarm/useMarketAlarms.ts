@@ -66,7 +66,10 @@ function migrateWatch(row: MarketAlarmWatch): MarketAlarmWatch {
   const ruleKeys = normalizeRuleKeys(fromList);
   const ruleKey = ruleKeys[0] ?? mapRuleKey(row.ruleKey);
   const status: MarketAlarmWatch["status"] =
-    row.status === "running" || row.status === "checking" || row.status === "in_trade"
+    row.status === "running" ||
+    row.status === "checking" ||
+    row.status === "paused" ||
+    row.status === "in_trade"
       ? "stopped"
       : row.status;
   return {
@@ -200,6 +203,7 @@ export function useMarketAlarms() {
         w.symbol === upper &&
         (w.status === "running" ||
           w.status === "checking" ||
+          w.status === "paused" ||
           w.status === "in_trade" ||
           timersRef.current.has(w.id)),
     );
@@ -283,8 +287,33 @@ export function useMarketAlarms() {
         const candleFailed =
           result.candle?.status === "failed" ||
           (result.candle as { outcome?: string } | null | undefined)?.outcome === "failed";
-        if (!simulating && refreshCandles && !candleFailed) {
+        if (!simulating && refreshCandles && !candleFailed && !result.paused) {
           markCandleRefreshed(watch.symbol);
+        }
+
+        // Outside market hours — keep timer; resume automatically at next open.
+        if (result.paused) {
+          const waitMsg =
+            result.message ||
+            result.evidence ||
+            "I am sorry wait for Market hours";
+          setWatches((prev) =>
+            prev.map((w) =>
+              w.id === id
+                ? {
+                    ...w,
+                    status: priorStatus === "in_trade" ? "in_trade" : "paused",
+                    lastRuleStatus: "paused",
+                    lastEvidence: waitMsg,
+                    lastCheckedAt: result.checkedAt,
+                    lastError: null,
+                    lastRuleResults: result.ruleResults ?? null,
+                  }
+                : w,
+            ),
+          );
+          setBanner(waitMsg);
+          return;
         }
 
         const detectedRaw = result.detectedTrend || result.suggestedTrend || null;
@@ -545,8 +574,10 @@ export function useMarketAlarms() {
       clearTimer(id);
       setWatches((prev) =>
         prev.map((w) =>
-          w.id === id && w.status !== "met" && w.status !== "exit"
-            ? { ...w, status: w.status === "in_trade" ? "stopped" : "stopped" }
+          w.id === id &&
+          w.status !== "met" &&
+          w.status !== "exit"
+            ? { ...w, status: "stopped" }
             : w,
         ),
       );
@@ -566,7 +597,7 @@ export function useMarketAlarms() {
         ),
       );
       const watch = watchesRef.current.find((w) => w.id === id);
-      if (watch && (watch.status === "running" || watch.status === "checking" || watch.status === "in_trade")) {
+      if (watch && (watch.status === "running" || watch.status === "checking" || watch.status === "paused" || watch.status === "in_trade")) {
         clearTimer(id);
         const ms = pollIntervalToMs(nextValue, nextUnit);
         const timer = window.setInterval(() => void runCheck(id), ms);
@@ -850,7 +881,11 @@ export function useMarketAlarms() {
   const stopAllRunning = useCallback(() => {
     const ids = watchesRef.current
       .filter(
-        (w) => w.status === "running" || w.status === "checking" || w.status === "in_trade",
+        (w) =>
+          w.status === "running" ||
+          w.status === "checking" ||
+          w.status === "paused" ||
+          w.status === "in_trade",
       )
       .map((w) => w.id);
     for (const id of ids) stopWatch(id);
@@ -877,7 +912,11 @@ export function useMarketAlarms() {
     (w) => w.status === "met" || w.status === "exit" || w.status === "in_trade",
   ).length;
   const runningCount = watches.filter(
-    (w) => w.status === "running" || w.status === "checking" || w.status === "in_trade",
+    (w) =>
+      w.status === "running" ||
+      w.status === "checking" ||
+      w.status === "paused" ||
+      w.status === "in_trade",
   ).length;
 
   return {

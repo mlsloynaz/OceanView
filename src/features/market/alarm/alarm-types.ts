@@ -32,6 +32,7 @@ export type AlarmWatchStatus =
   | "idle"
   | "running"
   | "checking"
+  | "paused"
   | "met"
   | "in_trade"
   | "exit"

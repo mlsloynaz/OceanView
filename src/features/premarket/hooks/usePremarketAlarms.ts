@@ -143,6 +143,25 @@ export function usePremarketAlarms({ strategies, thresholdPct }: Args) {
           signalThresholdPct: watch.thresholdPct,
         });
 
+        if (result.paused) {
+          const waitMsg = result.message || "I am sorry wait for Market hours";
+          setWatches((prev) =>
+            prev.map((w) =>
+              w.id === id
+                ? {
+                    ...w,
+                    status: "running",
+                    lastQualityPct: result.qualityPct,
+                    lastCheckedAt: result.checkedAt,
+                    lastError: waitMsg,
+                  }
+                : w,
+            ),
+          );
+          setBanner(waitMsg);
+          return;
+        }
+
         if (result.met) {
           clearTimer(id);
           const metWatch: PremarketAlarmWatch = {

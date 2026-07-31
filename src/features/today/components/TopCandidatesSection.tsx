@@ -139,6 +139,12 @@ function LiveCandidates({
         </p>
       ) : null}
 
+      {ws.envelope?.paused || ws.envelope?.marketOpen === false ? (
+        <p className="mb-3 rounded-lg border border-ocean-sand/40 bg-ocean-sand/10 px-3 py-2 text-sm text-ocean-foam">
+          {ws.envelope.message || "I am sorry wait for Market hours"}
+        </p>
+      ) : null}
+
       {ws.needsAssess ? (
         <p className="mb-3 rounded-lg border border-ocean-mid/40 bg-ocean-deep/30 px-3 py-2 text-sm text-ocean-sand">
           No assessment run yet. Use <strong className="text-ocean-foam">Assess</strong> above to

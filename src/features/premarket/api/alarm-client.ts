@@ -33,6 +33,10 @@ export type PremarketAlarmCheckResponse = {
   direction?: string | null;
   error?: string | null;
   candle?: { symbol?: string; status?: string; error?: string } | null;
+  paused?: boolean;
+  marketOpen?: boolean | null;
+  message?: string | null;
+  nextOpenEt?: string | null;
 };
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {

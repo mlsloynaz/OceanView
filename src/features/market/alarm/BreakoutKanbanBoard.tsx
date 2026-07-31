@@ -169,6 +169,7 @@ export function BreakoutKanbanBoard({
                     const polling =
                       w.status === "running" ||
                       w.status === "checking" ||
+                      w.status === "paused" ||
                       w.status === "in_trade";
                     const awaitingUser = w.status === "met" || w.status === "exit";
                     const side =

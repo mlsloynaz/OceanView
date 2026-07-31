@@ -201,6 +201,11 @@ export type MarketEnvelope = {
   status: MarketEnvelopeStatus;
   candleCoverage: CandleCoverage;
   summary: MarketEnvelopeSummary;
+  /** Regular session open (9:30–close ET). */
+  marketOpen?: boolean;
+  paused?: boolean;
+  message?: string | null;
+  nextOpenEt?: string | null;
 };
 
 export type StrategySnapshotItem = {

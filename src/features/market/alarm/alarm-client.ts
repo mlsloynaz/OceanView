@@ -50,6 +50,11 @@ export type MarketAlarmCheckResponse = {
   simulated?: boolean;
   error?: string | null;
   candle?: { symbol?: string; status?: string; error?: string } | null;
+  /** Outside RTH — keep polling; resume automatically at next open. */
+  paused?: boolean;
+  marketOpen?: boolean | null;
+  message?: string | null;
+  nextOpenEt?: string | null;
   breakoutScore?: number;
   continuationScore?: number;
   rankingScore?: number;

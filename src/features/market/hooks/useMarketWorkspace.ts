@@ -566,7 +566,11 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
         if (err instanceof MarketApiError) {
           const fallback = err.code ? MARKET_ERROR_MESSAGES[err.code] : undefined;
           const message = err.message || fallback || "Assessment failed.";
-          if (err.code === "MARKET_EVAL_OUT_OF_COVERAGE" || err.code === "MARKET_NO_CANDLES") {
+          if (
+            err.code === "MARKET_EVAL_OUT_OF_COVERAGE" ||
+            err.code === "MARKET_NO_CANDLES" ||
+            err.code === "MARKET_HOURS_CLOSED"
+          ) {
             setAssessmentError(null);
             setAssessNotice(message);
           } else if (err.code === "MARKET_EVAL_CONFLICT") {

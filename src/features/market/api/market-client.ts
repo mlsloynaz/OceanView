@@ -32,6 +32,7 @@ export const MARKET_ERROR_MESSAGES: Record<string, string> = {
   MARKET_EVAL_CONFLICT: "Another assessment is already running.",
   MARKET_NO_CANDLES: "No candle data — refresh candles in Admin.",
   MARKET_INVALID_SYMBOL: "Invalid symbol or empty ticker catalog.",
+  MARKET_HOURS_CLOSED: "I am sorry wait for Market hours",
 };
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
