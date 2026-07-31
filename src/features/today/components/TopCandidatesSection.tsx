@@ -4,6 +4,7 @@ import {
   adaptMarketTickerCards,
   adaptPremarketBestHits,
   sortCandidatesByRank,
+  useTradabilityTiers,
   type CandidateViewModel,
 } from "@/features/candidates";
 import { CandidateDetailDrawer } from "@/features/candidates/components/CandidateDetailDrawer";
@@ -24,30 +25,71 @@ import { TodaySection } from "./TodaySection";
 
 type LiveWorkspace = ReturnType<typeof useMarketWorkspace>;
 type PremarketWorkspace = ReturnType<typeof usePremarketWorkspace>;
+type TradabilityTiers = ReturnType<typeof useTradabilityTiers>;
 
 type Props = {
   mode: TodayMode;
   liveWorkspace: LiveWorkspace;
   premarketWorkspace: PremarketWorkspace;
+  tradability: TradabilityTiers;
   selectedId: string | null;
   onSelect: (candidate: CandidateViewModel | null) => void;
 };
 
+function TradabilityHint({ tradability }: { tradability: TradabilityTiers }) {
+  if (tradability.loading) {
+    return <p className="mb-3 text-xs text-ocean-sand">Loading option tradability…</p>;
+  }
+  if (tradability.error) {
+    return (
+      <p className="mb-3 rounded-lg border border-ocean-danger-border bg-ocean-danger-muted px-3 py-2 text-sm text-ocean-danger">
+        Tradability unavailable: {tradability.error}
+      </p>
+    );
+  }
+  if (tradability.empty) {
+    return (
+      <p className="mb-3 rounded-lg border border-ocean-mid/40 bg-ocean-deep/30 px-3 py-2 text-sm text-ocean-sand">
+        Option tradability is <strong className="text-ocean-foam">Unknown</strong> until samples
+        exist. Run{" "}
+        <Link to="/universe#tradable" className="font-semibold text-ocean-teal hover:underline">
+          Universe → Tradable → Collect
+        </Link>{" "}
+        (≥8 samples per symbol).
+      </p>
+    );
+  }
+  if (tradability.readyCount > 0) {
+    return (
+      <p className="mb-3 text-xs text-ocean-sand">
+        Tradability: {tradability.readyCount}/{tradability.sourceCount || "?"} symbols ready
+        {Object.keys(tradability.bySymbol).length
+          ? ` · ${Object.keys(tradability.bySymbol).length} scored`
+          : ""}
+      </p>
+    );
+  }
+  return null;
+}
+
 function LiveCandidates({
   ws,
+  tradability,
   selectedId,
   onSelect,
 }: {
   ws: LiveWorkspace;
+  tradability: TradabilityTiers;
   selectedId: string | null;
   onSelect: (c: CandidateViewModel | null) => void;
 }) {
   const candidates = useMemo(() => {
     const adapted = adaptMarketTickerCards(ws.filteredTickerCards, {
       updatedAt: ws.assessmentAt?.toISOString?.() ?? new Date().toISOString(),
+      tradabilityBySymbol: tradability.bySymbol,
     });
     return sortCandidatesByRank(adapted);
-  }, [ws.filteredTickerCards, ws.assessmentAt]);
+  }, [ws.filteredTickerCards, ws.assessmentAt, tradability.bySymbol]);
 
   const selected = candidates.find((c) => c.id === selectedId) ?? null;
 
@@ -86,6 +128,8 @@ function LiveCandidates({
           />
         ) : null}
       </div>
+
+      <TradabilityHint tradability={tradability} />
 
       {ws.loading ? <p className="text-sm text-ocean-sand">Loading market data…</p> : null}
 
@@ -127,10 +171,12 @@ function LiveCandidates({
 
 function PreparationCandidates({
   ws,
+  tradability,
   selectedId,
   onSelect,
 }: {
   ws: PremarketWorkspace;
+  tradability: TradabilityTiers;
   selectedId: string | null;
   onSelect: (c: CandidateViewModel | null) => void;
 }) {
@@ -148,6 +194,7 @@ function PreparationCandidates({
     );
     const adapted = adaptPremarketBestHits(hits, {
       updatedAt: ws.result?.evaluatedAt ?? new Date().toISOString(),
+      tradabilityBySymbol: tradability.bySymbol,
     });
     return sortCandidatesByRank(adapted);
   }, [
@@ -155,6 +202,7 @@ function PreparationCandidates({
     displayThreshold,
     ws.result?.bestResults,
     ws.result?.evaluatedAt,
+    tradability.bySymbol,
   ]);
 
   const selected = candidates.find((c) => c.id === selectedId) ?? null;
@@ -190,6 +238,8 @@ function PreparationCandidates({
         onRefresh={() => void ws.refreshResult()}
       />
 
+      <TradabilityHint tradability={tradability} />
+
       {ws.error ? (
         <p className="mt-3 text-sm text-ocean-danger" role="alert">
           {ws.error}
@@ -224,6 +274,7 @@ export function TopCandidatesSection({
   mode,
   liveWorkspace,
   premarketWorkspace,
+  tradability,
   selectedId,
   onSelect,
 }: Props) {
@@ -241,6 +292,7 @@ export function TopCandidatesSection({
       >
         <PreparationCandidates
           ws={premarketWorkspace}
+          tradability={tradability}
           selectedId={selectedId}
           onSelect={onSelect}
         />
@@ -274,7 +326,12 @@ export function TopCandidatesSection({
         </Link>
       }
     >
-      <LiveCandidates ws={liveWorkspace} selectedId={selectedId} onSelect={onSelect} />
+      <LiveCandidates
+        ws={liveWorkspace}
+        tradability={tradability}
+        selectedId={selectedId}
+        onSelect={onSelect}
+      />
     </TodaySection>
   );
 }

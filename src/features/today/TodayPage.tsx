@@ -5,6 +5,7 @@ import {
   adaptMarketTickerCards,
   adaptPremarketBestHits,
   sortCandidatesByRank,
+  useTradabilityTiers,
 } from "@/features/candidates";
 import { useMarketAlarms } from "@/features/market/alarm/useMarketAlarms";
 import { useMarketWorkspace } from "@/features/market/hooks/useMarketWorkspace";
@@ -32,6 +33,7 @@ export function TodayPage() {
   const alarms = useMarketAlarms();
   const liveWorkspace = useMarketWorkspace("tickers");
   const premarketWorkspace = usePremarketWorkspace();
+  const tradability = useTradabilityTiers();
   const [selected, setSelected] = useState<CandidateViewModel | null>(null);
 
   useEffect(() => {
@@ -55,9 +57,15 @@ export function TodayPage() {
     return sortCandidatesByRank(
       adaptMarketTickerCards(liveWorkspace.filteredTickerCards, {
         updatedAt: liveWorkspace.assessmentAt?.toISOString?.() ?? new Date().toISOString(),
+        tradabilityBySymbol: tradability.bySymbol,
       }),
     );
-  }, [mode, liveWorkspace.filteredTickerCards, liveWorkspace.assessmentAt]);
+  }, [
+    mode,
+    liveWorkspace.filteredTickerCards,
+    liveWorkspace.assessmentAt,
+    tradability.bySymbol,
+  ]);
 
   const prepCandidates = useMemo(() => {
     if (mode !== "preparation") return [];
@@ -72,6 +80,7 @@ export function TodayPage() {
     return sortCandidatesByRank(
       adaptPremarketBestHits(hits, {
         updatedAt: premarketWorkspace.result?.evaluatedAt ?? new Date().toISOString(),
+        tradabilityBySymbol: tradability.bySymbol,
       }),
     );
   }, [
@@ -80,6 +89,7 @@ export function TodayPage() {
     premarketWorkspace.result?.bestResults,
     premarketWorkspace.result?.evaluatedAt,
     premarketWorkspace.thresholdInput,
+    tradability.bySymbol,
   ]);
 
   const candidateCount =
@@ -97,17 +107,23 @@ export function TodayPage() {
         candidateCount={candidateCount}
         onRefresh={
           mode === "live"
-            ? () => void liveWorkspace.refreshResult()
+            ? () => {
+                void liveWorkspace.refreshResult();
+                void tradability.refresh();
+              }
             : mode === "preparation"
-              ? () => void premarketWorkspace.refreshResult()
-              : undefined
+              ? () => {
+                  void premarketWorkspace.refreshResult();
+                  void tradability.refresh();
+                }
+              : () => void tradability.refresh()
         }
         refreshPending={
           mode === "live"
-            ? liveWorkspace.refreshPending
+            ? liveWorkspace.refreshPending || tradability.loading
             : mode === "preparation"
-              ? premarketWorkspace.loading
-              : false
+              ? premarketWorkspace.loading || tradability.loading
+              : tradability.loading
         }
       />
 
@@ -119,6 +135,7 @@ export function TodayPage() {
         mode={mode}
         liveWorkspace={liveWorkspace}
         premarketWorkspace={premarketWorkspace}
+        tradability={tradability}
         selectedId={selected?.id ?? null}
         onSelect={handleSelect}
       />
