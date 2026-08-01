@@ -35,6 +35,9 @@ export const PREMARKET_ERROR_MESSAGES: Record<string, string> = {
   DYNAMIC_EVAL_NO_STRATEGIES:
     "No active strategies — activate at least one screen in Strategy builder.",
   DYNAMIC_STRATEGY_NOT_FOUND: "Unknown strategy id — refresh the catalog and try again.",
+  STRATEGY_ID_INVALID:
+    "Strategy ID must be 1–64 characters: letters, digits, '.', '_', '-' (start with letter or digit).",
+  STRATEGY_ID_TAKEN: "That strategy ID already exists — choose a different one.",
 };
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {

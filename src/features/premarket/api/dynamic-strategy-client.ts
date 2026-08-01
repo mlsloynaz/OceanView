@@ -121,6 +121,9 @@ export type CreateDynamicStrategyRequest = {
 };
 
 export type PatchDynamicStrategyRequest = {
+  /** Rename strategy (Dynamo primary key). Path id is the current id. */
+  newId?: string;
+  id?: string;
   name?: string;
   shortName?: string;
   description?: string;

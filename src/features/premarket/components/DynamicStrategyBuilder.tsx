@@ -575,14 +575,14 @@ export function DynamicStrategyBuilder({
                 type="text"
                 value={strategyId}
                 onChange={(e) => onStrategyIdChange(e.target.value)}
-                placeholder="e.g. E01"
-                readOnly={isEditing}
-                className={cn(
-                  INPUT,
-                  "mt-0.5 font-mono",
-                  isEditing && "cursor-not-allowed opacity-70",
-                )}
+                placeholder="e.g. hourly-trend-change"
+                className={cn(INPUT, "mt-0.5 font-mono")}
               />
+              {isEditing && (
+                <p className="mt-1 text-[10px] leading-relaxed text-ocean-sand/80">
+                  Changing the ID renames the strategy in Dynamo on Save all.
+                </p>
+              )}
             </label>
             <label className="block">
               <span className="text-[11px] text-ocean-sand">Name</span>

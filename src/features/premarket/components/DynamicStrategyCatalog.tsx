@@ -159,16 +159,14 @@ function StrategyCatalogBody({
                     Demote
                   </button>
                 )}
-                {!isStandard && (
-                  <button
-                    type="button"
-                    className="text-xs text-ocean-danger hover:underline"
-                    disabled={saving}
-                    onClick={() => onDelete(strategy)}
-                  >
-                    Delete
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="text-xs text-ocean-danger hover:underline"
+                  disabled={saving}
+                  onClick={() => onDelete(strategy)}
+                >
+                  Delete
+                </button>
               </div>
             </div>
             <ul className="mt-2 flex flex-wrap gap-1.5">

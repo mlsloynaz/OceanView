@@ -103,6 +103,33 @@ function clearId(prev: Set<string>, id: string): Set<string> {
   return next;
 }
 
+const STRATEGY_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
+function validateStrategyId(id: string): string | null {
+  if (!id) return "Strategy ID is required.";
+  if (!STRATEGY_ID_RE.test(id)) {
+    return "Strategy ID must be 1–64 characters: letters, digits, '.', '_', '-' (start with letter or digit).";
+  }
+  return null;
+}
+
+function remapPendingRename(
+  prev: Record<string, string>,
+  fromId: string,
+  toId: string,
+): Record<string, string> {
+  const next: Record<string, string> = {};
+  for (const [stagedId, originalId] of Object.entries(prev)) {
+    if (stagedId === fromId) continue;
+    next[stagedId] = originalId;
+  }
+  const originalId = prev[fromId] ?? fromId;
+  if (toId !== originalId) {
+    next[toId] = originalId;
+  }
+  return next;
+}
+
 export function useStrategiesPane(options?: { enabled?: boolean }) {
   const enabled = options?.enabled !== false;
   const useMock = dynamicStrategiesUseMock();
@@ -132,6 +159,8 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   const [dirtyContentIds, setDirtyContentIds] = useState<Set<string>>(() => new Set());
   /** Local-only creates — POST on Save all instead of PATCH. */
   const [pendingCreateIds, setPendingCreateIds] = useState<Set<string>>(() => new Set());
+  /** Staged id → original Dynamo id when the user renamed locally. */
+  const [pendingRenames, setPendingRenames] = useState<Record<string, string>>({});
 
   const [loading, setLoading] = useState(() => {
     if (!enabled) return false;
@@ -146,6 +175,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setDirtyActiveIds(new Set());
     setDirtyContentIds(new Set());
     setPendingCreateIds(new Set());
+    setPendingRenames({});
   }, []);
 
   const reload = useCallback(async (opts?: { force?: boolean }) => {
@@ -284,15 +314,23 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       setError("Name and at least one rule are required.");
       return null;
     }
-    if (!editingStrategyId && !id) {
-      setError("Strategy ID is required (e.g. E01).");
+    const idError = validateStrategyId(id);
+    if (idError) {
+      setError(idError);
       return null;
     }
     setError(null);
 
     const wasEdit = editingStrategyId != null;
-    const strategyId = wasEdit ? editingStrategyId : id;
-    if (!wasEdit && strategies.some((row) => row.id === strategyId)) {
+    const previousId = wasEdit ? editingStrategyId : null;
+    const strategyId = id;
+    const renaming = wasEdit && previousId != null && previousId !== strategyId;
+
+    if (
+      strategies.some(
+        (row) => row.id === strategyId && (!wasEdit || row.id !== previousId),
+      )
+    ) {
       setError(`Strategy already exists: ${strategyId}`);
       return null;
     }
@@ -309,7 +347,9 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     if (entryWindow == null && builderEntryLegacyLabel) {
       entryWindow = builderEntryLegacyLabel;
     }
-    const existing = wasEdit ? strategies.find((row) => row.id === strategyId) : undefined;
+    const existing = wasEdit && previousId
+      ? strategies.find((row) => row.id === previousId)
+      : undefined;
     const resolvedBias =
       builderBiasRuleId && builderRows.some((row) => row.id === builderBiasRuleId)
         ? builderBiasRuleId
@@ -323,7 +363,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       direction: existing?.direction,
       biasRuleId: resolvedBias,
       entryWindow: entryWindow ?? null,
-      active: true,
+      active: existing?.active ?? true,
       rules: ruleInputs.map((rule, index) => {
         const prior = existing?.rules.find((row) => row.id === rule.id);
         const template = rules.find((r) => r.ruleKey === rule.ruleKey);
@@ -344,14 +384,29 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     });
 
     setStrategies((prev) => {
-      if (wasEdit) {
-        return sortStrategies(prev.map((row) => (row.id === strategyId ? staged : row)));
+      if (wasEdit && previousId) {
+        const withoutOld = prev.filter((row) => row.id !== previousId);
+        return sortStrategies([...withoutOld.filter((row) => row.id !== strategyId), staged]);
       }
-      return sortStrategies([...prev, staged]);
+      return sortStrategies([...prev.filter((row) => row.id !== strategyId), staged]);
     });
-    setDirtyContentIds((prev) => markDirty(prev, strategyId));
-    if (!wasEdit) {
-      setPendingCreateIds((prev) => markDirty(prev, strategyId));
+
+    if (renaming && previousId) {
+      setDirtyActiveIds((prev) => markDirty(clearId(prev, previousId), strategyId));
+      setDirtyContentIds((prev) => markDirty(clearId(prev, previousId), strategyId));
+      setPendingCreateIds((prev) => {
+        if (!prev.has(previousId)) return prev;
+        return markDirty(clearId(prev, previousId), strategyId);
+      });
+      setPendingRenames((prev) => remapPendingRename(prev, previousId, strategyId));
+      setEditingStrategyId(strategyId);
+    } else {
+      setDirtyContentIds((prev) => markDirty(prev, strategyId));
+      if (!wasEdit) {
+        setPendingCreateIds((prev) => markDirty(prev, strategyId));
+      } else {
+        setEditingStrategyId(strategyId);
+      }
     }
 
     if (options?.stayOnPage) {
@@ -360,9 +415,11 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       clearBuilder();
     }
     setNotice(
-      wasEdit
-        ? `Strategy "${staged.name}" updated locally — click Save all to persist.`
-        : `Strategy "${staged.name}" staged locally — click Save all to persist.`,
+      renaming
+        ? `Strategy renamed to "${staged.id}" locally — click Save all to persist.`
+        : wasEdit
+          ? `Strategy "${staged.name}" updated locally — click Save all to persist.`
+          : `Strategy "${staged.name}" staged locally — click Save all to persist.`,
     );
     return staged;
   }, [
@@ -430,7 +487,9 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
               rules: strategyRulesToInput(strategy.rules),
             });
           } else if (dirtyContentIds.has(id) || options?.extra?.id === id) {
-            await patchDynamicStrategy(id, {
+            const originalId = pendingRenames[id];
+            await patchDynamicStrategy(originalId ?? id, {
+              ...(originalId && originalId !== id ? { newId: id } : {}),
               name: strategy.name,
               active: strategy.active,
               biasRuleId: strategy.biasRuleId ?? null,
@@ -438,7 +497,11 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
               rules: strategyRulesToInput(strategy.rules),
             });
           } else {
-            await patchDynamicStrategy(id, { active: strategy.active });
+            const originalId = pendingRenames[id];
+            await patchDynamicStrategy(originalId ?? id, {
+              ...(originalId && originalId !== id ? { newId: id } : {}),
+              active: strategy.active,
+            });
           }
         }
         await reload();
@@ -451,7 +514,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
         setSaving(false);
       }
     },
-    [dirtyActiveIds, dirtyContentIds, pendingCreateIds, reload, strategies],
+    [dirtyActiveIds, dirtyContentIds, pendingCreateIds, pendingRenames, reload, strategies],
   );
 
   const deleteStrategy = useCallback(

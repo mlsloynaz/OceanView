@@ -96,7 +96,7 @@ export function StrategyBuilderPage() {
   const handleSave = async () => {
     const saved = await ws.saveBuilder({ stayOnPage: true });
     if (!saved) return;
-    if (isNew) {
+    if (isNew || (strategyId && saved.id !== strategyId)) {
       navigate(strategyBuilderEditPath(saved.id), { replace: true, state: locationState });
     }
   };
@@ -108,7 +108,7 @@ export function StrategyBuilderPage() {
       stagedIsCreate = ws.editingStrategyId == null;
       staged = await ws.saveBuilder({ stayOnPage: true });
       if (!staged && !ws.hasUnsavedChanges) return;
-      if (isNew && staged) {
+      if (staged && (isNew || (strategyId && staged.id !== strategyId))) {
         navigate(strategyBuilderEditPath(staged.id), { replace: true, state: locationState });
       }
     }
@@ -125,8 +125,7 @@ export function StrategyBuilderPage() {
   const editingStrategy = ws.editingStrategyId
     ? ws.strategies.find((row) => row.id === ws.editingStrategyId)
     : null;
-  const canDelete =
-    editingStrategy != null && ws.resolveStrategyTier(editingStrategy) === "dynamic";
+  const canDelete = editingStrategy != null;
 
   const pageTitle = isNew ? "New strategy" : "Edit strategy";
   const ready = hydrated && !ws.loading;
