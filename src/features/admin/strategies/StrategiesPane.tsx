@@ -21,9 +21,8 @@ const ADMIN_BUILDER_STATE: StrategyBuilderLocationState = {
 export function StrategiesPane() {
   const navigate = useNavigate();
   const ws = useStrategiesPane();
-  const standardActiveCount = ws.standardStrategies.filter((s) => s.active).length;
-  const dynamicActiveCount = ws.dynamicStrategies.filter((s) => s.active).length;
-  const summary = `${standardActiveCount} standard active (Market) · ${dynamicActiveCount} dynamic active (Premarket)`;
+  const activeCount = ws.strategies.filter((s) => s.active).length;
+  const summary = `${activeCount} active · ${ws.strategies.length} total`;
 
   const openNewStrategy = () => {
     navigate(STRATEGY_BUILDER_NEW_PATH, { state: ADMIN_BUILDER_STATE });
@@ -100,13 +99,10 @@ export function StrategiesPane() {
           )}
 
           <p className="mb-4 text-[11px] text-ocean-sand">
-            Unified catalog in Dynamo. <strong className="font-medium text-ocean-foam">Standard</strong>{" "}
-            strategies evaluate on Market; <strong className="font-medium text-ocean-foam">dynamic</strong>{" "}
-            screens evaluate on Premarket. Edit any strategy to change its{" "}
-            <strong className="font-medium text-ocean-foam">ID</strong>, or use{" "}
-            <strong className="font-medium text-ocean-foam">Delete</strong> on standard or dynamic rows.
-            Activate, edit rules, then click{" "}
-            <strong className="font-medium text-ocean-foam">Save all</strong> once to persist.
+            One catalog in Dynamo. Active strategies run on Market and Premarket. Use{" "}
+            <strong className="font-medium text-ocean-foam">Rename id</strong> to change the id,{" "}
+            <strong className="font-medium text-ocean-foam">Delete</strong> to remove any strategy, then{" "}
+            <strong className="font-medium text-ocean-foam">Save all</strong> for other edits.
           </p>
 
           <DynamicStrategyCatalog
@@ -120,8 +116,6 @@ export function StrategiesPane() {
             onToggleActive={(s) => ws.toggleStrategyActive(s)}
             onDelete={(s) => void ws.deleteStrategy(s)}
             onRename={(s) => void ws.renameStrategy(s)}
-            onPromote={(s) => void ws.promoteStrategy(s)}
-            onDemote={(s) => void ws.demoteStrategy(s)}
             onSaveAll={() => void ws.saveAllStrategies()}
           />
         </AdminExpandedPane>

@@ -69,11 +69,10 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
 
   const outcomes = ws.result?.symbolOutcomes ?? [];
   const issueCount = outcomes.filter((row) => !row.ready || row.error).length;
-  const standardActive = builder.standardStrategies.filter((s) => s.active).length;
-  const dynamicActive = builder.dynamicStrategies.filter((s) => s.active).length;
+  const activeCount = builder.strategies.filter((s) => s.active).length;
   const strategySummary = builder.loading
     ? "Loading catalog…"
-    : `${builder.strategies.length} saved · ${standardActive} standard · ${dynamicActive} dynamic active`;
+    : `${builder.strategies.length} saved · ${activeCount} active`;
 
   const selectPane = (id: AuxPaneId) => {
     setActivePane((current) => (current === id ? null : id));

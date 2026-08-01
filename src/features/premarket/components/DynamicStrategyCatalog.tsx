@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { formatEntryWindow } from "@/features/market/lib/entry-window";
-import {
-  resolveStrategyTier,
-  type DynamicStrategy,
-  type StrategyTier,
-} from "../api/dynamic-strategy-client";
+import type { DynamicStrategy } from "../api/dynamic-strategy-client";
 import { normalizeTimeframe } from "../lib/builder-utils";
 
 const BTN =
@@ -18,9 +14,7 @@ type Props = {
   onNew: () => void;
   onToggleActive: (strategy: DynamicStrategy) => void;
   onDelete: (strategy: DynamicStrategy) => void;
-  onRename?: (strategy: DynamicStrategy) => void;
-  onPromote?: (strategy: DynamicStrategy) => void;
-  onDemote?: (strategy: DynamicStrategy) => void;
+  onRename: (strategy: DynamicStrategy) => void;
   onSaveAll?: () => void;
   dirtyIds?: ReadonlySet<string>;
   hasUnsavedChanges?: boolean;
@@ -29,16 +23,6 @@ type Props = {
   embedded?: boolean;
 };
 
-function tierBadgeClass(tier: StrategyTier): string {
-  return tier === "standard"
-    ? "bg-sky-500/20 text-sky-300"
-    : "bg-violet-500/20 text-violet-300";
-}
-
-function tierEvaluateHint(tier: StrategyTier): string {
-  return tier === "standard" ? "Market evaluate" : "Premarket evaluate";
-}
-
 function StrategyCatalogBody({
   strategies,
   saving,
@@ -46,8 +30,6 @@ function StrategyCatalogBody({
   onToggleActive,
   onDelete,
   onRename,
-  onPromote,
-  onDemote,
   dirtyIds,
 }: Pick<
   Props,
@@ -57,8 +39,6 @@ function StrategyCatalogBody({
   | "onToggleActive"
   | "onDelete"
   | "onRename"
-  | "onPromote"
-  | "onDemote"
   | "dirtyIds"
 >) {
   if (strategies.length === 0) {
@@ -73,8 +53,6 @@ function StrategyCatalogBody({
   return (
     <ul className="space-y-2">
       {strategies.map((strategy) => {
-        const tier = resolveStrategyTier(strategy);
-        const isStandard = tier === "standard";
         const isDirty = dirtyIds?.has(strategy.id) ?? false;
 
         return (
@@ -95,14 +73,6 @@ function StrategyCatalogBody({
                 <span
                   className={cn(
                     "ml-2 inline rounded px-1.5 py-px text-[10px] font-medium uppercase",
-                    tierBadgeClass(tier),
-                  )}
-                >
-                  {tier}
-                </span>
-                <span
-                  className={cn(
-                    "ml-2 inline rounded px-1.5 py-px text-[10px] font-medium uppercase",
                     strategy.active
                       ? "bg-ocean-teal/20 text-ocean-teal"
                       : "bg-ocean-mid/40 text-ocean-sand",
@@ -118,7 +88,6 @@ function StrategyCatalogBody({
                 <p className="mt-1 font-mono text-[10px] text-ocean-sand/90" title="Strategy id">
                   {strategy.id}
                 </p>
-                <p className="mt-0.5 text-[10px] text-ocean-sand/80">{tierEvaluateHint(tier)}</p>
                 {formatEntryWindow(strategy.entryWindow) && (
                   <p className="mt-0.5 text-[10px] text-ocean-sand/90">
                     Entry: {formatEntryWindow(strategy.entryWindow)}
@@ -137,17 +106,15 @@ function StrategyCatalogBody({
                 >
                   Edit
                 </button>
-                {onRename ? (
-                  <button
-                    type="button"
-                    className="text-xs text-ocean-teal hover:underline"
-                    disabled={saving}
-                    title={`Rename id ${strategy.id}`}
-                    onClick={() => onRename(strategy)}
-                  >
-                    Rename id
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className="text-xs text-ocean-teal hover:underline"
+                  disabled={saving}
+                  title={`Rename id ${strategy.id}`}
+                  onClick={() => onRename(strategy)}
+                >
+                  Rename id
+                </button>
                 <button
                   type="button"
                   className="text-xs text-ocean-teal hover:underline"
@@ -156,26 +123,6 @@ function StrategyCatalogBody({
                 >
                   {strategy.active ? "Deactivate" : "Activate"}
                 </button>
-                {!isStandard && onPromote && (
-                  <button
-                    type="button"
-                    className="text-xs text-ocean-teal hover:underline"
-                    disabled={saving}
-                    onClick={() => onPromote(strategy)}
-                  >
-                    Promote
-                  </button>
-                )}
-                {isStandard && onDemote && (
-                  <button
-                    type="button"
-                    className="text-xs text-ocean-teal hover:underline"
-                    disabled={saving}
-                    onClick={() => onDemote(strategy)}
-                  >
-                    Demote
-                  </button>
-                )}
                 <button
                   type="button"
                   className={cn(
@@ -183,7 +130,7 @@ function StrategyCatalogBody({
                     "border border-ocean-danger/40 px-2 py-1 text-ocean-danger hover:bg-ocean-danger/10",
                   )}
                   disabled={saving}
-                  title={`Delete ${tier} strategy ${strategy.id}`}
+                  title={`Delete strategy ${strategy.id}`}
                   onClick={() => onDelete(strategy)}
                 >
                   Delete
@@ -222,8 +169,6 @@ export function DynamicStrategyCatalog({
   onToggleActive,
   onDelete,
   onRename,
-  onPromote,
-  onDemote,
   onSaveAll,
   dirtyIds,
   hasUnsavedChanges = false,
@@ -232,15 +177,8 @@ export function DynamicStrategyCatalog({
   embedded = false,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
-  const standardCount = strategies.filter((s) => resolveStrategyTier(s) === "standard").length;
-  const dynamicCount = strategies.length - standardCount;
-  const activeStandard = strategies.filter(
-    (s) => resolveStrategyTier(s) === "standard" && s.active,
-  ).length;
-  const activeDynamic = strategies.filter(
-    (s) => resolveStrategyTier(s) === "dynamic" && s.active,
-  ).length;
-  const summary = `${strategies.length} saved · ${activeStandard}/${standardCount} standard (Market) · ${activeDynamic}/${dynamicCount} dynamic (Premarket)`;
+  const activeCount = strategies.filter((s) => s.active).length;
+  const summary = `${strategies.length} saved · ${activeCount} active`;
 
   if (embedded) {
     return (
@@ -251,8 +189,6 @@ export function DynamicStrategyCatalog({
         onToggleActive={onToggleActive}
         onDelete={onDelete}
         onRename={onRename}
-        onPromote={onPromote}
-        onDemote={onDemote}
         dirtyIds={dirtyIds}
       />
     );
@@ -340,8 +276,6 @@ export function DynamicStrategyCatalog({
             onToggleActive={onToggleActive}
             onDelete={onDelete}
             onRename={onRename}
-            onPromote={onPromote}
-            onDemote={onDemote}
             dirtyIds={dirtyIds}
           />
         </div>
