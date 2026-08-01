@@ -190,8 +190,8 @@ export function StrategyBuilderPage() {
             onCancel={handleCancel}
             onSave={() => void handleSave()}
             onSaveAll={() => void handleSaveAll()}
-            hasUnsavedChanges={ws.hasUnsavedChanges}
-            dirtyCount={ws.dirtyCount}
+            hasUnsavedChanges={ws.hasUnsavedChanges || ws.builderIdDirty}
+            dirtyCount={ws.builderIdDirty ? Math.max(ws.dirtyCount, 1) : ws.dirtyCount}
             onPreview={() => void ws.previewBuilder()}
             onDelete={canDelete ? () => void handleDelete() : undefined}
           />

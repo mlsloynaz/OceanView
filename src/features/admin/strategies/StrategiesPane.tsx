@@ -119,6 +119,7 @@ export function StrategiesPane() {
             onNew={openNewStrategy}
             onToggleActive={(s) => ws.toggleStrategyActive(s)}
             onDelete={(s) => void ws.deleteStrategy(s)}
+            onRename={(s) => void ws.renameStrategy(s)}
             onPromote={(s) => void ws.promoteStrategy(s)}
             onDemote={(s) => void ws.demoteStrategy(s)}
             onSaveAll={() => void ws.saveAllStrategies()}

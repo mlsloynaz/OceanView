@@ -611,7 +611,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     async (strategy: DynamicStrategy) => {
       const dynamoId = pendingRenames[strategy.id] ?? strategy.id;
       const ok = window.confirm(
-        `Demote "${strategy.name}" to dynamic?\n\nA new Premarket copy is created; the standard playbook is deactivated.`,
+        `Demote "${strategy.name}" to dynamic?\n\nSame strategy id — only the type changes to dynamic (Premarket).`,
       );
       if (!ok) return false;
 
@@ -623,7 +623,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
           clearBuilder();
         }
         await reload();
-        setNotice(`"${saved.name}" demoted — standard deactivated, dynamic copy saved for Premarket.`);
+        setNotice(`"${saved.name}" demoted to dynamic — same id, Premarket evaluate.`);
         return true;
       } catch (err) {
         setError(resolveError(err));
@@ -633,6 +633,50 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       }
     },
     [clearBuilder, editingStrategyId, pendingRenames, reload],
+  );
+
+  const renameStrategy = useCallback(
+    async (strategy: DynamicStrategy, nextIdRaw?: string) => {
+      const dynamoId = pendingRenames[strategy.id] ?? strategy.id;
+      const suggested = nextIdRaw?.trim() || strategy.id;
+      const entered = window.prompt(
+        `Rename strategy id\n\nCurrent: ${dynamoId}\n\nEnter the new id (letters, digits, '.', '_', '-', max 64):`,
+        suggested,
+      );
+      if (entered == null) return false;
+      const nextId = entered.trim();
+      const idError = validateStrategyId(nextId);
+      if (idError) {
+        setError(idError);
+        return false;
+      }
+      if (nextId === dynamoId) {
+        setNotice("Strategy id unchanged.");
+        return true;
+      }
+      if (strategies.some((row) => row.id === nextId && row.id !== strategy.id)) {
+        setError(`Strategy already exists: ${nextId}`);
+        return false;
+      }
+
+      setSaving(true);
+      setError(null);
+      try {
+        await patchDynamicStrategy(dynamoId, { newId: nextId });
+        if (editingStrategyId === strategy.id || editingStrategyId === dynamoId) {
+          clearBuilder();
+        }
+        await reload();
+        setNotice(`Strategy renamed to "${nextId}".`);
+        return true;
+      } catch (err) {
+        setError(resolveError(err));
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [clearBuilder, editingStrategyId, pendingRenames, reload, strategies],
   );
 
   const previewBuilder = useCallback(async () => {
@@ -662,6 +706,10 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   const dirtyIds = new Set<string>([...dirtyActiveIds, ...dirtyContentIds, ...pendingCreateIds]);
   const dirtyCount = dirtyIds.size;
   const hasUnsavedChanges = dirtyCount > 0;
+  const builderIdDirty =
+    editingStrategyId != null &&
+    builderStrategyId.trim().length > 0 &&
+    builderStrategyId.trim() !== editingStrategyId;
 
   return {
     useMock,
@@ -685,6 +733,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     dirtyIds,
     dirtyCount,
     hasUnsavedChanges,
+    builderIdDirty,
     setBuilderStrategyId,
     setBuilderName,
     setBuilderEntryStart,
@@ -706,6 +755,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     deleteEditingStrategy,
     promoteStrategy,
     demoteStrategy,
+    renameStrategy,
     previewBuilder,
     reload,
     resolveStrategyTier,

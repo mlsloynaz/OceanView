@@ -170,6 +170,10 @@ export function PremarketAuxPanels({ ws, isAdmin, builder, onStrategyMutated }: 
                 const deleted = await builder.deleteStrategy(strategy);
                 if (deleted) onStrategyMutated();
               }}
+              onRename={async (strategy) => {
+                const renamed = await builder.renameStrategy(strategy);
+                if (renamed) onStrategyMutated();
+              }}
               onPromote={async (strategy) => {
                 const promoted = await builder.promoteStrategy(strategy);
                 if (promoted) onStrategyMutated();

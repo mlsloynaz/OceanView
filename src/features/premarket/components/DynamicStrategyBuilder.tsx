@@ -459,10 +459,16 @@ export function DynamicStrategyBuilder({
   };
 
   const isEditing = editingStrategyId != null;
+  const idDirty =
+    isEditing &&
+    strategyId.trim().length > 0 &&
+    editingStrategyId != null &&
+    strategyId.trim() !== editingStrategyId;
   const canSave =
     name.trim().length > 0 &&
     builderRows.length > 0 &&
     (isEditing || strategyId.trim().length > 0);
+  const saveAllEnabled = hasUnsavedChanges || idDirty;
   const isPage = layout === "page";
   const libraryMaxHeight = isPage ? "max-h-[min(42rem,70vh)]" : "max-h-72";
   const rowsMaxHeight = isPage ? "max-h-[min(42rem,70vh)]" : "max-h-[min(24rem,50vh)]";
@@ -569,8 +575,8 @@ export function DynamicStrategyBuilder({
       <div className="flex flex-col p-4">
         <div className="rounded-lg border border-ocean-mid/35 bg-ocean-deep/30 px-3 py-3">
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-[11px] text-ocean-sand">ID</span>
+            <label className="block sm:col-span-2">
+              <span className="text-[11px] text-ocean-sand">Strategy ID</span>
               <input
                 type="text"
                 value={strategyId}
@@ -578,22 +584,36 @@ export function DynamicStrategyBuilder({
                 placeholder="e.g. hourly-trend-change"
                 autoComplete="off"
                 spellCheck={false}
-                className={cn(INPUT, "mt-0.5 font-mono")}
+                className={cn(
+                  INPUT,
+                  "mt-0.5 font-mono",
+                  isEditing &&
+                    editingStrategyId &&
+                    editingStrategyId !== strategyId.trim() &&
+                    "border-amber-500/60",
+                )}
               />
               <p className="mt-1 text-[10px] leading-relaxed text-ocean-sand/80">
-                {isEditing
-                  ? "Editable for standard and dynamic. Changing the ID renames the strategy in Dynamo on Save all."
-                  : "Required. Letters, digits, '.', '_', '-' (1–64 chars)."}
-                {isEditing && editingStrategyId && editingStrategyId !== strategyId.trim() ? (
+                {isEditing ? (
                   <>
-                    {" "}
-                    Current Dynamo id:{" "}
-                    <span className="font-mono text-ocean-sand">{editingStrategyId}</span>
+                    Type a new id here, then click <strong className="text-ocean-foam">Apply changes</strong>{" "}
+                    and <strong className="text-ocean-foam">Save all</strong>. Or use{" "}
+                    <strong className="text-ocean-foam">Rename id</strong> on the strategies list for an
+                    immediate rename.
+                    {editingStrategyId && editingStrategyId !== strategyId.trim() ? (
+                      <>
+                        {" "}
+                        Renaming from{" "}
+                        <span className="font-mono text-amber-200">{editingStrategyId}</span>.
+                      </>
+                    ) : null}
                   </>
-                ) : null}
+                ) : (
+                  "Required. Letters, digits, '.', '_', '-' (1–64 chars)."
+                )}
               </p>
             </label>
-            <label className="block">
+            <label className="block sm:col-span-2">
               <span className="text-[11px] text-ocean-sand">Name</span>
               <input
                 type="text"
@@ -803,19 +823,28 @@ export function DynamicStrategyBuilder({
           >
             {isEditing ? "Apply changes" : "Stage strategy"}
           </button>
+          {idDirty ? (
+            <p className="basis-full text-[10px] text-amber-200/90">
+              Strategy ID changed — Apply changes, then Save all (or use Rename id on the list).
+            </p>
+          ) : null}
           {onSaveAll ? (
             <button
               type="button"
               className={cn(
                 BTN,
-                hasUnsavedChanges
+                saveAllEnabled
                   ? "bg-amber-500 text-ocean-deep hover:brightness-105"
                   : "bg-ocean-mid/50 text-ocean-sand",
               )}
-              disabled={saving || !hasUnsavedChanges}
+              disabled={saving || !saveAllEnabled}
               onClick={onSaveAll}
             >
-              {saving ? "Saving…" : hasUnsavedChanges ? `Save all (${dirtyCount})` : "Save all"}
+              {saving
+                ? "Saving…"
+                : saveAllEnabled
+                  ? `Save all (${Math.max(dirtyCount, idDirty ? 1 : 0)})`
+                  : "Save all"}
             </button>
           ) : null}
           <button

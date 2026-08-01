@@ -18,6 +18,7 @@ type Props = {
   onNew: () => void;
   onToggleActive: (strategy: DynamicStrategy) => void;
   onDelete: (strategy: DynamicStrategy) => void;
+  onRename?: (strategy: DynamicStrategy) => void;
   onPromote?: (strategy: DynamicStrategy) => void;
   onDemote?: (strategy: DynamicStrategy) => void;
   onSaveAll?: () => void;
@@ -44,6 +45,7 @@ function StrategyCatalogBody({
   onEdit,
   onToggleActive,
   onDelete,
+  onRename,
   onPromote,
   onDemote,
   dirtyIds,
@@ -54,6 +56,7 @@ function StrategyCatalogBody({
   | "onEdit"
   | "onToggleActive"
   | "onDelete"
+  | "onRename"
   | "onPromote"
   | "onDemote"
   | "dirtyIds"
@@ -134,6 +137,17 @@ function StrategyCatalogBody({
                 >
                   Edit
                 </button>
+                {onRename ? (
+                  <button
+                    type="button"
+                    className="text-xs text-ocean-teal hover:underline"
+                    disabled={saving}
+                    title={`Rename id ${strategy.id}`}
+                    onClick={() => onRename(strategy)}
+                  >
+                    Rename id
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="text-xs text-ocean-teal hover:underline"
@@ -207,6 +221,7 @@ export function DynamicStrategyCatalog({
   onNew,
   onToggleActive,
   onDelete,
+  onRename,
   onPromote,
   onDemote,
   onSaveAll,
@@ -235,6 +250,7 @@ export function DynamicStrategyCatalog({
         onEdit={onEdit}
         onToggleActive={onToggleActive}
         onDelete={onDelete}
+        onRename={onRename}
         onPromote={onPromote}
         onDemote={onDemote}
         dirtyIds={dirtyIds}
@@ -323,6 +339,7 @@ export function DynamicStrategyCatalog({
             onEdit={onEdit}
             onToggleActive={onToggleActive}
             onDelete={onDelete}
+            onRename={onRename}
             onPromote={onPromote}
             onDemote={onDemote}
             dirtyIds={dirtyIds}
