@@ -144,7 +144,8 @@ export function StrategyBuilderPage() {
           <h1 className="font-display text-3xl font-semibold text-ocean-foam">{pageTitle}</h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ocean-sand">
             Build a screen by adding rules, set CALL/PUT paths per row, then apply changes and click
-            Save all once to persist.
+            Save all once to persist. The strategy ID is editable (renames on Save all). Delete works
+            for both standard and dynamic playbooks.
           </p>
         </div>
         {ws.notice && (

@@ -112,7 +112,10 @@ function StrategyCatalogBody({
                     unsaved
                   </span>
                 ) : null}
-                <p className="mt-1 text-[10px] text-ocean-sand/80">{tierEvaluateHint(tier)}</p>
+                <p className="mt-1 font-mono text-[10px] text-ocean-sand/90" title="Strategy id">
+                  {strategy.id}
+                </p>
+                <p className="mt-0.5 text-[10px] text-ocean-sand/80">{tierEvaluateHint(tier)}</p>
                 {formatEntryWindow(strategy.entryWindow) && (
                   <p className="mt-0.5 text-[10px] text-ocean-sand/90">
                     Entry: {formatEntryWindow(strategy.entryWindow)}
@@ -122,7 +125,7 @@ function StrategyCatalogBody({
                   <p className="mt-1 text-xs text-ocean-sand">{strategy.description}</p>
                 )}
               </div>
-              <div className="flex shrink-0 flex-wrap gap-2">
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
                 <button
                   type="button"
                   className="text-xs text-ocean-teal hover:underline"
@@ -161,8 +164,12 @@ function StrategyCatalogBody({
                 )}
                 <button
                   type="button"
-                  className="text-xs text-ocean-danger hover:underline"
+                  className={cn(
+                    BTN,
+                    "border border-ocean-danger/40 px-2 py-1 text-ocean-danger hover:bg-ocean-danger/10",
+                  )}
                   disabled={saving}
+                  title={`Delete ${tier} strategy ${strategy.id}`}
                   onClick={() => onDelete(strategy)}
                 >
                   Delete

@@ -102,7 +102,10 @@ export function StrategiesPane() {
           <p className="mb-4 text-[11px] text-ocean-sand">
             Unified catalog in Dynamo. <strong className="font-medium text-ocean-foam">Standard</strong>{" "}
             strategies evaluate on Market; <strong className="font-medium text-ocean-foam">dynamic</strong>{" "}
-            screens evaluate on Premarket. Activate, edit rules, then click{" "}
+            screens evaluate on Premarket. Edit any strategy to change its{" "}
+            <strong className="font-medium text-ocean-foam">ID</strong>, or use{" "}
+            <strong className="font-medium text-ocean-foam">Delete</strong> on standard or dynamic rows.
+            Activate, edit rules, then click{" "}
             <strong className="font-medium text-ocean-foam">Save all</strong> once to persist.
           </p>
 

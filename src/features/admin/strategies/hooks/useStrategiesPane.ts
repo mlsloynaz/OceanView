@@ -521,12 +521,13 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     async (strategy: DynamicStrategy) => {
       const tier = resolveStrategyTier(strategy);
       const isPendingCreate = pendingCreateIds.has(strategy.id);
+      const dynamoId = pendingRenames[strategy.id] ?? strategy.id;
       const ok = window.confirm(
         isPendingCreate
           ? `Discard unsaved strategy "${strategy.name}"?`
           : tier === "standard"
-            ? `Delete standard playbook "${strategy.name}"?\n\nThis permanently removes it from Dynamo. Seed bootstrap will not resurrect it unless you recreate it.`
-            : `Delete "${strategy.name}"?\n\nThis permanently removes the strategy from Dynamo. It will no longer appear in Premarket evaluate.`,
+            ? `Delete standard playbook "${strategy.name}" (${dynamoId})?\n\nThis permanently removes it from Dynamo. Seed bootstrap will not resurrect it unless you recreate it.`
+            : `Delete "${strategy.name}" (${dynamoId})?\n\nThis permanently removes the strategy from Dynamo.`,
       );
       if (!ok) return false;
 
@@ -535,6 +536,12 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
         setDirtyActiveIds((prev) => clearId(prev, strategy.id));
         setDirtyContentIds((prev) => clearId(prev, strategy.id));
         setPendingCreateIds((prev) => clearId(prev, strategy.id));
+        setPendingRenames((prev) => {
+          if (!(strategy.id in prev)) return prev;
+          const next = { ...prev };
+          delete next[strategy.id];
+          return next;
+        });
         if (editingStrategyId === strategy.id) {
           clearBuilder();
         }
@@ -545,8 +552,8 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       setSaving(true);
       setError(null);
       try {
-        await deleteDynamicStrategy(strategy.id);
-        if (editingStrategyId === strategy.id) {
+        await deleteDynamicStrategy(dynamoId);
+        if (editingStrategyId === strategy.id || editingStrategyId === dynamoId) {
           clearBuilder();
         }
         await reload();
@@ -559,7 +566,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
         setSaving(false);
       }
     },
-    [clearBuilder, editingStrategyId, pendingCreateIds, reload],
+    [clearBuilder, editingStrategyId, pendingCreateIds, pendingRenames, reload],
   );
 
   const deleteEditingStrategy = useCallback(async () => {
@@ -574,6 +581,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
 
   const promoteStrategy = useCallback(
     async (strategy: DynamicStrategy) => {
+      const dynamoId = pendingRenames[strategy.id] ?? strategy.id;
       const ok = window.confirm(
         `Promote "${strategy.name}" to standard?\n\nIt will evaluate on Market (not Premarket) and keep the same id.`,
       );
@@ -582,8 +590,8 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       setSaving(true);
       setError(null);
       try {
-        const saved = await promoteDynamicStrategy(strategy.id);
-        if (editingStrategyId === strategy.id) {
+        const saved = await promoteDynamicStrategy(dynamoId);
+        if (editingStrategyId === strategy.id || editingStrategyId === dynamoId) {
           clearBuilder();
         }
         await reload();
@@ -596,11 +604,12 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
         setSaving(false);
       }
     },
-    [clearBuilder, editingStrategyId, reload],
+    [clearBuilder, editingStrategyId, pendingRenames, reload],
   );
 
   const demoteStrategy = useCallback(
     async (strategy: DynamicStrategy) => {
+      const dynamoId = pendingRenames[strategy.id] ?? strategy.id;
       const ok = window.confirm(
         `Demote "${strategy.name}" to dynamic?\n\nA new Premarket copy is created; the standard playbook is deactivated.`,
       );
@@ -609,8 +618,8 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
       setSaving(true);
       setError(null);
       try {
-        const saved = await demoteDynamicStrategy(strategy.id);
-        if (editingStrategyId === strategy.id) {
+        const saved = await demoteDynamicStrategy(dynamoId);
+        if (editingStrategyId === strategy.id || editingStrategyId === dynamoId) {
           clearBuilder();
         }
         await reload();
@@ -623,7 +632,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
         setSaving(false);
       }
     },
-    [clearBuilder, editingStrategyId, reload],
+    [clearBuilder, editingStrategyId, pendingRenames, reload],
   );
 
   const previewBuilder = useCallback(async () => {

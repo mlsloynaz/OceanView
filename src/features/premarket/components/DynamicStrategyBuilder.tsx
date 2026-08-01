@@ -576,13 +576,22 @@ export function DynamicStrategyBuilder({
                 value={strategyId}
                 onChange={(e) => onStrategyIdChange(e.target.value)}
                 placeholder="e.g. hourly-trend-change"
+                autoComplete="off"
+                spellCheck={false}
                 className={cn(INPUT, "mt-0.5 font-mono")}
               />
-              {isEditing && (
-                <p className="mt-1 text-[10px] leading-relaxed text-ocean-sand/80">
-                  Changing the ID renames the strategy in Dynamo on Save all.
-                </p>
-              )}
+              <p className="mt-1 text-[10px] leading-relaxed text-ocean-sand/80">
+                {isEditing
+                  ? "Editable for standard and dynamic. Changing the ID renames the strategy in Dynamo on Save all."
+                  : "Required. Letters, digits, '.', '_', '-' (1–64 chars)."}
+                {isEditing && editingStrategyId && editingStrategyId !== strategyId.trim() ? (
+                  <>
+                    {" "}
+                    Current Dynamo id:{" "}
+                    <span className="font-mono text-ocean-sand">{editingStrategyId}</span>
+                  </>
+                ) : null}
+              </p>
             </label>
             <label className="block">
               <span className="text-[11px] text-ocean-sand">Name</span>
