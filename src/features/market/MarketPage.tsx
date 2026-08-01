@@ -81,6 +81,7 @@ export function MarketPage() {
     monitorActive,
     stopPending,
     canStop,
+    liveEnabled,
     intervalValue,
     intervalUnit,
     setIntervalValue,
