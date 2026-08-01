@@ -286,29 +286,6 @@ export async function deleteDynamicStrategy(strategyId: string): Promise<void> {
   invalidateDynamicStrategyCaches();
 }
 
-export async function promoteDynamicStrategy(strategyId: string): Promise<DynamicStrategy> {
-  const row = await fetchJson<DynamicStrategy>(
-    `/dynamic-strategies/${encodeURIComponent(strategyId)}/promote`,
-    {
-      method: "POST",
-    },
-  );
-  invalidateDynamicStrategyCaches();
-  return row;
-}
-
-export async function demoteDynamicStrategy(strategyId: string): Promise<DynamicStrategy> {
-  const row = await fetchJson<DynamicStrategy>(
-    `/dynamic-strategies/${encodeURIComponent(strategyId)}/demote`,
-    {
-      method: "POST",
-    },
-  );
-  invalidateDynamicStrategyCaches();
-  return row;
-}
-
-
 /** Premarket evaluate — dynamic strategyIds (default) or ruleKeys (preview). */
 
 export async function postDynamicEvaluate(

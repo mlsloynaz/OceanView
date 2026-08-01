@@ -13,7 +13,7 @@ export function StrategiesHubPage() {
           Strategies
         </h1>
         <p className="mt-3 max-w-3xl text-base leading-relaxed text-ocean-sand">
-          Catalog, builder, promote / demote, and activation. Builder shortcuts:{" "}
+          Catalog, builder, and activation. Builder shortcuts:{" "}
           <Link to="/strategies/new" className="text-ocean-teal hover:underline">
             New strategy
           </Link>
