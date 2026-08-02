@@ -116,7 +116,7 @@ export function PremarketToolbar({
         <p className="text-[10px] text-ocean-sand/70">
           {assessmentMode === "now"
             ? "Live — Schwab premarket bars (in memory only). Before 9:30 ET the assess clock pins to the open so entry-window strategies are scored."
-            : "Simulate — stored regular-session candles from Dynamo only, sliced through the selected time (9:30 AM–4:00 PM ET, no refresh)."}
+            : "Simulate — stored candles sliced to the selected ET time (no refresh). Time must fall inside each strategy’s entry window (morning playbooks ≈ 09:30–11:00)."}
         </p>
       )}
 

@@ -102,6 +102,15 @@ function activeJobNotice(payload: PremarketResultResponse | null): string | null
 function resolveError(err: unknown): string {
   if (err instanceof DynamicStrategyApiError || err instanceof PremarketApiError) {
     const code = err.code;
+    // Prefer the API body when it already explains entry windows / missing strategies.
+    if (
+      err.message &&
+      (code === "DYNAMIC_EVAL_OUT_OF_ENTRY_WINDOW" ||
+        code === "DYNAMIC_EVAL_NO_STRATEGIES" ||
+        code === "STRATEGY_NOT_FOUND")
+    ) {
+      return err.message;
+    }
     if (code && PREMARKET_ERROR_MESSAGES[code]) {
       return PREMARKET_ERROR_MESSAGES[code];
     }
@@ -454,8 +463,10 @@ export function usePremarketWorkspace() {
         }
         return;
       }
-      const fallbackSession = parseEtDatetimeLocal(`${defaultSimulationSessionDate()}T09:30`);
-      const seed = storedPremarketAssessmentAt() ?? fallbackSession ?? new Date();
+      const fallbackSession = parseEtDatetimeLocal(`${defaultSimulationSessionDate()}T10:00`);
+      const stored = storedPremarketAssessmentAt();
+      // Prefer a morning seed — afternoon times sit outside typical entry windows.
+      const seed = fallbackSession ?? stored ?? new Date();
       const parsed = candleCoverage ? clampAssessmentTime(seed, candleCoverage) : seed;
       setAssessmentAt(parsed);
       persistPremarketAssessment("et", parsed);
