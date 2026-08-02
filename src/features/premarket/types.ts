@@ -21,6 +21,7 @@ export type PremarketTickerHit = StrategyAssessExtras & {
   rules?: PremarketRuleRow[];
   movementProfile?: MovementProfile | null;
   readiness?: string | null;
+  lateEntry?: boolean | null;
   preselectionNear?: boolean | null;
   preselectionNearApplicable?: boolean | null;
 };

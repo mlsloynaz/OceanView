@@ -54,6 +54,24 @@ describe("readinessFromRules", () => {
     expect(readinessFromRules([], 70, { readiness: "late" })).toBe("late");
   });
 
+  it("demotes stale API confirmed when a required rule is only partial", () => {
+    expect(
+      readinessFromRules(
+        [
+          { ruleKey: "a", type: "required", status: "met" },
+          { ruleKey: "b", type: "required", status: "partial" },
+        ],
+        70,
+        { readiness: "confirmed" },
+      ),
+    ).toBe("preparing");
+  });
+
+  it("marks late when lateEntry flag is set", () => {
+    expect(readinessFromRules([], 70, { lateEntry: true })).toBe("late");
+    expect(readinessFromRules([], 70, { qualityInvalidated: true })).toBe("late");
+  });
+
   it("does not invent Near from quality bands when gate absent", () => {
     expect(readinessFromRules([], 100)).toBe("confirmed");
     expect(readinessFromRules([], 70)).toBe("preparing");

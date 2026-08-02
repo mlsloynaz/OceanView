@@ -97,11 +97,8 @@ function isExtraRule(type: string | null | undefined): boolean {
 /**
  * Derive readiness from rule results + quality + optional preselection Near gate.
  *
- * When the backend evaluated catalog `preselection.candidateRules`:
- * - `preselectionNear === true` → Near (unless already confirmed by quality/rules)
- * - `preselectionNear === false` → never Near from partial playbook rules
- *
- * Explicit `readiness` from the API wins when present.
+ * Confirmed requires every non-extra rule fully `met`. Stale API `confirmed`
+ * with any partial/pending required rule is demoted. `lateEntry` / invalidated → late.
  */
 export function readinessFromRules(
   rules: RuleLike[] | null | undefined,
@@ -110,11 +107,42 @@ export function readinessFromRules(
     readiness?: string | null;
     preselectionNear?: boolean | null;
     preselectionNearApplicable?: boolean | null;
+    lateEntry?: boolean | null;
+    qualityInvalidated?: boolean | null;
   },
 ): CandidateReadiness {
-  const explicit = String(opts?.readiness ?? "")
+  if (opts?.lateEntry === true || opts?.qualityInvalidated === true) {
+    return "late";
+  }
+
+  const list = Array.isArray(rules) ? rules : [];
+  const core = list.filter((r) => !isExtraRule(r.type));
+  const focus = core.length > 0 ? core : list;
+  let met = 0;
+  let incomplete = 0;
+  let failed = 0;
+  for (const rule of focus) {
+    const s = normalizeRuleStatus(rule.status);
+    if (s === "met" || s === "skipped") met += 1;
+    else if (s === "not_met") {
+      failed += 1;
+      incomplete += 1;
+    } else {
+      incomplete += 1;
+    }
+  }
+  const allMet = focus.length > 0 && incomplete === 0 && met === focus.length;
+
+  let explicit = String(opts?.readiness ?? "")
     .trim()
     .toLowerCase();
+  if (explicit === "triggered") explicit = "watching";
+  if (explicit === "invalidated") explicit = "invalid";
+  // Stale assess payloads often still say confirmed while confirmation is partial.
+  if (explicit === "confirmed" && focus.length > 0 && !allMet) {
+    explicit = "preparing";
+  }
+
   if (
     explicit === "confirmed" ||
     explicit === "near" ||
@@ -122,29 +150,13 @@ export function readinessFromRules(
     explicit === "watching" ||
     explicit === "late" ||
     explicit === "weakening" ||
-    explicit === "invalid" ||
-    explicit === "triggered" ||
-    explicit === "invalidated"
+    explicit === "invalid"
   ) {
-    if (explicit === "triggered") return "watching";
-    if (explicit === "invalidated") return "invalid";
     return explicit as CandidateReadiness;
   }
 
-  const list = Array.isArray(rules) ? rules : [];
-  const core = list.filter((r) => !isExtraRule(r.type));
-  const focus = core.length > 0 ? core : list;
-  let met = 0;
-  let failed = 0;
-  for (const rule of focus) {
-    const s = normalizeRuleStatus(rule.status);
-    if (s === "met") met += 1;
-    else if (s === "not_met") failed += 1;
-  }
-
-  const allMet = focus.length > 0 && met === focus.length;
   if (allMet) return "confirmed";
-  if (qualityPct >= 100 && failed === 0 && (focus.length === 0 || met === focus.length)) {
+  if (qualityPct >= 100 && failed === 0 && (focus.length === 0 || allMet)) {
     return "confirmed";
   }
   if (list.length === 0 && qualityPct >= 100) return "confirmed";
@@ -159,7 +171,6 @@ export function readinessFromRules(
     return "preparing";
   }
 
-  // No preselection gate on this strategy: do not invent Near from partial rules.
   if (list.length === 0) {
     return "preparing";
   }

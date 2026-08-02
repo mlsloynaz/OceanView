@@ -51,6 +51,8 @@ function adaptEval(args: {
     readiness: evalRow.readiness,
     preselectionNear: evalRow.preselectionNear,
     preselectionNearApplicable: evalRow.preselectionNearApplicable,
+    lateEntry: evalRow.lateEntry,
+    qualityInvalidated: evalRow.qualityInvalidated,
   });
   const direction = asDirection(evalRow.direction ?? null);
   const tradability = tradabilityFromTier(args.tradabilityTier);
@@ -122,6 +124,8 @@ export function adaptMarketTickerCard(
     readiness: evalRow?.readiness,
     preselectionNear: evalRow?.preselectionNear,
     preselectionNearApplicable: evalRow?.preselectionNearApplicable,
+    lateEntry: evalRow?.lateEntry,
+    qualityInvalidated: evalRow?.qualityInvalidated,
   });
   const direction = asDirection(best?.direction ?? evalRow?.direction ?? null);
   const profile = card.movementProfile ?? null;

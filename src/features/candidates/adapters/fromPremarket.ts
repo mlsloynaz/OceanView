@@ -67,6 +67,8 @@ export function adaptPremarketBestHit(
     readiness: bestTicker?.readiness,
     preselectionNear: bestTicker?.preselectionNear,
     preselectionNearApplicable: bestTicker?.preselectionNearApplicable,
+    lateEntry: bestTicker?.lateEntry,
+    qualityInvalidated: bestTicker?.qualityInvalidated,
   });
   const direction = asDirection(hit.direction ?? bestTicker?.direction ?? null);
   const profile = hit.movementProfile ?? bestTicker?.movementProfile ?? null;
@@ -146,6 +148,8 @@ export function adaptPremarketTickerHit(
     readiness: hit.readiness,
     preselectionNear: hit.preselectionNear,
     preselectionNearApplicable: hit.preselectionNearApplicable,
+    lateEntry: hit.lateEntry,
+    qualityInvalidated: hit.qualityInvalidated,
   });
   const direction = asDirection(hit.direction ?? null);
   const profile = hit.movementProfile ?? null;
