@@ -31,7 +31,6 @@ import {
   type RuleOperationValue,
   type RuleTrendValue,
   type RuleType,
-  type StrategyTier,
 } from "@/features/premarket/api/dynamic-strategy-client";
 import {
   peekDynamicCatalogCache,
