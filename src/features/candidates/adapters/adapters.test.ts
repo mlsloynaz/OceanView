@@ -51,6 +51,7 @@ describe("readinessFromRules", () => {
   it("honors explicit readiness from API", () => {
     expect(readinessFromRules([], 6, { readiness: "near" })).toBe("near");
     expect(readinessFromRules([], 100, { readiness: "preparing" })).toBe("preparing");
+    expect(readinessFromRules([], 70, { readiness: "late" })).toBe("late");
   });
 
   it("does not invent Near from quality bands when gate absent", () => {

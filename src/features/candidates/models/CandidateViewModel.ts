@@ -12,6 +12,7 @@ export type CandidateReadiness =
   | "watching"
   | "near"
   | "confirmed"
+  | "late"
   | "weakening"
   | "invalid"
   | "expired"

@@ -35,6 +35,7 @@ function directionClass(direction: CandidateDirection): string {
 function readinessClass(readiness: CandidateReadiness): string {
   if (readiness === "confirmed") return "text-ocean-teal-dim dark:text-ocean-teal";
   if (readiness === "near" || readiness === "watching") return "text-amber-800 dark:text-amber-200";
+  if (readiness === "late" || readiness === "weakening") return "text-amber-900 dark:text-amber-300";
   if (readiness === "invalid" || readiness === "error") return "text-ocean-danger";
   return "text-ocean-sand";
 }

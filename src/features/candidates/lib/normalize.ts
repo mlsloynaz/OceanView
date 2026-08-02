@@ -28,6 +28,8 @@ export function readinessLabel(readiness: CandidateReadiness): string {
       return "Near";
     case "confirmed":
       return "Confirmed";
+    case "late":
+      return "Late entry";
     case "weakening":
       return "Weakening";
     case "invalid":
@@ -118,9 +120,14 @@ export function readinessFromRules(
     explicit === "near" ||
     explicit === "preparing" ||
     explicit === "watching" ||
+    explicit === "late" ||
+    explicit === "weakening" ||
+    explicit === "invalid" ||
     explicit === "triggered" ||
     explicit === "invalidated"
   ) {
+    if (explicit === "triggered") return "watching";
+    if (explicit === "invalidated") return "invalid";
     return explicit as CandidateReadiness;
   }
 
@@ -266,6 +273,8 @@ function readinessScore(readiness: CandidateReadiness): number {
       return 70;
     case "preparing":
       return 35;
+    case "late":
+      return 18;
     case "weakening":
       return 25;
     case "invalid":
@@ -365,10 +374,14 @@ export function lookupSymbolMap(
   return found?.[1];
 }
 
-export function sortCandidatesByRank<T extends { rankScore: number; qualityPct: number; symbol: string }>(
-  rows: T[],
-): T[] {
+export function sortCandidatesByRank<
+  T extends { rankScore: number; qualityPct: number; symbol: string; readiness?: string },
+>(rows: T[]): T[] {
+  const confirmedFirst = (r: T) => (String(r.readiness ?? "") === "confirmed" ? 0 : 1);
   return [...rows].sort((a, b) => {
+    const ac = confirmedFirst(a);
+    const bc = confirmedFirst(b);
+    if (ac !== bc) return ac - bc;
     if (b.rankScore !== a.rankScore) return b.rankScore - a.rankScore;
     if (b.qualityPct !== a.qualityPct) return b.qualityPct - a.qualityPct;
     return a.symbol.localeCompare(b.symbol);
