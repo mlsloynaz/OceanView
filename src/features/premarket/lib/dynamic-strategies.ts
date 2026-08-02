@@ -1,28 +1,38 @@
-import {
-  resolveStrategyTier,
-  type DynamicStrategy,
-} from "../api/dynamic-strategy-client";
+import type { DynamicStrategy } from "../api/dynamic-strategy-client";
 
-/** Active strategies eligible for Premarket evaluate (tier=dynamic only). */
-export function activeDynamicStrategies(strategies: DynamicStrategy[]): DynamicStrategy[] {
-  return strategies.filter(
-    (row) => row.active !== false && resolveStrategyTier(row) === "dynamic",
-  );
+/**
+ * Active strategies eligible for Today Preparation / Premarket evaluate.
+ * One unified catalog — any active row (tier is legacy metadata only).
+ */
+export function activePremarketStrategies(strategies: DynamicStrategy[]): DynamicStrategy[] {
+  return strategies.filter((row) => row.active !== false);
 }
 
-export function activeDynamicStrategyIds(strategies: DynamicStrategy[]): string[] {
-  return activeDynamicStrategies(strategies)
+/** @deprecated Use activePremarketStrategies */
+export const activeDynamicStrategies = activePremarketStrategies;
+
+export function activePremarketStrategyIds(strategies: DynamicStrategy[]): string[] {
+  return activePremarketStrategies(strategies)
     .map((row) => row.id)
     .filter(Boolean);
 }
 
-export function activeDynamicStrategyLabel(strategies: DynamicStrategy[]): string {
-  const active = activeDynamicStrategies(strategies);
+/** @deprecated Use activePremarketStrategyIds */
+export const activeDynamicStrategyIds = activePremarketStrategyIds;
+
+export function activePremarketStrategyLabel(strategies: DynamicStrategy[]): string {
+  const active = activePremarketStrategies(strategies);
   if (active.length === 1) return active[0].name;
-  if (active.length > 1) return `${active.length} dynamic strategies`;
-  return "Dynamic strategies";
+  if (active.length > 1) return `${active.length} strategies`;
+  return "Strategies";
 }
 
-export function countActiveDynamicStrategies(strategies: DynamicStrategy[]): number {
-  return activeDynamicStrategies(strategies).length;
+/** @deprecated Use activePremarketStrategyLabel */
+export const activeDynamicStrategyLabel = activePremarketStrategyLabel;
+
+export function countActivePremarketStrategies(strategies: DynamicStrategy[]): number {
+  return activePremarketStrategies(strategies).length;
 }
+
+/** @deprecated Use countActivePremarketStrategies */
+export const countActiveDynamicStrategies = countActivePremarketStrategies;

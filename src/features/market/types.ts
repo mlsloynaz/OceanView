@@ -23,7 +23,7 @@ export type StrategyCatalogItem = {
   entryWindow?: EntryWindow;
   /** When false or omitted, strategy is excluded from Market grids and assess. */
   active?: boolean;
-  /** standard = Market; dynamic = Premarket. Omitted on legacy mock rows. */
+  /** Legacy field — unified catalog; not used to split evaluate. Omitted on legacy mock rows. */
   tier?: "standard" | "dynamic";
   rules: StrategyRule[];
 };

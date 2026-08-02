@@ -310,7 +310,7 @@ export function usePremarketAlarms({ strategies, thresholdPct }: Args) {
         return false;
       }
       if (!strategy) {
-        setFormError("Pick an active dynamic strategy.");
+        setFormError("Pick an active strategy.");
         return false;
       }
       const frequencyValue = Math.max(1, Math.floor(input.frequencyValue) || 1);

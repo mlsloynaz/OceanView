@@ -94,15 +94,15 @@ export function PremarketPage() {
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
           {isAdmin ? (
             <>
-              No active dynamic strategies — save and activate a screen in{" "}
-              <strong className="font-medium">Strategy builder</strong> below, or create one in{" "}
+              No active strategies — activate a playbook in{" "}
+              <strong className="font-medium">Strategy builder</strong> below, or in{" "}
               <Link to="/admin" className="font-medium underline hover:text-ocean-foam">
                 Admin → Strategies
               </Link>
               .
             </>
           ) : (
-            <>No active dynamic strategies yet. Ask an admin to activate a saved screen.</>
+            <>No active strategies yet. Ask an admin to activate a playbook.</>
           )}
         </p>
       )}
@@ -162,7 +162,7 @@ export function PremarketPage() {
 
       {ws.startPending && (
         <p className="text-sm text-ocean-sand">
-          Evaluating against {ws.activeStrategyCount} dynamic strateg
+          Evaluating against {ws.activeStrategyCount} strateg
           {ws.activeStrategyCount === 1 ? "y" : "ies"} ({ws.evaluateGroupLabel})…
         </p>
       )}
@@ -223,8 +223,8 @@ export function PremarketPage() {
             {ws.startPending ? "Starting evaluate…" : "Evaluate in progress"}
           </p>
           <p className="mx-auto mt-2 max-w-md text-sm text-ocean-sand">
-            Scoring active tickers against your dynamic strategies. Early hits appear here as they
-            finish — status updates automatically until the run completes.
+            Scoring active tickers against your strategies. Early hits appear here as they finish —
+            status updates automatically until the run completes.
           </p>
           {ws.result?.progress?.total != null && ws.result.progress.total > 0 && (
             <p className="mt-3 text-xs text-ocean-sand">

@@ -33,7 +33,7 @@ export const PREMARKET_ERROR_MESSAGES: Record<string, string> = {
   DYNAMIC_EVAL_CONFLICT: "Another evaluate run is already in progress.",
   DYNAMIC_EVAL_INVALID: "Invalid evaluate request.",
   DYNAMIC_EVAL_NO_STRATEGIES:
-    "No active strategies — activate at least one screen in Strategy builder.",
+    "No active strategies — activate at least one playbook in Strategy builder.",
   DYNAMIC_STRATEGY_NOT_FOUND: "Unknown strategy id — refresh the catalog and try again.",
   STRATEGY_ID_INVALID:
     "Strategy ID must be 1–64 characters: letters, digits, '.', '_', '-' (start with letter or digit).",

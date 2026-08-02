@@ -67,7 +67,7 @@ export type DynamicStrategy = {
   name: string;
   shortName?: string | null;
   description?: string;
-  /** standard = Market evaluate; dynamic = Premarket evaluate. */
+  /** Legacy field on some rows — not used to split catalogs or evaluate. */
   tier?: StrategyTier;
   /** Fallback CALL/PUT for dangers when path cannot be inferred from rules. */
   direction?: "CALL" | "PUT" | null;
@@ -286,7 +286,7 @@ export async function deleteDynamicStrategy(strategyId: string): Promise<void> {
   invalidateDynamicStrategyCaches();
 }
 
-/** Premarket evaluate — dynamic strategyIds (default) or ruleKeys (preview). */
+/** Premarket / Preparation evaluate — active strategyIds (default) or ruleKeys (preview). */
 
 export async function postDynamicEvaluate(
 

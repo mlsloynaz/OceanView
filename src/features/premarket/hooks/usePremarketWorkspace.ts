@@ -131,7 +131,7 @@ export function usePremarketWorkspace() {
     cachedStrategies ? activeDynamicStrategyIds(cachedStrategies) : [],
   );
   const [evaluateGroupLabel, setEvaluateGroupLabel] = useState(() =>
-    cachedStrategies ? activeDynamicStrategyLabel(cachedStrategies) : "Dynamic strategies",
+    cachedStrategies ? activeDynamicStrategyLabel(cachedStrategies) : "Strategies",
   );
   const [catalogLoading, setCatalogLoading] = useState(() => !cachedStrategies);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -253,7 +253,7 @@ export function usePremarketWorkspace() {
       const catalog = await fetchDynamicCatalog(opts);
       applyDynamicCatalog((catalog.strategies ?? []) as DynamicStrategy[]);
     } catch (err) {
-      setCatalogError(err instanceof Error ? err.message : "Failed to load dynamic strategies.");
+      setCatalogError(err instanceof Error ? err.message : "Failed to load strategies.");
     } finally {
       setCatalogLoading(false);
     }
@@ -557,7 +557,7 @@ export function usePremarketWorkspace() {
     }
     if (activeStrategyIds.length === 0) {
       setError(
-        "No active dynamic strategies — save a screen in Strategy builder and activate it.",
+        "No active strategies — activate a playbook in Strategy builder.",
       );
       return;
     }
@@ -671,7 +671,7 @@ export function usePremarketWorkspace() {
     }
     if (activeStrategyIds.length === 0) {
       setError(
-        "No active dynamic strategies — save a screen in Strategy builder and activate it.",
+        "No active strategies — activate a playbook in Strategy builder.",
       );
       return;
     }
@@ -724,7 +724,7 @@ export function usePremarketWorkspace() {
     }
     if (activeStrategyIds.length === 0) {
       setError(
-        "No active dynamic strategies — save a screen in Strategy builder and activate it.",
+        "No active strategies — activate a playbook in Strategy builder.",
       );
       return;
     }

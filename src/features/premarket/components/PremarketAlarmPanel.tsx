@@ -117,9 +117,9 @@ export function PremarketAlarmPanel({
         ) : null}
 
         <p className="text-xs leading-relaxed text-ocean-sand">
-          Pick a ticker and one dynamic strategy. Start polls candles on that interval; when quality
-          reaches the Premarket threshold (≥ {thresholdPct}%), you get an in-app alarm and polling
-          stops for that watch.
+          Pick a ticker and one strategy. Start polls candles on that interval; when quality reaches
+          the Premarket threshold (≥ {thresholdPct}%), you get an in-app alarm and polling stops for
+          that watch.
         </p>
 
         <div className="flex flex-wrap gap-2">

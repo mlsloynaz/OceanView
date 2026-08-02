@@ -21,20 +21,20 @@ export function PremarketEmptyState({
           </>
         ) : isAdmin ? (
           <>
-            Save a <strong className="text-ocean-foam">dynamic strategy</strong> in Strategy builder
-            below, activate it, then click{" "}
+            Save a <strong className="text-ocean-foam">strategy</strong> in Strategy builder below,
+            activate it, then click{" "}
             <strong className="text-ocean-teal-dim dark:text-ocean-teal">Evaluate strategies</strong>.
           </>
         ) : (
           <>
-            An admin must activate a dynamic strategy before you can run{" "}
+            An admin must activate a strategy before you can run{" "}
             <strong className="text-ocean-teal-dim dark:text-ocean-teal">Evaluate strategies</strong>.
           </>
         )}
       </p>
       <p className="mx-auto mt-3 max-w-md text-xs text-ocean-sand/80">
-        Premarket uses extended-hours bars; Market uses regular session bars. Rule evaluators are
-        shared — strategy ids resolve from the dynamic catalog (and standard JSON when needed).
+        Premarket / Preparation uses extended-hours bars; Market / Live uses regular session bars.
+        Rule evaluators are shared — both surfaces read the same strategy catalog.
       </p>
     </div>
   );

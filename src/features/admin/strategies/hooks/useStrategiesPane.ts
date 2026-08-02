@@ -54,23 +54,13 @@ function resolveError(err: unknown): string {
 function normalizeStrategy(row: DynamicStrategy): DynamicStrategy {
   return {
     ...row,
-    tier: resolveStrategyTier(row),
     active: row.active !== false,
     rules: row.rules ?? [],
   };
 }
 
-function evaluateSurfaceLabel(tier: StrategyTier): string {
-  return tier === "standard" ? "Market" : "Premarket";
-}
-
 function sortStrategies(rows: DynamicStrategy[]): DynamicStrategy[] {
-  return [...rows].sort((a, b) => {
-    const tierOrder = resolveStrategyTier(a) === "standard" ? 0 : 1;
-    const tierOrderB = resolveStrategyTier(b) === "standard" ? 0 : 1;
-    if (tierOrder !== tierOrderB) return tierOrder - tierOrderB;
-    return a.name.localeCompare(b.name);
-  });
+  return [...rows].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function strategyRulesToInput(rules: DynamicStrategy["rules"]) {
@@ -436,7 +426,6 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
   ]);
 
   const toggleStrategyActive = useCallback((strategy: DynamicStrategy) => {
-    const tier = resolveStrategyTier(strategy);
     const nextActive = !strategy.active;
     setStrategies((prev) =>
       prev.map((row) => (row.id === strategy.id ? { ...row, active: nextActive } : row)),
@@ -444,7 +433,7 @@ export function useStrategiesPane(options?: { enabled?: boolean }) {
     setDirtyActiveIds((prev) => markDirty(prev, strategy.id));
     setError(null);
     setNotice(
-      `${strategy.name} ${nextActive ? "activated" : "deactivated"} for ${evaluateSurfaceLabel(tier)} (unsaved).`,
+      `${strategy.name} ${nextActive ? "activated" : "deactivated"} (unsaved).`,
     );
   }, []);
 

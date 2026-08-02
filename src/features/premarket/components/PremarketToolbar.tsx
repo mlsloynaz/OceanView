@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { cn } from "@/shared/lib/cn";
 import { SimulationTimeControl } from "@/shared/components/SimulationTimeControl";
 import { PollControls } from "@/shared/components/PollControls";
@@ -83,21 +82,17 @@ export function PremarketToolbar({
       <div>
         <h2 className="font-display text-lg font-semibold text-ocean-foam">Evaluate strategies</h2>
         <p className="mt-0.5 text-xs text-ocean-sand">
-          Run active <strong className="text-ocean-foam">dynamic strategies</strong> against all
-          active tickers
+          Run active <strong className="text-ocean-foam">strategies</strong> against all active
+          tickers
           {activeStrategyCount > 0 ? (
             <>
               {" "}
               — {evaluateGroupLabel}
             </>
           ) : null}
-          . Standard playbooks are evaluated on{" "}
-          <Link to="/market" className="text-ocean-teal hover:underline">
-            Market
-          </Link>{" "}
-          only.
-          {isAdmin ? " Manage dynamic screens in Strategy builder below." : null} Extended-hours
-          bars stay in memory only.
+          .
+          {isAdmin ? " Manage playbooks in Strategy builder below." : null} Extended-hours bars stay
+          in memory only.
         </p>
       </div>
 
@@ -187,8 +182,8 @@ export function PremarketToolbar({
             monitorActive
               ? "Continuous evaluate is already running — hit Stop first"
               : activeStrategyCount === 0
-                ? "Activate at least one dynamic strategy first"
-                : `Run one evaluate of ${activeStrategyCount} dynamic strateg${activeStrategyCount === 1 ? "y" : "ies"} (no interval polling)`
+                ? "Activate at least one strategy first"
+                : `Run one evaluate of ${activeStrategyCount} strateg${activeStrategyCount === 1 ? "y" : "ies"} (no interval polling)`
           }
           onClick={onEvaluateAdhoc}
         >
@@ -228,7 +223,7 @@ export function PremarketToolbar({
           className="inline-flex flex-wrap items-center"
         />
         <span className="ml-auto text-xs text-ocean-sand">
-          {activeStrategyCount} active dynamic strateg{activeStrategyCount === 1 ? "y" : "ies"}
+          {activeStrategyCount} active strateg{activeStrategyCount === 1 ? "y" : "ies"}
         </span>
       </div>
 
