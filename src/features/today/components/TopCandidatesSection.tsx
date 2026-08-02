@@ -267,7 +267,7 @@ function PreparationCandidates({
           emptyMessage={
             ws.result?.status === "complete" || ws.result?.status === "partial"
               ? (ws.result.summary?.strategyCount ?? 0) === 0
-                ? "No strategies scored — Simulate time is likely outside entry windows (active playbooks are morning-only, e.g. 09:30–11:00 ET). Set Time to ~10:00 and Evaluate again."
+                ? "No strategies scored — Simulate time is likely outside the entry windows set on active playbooks in Strategy builder. Adjust Time to sit inside those windows and Evaluate again."
                 : "No tickers met the quality threshold for this run."
               : "No preparation candidates yet. Run Premarket evaluate to populate Top Candidates."
           }

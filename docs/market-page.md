@@ -72,7 +72,7 @@ Base path: `{VITE_API_BASE_URL}/market/...` — production uses `/api/market/...
 
 **Snapshot/detail query:** optional `?runId=` from envelope. Omit `runId` when envelope has none — API returns fixture preview or latest persisted run.
 
-**Mock mode:** snapshot from `/data/market-snapshot.json`; catalog tries `GET /market/strategies` first, then falls back to `/data/strategies.json` (sync from API — see [Strategy catalog](#strategy-catalog-source-of-truth)).
+**Mock mode:** snapshot from `/data/market-snapshot.json`; catalog from `GET /market/strategies` (empty catalog if API unavailable — playbooks are Dynamo-only).
 
 ### Bootstrap — `GET /market/envelope`
 
@@ -94,7 +94,7 @@ Base path: `{VITE_API_BASE_URL}/market/...` — production uses `/api/market/...
 
 Returns `{ version, updatedAt, strategies[] }`. Each strategy: `id`, `name`, `shortName?`, `description`, `entryWindow?`, `active`, `rules[]` (`ruleKey`, `label`, `type`, `timeframe?`).
 
-Only strategies with **`active: true`** appear in Market grids, rule cards, and Assess. Inactive playbook entries stay in the JSON for reference but are hidden in the UI. See [Strategy catalog](#strategy-catalog-source-of-truth).
+Only strategies with **`active: true`** appear in Market grids, rule cards, and Assess. Inactive playbook entries stay in Dynamo for reference but are hidden in the UI. See [Strategy catalog](#strategy-catalog-source-of-truth).
 
 **Entry window:** On Assess (Live “now” or Simulate ET time), strategies with a structured `entryWindow` are included only when that clock falls inside `startEt`–`endEt`. Strategies outside the window are omitted from scoring (not shown as pending / out-of-window rows).
 ### Snapshots — `GET /market/{mode}/snapshot`
@@ -199,17 +199,16 @@ Market does not call `GET /tickers` directly. Assess uses **active symbols** fro
 
 | Item | Location |
 |------|----------|
-| **Canonical JSON** | `OceanView-API/data/strategies.json` |
+| **Canonical store** | Dynamo (`OceanView-DynamicStrategyCatalog`) via Strategy builder |
 | **Served by API** | `GET /market/strategies` |
-| **Mock fallback (UI)** | `OceanView/data/strategies.json` — copy of API file for offline mock |
+| **Offline mock** | Empty catalog if API unavailable (no static `strategies.json`) |
 
 **To change which strategies appear on Market:**
 
-1. Edit `active: true/false` on each strategy in **`OceanView-API/data/strategies.json`** (today: `estrategia-01` and `estrategia-05` only).
-2. Redeploy or restart SAM (`sam build` + `sam local start-api`) so the API loads the file.
-3. For mock UI without API, sync the copy: `.\scripts\sync-strategies-catalog.ps1` from the OceanView repo root.
+1. Activate/deactivate strategies in **Strategy builder** (Dynamo).
+2. Or `PATCH /market/strategies/{id}` with `{ "active": true|false }`.
 
-Grids, rule cards, envelope `summary.strategyCount`, and Assess all use **active-only** strategies. Full playbook entries remain in JSON with `active: false` for future use. See `OceanView-API/docs/strategies-and-rules.md`.
+Grids, rule cards, envelope `summary.strategyCount`, and Assess all use **active-only** strategies. See `OceanView-API/docs/strategies-and-rules.md`.
 
 ---
 
@@ -299,8 +298,8 @@ flowchart TB
 
 ### Mock mode (`VITE_USE_MOCK_MARKET=true`)
 
-1. Loads static JSON from `/data/strategies.json` + `/data/market-snapshot.json`
-2. Builds all three grids client-side from full snapshot (no API)
+1. Loads catalog from API when available (else empty); snapshot from `/data/market-snapshot.json`
+2. Builds all three grids client-side from full snapshot (no assess API)
 3. Assess is simulated locally (400 ms delay, updates assessment label only)
 
 ---
@@ -464,9 +463,7 @@ Open http://localhost:5173/market/strategies — grids should load from API when
 | `src/features/market/components/*` | Cards, modals, controls, summary |
 | `src/features/market/alarm/*` | Rule Alarm panel, hook, client (`/market/alarm`) |
 | `src/app/router.tsx` | Route registration |
-| `data/strategies.json` | Mock catalog fallback (sync from API) |
 | `data/market-snapshot.json` | Mock eval snapshot |
-| `scripts/sync-strategies-catalog.ps1` | Copy catalog from `OceanView-API/data/strategies.json` |
 
 ---
 
@@ -475,7 +472,7 @@ Open http://localhost:5173/market/strategies — grids should load from API when
 - **`runId: null` in envelope** — Normal before the first Assess. Snapshot endpoints still respond; grids show fixture preview data while the “No assessment run yet” banner remains until a real run persists `runId`.
 - **Fixture fallback** — Controlled in OceanView-API (`MARKET_ASSESSMENT_FIXTURE_FALLBACK`, default on). Disable in production when only real persisted runs should appear.
 - **Candles prerequisite** — Assess needs candle data for active tickers. Refresh candles in Admin first if `MARKET_NO_CANDLES` appears.
-- **Mock fixtures** — `data/market-snapshot.json` for offline eval preview; catalog prefers live `GET /market/strategies`, with `data/strategies.json` as fallback (run `scripts/sync-strategies-catalog.ps1` after API catalog changes).
+- **Mock fixtures** — `data/market-snapshot.json` for offline eval preview; catalog from live `GET /market/strategies` (empty if API down).
 
 ---
 

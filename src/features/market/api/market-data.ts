@@ -32,7 +32,8 @@ export async function loadStrategiesCatalogMock(): Promise<StrategiesCatalogFile
     catalogCache = await fetchStrategiesCatalog();
     return catalogCache;
   } catch {
-    catalogCache = await fetchJson<StrategiesCatalogFile>("/data/strategies.json");
+    // Offline mock: empty catalog (playbooks live only in Dynamo — no static JSON fallback).
+    catalogCache = { version: "1", updatedAt: "", strategies: [] };
     return catalogCache;
   }
 }
