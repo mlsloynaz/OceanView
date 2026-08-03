@@ -138,7 +138,8 @@ export function TodayPage() {
 
       <CandidateDetailSection candidate={selected} />
 
-      <ActiveWatchesSection alarms={alarms} />
+      {/* Rule Alarm is Market/Live only — same panel was duplicated on Preparation. */}
+      {mode === "live" ? <ActiveWatchesSection alarms={alarms} /> : null}
     </div>
   );
 }
