@@ -210,6 +210,22 @@ export type MarketEnvelope = {
   nextOpenEt?: string | null;
 };
 
+/** Informational market weather — not used for assess scoring. */
+export type MarketContextKey = "SPY" | "QQQ" | "IWM" | "VIX" | "Breadth";
+export type MarketContextLean = "bullish" | "bearish" | "neutral";
+
+export type MarketContextItem = {
+  key: MarketContextKey;
+  lean: MarketContextLean | null;
+  label: string;
+  evidence?: string;
+};
+
+export type MarketContextResponse = {
+  asOfEt: string;
+  items: MarketContextItem[];
+};
+
 export type StrategySnapshotItem = {
   strategyId: string;
   name: string;

@@ -1,16 +1,44 @@
-/**
- * Compact market-context placeholder for Phase 1.
- * Direction sources stay internal; user-facing label is Market Lean later.
- */
-const CONTEXT_ROWS = [
-  { symbol: "SPY", lean: "—" },
-  { symbol: "QQQ", lean: "—" },
-  { symbol: "IWM", lean: "—" },
-  { symbol: "VIX", lean: "—" },
-  { symbol: "Breadth", lean: "—" },
-] as const;
+import { useEffect, useState } from "react";
+import { fetchMarketContext } from "@/features/market/api/market-client";
+import type { MarketContextItem, MarketContextKey, MarketContextLean } from "@/features/market/types";
+
+const CONTEXT_KEYS: MarketContextKey[] = ["SPY", "QQQ", "IWM", "VIX", "Breadth"];
+
+const PLACEHOLDER_ROWS: MarketContextItem[] = CONTEXT_KEYS.map((key) => ({
+  key,
+  lean: null,
+  label: "—",
+}));
+
+function leanClassName(lean: MarketContextLean | null): string {
+  if (lean === "bullish") return "text-emerald-400";
+  if (lean === "bearish") return "text-rose-400";
+  return "text-ocean-sand";
+}
 
 export function MarketContextStrip() {
+  const [rows, setRows] = useState<MarketContextItem[]>(PLACEHOLDER_ROWS);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchMarketContext()
+      .then((payload) => {
+        if (cancelled) return;
+        const byKey = new Map(payload.items.map((item) => [item.key, item]));
+        setRows(
+          CONTEXT_KEYS.map(
+            (key) => byKey.get(key) ?? { key, lean: null, label: "—" },
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setRows(PLACEHOLDER_ROWS);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <section
       aria-labelledby="today-market-context-heading"
@@ -23,15 +51,13 @@ export function MarketContextStrip() {
         >
           Market Context
         </h2>
-        <p className="text-xs text-ocean-sand/70">
-          Market Lean — informational only (live lean wiring comes next)
-        </p>
+        <p className="text-xs text-ocean-sand/70">Market Lean — informational only</p>
       </div>
       <ul className="flex flex-wrap gap-x-6 gap-y-2">
-        {CONTEXT_ROWS.map((row) => (
-          <li key={row.symbol} className="flex items-baseline gap-2 text-sm">
-            <span className="font-semibold text-ocean-foam">{row.symbol}</span>
-            <span className="text-ocean-sand">{row.lean}</span>
+        {rows.map((row) => (
+          <li key={row.key} className="flex items-baseline gap-2 text-sm" title={row.evidence}>
+            <span className="font-semibold text-ocean-foam">{row.key}</span>
+            <span className={leanClassName(row.lean)}>{row.label || "—"}</span>
           </li>
         ))}
       </ul>

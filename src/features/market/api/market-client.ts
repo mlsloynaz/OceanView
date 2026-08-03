@@ -1,4 +1,5 @@
 import type {
+  MarketContextResponse,
   MarketEnvelope,
   MarketEvaluateRequest,
   MarketEvaluateResponse,
@@ -71,6 +72,10 @@ export function marketApiBaseUrl(): string | null {
 
 export async function fetchMarketEnvelope(): Promise<MarketEnvelope> {
   return fetchJson<MarketEnvelope>("/market/envelope");
+}
+
+export async function fetchMarketContext(): Promise<MarketContextResponse> {
+  return fetchJson<MarketContextResponse>("/market/context");
 }
 
 export async function fetchStrategiesCatalog(): Promise<StrategiesCatalogFile> {
