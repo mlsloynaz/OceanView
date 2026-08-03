@@ -89,6 +89,8 @@ export type StrategyAssessExtras = {
 
 export type TickerStrategyEval = StrategyAssessExtras & {
   strategyId: string;
+  /** Present on ticker-card projections when catalog name is known. */
+  strategyName?: string;
   qualityPct: number;
   metCount: number;
   totalCount: number;
@@ -156,6 +158,12 @@ export type TickerCardModel = {
     achievedAtEt?: string;
   } | null;
   topStrategyEval: TickerStrategyEval | null;
+  /** Active strategies agreeing on top bias (CALL/PUT). */
+  directionAgreement?: {
+    direction: TradeDirection;
+    agreeingCount: number;
+    evaluatedCount: number;
+  } | null;
   movementProfile?: MovementProfile | null;
 };
 
@@ -242,9 +250,21 @@ export type TickerSnapshotItem = {
   bestSignal: TickerCardModel["bestSignal"];
   topStrategyEval?: {
     strategyId: string;
+    strategyName?: string;
     qualityPct: number;
+    direction?: TradeDirection | null;
+    directionConfidence?: DirectionConfidence | null;
+    readiness?: string | null;
+    lateEntry?: boolean | null;
+    qualityInvalidated?: boolean | null;
+    metRequired?: number;
+    totalRequired?: number;
+    preselectionNear?: boolean | null;
+    preselectionNearApplicable?: boolean | null;
     rules: RuleEval[];
+    dangers?: DangerEval[];
   } | null;
+  directionAgreement?: TickerCardModel["directionAgreement"];
   movementProfile?: MovementProfile | null;
 };
 

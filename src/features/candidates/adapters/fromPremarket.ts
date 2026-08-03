@@ -14,6 +14,7 @@ import {
   confidenceFromDirection,
   lookupSymbolMap,
   movementFields,
+  orderRankScore,
   readinessFromRules,
   tradabilityFromTier,
 } from "../lib/normalize";
@@ -77,7 +78,8 @@ export function adaptPremarketBestHit(
     lookupSymbolMap(options.tradabilityBySymbol, hit.symbol),
   );
   const historicalEdge = null;
-  const { rankScore, rankComponents } = buildRankComponents({
+  const biasAgreementCount = direction === "CALL" || direction === "PUT" ? 1 : 0;
+  const { rankComponents } = buildRankComponents({
     qualityPct,
     historicalEdge,
     readiness,
@@ -86,6 +88,7 @@ export function adaptPremarketBestHit(
     tradability,
     hasMovementProfile: profile != null,
   });
+  const rankScore = orderRankScore({ readiness, biasAgreementCount, qualityPct });
 
   const dangerLabels = (bestTicker?.dangers ?? [])
     .filter((d) => d.status === "failed")
@@ -109,6 +112,7 @@ export function adaptPremarketBestHit(
       evidence: bestTicker?.directionEvidence,
       source: bestTicker?.directionSource,
     }),
+    biasAgreementCount,
     ...move,
     tradability,
     updatedAt,
@@ -158,7 +162,8 @@ export function adaptPremarketTickerHit(
     lookupSymbolMap(options.tradabilityBySymbol, hit.symbol),
   );
   const historicalEdge = null;
-  const { rankScore, rankComponents } = buildRankComponents({
+  const biasAgreementCount = direction === "CALL" || direction === "PUT" ? 1 : 0;
+  const { rankComponents } = buildRankComponents({
     qualityPct,
     historicalEdge,
     readiness,
@@ -167,6 +172,7 @@ export function adaptPremarketTickerHit(
     tradability,
     hasMovementProfile: profile != null,
   });
+  const rankScore = orderRankScore({ readiness, biasAgreementCount, qualityPct });
 
   const strategyName = strategy.shortName || strategy.name || strategy.strategyId;
   const dangerLabels = (hit.dangers ?? [])
@@ -191,6 +197,7 @@ export function adaptPremarketTickerHit(
       evidence: hit.directionEvidence,
       source: hit.directionSource,
     }),
+    biasAgreementCount,
     ...move,
     tradability,
     updatedAt,

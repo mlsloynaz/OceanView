@@ -10,6 +10,7 @@ import {
   confidenceFromDirection,
   lookupSymbolMap,
   movementFields,
+  orderRankScore,
   readinessFromRules,
   tradabilityFromTier,
 } from "../lib/normalize";
@@ -36,6 +37,13 @@ function leanFromEval(evalRow: TickerStrategyEval | null | undefined): MarketLea
   };
 }
 
+function agreementCount(card: TickerCardModel, direction: string): number {
+  const raw = card.directionAgreement;
+  if (raw && raw.agreeingCount > 0) return raw.agreeingCount;
+  const d = asDirection(direction);
+  return d === "CALL" || d === "PUT" ? 1 : 0;
+}
+
 function adaptEval(args: {
   symbol: string;
   name?: string | null;
@@ -43,6 +51,7 @@ function adaptEval(args: {
   strategyName: string;
   updatedAt: string;
   tradabilityTier?: string;
+  biasAgreementCount?: number;
 }): CandidateViewModel {
   const { evalRow } = args;
   const qualityPct = Number(evalRow.qualityPct) || 0;
@@ -58,7 +67,8 @@ function adaptEval(args: {
   const tradability = tradabilityFromTier(args.tradabilityTier);
   const move = movementFields(null);
   const historicalEdge = null;
-  const { rankScore, rankComponents } = buildRankComponents({
+  const biasAgreementCount = args.biasAgreementCount ?? (direction === "neutral" ? 0 : 1);
+  const { rankComponents } = buildRankComponents({
     qualityPct,
     historicalEdge,
     readiness,
@@ -85,6 +95,7 @@ function adaptEval(args: {
     historicalEdge,
     confidence: confidenceFromDirection(evalRow.directionConfidence),
     marketLean: leanFromEval(evalRow),
+    biasAgreementCount,
     ...move,
     tradability,
     updatedAt: args.updatedAt,
@@ -97,28 +108,28 @@ function adaptEval(args: {
     confirmationItems: buildConfirmationItems(rules),
     source: "market",
     movementProfile: null,
-    rankScore,
+    rankScore: orderRankScore({ readiness, biasAgreementCount, qualityPct }),
     rankComponents,
   };
 }
 
 /**
- * Adapt a Market ticker card (best signal) into one CandidateViewModel.
- * Missing bestSignal → null (partial data).
+ * Adapt a Market ticker card into one CandidateViewModel from the top strategy
+ * (highest qualityPct). Bias, quality, lean, and rules stay on that same eval.
  */
 export function adaptMarketTickerCard(
   card: TickerCardModel,
   options: MarketAdapterOptions = {},
 ): CandidateViewModel | null {
-  const best = card.bestSignal;
   const evalRow = card.topStrategyEval;
-  if (!best && !evalRow) return null;
+  const best = card.bestSignal;
+  if (!evalRow && !best) return null;
 
-  const strategyId = best?.strategyId ?? evalRow?.strategyId;
+  const strategyId = evalRow?.strategyId ?? best?.strategyId;
   if (!strategyId) return null;
 
   const updatedAt = options.updatedAt ?? new Date().toISOString();
-  const qualityPct = best?.qualityPct ?? evalRow?.qualityPct ?? 0;
+  const qualityPct = evalRow?.qualityPct ?? best?.qualityPct ?? 0;
   const rules = evalRow?.rules ?? [];
   const readiness = readinessFromRules(rules, qualityPct, {
     readiness: evalRow?.readiness,
@@ -127,14 +138,15 @@ export function adaptMarketTickerCard(
     lateEntry: evalRow?.lateEntry,
     qualityInvalidated: evalRow?.qualityInvalidated,
   });
-  const direction = asDirection(best?.direction ?? evalRow?.direction ?? null);
+  const direction = asDirection(evalRow?.direction ?? best?.direction ?? null);
   const profile = card.movementProfile ?? null;
   const move = movementFields(profile);
   const tradability = tradabilityFromTier(
     lookupSymbolMap(options.tradabilityBySymbol, card.symbol),
   );
   const historicalEdge = null;
-  const { rankScore, rankComponents } = buildRankComponents({
+  const biasAgreementCount = agreementCount(card, direction);
+  const { rankComponents } = buildRankComponents({
     qualityPct,
     historicalEdge,
     readiness,
@@ -149,7 +161,22 @@ export function adaptMarketTickerCard(
     .map((d) => d.evidence || d.dangerKey)
     .filter(Boolean) as string[];
 
-  const strategyName = best?.strategyName || strategyId;
+  const sameBest = best && best.strategyId === strategyId;
+  const strategyName =
+    evalRow?.strategyName || (sameBest ? best?.strategyName : null) || strategyId;
+
+  const leanEval: TickerStrategyEval = evalRow
+    ? { ...evalRow, direction: evalRow.direction ?? best?.direction ?? null }
+    : {
+        strategyId,
+        qualityPct,
+        metCount: 0,
+        totalCount: 0,
+        metRequired: 0,
+        totalRequired: 0,
+        rules: [],
+        direction: best?.direction ?? null,
+      };
 
   return {
     id: candidateId(card.symbol, strategyId),
@@ -162,20 +189,8 @@ export function adaptMarketTickerCard(
     qualityPct,
     historicalEdge,
     confidence: confidenceFromDirection(evalRow?.directionConfidence),
-    marketLean: leanFromEval(
-      evalRow
-        ? { ...evalRow, direction: evalRow.direction ?? best?.direction ?? null }
-        : {
-            strategyId,
-            qualityPct,
-            metCount: 0,
-            totalCount: 0,
-            metRequired: 0,
-            totalRequired: 0,
-            rules: [],
-            direction: best?.direction ?? null,
-          },
-    ),
+    marketLean: leanFromEval(leanEval),
+    biasAgreementCount,
     ...move,
     tradability,
     updatedAt,
@@ -188,7 +203,7 @@ export function adaptMarketTickerCard(
     confirmationItems: buildConfirmationItems(rules),
     source: "market",
     movementProfile: profile,
-    rankScore,
+    rankScore: orderRankScore({ readiness, biasAgreementCount, qualityPct }),
     rankComponents,
   };
 }
@@ -225,7 +240,18 @@ export function adaptMarketTickerResult(
   const profile = result.movementProfile ?? null;
   const out: CandidateViewModel[] = [];
 
+  const topDir = asDirection(strategies[0]?.direction ?? null);
+  const directional = strategies.filter((s) => {
+    const d = asDirection(s.direction ?? null);
+    return d === "CALL" || d === "PUT";
+  });
+  const agreeing =
+    topDir === "CALL" || topDir === "PUT"
+      ? directional.filter((s) => asDirection(s.direction ?? null) === topDir).length
+      : 0;
+
   for (const evalRow of selected) {
+    const isTop = evalRow === strategies[0] || options.bestOnly;
     const base = adaptEval({
       symbol: result.symbol,
       name: result.name,
@@ -233,10 +259,11 @@ export function adaptMarketTickerResult(
       strategyName: options.strategyNameById?.[evalRow.strategyId] ?? evalRow.strategyId,
       updatedAt,
       tradabilityTier: lookupSymbolMap(options.tradabilityBySymbol, result.symbol),
+      biasAgreementCount: isTop ? agreeing || 1 : 1,
     });
     const move = movementFields(profile);
     const historicalEdge = null;
-    const { rankScore, rankComponents } = buildRankComponents({
+    const { rankComponents } = buildRankComponents({
       qualityPct: base.qualityPct,
       historicalEdge,
       readiness: base.readiness,
@@ -257,7 +284,11 @@ export function adaptMarketTickerResult(
           .map((d) => d.evidence || d.dangerKey)
           .filter(Boolean) as string[],
       }),
-      rankScore,
+      rankScore: orderRankScore({
+        readiness: base.readiness,
+        biasAgreementCount: base.biasAgreementCount,
+        qualityPct: base.qualityPct,
+      }),
       rankComponents,
     });
   }

@@ -369,6 +369,25 @@ export function buildRankComponents(input: {
   return { rankScore, rankComponents };
 }
 
+/** Compact display key: readiness tier, bias agreement, then quality. */
+export function orderRankScore(input: {
+  readiness: CandidateReadiness;
+  biasAgreementCount: number;
+  qualityPct: number;
+}): number {
+  const tier =
+    input.readiness === "confirmed"
+      ? 5
+      : input.readiness === "watching" || input.readiness === "near"
+        ? 4
+        : input.readiness === "preparing"
+          ? 3
+          : input.readiness === "late" || input.readiness === "weakening"
+            ? 2
+            : 1;
+  return tier * 10_000 + Math.max(0, input.biasAgreementCount) * 100 + Math.round(input.qualityPct);
+}
+
 export function candidateId(symbol: string, strategyId: string): string {
   return `${symbol.toUpperCase()}#${strategyId}`;
 }
@@ -386,14 +405,37 @@ export function lookupSymbolMap(
 }
 
 export function sortCandidatesByRank<
-  T extends { rankScore: number; qualityPct: number; symbol: string; readiness?: string },
+  T extends {
+    rankScore: number;
+    qualityPct: number;
+    symbol: string;
+    readiness?: string;
+    biasAgreementCount?: number;
+  },
 >(rows: T[]): T[] {
-  const confirmedFirst = (r: T) => (String(r.readiness ?? "") === "confirmed" ? 0 : 1);
+  const readinessTier = (r: T): number => {
+    switch (String(r.readiness ?? "")) {
+      case "confirmed":
+        return 0;
+      case "watching":
+      case "near":
+        return 1;
+      case "preparing":
+        return 2;
+      case "late":
+      case "weakening":
+        return 3;
+      default:
+        return 4;
+    }
+  };
   return [...rows].sort((a, b) => {
-    const ac = confirmedFirst(a);
-    const bc = confirmedFirst(b);
-    if (ac !== bc) return ac - bc;
-    if (b.rankScore !== a.rankScore) return b.rankScore - a.rankScore;
+    const ra = readinessTier(a);
+    const rb = readinessTier(b);
+    if (ra !== rb) return ra - rb;
+    const aa = a.biasAgreementCount ?? 0;
+    const ba = b.biasAgreementCount ?? 0;
+    if (ba !== aa) return ba - aa;
     if (b.qualityPct !== a.qualityPct) return b.qualityPct - a.qualityPct;
     return a.symbol.localeCompare(b.symbol);
   });

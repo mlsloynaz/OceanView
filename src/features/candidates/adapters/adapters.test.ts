@@ -7,6 +7,7 @@ import {
 import {
   buildRankComponents,
   readinessFromRules,
+  sortCandidatesByRank,
   tradabilityFromTier,
 } from "../lib/normalize";
 import type { TickerCardModel } from "@/features/market/types";
@@ -207,6 +208,81 @@ describe("adaptMarketTickerCard", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.symbol).toBe("IWM");
     expect(rows[0]!.readiness).toBe("confirmed");
+  });
+
+  it("uses topStrategyEval when bestSignal is a different lower strategy", () => {
+    const card: TickerCardModel = {
+      symbol: "NFLX",
+      name: "Netflix",
+      signalCount: 1,
+      bestSignal: {
+        strategyId: "estrategia-05",
+        strategyName: "Inside BB 15M",
+        qualityPct: 80,
+        direction: "PUT",
+      },
+      topStrategyEval: {
+        strategyId: "estrategia-01",
+        strategyName: "Trend Change 1H",
+        qualityPct: 90,
+        direction: "CALL",
+        directionConfidence: "high",
+        metCount: 1,
+        totalCount: 4,
+        metRequired: 1,
+        totalRequired: 4,
+        readiness: "preparing",
+        rules: [{ ruleKey: "bb_mid_trend_1h", status: "met", evidence: "1h mid up" }],
+      },
+      directionAgreement: {
+        direction: "CALL",
+        agreeingCount: 2,
+        evaluatedCount: 3,
+      },
+    };
+    const row = adaptMarketTickerCard(card);
+    expect(row!.strategyId).toBe("estrategia-01");
+    expect(row!.strategyName).toBe("Trend Change 1H");
+    expect(row!.direction).toBe("CALL");
+    expect(row!.qualityPct).toBe(90);
+    expect(row!.biasAgreementCount).toBe(2);
+    expect(row!.marketLean?.direction).toBe("CALL");
+  });
+});
+
+describe("sortCandidatesByRank", () => {
+  it("ranks Confirmed above Preparing, then agreement, then quality", () => {
+    const rows = sortCandidatesByRank([
+      {
+        symbol: "TSLA",
+        readiness: "preparing",
+        biasAgreementCount: 1,
+        qualityPct: 90,
+        rankScore: 0,
+      },
+      {
+        symbol: "NFLX",
+        readiness: "preparing",
+        biasAgreementCount: 3,
+        qualityPct: 44,
+        rankScore: 0,
+      },
+      {
+        symbol: "MSFT",
+        readiness: "confirmed",
+        biasAgreementCount: 1,
+        qualityPct: 100,
+        rankScore: 0,
+      },
+      {
+        symbol: "AAPL",
+        readiness: "confirmed",
+        biasAgreementCount: 2,
+        qualityPct: 80,
+        rankScore: 0,
+      },
+    ]);
+    expect(rows.map((r) => r.symbol)).toEqual(["AAPL", "MSFT", "NFLX", "TSLA"]);
   });
 });
 

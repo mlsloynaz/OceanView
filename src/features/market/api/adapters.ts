@@ -26,25 +26,37 @@ export function adaptStrategySnapshotItems(
 }
 
 export function adaptTickerSnapshotItems(items: TickerSnapshotItem[]): TickerCardModel[] {
-  return items.map((item) => ({
-    symbol: item.symbol,
-    name: item.name,
-    signalCount: item.signalCount,
-    bestSignal: item.bestSignal,
-    topStrategyEval: item.topStrategyEval
-      ? {
-          strategyId: item.topStrategyEval.strategyId,
-          qualityPct: item.topStrategyEval.qualityPct,
-          direction: item.bestSignal?.direction ?? null,
-          metCount: 0,
-          totalCount: 0,
-          metRequired: 0,
-          totalRequired: 0,
-          rules: item.topStrategyEval.rules,
-        }
-      : null,
-    movementProfile: item.movementProfile ?? null,
-  }));
+  return items.map((item) => {
+    const top = item.topStrategyEval;
+    return {
+      symbol: item.symbol,
+      name: item.name,
+      signalCount: item.signalCount,
+      bestSignal: item.bestSignal,
+      topStrategyEval: top
+        ? {
+            strategyId: top.strategyId,
+            qualityPct: top.qualityPct,
+            direction: top.direction ?? null,
+            directionConfidence: top.directionConfidence ?? null,
+            readiness: top.readiness ?? null,
+            lateEntry: top.lateEntry ?? null,
+            qualityInvalidated: top.qualityInvalidated ?? null,
+            metCount: top.metRequired ?? 0,
+            totalCount: top.totalRequired ?? 0,
+            metRequired: top.metRequired ?? 0,
+            totalRequired: top.totalRequired ?? 0,
+            preselectionNear: top.preselectionNear ?? null,
+            preselectionNearApplicable: top.preselectionNearApplicable ?? null,
+            rules: top.rules,
+            dangers: top.dangers,
+            ...(top.strategyName ? { strategyName: top.strategyName } : {}),
+          }
+        : null,
+      directionAgreement: item.directionAgreement ?? null,
+      movementProfile: item.movementProfile ?? null,
+    };
+  });
 }
 
 export function adaptRuleSnapshotItems(items: RuleSnapshotItem[]): RuleCardModel[] {

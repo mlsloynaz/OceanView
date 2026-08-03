@@ -69,6 +69,8 @@ export type CandidateViewModel = {
   historicalEdge: number | null;
   confidence: ConfidenceLevel | null;
   marketLean: MarketLeanView | null;
+  /** Active strategies agreeing on this row's CALL/PUT (1 = only this strategy). */
+  biasAgreementCount: number;
   moveRemainingPct: number | null;
   expectedMovePct: number | null;
   stretchMovePct: number | null;
@@ -82,7 +84,7 @@ export type CandidateViewModel = {
   confirmationItems: ConfirmationItem[];
   source: CandidateSource;
   movementProfile: MovementProfile | null;
-  /** Aggregate for row order only — not shown as probability. */
+  /** Sort key for drawer display only — not probability. */
   rankScore: number;
   rankComponents: CandidateRankComponents;
 };

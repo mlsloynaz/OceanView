@@ -152,6 +152,29 @@ export function buildTickerCards(
     const best = signals[0] ?? null;
     const top = [...activeEvals].sort((a, b) => b.qualityPct - a.qualityPct)[0] ?? null;
 
+    const topDir = String(top?.direction ?? "")
+      .trim()
+      .toUpperCase();
+    let directionAgreement: TickerCardModel["directionAgreement"] = null;
+    if (topDir === "CALL" || topDir === "PUT") {
+      const directional = activeEvals.filter((s) => {
+        const d = String(s.direction ?? "")
+          .trim()
+          .toUpperCase();
+        return d === "CALL" || d === "PUT";
+      });
+      directionAgreement = {
+        direction: topDir,
+        agreeingCount: directional.filter(
+          (s) =>
+            String(s.direction ?? "")
+              .trim()
+              .toUpperCase() === topDir,
+        ).length,
+        evaluatedCount: directional.length,
+      };
+    }
+
     return {
       symbol: ticker.symbol,
       name: ticker.name,
@@ -165,6 +188,7 @@ export function buildTickerCards(
           } satisfies TickerCardModel["bestSignal"] & object
         : null,
       topStrategyEval: top,
+      directionAgreement,
       movementProfile: ticker.movementProfile ?? null,
     };
   });
