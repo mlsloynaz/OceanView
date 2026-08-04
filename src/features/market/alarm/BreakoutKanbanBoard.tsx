@@ -49,8 +49,8 @@ export function breakoutKanbanColumn(watch: MarketAlarmWatch): BreakoutKanbanCol
   ) {
     return "confirmed";
   }
-  if (life === "failed") return "confirmed";
-  // setup_forming, testing_level, idle, unknown, unscanned
+  // failed / setup_forming / testing_level / idle / unknown / unscanned → Setup
+  // (failed used to sit in Confirmed and looked like a live put/call)
   return "setup";
 }
 
