@@ -1,4 +1,4 @@
-export type LabHubView = "hub" | "research" | "lab1";
+export type LabHubView = "hub" | "research" | "lab1" | "e05Saliendo";
 
 export type LabHubMeta = {
   id: Exclude<LabHubView, "hub">;
@@ -7,7 +7,11 @@ export type LabHubMeta = {
   description: string;
 };
 
-export const LAB_HUB_ORDER: Array<Exclude<LabHubView, "hub">> = ["research", "lab1"];
+export const LAB_HUB_ORDER: Array<Exclude<LabHubView, "hub">> = [
+  "research",
+  "lab1",
+  "e05Saliendo",
+];
 
 export const LAB_HUB: Record<Exclude<LabHubView, "hub">, LabHubMeta> = {
   research: {
@@ -21,6 +25,13 @@ export const LAB_HUB: Record<Exclude<LabHubView, "hub">, LabHubMeta> = {
     anchorId: "admin-lab-lab1",
     title: "Lab1 · ETF BB",
     description: "1m Bollinger breakout watch — SPY, DIA, QQQ, SPX, NVDA · Start/Stop every 30s",
+  },
+  e05Saliendo: {
+    id: "e05Saliendo",
+    anchorId: "admin-lab-e05-saliendo",
+    title: "E05 saliendo research",
+    description:
+      "15m open-inside + vol + mid bias + saliendo — time-of-day, bias hold, outside BB, breakout lift",
   },
 };
 

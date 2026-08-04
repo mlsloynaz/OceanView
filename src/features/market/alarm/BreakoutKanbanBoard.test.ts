@@ -22,7 +22,7 @@ describe("breakoutKanbanColumn", () => {
 
   it("maps lifecycle to columns", () => {
     expect(breakoutKanbanColumn({ ...base, lastLifecycle: "setup_forming" })).toBe("setup");
-    expect(breakoutKanbanColumn({ ...base, lastLifecycle: "testing_level" })).toBe("testing");
+    expect(breakoutKanbanColumn({ ...base, lastLifecycle: "testing_level" })).toBe("setup");
     expect(breakoutKanbanColumn({ ...base, lastLifecycle: "awaiting_entry" })).toBe("confirmed");
     expect(breakoutKanbanColumn({ ...base, lastLifecycle: "confirmed" })).toBe("confirmed");
     expect(breakoutKanbanColumn({ ...base, lastLifecycle: "entry_ready" })).toBe("entry");

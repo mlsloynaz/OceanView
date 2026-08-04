@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AdminPaneThumbnail } from "@/features/admin/components/AdminPaneThumbnail";
 import { ResearchStatsPane } from "@/features/admin/research-stats/ResearchStatsPane";
 import { Lab1Pane } from "./Lab1Pane";
+import { LabE05SaliendoPane } from "./LabE05SaliendoPane";
 import {
   hashForLabHubView,
   LAB_HUB,
@@ -28,10 +29,23 @@ function IconLab1() {
   );
 }
 
-const HUB_ICONS = {
+function IconE05() {
+  return (
+    <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+      <path
+        fillRule="evenodd"
+        d="M3 4.75A.75.75 0 013.75 4h12.5a.75.75 0 010 1.5H3.75A.75.75 0 013 4.75zm0 5A.75.75 0 013.75 9h8.5a.75.75 0 010 1.5h-8.5A.75.75 0 013 9.75zm0 5a.75.75 0 01.75-.75h12.5a.75.75 0 010 1.5H3.75a.75.75 0 01-.75-.75z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+const HUB_ICONS: Record<Exclude<LabHubView, "hub">, ReactNode> = {
   research: <IconResearch />,
   lab1: <IconLab1 />,
-} as const;
+  e05Saliendo: <IconE05 />,
+};
 
 export function LabPane() {
   const [view, setView] = useState<LabHubView>(() => labHubViewFromHash(window.location.hash));
@@ -53,14 +67,17 @@ export function LabPane() {
   if (view === "lab1") {
     return <Lab1Pane onBack={() => openView("hub")} />;
   }
+  if (view === "e05Saliendo") {
+    return <LabE05SaliendoPane onBack={() => openView("hub")} />;
+  }
 
   return (
     <div className="space-y-4">
       <div>
         <h2 className="font-display text-xl font-semibold text-ocean-foam">Lab</h2>
         <p className="mt-1 max-w-2xl text-sm text-ocean-sand">
-          Research tools and custom studies. Open a thumbnail below — Lab1 watches ETF 1m
-          Bollinger breakouts; more LabN evaluators land here later.
+          Research tools and custom studies. Open a thumbnail below — run offline scans or live
+          Lab1 monitors from here.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

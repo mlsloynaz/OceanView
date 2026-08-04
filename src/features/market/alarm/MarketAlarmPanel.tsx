@@ -229,7 +229,7 @@ export function MarketAlarmPanel({
             are <span className="font-medium text-ocean-foam">met</span> (AND) →{" "}
             <span className="font-medium text-ocean-foam">ENTER</span> popup. Breakout quality
             alerts only on <span className="font-medium text-ocean-foam">Entry</span> (not Setup /
-            Testing / Confirmed). Confirm entry and keep watching until the setup drops →{" "}
+            Confirmed). Confirm entry and keep watching until the setup drops →{" "}
             <span className="font-medium text-ocean-foam">EXIT</span>, then arm again.
           </p>
           {banner ? (
