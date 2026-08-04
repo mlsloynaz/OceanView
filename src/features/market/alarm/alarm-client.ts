@@ -73,6 +73,10 @@ export type MarketAlarmCheckResponse = {
   continuationMomentumScore?: number;
   continuationEntryScore?: number;
   entryBlockers?: string[];
+  entryPath?: string | null;
+  acceptanceScore?: number;
+  impulseScore?: number;
+  holdScore?: number;
   reasons?: string[];
   warnings?: string[];
   bbSparkline15m?: {

@@ -3,15 +3,22 @@
 import { cn } from "@/shared/lib/cn";
 import type { BbSparkline15m } from "./alarm-types";
 
+type Variant = "thumb" | "full";
+
 type Props = {
   data: BbSparkline15m | null | undefined;
   breakoutLevel?: number | null;
   className?: string;
+  /** thumb = compact board pane; full = popup enlarge. */
+  variant?: Variant;
+  showLegend?: boolean;
 };
 
-const PAD = { top: 10, right: 6, bottom: 18, left: 6 };
-const W = 220;
-const H = 148;
+const SIZE: Record<Variant, { pad: { top: number; right: number; bottom: number; left: number }; w: number; h: number }> =
+  {
+    thumb: { pad: { top: 4, right: 4, bottom: 12, left: 4 }, w: 200, h: 72 },
+    full: { pad: { top: 12, right: 10, bottom: 22, left: 10 }, w: 640, h: 360 },
+  };
 
 function timeLabel(iso: string): string {
   const m = /T(\d{2}):(\d{2})/.exec(iso);
@@ -40,13 +47,25 @@ function bbEnvelopePath(
   return `${top} ${bottom}`;
 }
 
-export function BbSparkline15mChart({ data, breakoutLevel, className }: Props) {
+export function BbSparkline15mChart({
+  data,
+  breakoutLevel,
+  className,
+  variant = "thumb",
+  showLegend,
+}: Props) {
   const bars = data?.bars ?? [];
+  const { pad: PAD, w: W, h: H } = SIZE[variant];
+  const legend = showLegend ?? variant === "full";
+  const strokeBand = variant === "full" ? 2 : 1.25;
+  const strokeMid = variant === "full" ? 1.5 : 1;
+  const labelSize = variant === "full" ? 11 : 7;
+
   if (bars.length === 0) {
     return (
       <div
         className={cn(
-          "flex flex-1 items-center justify-center rounded-md border border-dashed border-ocean-mid/25 px-2 py-4 text-center text-[11px] text-ocean-sand/70",
+          "flex flex-1 items-center justify-center rounded-md border border-dashed border-ocean-mid/25 px-2 py-3 text-center text-[11px] text-ocean-sand/70",
           className,
         )}
       >
@@ -76,7 +95,7 @@ export function BbSparkline15mChart({ data, breakoutLevel, className }: Props) {
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
   const slot = plotW / bars.length;
-  const bodyW = Math.max(3, slot * 0.55);
+  const bodyW = Math.max(variant === "full" ? 5 : 2.5, slot * 0.55);
 
   const yScale = (price: number) =>
     PAD.top + ((yMax - price) / (yMax - yMin || 1)) * plotH;
@@ -102,14 +121,14 @@ export function BbSparkline15mChart({ data, breakoutLevel, className }: Props) {
   const lastWidthExpanding = lastWithWidth?.widthExpanding === true;
 
   return (
-    <div className={cn("flex flex-col gap-0.5", className)}>
+    <div className={cn("flex min-h-0 flex-col gap-0.5", className)}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="h-auto w-full text-ocean-foam"
+        className="h-full w-full flex-1 text-ocean-foam"
+        preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label={`${data?.symbol ?? ""} 15m Bollinger disipadores`}
       >
-        {/* Disipador envelope — width opening = expanding volatility */}
         {envelope ? (
           <polygon
             points={envelope}
@@ -128,7 +147,7 @@ export function BbSparkline15mChart({ data, breakoutLevel, className }: Props) {
           <polyline
             fill="none"
             stroke="currentColor"
-            strokeWidth={1.5}
+            strokeWidth={strokeBand}
             className="text-sky-400/90"
             points={upperPts}
           />
@@ -137,7 +156,7 @@ export function BbSparkline15mChart({ data, breakoutLevel, className }: Props) {
           <polyline
             fill="none"
             stroke="currentColor"
-            strokeWidth={1}
+            strokeWidth={strokeMid}
             strokeDasharray="3 2"
             className="text-ocean-teal/80"
             points={midPts}
@@ -147,7 +166,7 @@ export function BbSparkline15mChart({ data, breakoutLevel, className }: Props) {
           <polyline
             fill="none"
             stroke="currentColor"
-            strokeWidth={1.5}
+            strokeWidth={strokeBand}
             className="text-violet-400/90"
             points={lowerPts}
           />
@@ -176,6 +195,10 @@ export function BbSparkline15mChart({ data, breakoutLevel, className }: Props) {
           const bodyTop = Math.min(yO, yC);
           const bodyH = Math.max(1.5, Math.abs(yC - yO));
           const forming = Boolean(b.forming);
+          const showTime =
+            variant === "full"
+              ? i === 0 || i === bars.length - 1 || i === Math.floor(bars.length / 2)
+              : i === 0 || i === bars.length - 1;
           return (
             <g key={b.datetime || i} opacity={forming ? 0.75 : 1}>
               <line
@@ -198,13 +221,13 @@ export function BbSparkline15mChart({ data, breakoutLevel, className }: Props) {
                 strokeWidth={forming ? 1.25 : 0}
                 strokeOpacity={forming ? 0.9 : undefined}
               />
-              {i === 0 || i === bars.length - 1 || i === Math.floor(bars.length / 2) ? (
+              {showTime ? (
                 <text
                   x={xc}
-                  y={H - 3}
+                  y={H - 2}
                   textAnchor="middle"
                   className="fill-ocean-sand/80"
-                  style={{ fontSize: 8 }}
+                  style={{ fontSize: labelSize }}
                 >
                   {timeLabel(b.datetime)}
                 </text>
@@ -213,25 +236,29 @@ export function BbSparkline15mChart({ data, breakoutLevel, className }: Props) {
           );
         })}
       </svg>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-0.5 text-[9px] leading-tight text-ocean-sand/85">
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-0.5 w-2.5 rounded-sm bg-sky-400/90" />
-          upper
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-px w-2.5 border-t border-dashed border-ocean-teal/80" />
-          mid
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-0.5 w-2.5 rounded-sm bg-violet-400/90" />
-          lower
-        </span>
-        {lastWidthExpanding ? (
-          <span className="font-medium text-amber-400/95">vol expanding</span>
-        ) : bbUps.length < 2 ? (
-          <span className="text-ocean-sand/60">BB pending (need history)</span>
-        ) : null}
-      </div>
+      {legend ? (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-0.5 text-[9px] leading-tight text-ocean-sand/85">
+          <span className="inline-flex items-center gap-1">
+            <span className="inline-block h-0.5 w-2.5 rounded-sm bg-sky-400/90" />
+            upper
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="inline-block h-px w-2.5 border-t border-dashed border-ocean-teal/80" />
+            mid
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="inline-block h-0.5 w-2.5 rounded-sm bg-violet-400/90" />
+            lower
+          </span>
+          {lastWidthExpanding ? (
+            <span className="font-medium text-amber-400/95">vol expanding</span>
+          ) : bbUps.length < 2 ? (
+            <span className="text-ocean-sand/60">BB pending (need history)</span>
+          ) : null}
+        </div>
+      ) : lastWidthExpanding ? (
+        <p className="px-0.5 text-[9px] font-medium text-amber-400/95">vol expanding</p>
+      ) : null}
     </div>
   );
 }

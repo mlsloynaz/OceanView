@@ -105,6 +105,9 @@ export type MarketAlarmWatch = {
   lastOverextended?: boolean | null;
   lastLateEntry?: boolean | null;
   lastEntryBlockers?: string[] | null;
+  lastEntryPath?: string | null;
+  lastAcceptanceScore?: number | null;
+  lastImpulseScore?: number | null;
   lastWarnings?: string[] | null;
   /** Breakout watches default to entry_ready (alert only on Entry). */
   alarmTarget?: "confirmed" | "entry_ready";

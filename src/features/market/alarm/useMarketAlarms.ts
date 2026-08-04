@@ -389,6 +389,18 @@ export function useMarketAlarms() {
           lastEntryBlockers: Array.isArray(result.entryBlockers)
             ? result.entryBlockers
             : (watch.lastEntryBlockers ?? null),
+          lastEntryPath:
+            typeof result.entryPath === "string"
+              ? result.entryPath
+              : (watch.lastEntryPath ?? null),
+          lastAcceptanceScore:
+            typeof result.acceptanceScore === "number"
+              ? result.acceptanceScore
+              : (watch.lastAcceptanceScore ?? null),
+          lastImpulseScore:
+            typeof result.impulseScore === "number"
+              ? result.impulseScore
+              : (watch.lastImpulseScore ?? null),
           lastWarnings: Array.isArray(result.warnings)
             ? result.warnings
             : (watch.lastWarnings ?? null),
