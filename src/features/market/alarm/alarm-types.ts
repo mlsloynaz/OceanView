@@ -51,6 +51,14 @@ export type BbSparkline15mBar = {
   bbUpper: number | null;
   bbMid: number | null;
   bbLower: number | null;
+  /** Upper − lower band width (disipador opening). */
+  bbWidth?: number | null;
+  /** Upper disipador rising vs prior bar. */
+  upperExpanding?: boolean | null;
+  /** Lower disipador falling vs prior bar. */
+  lowerExpanding?: boolean | null;
+  /** Band width opening vs prior bar. */
+  widthExpanding?: boolean | null;
   forming?: boolean;
 };
 
@@ -85,12 +93,19 @@ export type MarketAlarmWatch = {
   exitEvidence?: string | null;
   lastBreakoutScore?: number | null;
   lastContinuationScore?: number | null;
+  lastContinuationMomentumScore?: number | null;
+  lastContinuationEntryScore?: number | null;
   lastLifecycle?: string | null;
   lastBreakoutType?: string | null;
   lastSetupType?: string | null;
   /** Last 15m BB sparkline from breakout alarm check (≤9 bars). */
   lastBbSparkline15m?: BbSparkline15m | null;
   lastBreakoutLevel?: number | null;
+  lastAboveVwap?: boolean | null;
+  lastOverextended?: boolean | null;
+  lastLateEntry?: boolean | null;
+  lastEntryBlockers?: string[] | null;
+  lastWarnings?: string[] | null;
   /** Breakout watches default to entry_ready (alert only on Entry). */
   alarmTarget?: "confirmed" | "entry_ready";
   lastDetectedTrend?: AlarmTrend | null;

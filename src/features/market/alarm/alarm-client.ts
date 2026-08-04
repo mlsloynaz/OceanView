@@ -68,6 +68,11 @@ export type MarketAlarmCheckResponse = {
   breakoutType?: string;
   setupType?: string;
   bandWalk1m?: boolean;
+  overextended?: boolean;
+  lateEntry?: boolean;
+  continuationMomentumScore?: number;
+  continuationEntryScore?: number;
+  entryBlockers?: string[];
   reasons?: string[];
   warnings?: string[];
   bbSparkline15m?: {
@@ -83,6 +88,10 @@ export type MarketAlarmCheckResponse = {
       bbUpper: number | null;
       bbMid: number | null;
       bbLower: number | null;
+      bbWidth?: number | null;
+      upperExpanding?: boolean | null;
+      lowerExpanding?: boolean | null;
+      widthExpanding?: boolean | null;
       forming?: boolean;
     }>;
   } | null;

@@ -1,6 +1,5 @@
 /** Breakout Alarm Kanban — Setup → (15m BB chart) → Confirmed → Entry (alert only on Entry). */
 
-import { useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { BbSparkline15mChart } from "./BbSparkline15mChart";
 import { formatAlarmTrend, type MarketAlarmWatch } from "./alarm-types";
@@ -77,6 +76,39 @@ export function resolveChartWatch(
   })[0]!;
 }
 
+function watchSideLabel(watch: MarketAlarmWatch): string {
+  if (watch.lastDetectedTrend === "alcista" || watch.lastDetectedTrend === "bajista") {
+    return formatAlarmTrend(watch.lastDetectedTrend);
+  }
+  if (watch.trend === "auto") return "Auto";
+  return formatAlarmTrend(watch.trend);
+}
+
+function entryDebugLines(w: MarketAlarmWatch): string[] {
+  const lines: string[] = [];
+  const cont = w.lastContinuationScore;
+  const mom = w.lastContinuationMomentumScore;
+  const ent = w.lastContinuationEntryScore;
+  if (typeof cont === "number") {
+    const parts = [`cont ${Math.round(cont)}`];
+    if (typeof mom === "number") parts.push(`mom ${Math.round(mom)}`);
+    if (typeof ent === "number") parts.push(`entry ${Math.round(ent)}`);
+    lines.push(parts.join(" · "));
+  }
+  if (typeof w.lastAboveVwap === "boolean") {
+    lines.push(w.lastAboveVwap ? "above VWAP" : "below VWAP");
+  }
+  if (w.lastOverextended) lines.push("overextended");
+  if (w.lastLateEntry) lines.push("late entry");
+  if (w.lastEntryBlockers && w.lastEntryBlockers.length > 0) {
+    lines.push(`blocked: ${w.lastEntryBlockers.join("; ")}`);
+  } else if (w.lastWarnings && w.lastWarnings.length > 0) {
+    const entryWarn = w.lastWarnings.find((x) => /entry blocked|waiting entry|overextended/i.test(x));
+    if (entryWarn) lines.push(entryWarn);
+  }
+  return lines;
+}
+
 function lifecycleChip(watch: MarketAlarmWatch): string {
   if (watch.status === "met") return "ENTER";
   if (watch.status === "in_trade") return "in trade";
@@ -89,8 +121,6 @@ function lifecycleChip(watch: MarketAlarmWatch): string {
 function WatchCard({
   watch: w,
   name,
-  selected,
-  onSelect,
   onCheckNow,
   onStart,
   onStop,
@@ -99,8 +129,6 @@ function WatchCard({
 }: {
   watch: MarketAlarmWatch;
   name: string | undefined;
-  selected: boolean;
-  onSelect: (id: string) => void;
   onCheckNow: (id: string) => void;
   onStart: (id: string) => void;
   onStop: (id: string) => void;
@@ -113,40 +141,21 @@ function WatchCard({
     w.status === "paused" ||
     w.status === "in_trade";
   const awaitingUser = w.status === "met" || w.status === "exit";
-  const side =
-    w.lastDetectedTrend === "alcista" || w.lastDetectedTrend === "bajista"
-      ? formatAlarmTrend(w.lastDetectedTrend)
-      : w.trend === "auto"
-        ? "Auto"
-        : formatAlarmTrend(w.trend);
+  const side = watchSideLabel(w);
   const otherRules = (w.lastRuleResults ?? []).filter((r) => r.ruleKey !== "breakout_quality");
 
   return (
     <li
       className={cn(
-        "cursor-pointer rounded-md border px-2 py-1.5 transition-colors",
-        selected
-          ? "border-ocean-teal/60 ring-1 ring-ocean-teal/40"
-          : w.status === "met"
-            ? "border-ocean-teal/50 bg-ocean-teal/10"
-            : w.status === "exit"
-              ? "border-amber-500/50 bg-amber-500/10"
-              : w.lastLifecycle === "failed" || w.lastLifecycle === "extended"
-                ? "border-ocean-danger/40 bg-ocean-danger/5"
-                : "border-ocean-mid/30 bg-ocean-surface/50",
-        selected && w.status === "met" ? "bg-ocean-teal/10" : null,
-        selected && w.status !== "met" && w.status !== "exit" ? "bg-ocean-teal/5" : null,
+        "rounded-md border px-2 py-1.5",
+        w.status === "met"
+          ? "border-ocean-teal/50 bg-ocean-teal/10"
+          : w.status === "exit"
+            ? "border-amber-500/50 bg-amber-500/10"
+            : w.lastLifecycle === "failed" || w.lastLifecycle === "extended"
+              ? "border-ocean-danger/40 bg-ocean-danger/5"
+              : "border-ocean-mid/30 bg-ocean-surface/50",
       )}
-      onClick={() => onSelect(w.id)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onSelect(w.id);
-        }
-      }}
-      role="button"
-      tabIndex={0}
-      aria-pressed={selected}
     >
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0">
@@ -172,6 +181,21 @@ function WatchCard({
           ? ` · ${w.lastBreakoutType.replace(/_/g, " ")}`
           : ""}
       </p>
+
+      {entryDebugLines(w).map((line) => (
+        <p
+          key={line}
+          className={cn(
+            "text-[10px] leading-snug",
+            /blocked|overextended|late/i.test(line)
+              ? "text-amber-700 dark:text-amber-300"
+              : "text-ocean-sand/90",
+          )}
+          title={line}
+        >
+          {line}
+        </p>
+      ))}
 
       {w.lastSetupType && w.lastSetupType !== "none" ? (
         <p className="text-[10px] text-ocean-sand/90">
@@ -205,11 +229,7 @@ function WatchCard({
 
       {w.lastError ? <p className="mt-1 text-[10px] text-ocean-danger">{w.lastError}</p> : null}
 
-      <div
-        className="mt-1.5 flex flex-wrap gap-1"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-      >
+      <div className="mt-1.5 flex flex-wrap gap-1">
         <button
           type="button"
           className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
@@ -263,42 +283,63 @@ function WatchCard({
   );
 }
 
-function ChartPanel({ watch }: { watch: MarketAlarmWatch | null }) {
-  const side =
-    watch == null
-      ? null
-      : watch.lastDetectedTrend === "alcista" || watch.lastDetectedTrend === "bajista"
-        ? formatAlarmTrend(watch.lastDetectedTrend)
-        : watch.trend === "auto"
-          ? "Auto"
-          : formatAlarmTrend(watch.trend);
-
+function ConfirmedChartsPanel({ watches }: { watches: MarketAlarmWatch[] }) {
   return (
     <section
-      className="flex min-h-[12rem] flex-col rounded-lg border border-ocean-mid/40 bg-ocean-deep/15 px-2.5 py-2"
+      className="flex max-h-[28rem] min-h-[12rem] flex-col rounded-lg border border-ocean-mid/40 bg-ocean-deep/15 px-2.5 py-2"
       aria-labelledby="breakout-kanban-chart"
     >
-      <header className="mb-2 border-b border-ocean-mid/25 pb-1.5">
+      <header className="mb-2 shrink-0 border-b border-ocean-mid/25 pb-1.5">
         <div className="flex items-baseline justify-between gap-2">
           <h3 id="breakout-kanban-chart" className="text-xs font-semibold text-ocean-foam">
-            15m BB
-            {watch ? (
-              <span className="ml-1 font-normal tabular-nums text-ocean-sand">
-                · {watch.symbol}
-                {side ? ` · ${side}` : ""}
-              </span>
-            ) : null}
+            15m BB · Confirmed
           </h3>
+          <span className="text-[11px] tabular-nums text-ocean-sand">{watches.length}</span>
         </div>
         <p className="mt-0.5 text-[10px] leading-snug text-ocean-sand/80">
-          Current + last 8 · click a card to focus
+          Disipadores + candles · current + last 8 · shade = BB width
         </p>
       </header>
-      <div className="flex flex-1 flex-col justify-center text-ocean-foam">
-        <BbSparkline15mChart
-          data={watch?.lastBbSparkline15m}
-          breakoutLevel={watch?.lastBreakoutLevel}
-        />
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
+        {watches.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed border-ocean-mid/25 px-2 py-4 text-center text-[11px] text-ocean-sand/70">
+            No confirmed tickers
+          </div>
+        ) : (
+          watches.map((w) => (
+            <article
+              key={w.id}
+              className="rounded-md border border-ocean-mid/30 bg-ocean-surface/40 px-2 py-1.5"
+            >
+              <div className="mb-1 flex items-baseline justify-between gap-2">
+                <p className="text-[11px] font-semibold tabular-nums text-ocean-foam">
+                  {w.symbol}
+                  <span className="ml-1 font-normal text-ocean-sand">· {watchSideLabel(w)}</span>
+                </p>
+                <p className="text-[10px] tabular-nums text-ocean-sand">
+                  {typeof w.lastBreakoutScore === "number"
+                    ? `score ${Math.round(w.lastBreakoutScore)}`
+                    : "score —"}
+                </p>
+              </div>
+              {entryDebugLines(w).slice(0, 2).map((line) => (
+                <p
+                  key={line}
+                  className="mb-1 text-[10px] leading-snug text-amber-700 dark:text-amber-300"
+                  title={line}
+                >
+                  {line}
+                </p>
+              ))}
+              <div className="text-ocean-foam">
+                <BbSparkline15mChart
+                  data={w.lastBbSparkline15m}
+                  breakoutLevel={w.lastBreakoutLevel}
+                />
+              </div>
+            </article>
+          ))
+        )}
       </div>
     </section>
   );
@@ -324,9 +365,6 @@ export function BreakoutKanbanBoard({
   onClearMetStatus,
 }: Props) {
   const breakoutWatches = watches.filter(watchHasBreakout);
-  const [selectedWatchId, setSelectedWatchId] = useState<string | null>(null);
-
-  const chartWatch = resolveChartWatch(breakoutWatches, selectedWatchId);
 
   if (breakoutWatches.length === 0) return null;
 
@@ -356,7 +394,7 @@ export function BreakoutKanbanBoard({
     (typeof BREAKOUT_KANBAN_COLUMNS)[number]
   >;
 
-  const focusedId = chartWatch?.id ?? null;
+  const confirmedWatches = byColumn.confirmed;
 
   return (
     <div className="space-y-2">
@@ -378,7 +416,7 @@ export function BreakoutKanbanBoard({
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
         {BOARD_SLOT_ORDER.map((slot: BoardSlotId) => {
           if (slot === "chart") {
-            return <ChartPanel key="chart" watch={chartWatch} />;
+            return <ConfirmedChartsPanel key="chart" watches={confirmedWatches} />;
           }
 
           const col = colById[slot];
@@ -423,8 +461,6 @@ export function BreakoutKanbanBoard({
                       key={w.id}
                       watch={w}
                       name={tickerNameBySymbol.get(w.symbol)}
-                      selected={focusedId === w.id}
-                      onSelect={setSelectedWatchId}
                       onCheckNow={onCheckNow}
                       onStart={onStart}
                       onStop={onStop}

@@ -346,6 +346,14 @@ export function useMarketAlarms() {
             typeof result.continuationScore === "number"
               ? result.continuationScore
               : (watch.lastContinuationScore ?? null),
+          lastContinuationMomentumScore:
+            typeof result.continuationMomentumScore === "number"
+              ? result.continuationMomentumScore
+              : (watch.lastContinuationMomentumScore ?? null),
+          lastContinuationEntryScore:
+            typeof result.continuationEntryScore === "number"
+              ? result.continuationEntryScore
+              : (watch.lastContinuationEntryScore ?? null),
           lastLifecycle:
             typeof result.lifecycle === "string"
               ? result.lifecycle
@@ -366,6 +374,24 @@ export function useMarketAlarms() {
             typeof result.breakoutLevel === "number"
               ? result.breakoutLevel
               : (watch.lastBreakoutLevel ?? null),
+          lastAboveVwap:
+            typeof result.aboveVwap === "boolean"
+              ? result.aboveVwap
+              : (watch.lastAboveVwap ?? null),
+          lastOverextended:
+            typeof result.overextended === "boolean"
+              ? result.overextended
+              : (watch.lastOverextended ?? null),
+          lastLateEntry:
+            typeof result.lateEntry === "boolean"
+              ? result.lateEntry
+              : (watch.lastLateEntry ?? null),
+          lastEntryBlockers: Array.isArray(result.entryBlockers)
+            ? result.entryBlockers
+            : (watch.lastEntryBlockers ?? null),
+          lastWarnings: Array.isArray(result.warnings)
+            ? result.warnings
+            : (watch.lastWarnings ?? null),
           lastDetectedTrend: detectedTrend ?? watch.lastDetectedTrend ?? null,
         };
 
@@ -846,10 +872,17 @@ export function useMarketAlarms() {
           lastLifecycle: null,
           lastBreakoutScore: null,
           lastContinuationScore: null,
+          lastContinuationMomentumScore: null,
+          lastContinuationEntryScore: null,
           lastBreakoutType: null,
           lastSetupType: null,
           lastBbSparkline15m: null,
           lastBreakoutLevel: null,
+          lastAboveVwap: null,
+          lastOverextended: null,
+          lastLateEntry: null,
+          lastEntryBlockers: null,
+          lastWarnings: null,
         });
       }
 
