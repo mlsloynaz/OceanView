@@ -41,7 +41,7 @@ export function adaptTickerSnapshotItems(items: TickerSnapshotItem[]): TickerCar
             directionConfidence: top.directionConfidence ?? null,
             readiness: top.readiness ?? null,
             lateEntry: top.lateEntry ?? null,
-            qualityInvalidated: top.qualityInvalidated ?? null,
+            qualityInvalidated: top.qualityInvalidated ?? undefined,
             metCount: top.metRequired ?? 0,
             totalCount: top.totalRequired ?? 0,
             metRequired: top.metRequired ?? 0,
