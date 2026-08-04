@@ -358,6 +358,14 @@ export function useMarketAlarms() {
             typeof result.setupType === "string"
               ? result.setupType
               : (watch.lastSetupType ?? null),
+          lastBbSparkline15m:
+            result.bbSparkline15m && Array.isArray(result.bbSparkline15m.bars)
+              ? result.bbSparkline15m
+              : (watch.lastBbSparkline15m ?? null),
+          lastBreakoutLevel:
+            typeof result.breakoutLevel === "number"
+              ? result.breakoutLevel
+              : (watch.lastBreakoutLevel ?? null),
           lastDetectedTrend: detectedTrend ?? watch.lastDetectedTrend ?? null,
         };
 
@@ -840,6 +848,8 @@ export function useMarketAlarms() {
           lastContinuationScore: null,
           lastBreakoutType: null,
           lastSetupType: null,
+          lastBbSparkline15m: null,
+          lastBreakoutLevel: null,
         });
       }
 

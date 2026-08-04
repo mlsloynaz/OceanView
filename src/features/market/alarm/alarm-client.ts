@@ -70,6 +70,22 @@ export type MarketAlarmCheckResponse = {
   bandWalk1m?: boolean;
   reasons?: string[];
   warnings?: string[];
+  bbSparkline15m?: {
+    symbol: string;
+    timeframe: "15m";
+    bbPeriod: number;
+    bars: Array<{
+      datetime: string;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+      bbUpper: number | null;
+      bbMid: number | null;
+      bbLower: number | null;
+      forming?: boolean;
+    }>;
+  } | null;
 };
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {

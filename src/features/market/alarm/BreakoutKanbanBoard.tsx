@@ -1,6 +1,8 @@
 /** Breakout Alarm Kanban — Setup → (15m BB chart) → Confirmed → Entry (alert only on Entry). */
 
+import { useState } from "react";
 import { cn } from "@/shared/lib/cn";
+import { BbSparkline15mChart } from "./BbSparkline15mChart";
 import { formatAlarmTrend, type MarketAlarmWatch } from "./alarm-types";
 
 export const BREAKOUT_KANBAN_COLUMNS = [
@@ -23,7 +25,7 @@ export const BREAKOUT_KANBAN_COLUMNS = [
 
 export type BreakoutKanbanColumnId = (typeof BREAKOUT_KANBAN_COLUMNS)[number]["id"];
 
-/** Visual board order: lifecycle columns + chart panel slot (Phase 2+ fills the chart). */
+/** Visual board order: lifecycle columns + chart panel slot. */
 const BOARD_SLOT_ORDER = ["setup", "chart", "confirmed", "entry"] as const;
 type BoardSlotId = (typeof BOARD_SLOT_ORDER)[number];
 
@@ -55,6 +57,26 @@ export function breakoutKanbanColumn(watch: MarketAlarmWatch): BreakoutKanbanCol
   return "setup";
 }
 
+/** Prefer selected watch; else highest breakout score among watches with sparkline data. */
+export function resolveChartWatch(
+  watches: MarketAlarmWatch[],
+  selectedId: string | null,
+): MarketAlarmWatch | null {
+  if (selectedId) {
+    const selected = watches.find((w) => w.id === selectedId);
+    if (selected) return selected;
+  }
+  const withData = watches.filter((w) => (w.lastBbSparkline15m?.bars?.length ?? 0) > 0);
+  const pool = withData.length > 0 ? withData : watches;
+  if (pool.length === 0) return null;
+  return [...pool].sort((a, b) => {
+    const sa = a.lastBreakoutScore ?? -1;
+    const sb = b.lastBreakoutScore ?? -1;
+    if (sb !== sa) return sb - sa;
+    return a.symbol.localeCompare(b.symbol);
+  })[0]!;
+}
+
 function lifecycleChip(watch: MarketAlarmWatch): string {
   if (watch.status === "met") return "ENTER";
   if (watch.status === "in_trade") return "in trade";
@@ -67,6 +89,8 @@ function lifecycleChip(watch: MarketAlarmWatch): string {
 function WatchCard({
   watch: w,
   name,
+  selected,
+  onSelect,
   onCheckNow,
   onStart,
   onStop,
@@ -75,6 +99,8 @@ function WatchCard({
 }: {
   watch: MarketAlarmWatch;
   name: string | undefined;
+  selected: boolean;
+  onSelect: (id: string) => void;
   onCheckNow: (id: string) => void;
   onStart: (id: string) => void;
   onStop: (id: string) => void;
@@ -98,15 +124,29 @@ function WatchCard({
   return (
     <li
       className={cn(
-        "rounded-md border px-2 py-1.5",
-        w.status === "met"
-          ? "border-ocean-teal/50 bg-ocean-teal/10"
-          : w.status === "exit"
-            ? "border-amber-500/50 bg-amber-500/10"
-            : w.lastLifecycle === "failed" || w.lastLifecycle === "extended"
-              ? "border-ocean-danger/40 bg-ocean-danger/5"
-              : "border-ocean-mid/30 bg-ocean-surface/50",
+        "cursor-pointer rounded-md border px-2 py-1.5 transition-colors",
+        selected
+          ? "border-ocean-teal/60 ring-1 ring-ocean-teal/40"
+          : w.status === "met"
+            ? "border-ocean-teal/50 bg-ocean-teal/10"
+            : w.status === "exit"
+              ? "border-amber-500/50 bg-amber-500/10"
+              : w.lastLifecycle === "failed" || w.lastLifecycle === "extended"
+                ? "border-ocean-danger/40 bg-ocean-danger/5"
+                : "border-ocean-mid/30 bg-ocean-surface/50",
+        selected && w.status === "met" ? "bg-ocean-teal/10" : null,
+        selected && w.status !== "met" && w.status !== "exit" ? "bg-ocean-teal/5" : null,
       )}
+      onClick={() => onSelect(w.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect(w.id);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
     >
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0">
@@ -165,7 +205,11 @@ function WatchCard({
 
       {w.lastError ? <p className="mt-1 text-[10px] text-ocean-danger">{w.lastError}</p> : null}
 
-      <div className="mt-1.5 flex flex-wrap gap-1">
+      <div
+        className="mt-1.5 flex flex-wrap gap-1"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
         <button
           type="button"
           className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
@@ -219,22 +263,42 @@ function WatchCard({
   );
 }
 
-function ChartPanelPlaceholder() {
+function ChartPanel({ watch }: { watch: MarketAlarmWatch | null }) {
+  const side =
+    watch == null
+      ? null
+      : watch.lastDetectedTrend === "alcista" || watch.lastDetectedTrend === "bajista"
+        ? formatAlarmTrend(watch.lastDetectedTrend)
+        : watch.trend === "auto"
+          ? "Auto"
+          : formatAlarmTrend(watch.trend);
+
   return (
     <section
-      className="flex min-h-[12rem] flex-col rounded-lg border border-dashed border-ocean-mid/40 bg-ocean-deep/15 px-2.5 py-2"
+      className="flex min-h-[12rem] flex-col rounded-lg border border-ocean-mid/40 bg-ocean-deep/15 px-2.5 py-2"
       aria-labelledby="breakout-kanban-chart"
     >
       <header className="mb-2 border-b border-ocean-mid/25 pb-1.5">
-        <h3 id="breakout-kanban-chart" className="text-xs font-semibold text-ocean-foam">
-          15m BB
-        </h3>
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 id="breakout-kanban-chart" className="text-xs font-semibold text-ocean-foam">
+            15m BB
+            {watch ? (
+              <span className="ml-1 font-normal tabular-nums text-ocean-sand">
+                · {watch.symbol}
+                {side ? ` · ${side}` : ""}
+              </span>
+            ) : null}
+          </h3>
+        </div>
         <p className="mt-0.5 text-[10px] leading-snug text-ocean-sand/80">
-          Mini Bollinger chart — coming next (current + last 8 candles)
+          Current + last 8 · click a card to focus
         </p>
       </header>
-      <div className="flex flex-1 items-center justify-center rounded-md border border-dashed border-ocean-mid/25 px-2 py-4 text-center text-[11px] text-ocean-sand/70">
-        Chart panel placeholder
+      <div className="flex flex-1 flex-col justify-center text-ocean-foam">
+        <BbSparkline15mChart
+          data={watch?.lastBbSparkline15m}
+          breakoutLevel={watch?.lastBreakoutLevel}
+        />
       </div>
     </section>
   );
@@ -260,6 +324,10 @@ export function BreakoutKanbanBoard({
   onClearMetStatus,
 }: Props) {
   const breakoutWatches = watches.filter(watchHasBreakout);
+  const [selectedWatchId, setSelectedWatchId] = useState<string | null>(null);
+
+  const chartWatch = resolveChartWatch(breakoutWatches, selectedWatchId);
+
   if (breakoutWatches.length === 0) return null;
 
   const byColumn = BREAKOUT_KANBAN_COLUMNS.reduce(
@@ -288,6 +356,8 @@ export function BreakoutKanbanBoard({
     (typeof BREAKOUT_KANBAN_COLUMNS)[number]
   >;
 
+  const focusedId = chartWatch?.id ?? null;
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -308,7 +378,7 @@ export function BreakoutKanbanBoard({
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
         {BOARD_SLOT_ORDER.map((slot: BoardSlotId) => {
           if (slot === "chart") {
-            return <ChartPanelPlaceholder key="chart" />;
+            return <ChartPanel key="chart" watch={chartWatch} />;
           }
 
           const col = colById[slot];
@@ -353,6 +423,8 @@ export function BreakoutKanbanBoard({
                       key={w.id}
                       watch={w}
                       name={tickerNameBySymbol.get(w.symbol)}
+                      selected={focusedId === w.id}
+                      onSelect={setSelectedWatchId}
                       onCheckNow={onCheckNow}
                       onStart={onStart}
                       onStop={onStop}

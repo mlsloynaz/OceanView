@@ -41,6 +41,26 @@ export type AlarmWatchStatus =
 
 export type AlarmPopupKind = "enter" | "exit";
 
+/** Compact 15m OHLC + Bollinger series for the Breakout board chart panel. */
+export type BbSparkline15mBar = {
+  datetime: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  bbUpper: number | null;
+  bbMid: number | null;
+  bbLower: number | null;
+  forming?: boolean;
+};
+
+export type BbSparkline15m = {
+  symbol: string;
+  timeframe: "15m";
+  bbPeriod: number;
+  bars: BbSparkline15mBar[];
+};
+
 export type MarketAlarmWatch = {
   id: string;
   symbol: string;
@@ -68,6 +88,9 @@ export type MarketAlarmWatch = {
   lastLifecycle?: string | null;
   lastBreakoutType?: string | null;
   lastSetupType?: string | null;
+  /** Last 15m BB sparkline from breakout alarm check (≤9 bars). */
+  lastBbSparkline15m?: BbSparkline15m | null;
+  lastBreakoutLevel?: number | null;
   /** Breakout watches default to entry_ready (alert only on Entry). */
   alarmTarget?: "confirmed" | "entry_ready";
   lastDetectedTrend?: AlarmTrend | null;
