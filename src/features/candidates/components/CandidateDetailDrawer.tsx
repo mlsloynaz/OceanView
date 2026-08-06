@@ -1,12 +1,19 @@
 import type { ReactNode } from "react";
 import { cn } from "@/shared/lib/cn";
 import type { CandidateViewModel } from "../models/CandidateViewModel";
+import { exitAwareReadinessLabel } from "../lib/exitOverlay";
 import { directionLabel, readinessLabel, tradabilityLabel } from "../lib/normalize";
 
 type Props = {
   candidate: CandidateViewModel | null;
   open: boolean;
   onClose: () => void;
+  /** Simulate mode — Test Exit uses the assessment clock. */
+  simulateMode?: boolean;
+  simulationLabel?: string | null;
+  exitTestPending?: boolean;
+  exitTestError?: string | null;
+  onTestExit?: () => void;
 };
 
 function fmtPct(value: number | null | undefined, digits = 2): string {
@@ -29,8 +36,23 @@ function Section({
   );
 }
 
-export function CandidateDetailDrawer({ candidate, open, onClose }: Props) {
+export function CandidateDetailDrawer({
+  candidate,
+  open,
+  onClose,
+  simulateMode = false,
+  simulationLabel = null,
+  exitTestPending = false,
+  exitTestError = null,
+  onTestExit,
+}: Props) {
   if (!open || !candidate) return null;
+
+  const statusText =
+    exitAwareReadinessLabel(candidate) || readinessLabel(candidate.readiness);
+  const canTestExit =
+    Boolean(onTestExit) &&
+    (candidate.direction === "CALL" || candidate.direction === "PUT");
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end" role="dialog" aria-modal="true">
@@ -62,7 +84,16 @@ export function CandidateDetailDrawer({ candidate, open, onClose }: Props) {
             <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
               <div>
                 <dt className="text-ocean-sand/70">Status</dt>
-                <dd className="font-medium text-ocean-foam">{readinessLabel(candidate.readiness)}</dd>
+                <dd
+                  className={cn(
+                    "font-medium",
+                    candidate.exitMonitor?.exitSuggested
+                      ? "text-ocean-danger"
+                      : "text-ocean-foam",
+                  )}
+                >
+                  {statusText}
+                </dd>
               </div>
               <div>
                 <dt className="text-ocean-sand/70">Setup quality</dt>
@@ -97,6 +128,56 @@ export function CandidateDetailDrawer({ candidate, open, onClose }: Props) {
               Quality is setup completeness. Historical edge is outcome probability when labeled
               data exists — never the same number.
             </p>
+          </Section>
+
+          <Section title="Exit monitor (test)">
+            <p className="text-ocean-sand">
+              Runs OceanView exit-check for this symbol + direction
+              {simulateMode && simulationLabel
+                ? ` as-of Simulate ${simulationLabel}`
+                : " (live clock)"}. If exit fires, status becomes{" "}
+              <strong className="text-ocean-foam">Exit suggested</strong> on this candidate.
+            </p>
+            <button
+              type="button"
+              disabled={!canTestExit || exitTestPending}
+              onClick={() => onTestExit?.()}
+              className={cn(
+                "mt-2 rounded-md border px-3 py-1.5 text-xs font-semibold",
+                canTestExit && !exitTestPending
+                  ? "border-ocean-teal/50 text-ocean-teal hover:bg-ocean-teal/10"
+                  : "border-ocean-mid/50 text-ocean-sand/50",
+              )}
+              title={
+                canTestExit
+                  ? "POST /market/exit/check"
+                  : "Need CALL or PUT direction to test exit"
+              }
+            >
+              {exitTestPending ? "Testing exit…" : "Test Exit"}
+            </button>
+            {!simulateMode ? (
+              <p className="mt-1 text-xs text-ocean-sand/70">
+                Tip: switch Assess to <strong className="text-ocean-foam">Simulate</strong> to
+                replay a past ET time.
+              </p>
+            ) : null}
+            {exitTestError ? (
+              <p className="mt-2 text-xs text-ocean-danger" role="alert">
+                {exitTestError}
+              </p>
+            ) : null}
+            {candidate.exitMonitor?.warnings && candidate.exitMonitor.warnings.length > 0 ? (
+              <ul className="mt-2 space-y-1 text-xs text-ocean-sand">
+                {candidate.exitMonitor.warnings
+                  .filter((w) => w.severity === "warn" || w.severity === "exit_suggested")
+                  .map((w) => (
+                    <li key={w.code}>
+                      <span className="font-semibold text-ocean-foam">{w.title}:</span> {w.detail}
+                    </li>
+                  ))}
+              </ul>
+            ) : null}
           </Section>
 
           {candidate.marketLean ? (

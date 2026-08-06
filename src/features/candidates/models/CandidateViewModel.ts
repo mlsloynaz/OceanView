@@ -89,4 +89,24 @@ export type CandidateViewModel = {
   /** Sort key for drawer display only — not probability. */
   rankScore: number;
   rankComponents: CandidateRankComponents;
+  /**
+   * Local overlay from POST /market/exit/check (Test Exit).
+   * When exitSuggested / warn, readiness is set to weakening in the UI.
+   */
+  exitMonitor?: {
+    available?: boolean;
+    paused?: boolean;
+    message?: string | null;
+    severity?: "info" | "warn" | "exit_suggested" | null;
+    exitSuggested?: boolean;
+    warnings?: Array<{
+      code: string;
+      severity: string;
+      title: string;
+      detail: string;
+    }>;
+    spot?: number | null;
+    priorTrend1h?: string | null;
+    checkedAt?: string | null;
+  } | null;
 };

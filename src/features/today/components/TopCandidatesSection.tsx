@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   adaptMarketTickerCards,
@@ -9,8 +9,14 @@ import {
 } from "@/features/candidates";
 import { CandidateDetailDrawer } from "@/features/candidates/components/CandidateDetailDrawer";
 import { CandidateTable } from "@/features/candidates/components/CandidateTable";
+import { applyExitCheckToCandidate } from "@/features/candidates/lib/exitOverlay";
+import {
+  checkPositionExit,
+  MarketExitApiError,
+} from "@/features/market/api/exit-client";
 import { AssessmentTimeControl } from "@/features/market/components/AssessmentTimeControl";
 import { MarketSearchInput } from "@/features/market/components/MarketSearchInput";
+import { formatSimulationTimeEt } from "@/features/market/lib/assessment-time";
 import { useMarketWorkspace } from "@/features/market/hooks/useMarketWorkspace";
 import { useAuth } from "@/shared/auth/AuthProvider";
 import { PremarketToolbar } from "@/features/premarket/components/PremarketToolbar";
@@ -72,6 +78,80 @@ function TradabilityHint({ tradability }: { tradability: TradabilityTiers }) {
   return null;
 }
 
+function useExitOverlays(
+  baseCandidates: CandidateViewModel[],
+  opts: {
+    simulateMode: boolean;
+    assessmentAt: Date | null | undefined;
+    onSelect: (candidate: CandidateViewModel | null) => void;
+    selectedId: string | null;
+  },
+) {
+  const [overlays, setOverlays] = useState<Record<string, CandidateViewModel>>({});
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const candidates = useMemo(() => {
+    return baseCandidates.map((row) => overlays[row.id] ?? row);
+  }, [baseCandidates, overlays]);
+
+  const selected = candidates.find((c) => c.id === opts.selectedId) ?? null;
+
+  const testExit = useCallback(
+    async (candidate: CandidateViewModel) => {
+      if (candidate.direction !== "CALL" && candidate.direction !== "PUT") {
+        setError("Exit test needs CALL or PUT direction on the candidate.");
+        return;
+      }
+      setPendingId(candidate.id);
+      setError(null);
+      try {
+        const simulating = opts.simulateMode && opts.assessmentAt;
+        const result = await checkPositionExit({
+          symbol: candidate.symbol,
+          direction: candidate.direction,
+          strategyId: candidate.strategyId,
+          entryPrice: candidate.movementProfile?.sequenceEntryPrice ?? null,
+          refreshCandles: !simulating,
+          simulationTimeEt: simulating
+            ? formatSimulationTimeEt(opts.assessmentAt as Date)
+            : undefined,
+        });
+        const next = applyExitCheckToCandidate(candidate, result);
+        setOverlays((prev) => ({ ...prev, [candidate.id]: next }));
+        if (opts.selectedId === candidate.id) {
+          opts.onSelect(next);
+        }
+        if (!result.exitSuggested && result.severity !== "warn" && !result.paused) {
+          setError(
+            "Exit did not fire (no warn / exit_suggested). Status unchanged — try another Simulate time.",
+          );
+        }
+      } catch (err) {
+        const msg =
+          err instanceof MarketExitApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Exit check failed";
+        setError(msg);
+      } finally {
+        setPendingId(null);
+      }
+    },
+    [opts],
+  );
+
+  return {
+    candidates,
+    selected,
+    testExit,
+    pendingId,
+    error,
+    clearError: () => setError(null),
+  };
+}
+
 function LiveCandidates({
   ws,
   tradability,
@@ -83,7 +163,7 @@ function LiveCandidates({
   selectedId: string | null;
   onSelect: (c: CandidateViewModel | null) => void;
 }) {
-  const candidates = useMemo(() => {
+  const baseCandidates = useMemo(() => {
     const adapted = adaptMarketTickerCards(ws.filteredTickerCards, {
       updatedAt: ws.assessmentAt?.toISOString?.() ?? new Date().toISOString(),
       tradabilityBySymbol: tradability.bySymbol,
@@ -91,7 +171,23 @@ function LiveCandidates({
     return sortCandidatesByRank(adapted);
   }, [ws.filteredTickerCards, ws.assessmentAt, tradability.bySymbol]);
 
-  const selected = candidates.find((c) => c.id === selectedId) ?? null;
+  const simulateMode = ws.assessmentMode === "et";
+  const exit = useExitOverlays(baseCandidates, {
+    simulateMode,
+    assessmentAt: ws.assessmentAt,
+    onSelect,
+    selectedId,
+  });
+
+  const simulationLabel =
+    simulateMode && ws.assessmentAt
+      ? ws.assessmentAt.toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : null;
 
   return (
     <>
@@ -156,7 +252,7 @@ function LiveCandidates({
 
       {!ws.loading && !ws.error ? (
         <CandidateTable
-          candidates={candidates}
+          candidates={exit.candidates}
           selectedId={selectedId}
           onSelect={onSelect}
           emptyMessage={
@@ -168,9 +264,20 @@ function LiveCandidates({
       ) : null}
 
       <CandidateDetailDrawer
-        candidate={selected}
-        open={Boolean(selected)}
+        candidate={exit.selected}
+        open={Boolean(exit.selected)}
         onClose={() => onSelect(null)}
+        simulateMode={simulateMode}
+        simulationLabel={simulationLabel}
+        exitTestPending={exit.pendingId === exit.selected?.id}
+        exitTestError={exit.error}
+        onTestExit={
+          exit.selected
+            ? () => {
+                void exit.testExit(exit.selected!);
+              }
+            : undefined
+        }
       />
     </>
   );
@@ -192,7 +299,7 @@ function PreparationCandidates({
   const rawStrategies = ws.result?.strategies ?? [];
   const thresholdMet = anyTickerMeetsThreshold(rawStrategies, displayThreshold);
 
-  const candidates = useMemo(() => {
+  const baseCandidates = useMemo(() => {
     const hits = resolvePremarketBestHits(
       filterStrategyGroupsByThreshold(rawStrategies, displayThreshold),
       ws.result?.bestResults,
@@ -212,7 +319,23 @@ function PreparationCandidates({
     tradability.bySymbol,
   ]);
 
-  const selected = candidates.find((c) => c.id === selectedId) ?? null;
+  const simulateMode = ws.assessmentMode === "et";
+  const exit = useExitOverlays(baseCandidates, {
+    simulateMode,
+    assessmentAt: ws.assessmentAt,
+    onSelect,
+    selectedId,
+  });
+
+  const simulationLabel =
+    simulateMode && ws.assessmentAt
+      ? ws.assessmentAt.toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : null;
 
   return (
     <>
@@ -253,7 +376,7 @@ function PreparationCandidates({
         </p>
       ) : null}
 
-      {displayThreshold > 0 && candidates.length > 0 && !thresholdMet ? (
+      {displayThreshold > 0 && exit.candidates.length > 0 && !thresholdMet ? (
         <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
           No tickers reached ≥ {displayThreshold}% — showing best available.
         </p>
@@ -261,7 +384,7 @@ function PreparationCandidates({
 
       <div className="mt-4">
         <CandidateTable
-          candidates={candidates}
+          candidates={exit.candidates}
           selectedId={selectedId}
           onSelect={onSelect}
           emptyMessage={
@@ -275,9 +398,20 @@ function PreparationCandidates({
       </div>
 
       <CandidateDetailDrawer
-        candidate={selected}
-        open={Boolean(selected)}
+        candidate={exit.selected}
+        open={Boolean(exit.selected)}
         onClose={() => onSelect(null)}
+        simulateMode={simulateMode}
+        simulationLabel={simulationLabel}
+        exitTestPending={exit.pendingId === exit.selected?.id}
+        exitTestError={exit.error}
+        onTestExit={
+          exit.selected
+            ? () => {
+                void exit.testExit(exit.selected!);
+              }
+            : undefined
+        }
       />
     </>
   );

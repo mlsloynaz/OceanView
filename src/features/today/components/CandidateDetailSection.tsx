@@ -1,5 +1,5 @@
 import type { CandidateViewModel } from "@/features/candidates";
-import { directionLabel, readinessLabel } from "@/features/candidates";
+import { directionLabel, exitAwareReadinessLabel, readinessLabel } from "@/features/candidates";
 import { TodaySection } from "./TodaySection";
 
 type Props = {
@@ -7,6 +7,11 @@ type Props = {
 };
 
 export function CandidateDetailSection({ candidate }: Props) {
+  const status =
+    candidate != null
+      ? exitAwareReadinessLabel(candidate) || readinessLabel(candidate.readiness)
+      : null;
+
   return (
     <TodaySection
       id="today-candidate-detail"
@@ -21,8 +26,7 @@ export function CandidateDetailSection({ candidate }: Props) {
             {directionLabel(candidate.direction)} · {candidate.strategyName}
           </p>
           <p>
-            {readinessLabel(candidate.readiness)} · Setup quality {Math.round(candidate.qualityPct)}%
-            · Historical edge{" "}
+            {status} · Setup quality {Math.round(candidate.qualityPct)}% · Historical edge{" "}
             {candidate.historicalEdge == null ? "—" : `${Math.round(candidate.historicalEdge)}%`}
           </p>
         </div>

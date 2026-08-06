@@ -19,3 +19,4 @@ export {
   sortCandidatesByRank,
   tradabilityLabel,
 } from "./lib/normalize";
+export { applyExitCheckToCandidate, exitAwareReadinessLabel } from "./lib/exitOverlay";

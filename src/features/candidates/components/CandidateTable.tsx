@@ -5,6 +5,7 @@ import type {
   CandidateViewModel,
   TradabilityGrade,
 } from "../models/CandidateViewModel";
+import { exitAwareReadinessLabel } from "../lib/exitOverlay";
 import { directionLabel, readinessLabel, tradabilityLabel } from "../lib/normalize";
 
 function fmtPct(value: number | null | undefined, digits = 0): string {
@@ -32,7 +33,8 @@ function directionClass(direction: CandidateDirection): string {
   return "text-ocean-sand";
 }
 
-function readinessClass(readiness: CandidateReadiness): string {
+function readinessClass(readiness: CandidateReadiness, exitSuggested?: boolean): string {
+  if (exitSuggested) return "text-ocean-danger";
   if (readiness === "confirmed") return "text-ocean-teal-dim dark:text-ocean-teal";
   if (readiness === "near" || readiness === "watching") return "text-amber-800 dark:text-amber-200";
   if (readiness === "late" || readiness === "weakening") return "text-amber-900 dark:text-amber-300";
@@ -45,6 +47,10 @@ function tradabilityClass(grade: TradabilityGrade): string {
   if (grade === "fair") return "text-amber-800 dark:text-amber-200";
   if (grade === "poor") return "text-ocean-danger";
   return "text-ocean-sand/70";
+}
+
+function statusLabel(row: CandidateViewModel): string {
+  return exitAwareReadinessLabel(row) || readinessLabel(row.readiness);
 }
 
 type Props = {
@@ -111,20 +117,35 @@ export function CandidateTable({
                   "cursor-pointer border-b border-ocean-mid/30 transition-colors last:border-0",
                   selected ? "bg-ocean-teal/10" : "hover:bg-ocean-deep/25",
                   row.exhaustionRisk ? "outline outline-1 outline-ocean-danger/40" : null,
+                  row.exitMonitor?.exitSuggested
+                    ? "outline outline-1 outline-ocean-danger/60"
+                    : null,
                 )}
               >
                 <td className="px-3 py-2.5 font-semibold text-ocean-foam">{row.symbol}</td>
                 <td className={cn("px-3 py-2.5 font-semibold", directionClass(row.direction))}>
                   {directionLabel(row.direction)}
                 </td>
-                <td className="max-w-[12rem] truncate px-3 py-2.5 text-ocean-sand" title={row.strategyName}>
+                <td
+                  className="max-w-[12rem] truncate px-3 py-2.5 text-ocean-sand"
+                  title={row.strategyName}
+                >
                   {row.strategyName}
                 </td>
-                <td className={cn("px-3 py-2.5 font-medium", readinessClass(row.readiness))}>
-                  {readinessLabel(row.readiness)}
+                <td
+                  className={cn(
+                    "px-3 py-2.5 font-medium",
+                    readinessClass(row.readiness, row.exitMonitor?.exitSuggested),
+                  )}
+                >
+                  {statusLabel(row)}
                 </td>
-                <td className="px-3 py-2.5 tabular-nums text-ocean-foam">{Math.round(row.qualityPct)}</td>
-                <td className="px-3 py-2.5 tabular-nums text-ocean-sand">{fmtEdge(row.historicalEdge)}</td>
+                <td className="px-3 py-2.5 tabular-nums text-ocean-foam">
+                  {Math.round(row.qualityPct)}
+                </td>
+                <td className="px-3 py-2.5 tabular-nums text-ocean-sand">
+                  {fmtEdge(row.historicalEdge)}
+                </td>
                 <td className="px-3 py-2.5 tabular-nums text-ocean-sand">
                   <span title="Stock room remaining">{fmtPct(row.moveRemainingPct, 2)}</span>
                   <span className="text-ocean-sand/50"> · </span>
