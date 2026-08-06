@@ -106,7 +106,8 @@ export type CandidateViewModel = {
       detail: string;
     }>;
     spot?: number | null;
-    priorTrend1h?: string | null;
+    biasTrend1m?: string | null;
+    thesisStatus?: string | null;
     checkedAt?: string | null;
   } | null;
 };

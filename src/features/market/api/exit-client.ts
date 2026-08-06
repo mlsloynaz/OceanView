@@ -54,7 +54,19 @@ export type PositionExitCheckResponse = {
     estimatedOptionGainPct?: number | null;
   } | null;
   movementProfile?: Record<string, unknown> | null;
-  priorTrend1h?: string | null;
+  /** Latest 1m BB/candle bias (alcista/bajista); supporting only. */
+  biasTrend1m?: string | null;
+  biasEvidence?: Record<string, unknown> | null;
+  /** ok | watch | weakening | invalidated */
+  thesisStatus?: string | null;
+  thesis?: {
+    tier?: string | null;
+    reasons?: string[];
+    activeCategories?: string[];
+    hardInvalidation?: boolean;
+    vwapFailedReclaim?: boolean;
+    microStructureBreak?: boolean;
+  } | null;
   checkedAt?: string;
   simulationTimeEt?: string | null;
 };

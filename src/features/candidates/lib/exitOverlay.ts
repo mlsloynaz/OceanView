@@ -21,7 +21,8 @@ export function applyExitCheckToCandidate(
     exitSuggested,
     warnings,
     spot: result.spot ?? null,
-    priorTrend1h: result.priorTrend1h ?? null,
+    biasTrend1m: result.biasTrend1m ?? null,
+    thesisStatus: result.thesisStatus ?? null,
     checkedAt: result.checkedAt ?? null,
   };
 
@@ -55,8 +56,9 @@ export function applyExitCheckToCandidate(
 /** Table / strip label when an exit overlay is present. */
 export function exitAwareReadinessLabel(candidate: CandidateViewModel): string {
   const mon = candidate.exitMonitor;
-  if (mon?.exitSuggested) return "Exit suggested";
-  if (mon?.severity === "warn") return "Exit watch";
+  if (mon?.exitSuggested || mon?.thesisStatus === "invalidated") return "Exit suggested";
+  if (mon?.severity === "warn" || mon?.thesisStatus === "weakening") return "Exit watch";
+  if (mon?.thesisStatus === "watch") return "Pullback watch";
   if (mon?.paused) return "Exit paused";
   return "";
 }
