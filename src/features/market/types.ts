@@ -113,6 +113,7 @@ export type TickerEvalResult = {
   name: string | null;
   strategies: TickerStrategyEval[];
   movementProfile?: MovementProfile | null;
+  optionRoom?: TickerCardModel["optionRoom"];
 };
 
 export type CandleCoverage = {
@@ -165,6 +166,15 @@ export type TickerCardModel = {
     evaluatedCount: number;
   } | null;
   movementProfile?: MovementProfile | null;
+  /** Room vs Tradable move-for-12% option gain (API ``optionRoom``). */
+  optionRoom?: {
+    roomPct?: number | null;
+    movePctForOption12Pct?: number | null;
+    estimatedOptionGainPct?: number | null;
+    enoughFor10Pct?: boolean | null;
+    enoughFor12Pct?: boolean | null;
+    enoughFor35Pct?: boolean | null;
+  } | null;
 };
 
 /** Derived view model for rule thumbnail grid (By rule). */
@@ -266,6 +276,7 @@ export type TickerSnapshotItem = {
   } | null;
   directionAgreement?: TickerCardModel["directionAgreement"];
   movementProfile?: MovementProfile | null;
+  optionRoom?: TickerCardModel["optionRoom"];
 };
 
 export type RuleSnapshotItem = RuleCardModel;

@@ -55,6 +55,7 @@ export function adaptTickerSnapshotItems(items: TickerSnapshotItem[]): TickerCar
         : null,
       directionAgreement: item.directionAgreement ?? null,
       movementProfile: item.movementProfile ?? null,
+      optionRoom: item.optionRoom ?? null,
     };
   });
 }

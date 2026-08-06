@@ -190,6 +190,7 @@ export function buildTickerCards(
       topStrategyEval: top,
       directionAgreement,
       movementProfile: ticker.movementProfile ?? null,
+      optionRoom: ticker.optionRoom ?? null,
     };
   });
 }

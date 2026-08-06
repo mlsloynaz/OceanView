@@ -82,7 +82,12 @@ export function CandidateTable({
             >
               Hist. edge
             </th>
-            <th className="px-3 py-2 font-semibold">Room</th>
+            <th
+              className="px-3 py-2 font-semibold"
+              title="Stock room remaining · projected option gain if room is used (vs Tradable 12%)"
+            >
+              Room / Proj.
+            </th>
             <th className="px-3 py-2 font-semibold">Tradability</th>
             <th className="px-3 py-2 font-semibold">Updated</th>
           </tr>
@@ -121,7 +126,16 @@ export function CandidateTable({
                 <td className="px-3 py-2.5 tabular-nums text-ocean-foam">{Math.round(row.qualityPct)}</td>
                 <td className="px-3 py-2.5 tabular-nums text-ocean-sand">{fmtEdge(row.historicalEdge)}</td>
                 <td className="px-3 py-2.5 tabular-nums text-ocean-sand">
-                  {fmtPct(row.moveRemainingPct, 2)}
+                  <span title="Stock room remaining">{fmtPct(row.moveRemainingPct, 2)}</span>
+                  <span className="text-ocean-sand/50"> · </span>
+                  <span
+                    className="text-ocean-foam"
+                    title="Projected option earning % if remaining room is fully used"
+                  >
+                    {row.projectedOptionGainPct == null
+                      ? "—"
+                      : `~${fmtPct(row.projectedOptionGainPct, 0)}`}
+                  </span>
                 </td>
                 <td className={cn("px-3 py-2.5", tradabilityClass(row.tradability))}>
                   {tradabilityLabel(row.tradability)}

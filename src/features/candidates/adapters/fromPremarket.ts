@@ -15,6 +15,7 @@ import {
   lookupSymbolMap,
   movementFields,
   orderRankScore,
+  projectedOptionGainFromRoom,
   readinessFromRules,
   tradabilityFromTier,
 } from "../lib/normalize";
@@ -74,6 +75,10 @@ export function adaptPremarketBestHit(
   const direction = asDirection(hit.direction ?? bestTicker?.direction ?? null);
   const profile = hit.movementProfile ?? bestTicker?.movementProfile ?? null;
   const move = movementFields(profile);
+  const projectedOptionGainPct = projectedOptionGainFromRoom(
+    ("optionRoom" in hit ? hit.optionRoom : null) ??
+      (bestTicker && "optionRoom" in bestTicker ? bestTicker.optionRoom : null),
+  );
   const tradability = tradabilityFromTier(
     lookupSymbolMap(options.tradabilityBySymbol, hit.symbol),
   );
@@ -114,6 +119,7 @@ export function adaptPremarketBestHit(
     }),
     biasAgreementCount,
     ...move,
+    projectedOptionGainPct,
     tradability,
     updatedAt,
     supportingReasons: buildSupportingReasons(rules),
@@ -158,6 +164,9 @@ export function adaptPremarketTickerHit(
   const direction = asDirection(hit.direction ?? null);
   const profile = hit.movementProfile ?? null;
   const move = movementFields(profile);
+  const projectedOptionGainPct = projectedOptionGainFromRoom(
+    "optionRoom" in hit ? hit.optionRoom : null,
+  );
   const tradability = tradabilityFromTier(
     lookupSymbolMap(options.tradabilityBySymbol, hit.symbol),
   );
@@ -199,6 +208,7 @@ export function adaptPremarketTickerHit(
     }),
     biasAgreementCount,
     ...move,
+    projectedOptionGainPct,
     tradability,
     updatedAt,
     supportingReasons: buildSupportingReasons(rules),

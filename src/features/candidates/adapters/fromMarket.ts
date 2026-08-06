@@ -11,6 +11,7 @@ import {
   lookupSymbolMap,
   movementFields,
   orderRankScore,
+  projectedOptionGainFromRoom,
   readinessFromRules,
   tradabilityFromTier,
 } from "../lib/normalize";
@@ -97,6 +98,7 @@ function adaptEval(args: {
     marketLean: leanFromEval(evalRow),
     biasAgreementCount,
     ...move,
+    projectedOptionGainPct: null,
     tradability,
     updatedAt: args.updatedAt,
     supportingReasons: buildSupportingReasons(rules),
@@ -141,6 +143,7 @@ export function adaptMarketTickerCard(
   const direction = asDirection(evalRow?.direction ?? best?.direction ?? null);
   const profile = card.movementProfile ?? null;
   const move = movementFields(profile);
+  const projectedOptionGainPct = projectedOptionGainFromRoom(card.optionRoom);
   const tradability = tradabilityFromTier(
     lookupSymbolMap(options.tradabilityBySymbol, card.symbol),
   );
@@ -192,6 +195,7 @@ export function adaptMarketTickerCard(
     marketLean: leanFromEval(leanEval),
     biasAgreementCount,
     ...move,
+    projectedOptionGainPct,
     tradability,
     updatedAt,
     supportingReasons: buildSupportingReasons(rules),

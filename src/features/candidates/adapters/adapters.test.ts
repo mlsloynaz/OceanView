@@ -154,6 +154,12 @@ describe("adaptMarketTickerCard", () => {
         timeToTargetBars: 3,
         exhaustionRisk: false,
       },
+      optionRoom: {
+        roomPct: 0.56,
+        movePctForOption12Pct: 0.48,
+        estimatedOptionGainPct: 14,
+        enoughFor12Pct: true,
+      },
     };
 
     const row = adaptMarketTickerCard(card, {
@@ -169,6 +175,7 @@ describe("adaptMarketTickerCard", () => {
     expect(row!.readiness).toBe("near");
     expect(row!.tradability).toBe("good");
     expect(row!.moveRemainingPct).toBe(0.56);
+    expect(row!.projectedOptionGainPct).toBe(14);
     expect(row!.marketLean?.actionable).toBe(false);
     expect(row!.supportingReasons.length).toBeGreaterThan(0);
     expect(row!.supportingReasons.length).toBeLessThanOrEqual(3);

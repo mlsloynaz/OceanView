@@ -20,6 +20,7 @@ export type PremarketTickerHit = StrategyAssessExtras & {
   achievedAtEt?: string;
   rules?: PremarketRuleRow[];
   movementProfile?: MovementProfile | null;
+  optionRoom?: PremarketBestResultRow["optionRoom"];
   readiness?: string | null;
   lateEntry?: boolean | null;
   preselectionNear?: boolean | null;
@@ -128,6 +129,15 @@ export type PremarketBestResultRow = {
   agreementCount?: number;
   strategies: PremarketStrategyScore[];
   movementProfile?: MovementProfile | null;
+  /** Room vs Tradable move-for-12% option gain. */
+  optionRoom?: {
+    roomPct?: number | null;
+    movePctForOption12Pct?: number | null;
+    estimatedOptionGainPct?: number | null;
+    enoughFor10Pct?: boolean | null;
+    enoughFor12Pct?: boolean | null;
+    enoughFor35Pct?: boolean | null;
+  } | null;
   /** COGER strike when assess ran during RTH (strike-gated). */
   pick?: BestResultStrikePick | null;
   /** Spot used when resolving the pick. */

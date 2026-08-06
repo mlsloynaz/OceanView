@@ -72,6 +72,8 @@ export type CandidateViewModel = {
   /** Active strategies agreeing on this row's CALL/PUT (1 = only this strategy). */
   biasAgreementCount: number;
   moveRemainingPct: number | null;
+  /** Rough option premium gain % if remaining Room is fully used (vs Tradable move-for-12%). */
+  projectedOptionGainPct: number | null;
   expectedMovePct: number | null;
   stretchMovePct: number | null;
   expectedMaePct: number | null;

@@ -247,6 +247,15 @@ export function movementFields(profile: MovementProfile | null | undefined) {
   };
 }
 
+/** Projected option earning % from API ``optionRoom.estimatedOptionGainPct``. */
+export function projectedOptionGainFromRoom(
+  optionRoom: { estimatedOptionGainPct?: number | null } | null | undefined,
+): number | null {
+  const raw = optionRoom?.estimatedOptionGainPct;
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
+  return raw;
+}
+
 /** Map tradability / best-fit tier strings into Good / Fair / Poor. */
 export function tradabilityFromTier(tier: string | null | undefined): TradabilityGrade {
   const t = String(tier ?? "")

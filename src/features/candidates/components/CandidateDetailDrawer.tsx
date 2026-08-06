@@ -158,6 +158,19 @@ export function CandidateDetailDrawer({ candidate, open, onClose }: Props) {
                 <dd className="text-ocean-foam">{fmtPct(candidate.moveRemainingPct)}</dd>
               </div>
               <div>
+                <dt
+                  className="text-ocean-sand/70"
+                  title="Rough option premium gain if remaining Room is fully used (scaled vs Tradable move-for-12%)"
+                >
+                  Projected option gain
+                </dt>
+                <dd className="text-ocean-foam">
+                  {candidate.projectedOptionGainPct == null
+                    ? "—"
+                    : `~${fmtPct(candidate.projectedOptionGainPct)}`}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-ocean-sand/70">Typical adverse (MAE)</dt>
                 <dd className="text-ocean-foam">{fmtPct(candidate.expectedMaePct)}</dd>
               </div>
