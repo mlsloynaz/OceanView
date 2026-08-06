@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   adaptMarketTickerCards,
@@ -83,19 +83,46 @@ function useExitOverlays(
   opts: {
     simulateMode: boolean;
     assessmentAt: Date | null | undefined;
+    /** Changes when a new Assess (or poll tick) finishes — triggers bulk exit refresh. */
+    assessFingerprint: string | null;
     onSelect: (candidate: CandidateViewModel | null) => void;
     selectedId: string | null;
   },
 ) {
   const [overlays, setOverlays] = useState<Record<string, CandidateViewModel>>({});
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [bulkPending, setBulkPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const lastFingerprintRef = useRef<string | null>(null);
+  const optsRef = useRef(opts);
+  optsRef.current = opts;
 
   const candidates = useMemo(() => {
     return baseCandidates.map((row) => overlays[row.id] ?? row);
   }, [baseCandidates, overlays]);
 
   const selected = candidates.find((c) => c.id === opts.selectedId) ?? null;
+
+  const runExitFor = useCallback(async (candidate: CandidateViewModel) => {
+    const o = optsRef.current;
+    if (candidate.direction !== "CALL" && candidate.direction !== "PUT") {
+      throw new Error("Exit check needs CALL or PUT direction");
+    }
+    const simulating = o.simulateMode && o.assessmentAt;
+    const result = await checkPositionExit({
+      symbol: candidate.symbol,
+      direction: candidate.direction,
+      strategyId: candidate.strategyId,
+      entryPrice: candidate.movementProfile?.sequenceEntryPrice ?? null,
+      refreshCandles: false,
+      simulationTimeEt: simulating
+        ? formatSimulationTimeEt(o.assessmentAt as Date)
+        : undefined,
+      force: !simulating,
+    });
+    return applyExitCheckToCandidate(candidate, result);
+  }, []);
 
   const testExit = useCallback(
     async (candidate: CandidateViewModel) => {
@@ -105,27 +132,21 @@ function useExitOverlays(
       }
       setPendingId(candidate.id);
       setError(null);
+      setNotice(null);
       try {
-        const simulating = opts.simulateMode && opts.assessmentAt;
-        const result = await checkPositionExit({
-          symbol: candidate.symbol,
-          direction: candidate.direction,
-          strategyId: candidate.strategyId,
-          entryPrice: candidate.movementProfile?.sequenceEntryPrice ?? null,
-          refreshCandles: !simulating,
-          simulationTimeEt: simulating
-            ? formatSimulationTimeEt(opts.assessmentAt as Date)
-            : undefined,
-        });
-        const next = applyExitCheckToCandidate(candidate, result);
+        const next = await runExitFor(candidate);
         setOverlays((prev) => ({ ...prev, [candidate.id]: next }));
-        if (opts.selectedId === candidate.id) {
-          opts.onSelect(next);
+        if (optsRef.current.selectedId === candidate.id) {
+          optsRef.current.onSelect(next);
         }
-        if (!result.exitSuggested && result.severity !== "warn" && !result.paused) {
-          setError(
-            "Exit did not fire (no warn / exit_suggested). Status unchanged — try another Simulate time.",
-          );
+        if (next.exitMonitor?.exitSuggested) {
+          setNotice(`${candidate.symbol}: Exit suggested`);
+        } else if (next.exitMonitor?.severity === "warn") {
+          setNotice(`${candidate.symbol}: Exit watch`);
+        } else if (next.exitMonitor?.paused) {
+          setNotice(next.exitMonitor.message || "Exit check paused (market hours)");
+        } else {
+          setNotice(`${candidate.symbol}: exit clear (no warn)`);
         }
       } catch (err) {
         const msg =
@@ -139,16 +160,72 @@ function useExitOverlays(
         setPendingId(null);
       }
     },
-    [opts],
+    [runExitFor],
   );
+
+  const refreshExitsForAssess = useCallback(
+    async (rows: CandidateViewModel[]) => {
+      const tradeable = rows.filter(
+        (r) => r.direction === "CALL" || r.direction === "PUT",
+      );
+      // Cap cost on poll: top ranked CALL/PUT only.
+      const batch = tradeable.slice(0, 8);
+      if (batch.length === 0) {
+        setOverlays({});
+        setNotice(null);
+        return;
+      }
+      setBulkPending(true);
+      setError(null);
+      try {
+        const nextMap: Record<string, CandidateViewModel> = {};
+        let suggested = 0;
+        let watch = 0;
+        // Sequential — avoids hammering /market/exit/check on each Assess tick.
+        for (const row of batch) {
+          try {
+            const next = await runExitFor(row);
+            nextMap[row.id] = next;
+            if (next.exitMonitor?.exitSuggested) suggested += 1;
+            else if (next.exitMonitor?.severity === "warn") watch += 1;
+          } catch (err) {
+            console.warn("exit check failed", row.symbol, err);
+          }
+        }
+        setOverlays(nextMap);
+        const parts = [`Exit checked ${Object.keys(nextMap).length}/${batch.length}`];
+        if (suggested) parts.push(`${suggested} exit suggested`);
+        if (watch) parts.push(`${watch} exit watch`);
+        setNotice(parts.join(" · "));
+        const selId = optsRef.current.selectedId;
+        if (selId && nextMap[selId]) {
+          optsRef.current.onSelect(nextMap[selId]!);
+        }
+      } finally {
+        setBulkPending(false);
+      }
+    },
+    [runExitFor],
+  );
+
+  useEffect(() => {
+    const fp = opts.assessFingerprint;
+    if (!fp || fp === lastFingerprintRef.current) return;
+    if (baseCandidates.length === 0) return;
+    lastFingerprintRef.current = fp;
+    void refreshExitsForAssess(baseCandidates);
+  }, [opts.assessFingerprint, baseCandidates, refreshExitsForAssess]);
 
   return {
     candidates,
     selected,
     testExit,
     pendingId,
+    bulkPending,
     error,
+    notice,
     clearError: () => setError(null),
+    setError,
   };
 }
 
@@ -172,9 +249,20 @@ function LiveCandidates({
   }, [ws.filteredTickerCards, ws.assessmentAt, tradability.bySymbol]);
 
   const simulateMode = ws.assessmentMode === "et";
+  const assessFingerprint = useMemo(() => {
+    if (!ws.runId) return null;
+    // Include card symbols so poll refreshes re-run exit when the set changes.
+    const keys = baseCandidates
+      .slice(0, 8)
+      .map((c) => `${c.symbol}:${c.direction}`)
+      .join(",");
+    return `${ws.runId}|${ws.lastAssessmentLabel ?? ""}|${simulateMode ? "et" : "now"}|${keys}`;
+  }, [ws.runId, ws.lastAssessmentLabel, simulateMode, baseCandidates]);
+
   const exit = useExitOverlays(baseCandidates, {
     simulateMode,
     assessmentAt: ws.assessmentAt,
+    assessFingerprint,
     onSelect,
     selectedId,
   });
@@ -205,7 +293,7 @@ function LiveCandidates({
             coverage={ws.candleCoverage}
             error={ws.assessmentError}
             notice={ws.assessNotice}
-            pending={ws.assessPending}
+            pending={ws.assessPending || exit.bulkPending}
             refreshPending={ws.refreshPending}
             monitorActive={ws.monitorActive}
             stopPending={ws.stopPending}
@@ -221,10 +309,43 @@ function LiveCandidates({
             onStartPolling={ws.startPolling}
             onStop={() => void ws.stopAssessment()}
             onRefreshResult={() => void ws.refreshResult()}
+            onTestExit={() => {
+              if (!exit.selected) {
+                exit.setError(
+                  "Select a Top Candidate row to re-check exit only (Assess already runs exit for the top list).",
+                );
+                return;
+              }
+              void exit.testExit(exit.selected);
+            }}
+            testExitPending={Boolean(exit.pendingId) || exit.bulkPending}
+            testExitDisabled={
+              Boolean(exit.pendingId) ||
+              exit.bulkPending ||
+              (Boolean(exit.selected) &&
+                exit.selected!.direction !== "CALL" &&
+                exit.selected!.direction !== "PUT")
+            }
+            testExitTitle={
+              !exit.selected
+                ? "Optional: select one row to re-run exit only. Assess/poll already exit-checks the top list."
+                : exit.selected.direction !== "CALL" && exit.selected.direction !== "PUT"
+                  ? "Selected candidate needs CALL or PUT direction"
+                  : "Re-run exit-check for the selected candidate only"
+            }
             className="min-w-0 flex-1 lg:max-w-3xl"
           />
         ) : null}
       </div>
+
+      {exit.error ? (
+        <p className="mb-3 text-xs text-ocean-danger" role="alert">
+          {exit.error}
+        </p>
+      ) : null}
+      {!exit.error && exit.notice ? (
+        <p className="mb-3 text-xs text-ocean-teal-dim dark:text-ocean-teal">{exit.notice}</p>
+      ) : null}
 
       <TradabilityHint tradability={tradability} />
 
@@ -320,9 +441,20 @@ function PreparationCandidates({
   ]);
 
   const simulateMode = ws.assessmentMode === "et";
+  const assessFingerprint = useMemo(() => {
+    const runId = ws.result?.runId ?? null;
+    if (!runId) return null;
+    const keys = baseCandidates
+      .slice(0, 8)
+      .map((c) => `${c.symbol}:${c.direction}`)
+      .join(",");
+    return `${runId}|${ws.result?.evaluatedAt ?? ""}|${keys}`;
+  }, [ws.result?.runId, ws.result?.evaluatedAt, baseCandidates]);
+
   const exit = useExitOverlays(baseCandidates, {
     simulateMode,
     assessmentAt: ws.assessmentAt,
+    assessFingerprint,
     onSelect,
     selectedId,
   });
@@ -369,6 +501,15 @@ function PreparationCandidates({
       />
 
       <TradabilityHint tradability={tradability} />
+
+      {exit.error ? (
+        <p className="mt-3 text-xs text-ocean-danger" role="alert">
+          {exit.error}
+        </p>
+      ) : null}
+      {!exit.error && exit.notice ? (
+        <p className="mt-3 text-xs text-ocean-teal-dim dark:text-ocean-teal">{exit.notice}</p>
+      ) : null}
 
       {ws.error ? (
         <p className="mt-3 text-sm text-ocean-danger" role="alert">

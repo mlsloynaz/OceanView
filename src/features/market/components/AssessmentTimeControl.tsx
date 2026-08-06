@@ -46,6 +46,11 @@ type Props = {
   onStartPolling: () => void;
   onStop: () => void;
   onRefreshResult: () => void;
+  /** Optional — Today Top Candidates exit monitor test beside Assess. */
+  onTestExit?: () => void;
+  testExitPending?: boolean;
+  testExitDisabled?: boolean;
+  testExitTitle?: string;
   className?: string;
 };
 
@@ -72,6 +77,10 @@ export function AssessmentTimeControl({
   onStartPolling,
   onStop,
   onRefreshResult,
+  onTestExit,
+  testExitPending = false,
+  testExitDisabled = false,
+  testExitTitle,
   className,
 }: Props) {
   const assessAt = mode === "now" ? new Date() : value;
@@ -80,6 +89,8 @@ export function AssessmentTimeControl({
   const assessDisabled = busy || monitorActive || outOfCoverage;
   const bounds = coverageBoundsForInput(coverage);
   const intervalLabel = intervalUnit === "min" ? "min" : "sec";
+  const showTestExit = typeof onTestExit === "function";
+  const exitDisabled = testExitDisabled || testExitPending || busy;
 
   return (
     <div className={cn("min-w-0 space-y-2", className)}>
@@ -123,6 +134,26 @@ export function AssessmentTimeControl({
         >
           {pending && !monitorActive ? "Assessing…" : "Assess"}
         </button>
+
+        {showTestExit ? (
+          <button
+            type="button"
+            onClick={onTestExit}
+            disabled={exitDisabled}
+            title={
+              testExitTitle ||
+              (mode === "et"
+                ? "Run exit-check at Simulate time for the selected Top Candidate"
+                : "Select a CALL/PUT Top Candidate, then test exit at the live clock")
+            }
+            className={cn(
+              BTN,
+              "border border-ocean-teal/50 text-ocean-teal hover:bg-ocean-teal/10",
+            )}
+          >
+            {testExitPending ? "Testing exit…" : "Test Exit"}
+          </button>
+        ) : null}
       </div>
 
       <PollControls
