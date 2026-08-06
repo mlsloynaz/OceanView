@@ -80,6 +80,8 @@ export type MovementProfile = {
   p75MfePct?: number | null;
   p90MfePct?: number | null;
   p75MaePct?: number | null;
+  /** 90th percentile MAE after BB close breakout. */
+  p90MaePct?: number | null;
   averageMfePct?: number | null;
   averageMaePct?: number | null;
   /** Share of BB breakouts where MFE ≥ MAE (0–1). */
@@ -109,6 +111,8 @@ export type MovementProfile = {
   barsOutside?: number;
   direction?: string | null;
   reachProb?: Record<string, number | null>;
+  /** Share of samples whose MAE exceeded each stock-% threshold. */
+  fallProb?: Record<string, number | null>;
   maDistance?: MaDistanceProfile | null;
   warnings?: string[];
   reasons?: string[];

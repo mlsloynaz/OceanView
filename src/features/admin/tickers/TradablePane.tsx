@@ -191,8 +191,6 @@ export function TradablePane({ onBack }: Props) {
     stopTradable,
     resettingTradable,
     resetTradableSamples,
-    exportingDesk,
-    downloadOceanDeskJson,
     message,
   } = useTickersPane(true);
 
@@ -267,7 +265,7 @@ export function TradablePane({ onBack }: Props) {
 
   const canCollect = (tradable?.sourceCount ?? tickers.length) > 0;
   const collecting = tradableCollecting || tradableRefining;
-  const busy = tradableLoading || collecting || promoting || exportingDesk || resettingTradable;
+  const busy = tradableLoading || collecting || promoting || resettingTradable;
 
   const promoteSelected = async () => {
     if (selectedSymbols.length === 0) {
@@ -328,25 +326,13 @@ export function TradablePane({ onBack }: Props) {
           {collecting ? (
             <button
               type="button"
-              disabled={tradableLoading || promoting || exportingDesk}
+              disabled={tradableLoading || promoting}
               onClick={() => void stopTradable()}
               className={cn(BTN, "border border-amber-600/50 bg-amber-500/10 text-amber-900 dark:text-amber-100")}
             >
               Stop
             </button>
           ) : null}
-          <button
-            type="button"
-            disabled={busy || !canCollect}
-            onClick={() => void downloadOceanDeskJson()}
-            className={cn(
-              BTN,
-              "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-ocean-teal/50",
-            )}
-            title="Download stop_metrics.json for OceanDesk (stops + bid–ask + $→12%)"
-          >
-            {exportingDesk ? "…" : "Download OceanDesk JSON"}
-          </button>
           <button
             type="button"
             disabled={busy || collecting}
@@ -394,11 +380,9 @@ export function TradablePane({ onBack }: Props) {
         bid–ask differs from the majority (does not skip ranking). Bid–ask $ and $ move for ~12%
         option gain are saved on each ticker.{" "}
         <strong className="font-medium text-ocean-foam">Clear samples</strong> wipes old data after
-        a measurement change.{" "}
-        <strong className="font-medium text-ocean-foam">Download OceanDesk JSON</strong> exports
-        stops (from movement profiles) plus bid–ask / $→12% — drop into OceanDesk as{" "}
-        <code className="text-[11px]">stop_metrics.json</code>. Click a column header to sort;
-        click a row to highlight it.
+        a measurement change. OceanDesk pulls movement / stop metrics via API (
+        <code className="text-[11px]">GET /tickers/{"{symbol}"}/movement-profile</code>
+        ). Click a column header to sort; click a row to highlight it.
       </p>
 
       {tradableError ? <p className="mb-2 text-xs text-ocean-danger">{tradableError}</p> : null}

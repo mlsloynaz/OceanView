@@ -166,7 +166,12 @@ export function TickerMovementInfoPanel({
     refPx != null && stretchMovePct != null ? refPx * (stretchMovePct / 100) : null;
   const adverseMoveDollars =
     refPx != null && adversePct != null ? refPx * (adversePct / 100) : null;
-  const adverseP75 = pct(p.p75MaePct);
+  const mfeP75 = pct(p.p75MfePct) ?? stretchMove;
+  const mfeP90 = pct(p.p90MfePct);
+  const mfeAvg = pct(p.averageMfePct);
+  const maeP75 = pct(p.p75MaePct);
+  const maeP90 = pct(p.p90MaePct);
+  const maeAvg = pct(p.averageMaePct);
   const pullback = pct(p.pullbackPct);
   const suggestedStop = pct(p.suggestedStopPct);
   const atrPct = pct(p.atrPct);
@@ -179,11 +184,24 @@ export function TickerMovementInfoPanel({
       ? `${p.timeToTargetBars} bar${p.timeToTargetBars === 1 ? "" : "s"}`
       : null;
 
+  const hasMaeDistribution = Boolean(adverse || maeP75 || maeP90 || maeAvg);
+  const hasMfeDistribution = Boolean(typicalMove || mfeP75 || mfeP90 || mfeAvg);
+
   const reachBits =
     p.reachProb &&
     ["5", "10", "12", "15", "20"]
       .map((k) => {
         const v = p.reachProb?.[k];
+        if (typeof v !== "number") return null;
+        return { key: k, pctOfBreakouts: Math.round(v * 100) };
+      })
+      .filter(Boolean) as { key: string; pctOfBreakouts: number }[];
+
+  const fallBits =
+    p.fallProb &&
+    ["5", "8", "10", "12", "15"]
+      .map((k) => {
+        const v = p.fallProb?.[k];
         if (typeof v !== "number") return null;
         return { key: k, pctOfBreakouts: Math.round(v * 100) };
       })
@@ -217,27 +235,7 @@ export function TickerMovementInfoPanel({
           hint="First bar of the current outside-Bollinger spell (when active)."
         />
         <Metric label="Typical exit price" value={money(p.expectedExitPrice)} />
-        <Metric
-          label="Typical favorable move"
-          value={typicalMove ? `${typicalMove} of the stock price` : null}
-          hint="Median run after a historical Bollinger close breakout."
-        />
-        <Metric
-          label="Typical favorable move ($)"
-          value={money(typicalMoveDollars)}
-          hint="Last close × typical favorable move %."
-        />
         <Metric label="Stronger exit price" value={money(p.stretchExitPrice)} />
-        <Metric
-          label="Stronger favorable move"
-          value={stretchMove ? `${stretchMove} of the stock price` : null}
-          hint="Upper-range history (75th percentile)."
-        />
-        <Metric
-          label="Stronger favorable move ($)"
-          value={money(stretchMoveDollars)}
-          hint="Last close × stronger favorable move %."
-        />
         <Metric
           label="Room left in a typical move"
           value={
@@ -249,24 +247,117 @@ export function TickerMovementInfoPanel({
           }
         />
         <Metric label="Move already done" value={!remaining && alreadyRan ? alreadyRan : null} />
-        <Metric
-          label="Typical adverse move (risk)"
-          value={adverse ? `${adverse} of the stock price` : null}
-          hint={adverseP75 ? `75th percentile adverse: ${adverseP75}` : undefined}
-        />
-        <Metric
-          label="Typical adverse move ($)"
-          value={money(adverseMoveDollars)}
-          hint="Last close × typical adverse move %."
-        />
       </dl>
+
+      {hasMfeDistribution && (
+        <div className="space-y-2 border-t border-ocean-mid/30 pt-3">
+          <h5 className="text-xs font-semibold text-ocean-sand">
+            Favorable excursion (MFE) — winners’ upside
+          </h5>
+          <p className="text-[10px] leading-snug text-ocean-sand/70">
+            How far past Bollinger close breakouts typically ran in your favor (stock %, not option
+            P&amp;L). Use median for expectations; p75/p90 for stretch targets and trailing stages.
+          </p>
+          <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <Metric
+              label="Median MFE"
+              value={typicalMove}
+              hint={
+                typicalMoveDollars != null
+                  ? `≈ ${money(typicalMoveDollars)} from last close`
+                  : "Typical favorable move after breakout."
+              }
+            />
+            <Metric
+              label="P75 MFE"
+              value={mfeP75}
+              hint="Stronger favorable move (75th percentile)."
+            />
+            <Metric
+              label="P90 MFE"
+              value={mfeP90}
+              hint="Exceptional winners — trail, don’t assume this as base target."
+            />
+            <Metric label="Average MFE" value={mfeAvg} hint="Mean of historical favorable samples." />
+            <Metric
+              label="Median MFE ($)"
+              value={money(typicalMoveDollars)}
+              hint="Last close × median MFE %."
+            />
+            <Metric
+              label="P75 MFE ($)"
+              value={
+                refPx != null && typeof p.p75MfePct === "number"
+                  ? money(refPx * (p.p75MfePct / 100))
+                  : money(stretchMoveDollars)
+              }
+            />
+          </dl>
+        </div>
+      )}
+
+      {hasMaeDistribution && (
+        <div className="space-y-2 border-t border-ocean-mid/30 pt-3">
+          <h5 className="text-xs font-semibold text-ocean-sand">
+            Adverse excursion (MAE) — normal noise vs abnormal
+          </h5>
+          <p className="text-[10px] leading-snug text-ocean-sand/70">
+            How far breakouts usually moved against the entry before resolving. OceanDesk can use
+            median–p75 as structural room and treat p90+ as abnormal (not permission for unlimited
+            loss).
+          </p>
+          <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <Metric
+              label="Median MAE"
+              value={adverse}
+              hint={
+                adverseMoveDollars != null
+                  ? `≈ ${money(adverseMoveDollars)} from last close`
+                  : "Typical adverse move (risk hint)."
+              }
+            />
+            <Metric
+              label="P75 MAE"
+              value={maeP75}
+              hint="Upper normal adverse zone — tighten monitoring."
+            />
+            <Metric
+              label="P90 MAE"
+              value={maeP90}
+              hint="Beyond this is abnormal vs historical successful-style samples."
+            />
+            <Metric label="Average MAE" value={maeAvg} hint="Mean of historical adverse samples." />
+            <Metric
+              label="Median MAE ($)"
+              value={money(adverseMoveDollars)}
+              hint="Last close × median MAE %."
+            />
+            <Metric
+              label="P75 MAE ($)"
+              value={
+                refPx != null && typeof p.p75MaePct === "number"
+                  ? money(refPx * (p.p75MaePct / 100))
+                  : null
+              }
+            />
+            <Metric
+              label="P90 MAE ($)"
+              value={
+                refPx != null && typeof p.p90MaePct === "number"
+                  ? money(refPx * (p.p90MaePct / 100))
+                  : null
+              }
+            />
+          </dl>
+        </div>
+      )}
 
       {(suggestedStop || pullback || winRatePct || atrPct || timeToTarget) && (
         <div className="space-y-2 border-t border-ocean-mid/30 pt-3">
           <h5 className="text-xs font-semibold text-ocean-sand">Risk &amp; timing (stock)</h5>
           <p className="text-[10px] leading-snug text-ocean-sand/70">
             Suggested stop is a stock % from historical pullback / MAE (+10% buffer), floored at half
-            ATR — not an option-premium stop.
+            ATR — not an option-premium stop. OceanDesk maps this to option % via Greeks over API.
           </p>
           <dl className="grid gap-2 sm:grid-cols-2">
             <Metric
@@ -350,6 +441,33 @@ export function TickerMovementInfoPanel({
               >
                 <span className="block text-[11px] text-ocean-sand">
                   At least {row.key}% of stock price
+                </span>
+                <span className="mt-1 block text-sm font-semibold tabular-nums text-ocean-foam">
+                  {row.pctOfBreakouts}% of breakouts
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {fallBits && fallBits.length > 0 && (
+        <div className="space-y-2 border-t border-ocean-mid/30 pt-3">
+          <h5 className="text-xs font-semibold text-ocean-sand">
+            How often adverse move exceeded…
+          </h5>
+          <p className="text-[10px] leading-snug text-ocean-sand/70">
+            Share of past breakouts whose MAE went beyond each threshold (stock %). Useful for
+            abnormal-MAE warnings in OceanDesk.
+          </p>
+          <ul className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+            {fallBits.map((row) => (
+              <li
+                key={row.key}
+                className="rounded-md border border-ocean-mid/25 bg-ocean-surface/40 px-3 py-2"
+              >
+                <span className="block text-[11px] text-ocean-sand">
+                  MAE above {row.key}% of stock price
                 </span>
                 <span className="mt-1 block text-sm font-semibold tabular-nums text-ocean-foam">
                   {row.pctOfBreakouts}% of breakouts

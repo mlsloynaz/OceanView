@@ -10,6 +10,8 @@ import {
 } from "@/shared/components/LiveSimulateControl";
 import { cn } from "@/shared/lib/cn";
 import type { CatalogTicker } from "@/features/admin/tickers/types";
+import { formatEtDatetimeLocal } from "@/features/market/lib/assessment-time";
+import type { MarketAlarmScanLastHourResponse } from "./alarm-client";
 import { AlarmTradeModal } from "./AlarmTradeModal";
 import { BreakoutKanbanBoard, watchHasBreakout } from "./BreakoutKanbanBoard";
 import {
@@ -64,8 +66,13 @@ type Props = {
   runningCount: number;
   timeMode: LiveSimulateMode;
   simulateLocal: string;
+  lastHourScan: MarketAlarmScanLastHourResponse | null;
+  lastHourScanError: string | null;
+  lastHourScanBusy: boolean;
   onTimeModeChange: (mode: LiveSimulateMode) => void;
   onSimulateLocalChange: (value: string) => void;
+  onScanLastHourRth: (symbol?: string) => void;
+  onClearLastHourScan: () => void;
   onClearBanner: () => void;
   onClearAlarmPopup: () => void;
   onConfirmEnter: (id: string) => void;
@@ -126,8 +133,13 @@ export function MarketAlarmPanel({
   runningCount,
   timeMode,
   simulateLocal,
+  lastHourScan,
+  lastHourScanError,
+  lastHourScanBusy,
   onTimeModeChange,
   onSimulateLocalChange,
+  onScanLastHourRth,
+  onClearLastHourScan,
   onClearBanner,
   onClearAlarmPopup,
   onConfirmEnter,
@@ -290,6 +302,70 @@ export function MarketAlarmPanel({
                 Simulate evaluates watches as-of the ET datetime using stored candles (no
                 Schwab refresh). Use Check now / Start to re-run at that moment.
               </p>
+            ) : null}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className={cn(BTN, "border border-ocean-teal/40 text-ocean-teal-dim dark:text-ocean-teal")}
+                disabled={lastHourScanBusy || watches.length === 0}
+                title="Replay breakout at each 15m close in the last completed regular-session hour"
+                onClick={() => {
+                  const breakout = watches.find(watchHasBreakout);
+                  onScanLastHourRth(breakout?.symbol ?? watches[0]?.symbol);
+                }}
+              >
+                {lastHourScanBusy ? "Scanning last RTH hour…" : "Test last regular market hour"}
+              </button>
+              {lastHourScan || lastHourScanError ? (
+                <button
+                  type="button"
+                  className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
+                  onClick={onClearLastHourScan}
+                >
+                  Clear scan
+                </button>
+              ) : null}
+            </div>
+            {lastHourScanError ? (
+              <p className="mt-1.5 text-[11px] text-rose-300">{lastHourScanError}</p>
+            ) : null}
+            {lastHourScan ? (
+              <div className="mt-2 rounded border border-ocean-mid/40 bg-ocean-deep/40 px-2.5 py-2 text-[11px] text-ocean-sand">
+                <p className="font-medium text-ocean-foam">
+                  {lastHourScan.symbol} · {lastHourScan.summary}
+                </p>
+                <p className="mt-1 text-ocean-sand/90">
+                  As-of jumps to Entry (or Confirmed) so you can Check now at that moment.
+                </p>
+                <ul className="mt-1.5 grid gap-0.5 sm:grid-cols-2">
+                  {lastHourScan.steps.map((s) => (
+                    <li key={s.simulationTimeEt} className="flex flex-wrap gap-x-2">
+                      <button
+                        type="button"
+                        className="font-mono text-ocean-teal-dim underline-offset-2 hover:underline dark:text-ocean-teal"
+                        onClick={() => {
+                          onTimeModeChange("simulate");
+                          const d = new Date(s.simulationTimeEt);
+                          if (!Number.isNaN(d.getTime())) {
+                            onSimulateLocalChange(formatEtDatetimeLocal(d));
+                          }
+                        }}
+                      >
+                        {s.clockEt}
+                      </button>
+                      <span>
+                        {s.entry
+                          ? "Entry"
+                          : s.confirmed
+                            ? "Confirmed"
+                            : s.lifecycle || "—"}
+                        {s.suggestedDirection ? ` · ${s.suggestedDirection}` : ""}
+                        {typeof s.breakoutScore === "number" ? ` · q${s.breakoutScore}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : null}
           </div>
 

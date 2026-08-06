@@ -31,12 +31,12 @@ export const BEST_FIT_COLUMN_HELP: BestFitColumnHelp[] = [
   {
     column: "MFE",
     meaning:
-      "Max Favorable Excursion — typical upside after a breakout. Table shows %; click the symbol for the same move in dollars (using last close).",
+      "Max Favorable Excursion — median upside after a breakout. Detail also shows P75/P90. Table shows %; click the symbol for $ (using last close).",
   },
   {
     column: "MAE",
     meaning:
-      "Max Adverse Excursion — typical drawdown against you. Table shows %; click the symbol for $ as well. Lower is usually safer.",
+      "Max Adverse Excursion — median drawdown against you. Detail shows P75/P90 for normal vs abnormal adverse zones. Lower is usually safer.",
   },
   {
     column: "Win",

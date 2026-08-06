@@ -158,8 +158,26 @@ export function CandidateDetailDrawer({ candidate, open, onClose }: Props) {
                 <dd className="text-ocean-foam">{fmtPct(candidate.moveRemainingPct)}</dd>
               </div>
               <div>
-                <dt className="text-ocean-sand/70">Typical adverse</dt>
+                <dt className="text-ocean-sand/70">Typical adverse (MAE)</dt>
                 <dd className="text-ocean-foam">{fmtPct(candidate.expectedMaePct)}</dd>
+              </div>
+              <div>
+                <dt className="text-ocean-sand/70">P75 / P90 MAE</dt>
+                <dd className="text-ocean-foam">
+                  {fmtPct(candidate.movementProfile?.p75MaePct) === "—" &&
+                  fmtPct(candidate.movementProfile?.p90MaePct) === "—"
+                    ? "—"
+                    : `${fmtPct(candidate.movementProfile?.p75MaePct)} / ${fmtPct(candidate.movementProfile?.p90MaePct)}`}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-ocean-sand/70">P75 / P90 MFE</dt>
+                <dd className="text-ocean-foam">
+                  {fmtPct(candidate.movementProfile?.p75MfePct) === "—" &&
+                  fmtPct(candidate.movementProfile?.p90MfePct) === "—"
+                    ? "—"
+                    : `${fmtPct(candidate.movementProfile?.p75MfePct)} / ${fmtPct(candidate.movementProfile?.p90MfePct)}`}
+                </dd>
               </div>
               <div>
                 <dt className="text-ocean-sand/70">Median bars to target</dt>

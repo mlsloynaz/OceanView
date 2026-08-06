@@ -12,7 +12,8 @@ import {
   type PollIntervalUnit,
 } from "@/shared/components/PollControls";
 import type { LiveSimulateMode } from "@/shared/components/LiveSimulateControl";
-import { MarketAlarmApiError, postMarketAlarmCheck } from "./alarm-client";
+import { MarketAlarmApiError, postMarketAlarmCheck, postMarketAlarmScanLastHour } from "./alarm-client";
+import type { MarketAlarmScanLastHourResponse } from "./alarm-client";
 import {
   ALARM_ELIGIBLE_RULES,
   alarmRulesLabel,
@@ -21,6 +22,7 @@ import {
   type AlarmTrend,
   type MarketAlarmWatch,
 } from "./alarm-types";
+import { watchHasBreakout } from "./BreakoutKanbanBoard";
 import {
   startAlarmRing,
   stopAlarmRing,
@@ -120,6 +122,9 @@ export function useMarketAlarms() {
     }
   });
   const [simulateLocal, setSimulateLocal] = useState(() => formatEtDatetimeLocal(new Date()));
+  const [lastHourScan, setLastHourScan] = useState<MarketAlarmScanLastHourResponse | null>(null);
+  const [lastHourScanError, setLastHourScanError] = useState<string | null>(null);
+  const [lastHourScanBusy, setLastHourScanBusy] = useState(false);
 
   const timersRef = useRef<Map<string, number>>(new Map());
   /** Watch ids currently executing a check (HTTP in flight). */
@@ -957,12 +962,77 @@ export function useMarketAlarms() {
     }
   }, []);
 
+  const scanLastHourRth = useCallback(
+    async (symbolHint?: string) => {
+      const hint = (symbolHint || "").trim().toUpperCase();
+      const breakout = watchesRef.current.filter(watchHasBreakout);
+      const pool = breakout.length > 0 ? breakout : watchesRef.current;
+      const symbol =
+        hint ||
+        pool[0]?.symbol ||
+        "";
+      if (!symbol) {
+        setLastHourScanError("Add a breakout watch (or any watch) first, then scan.");
+        setLastHourScan(null);
+        return;
+      }
+      const watch =
+        pool.find((w) => w.symbol === symbol) ??
+        watchesRef.current.find((w) => w.symbol === symbol) ??
+        pool[0];
+      const ruleKeys = watch
+        ? watch.ruleKeys?.length
+          ? watch.ruleKeys
+          : [watch.ruleKey]
+        : (["breakout_quality"] as AlarmEligibleRuleKey[]);
+      const trend = watch?.trend ?? "auto";
+
+      setLastHourScanBusy(true);
+      setLastHourScanError(null);
+      try {
+        const result = await postMarketAlarmScanLastHour({
+          symbol,
+          ruleKeys,
+          trend,
+          stepMinutes: 15,
+          refreshCandles: false,
+          ...(watch?.bandTimeframe ? { bandTimeframe: watch.bandTimeframe } : {}),
+        });
+        setLastHourScan(result);
+        setTimeMode("simulate");
+        const jump = result.firstEntryAt || result.firstConfirmedAt || result.windowEndEt;
+        if (jump) {
+          const d = new Date(jump);
+          if (!Number.isNaN(d.getTime())) {
+            setSimulateLocal(formatEtDatetimeLocal(d));
+          }
+        }
+      } catch (err) {
+        const msg =
+          err instanceof MarketAlarmApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Last-hour scan failed.";
+        setLastHourScanError(msg);
+        setLastHourScan(null);
+      } finally {
+        setLastHourScanBusy(false);
+      }
+    },
+    [setTimeMode],
+  );
+
+  const clearLastHourScan = useCallback(() => {
+    setLastHourScan(null);
+    setLastHourScanError(null);
+  }, []);
+
   useEffect(() => {
     return () => {
       stopAlarmRing();
     };
   }, []);
-
   const metCount = watches.filter(
     (w) => w.status === "met" || w.status === "exit" || w.status === "in_trade",
   ).length;
@@ -995,6 +1065,11 @@ export function useMarketAlarms() {
     setTimeMode,
     simulateLocal,
     setSimulateLocal,
+    lastHourScan,
+    lastHourScanError,
+    lastHourScanBusy,
+    scanLastHourRth,
+    clearLastHourScan,
     addWatch,
     startWatch,
     stopWatch,

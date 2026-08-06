@@ -26,7 +26,6 @@ export function CandlesPane() {
     resetCandles,
     buildMovementProfiles,
     stopMovementProfiles,
-    downloadStopMetricsJson,
   } = useCandlesPane(true);
 
   const busy = bulkPending || profileJobPending;
@@ -82,18 +81,6 @@ export function CandlesPane() {
             type="button"
             className={cn(
               TOOLBAR_BTN,
-              "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-ocean-teal/50",
-            )}
-            disabled={busy || loading || rows.length === 0}
-            title="Download stop_metrics.json for OceanDesk (from stored movement profiles)"
-            onClick={downloadStopMetricsJson}
-          >
-            {profileJobPending ? "…" : "Download stop metrics JSON"}
-          </button>
-          <button
-            type="button"
-            className={cn(
-              TOOLBAR_BTN,
               "border border-ocean-mid/60 bg-ocean-deep text-ocean-foam hover:border-amber-500/50",
             )}
             disabled={loading}
@@ -132,11 +119,9 @@ export function CandlesPane() {
         from Tickers ({rows.length} shown).{" "}
         <strong className="font-medium text-ocean-foam">Build movement profiles</strong> pulls ~1
         year of hourly bars in memory only (batches of 5) and stores the compact profile — not the
-        bars.{" "}
-        <strong className="font-medium text-ocean-foam">Download stop metrics JSON</strong> exports
-        per-ticker MAE / pullback / suggested stop for OceanDesk (
-        <code className="text-[11px]">stop_metrics.json</code>). Track build progress under Admin →
-        Job Status.
+        bars. OceanDesk pulls MAE / MFE / stop via{" "}
+        <code className="text-[11px]">GET /tickers/{"{symbol}"}/movement-profile</code> — no file
+        export. Track build progress under Admin → Job Status.
       </p>
       {message && (
         <p className="mb-2 text-ocean-teal-dim dark:text-ocean-teal">{message}</p>

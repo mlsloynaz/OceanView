@@ -85,12 +85,31 @@ export function BestFitTickerDetail({ row }: Props) {
         <Metric
           label="Typical upside (MFE)"
           value={pctAndDollars(m.moveCapPct, m.moveCapDollars)}
-          hint="Average move in your favor after breakout"
+          hint="Median favorable move after breakout"
+        />
+        <Metric
+          label="P75 / P90 MFE"
+          value={
+            fmtPct(m.p75MfePct ?? m.stretchMoveCapPct) && fmtPct(m.p90MfePct)
+              ? `${fmtPct(m.p75MfePct ?? m.stretchMoveCapPct)} / ${fmtPct(m.p90MfePct)}`
+              : fmtPct(m.p75MfePct ?? m.stretchMoveCapPct) ?? fmtPct(m.p90MfePct)
+          }
+          hint="Stretch and exceptional favorable percentiles"
         />
         <Metric
           label="Typical drawdown (MAE)"
           value={pctAndDollars(m.expectedMaePct, m.expectedMaeDollars)}
-          hint="Average move against you before recovery"
+          hint="Median adverse move against the entry"
+        />
+        <Metric
+          label="P75 MAE"
+          value={pctAndDollars(m.p75MaePct, m.p75MaeDollars)}
+          hint="Upper normal adverse zone"
+        />
+        <Metric
+          label="P90 MAE"
+          value={pctAndDollars(m.p90MaePct, m.p90MaeDollars)}
+          hint="Abnormal adverse vs historical samples"
         />
         <Metric
           label="Historical win rate"
@@ -104,6 +123,19 @@ export function BestFitTickerDetail({ row }: Props) {
         <Metric
           label="Suggested stop"
           value={pctAndDollars(m.suggestedStopPct, m.suggestedStopDollars)}
+        />
+        <Metric
+          label="Pullback before target"
+          value={fmtPct(m.pullbackPct)}
+          hint="Typical adverse move before winners reach median MFE"
+        />
+        <Metric
+          label="Time to target"
+          value={
+            typeof m.timeToTargetBars === "number"
+              ? `${m.timeToTargetBars} bar${m.timeToTargetBars === 1 ? "" : "s"}`
+              : null
+          }
         />
         <Metric label="Typical daily range (ATR)" value={pctAndDollars(m.atrPct, m.atrDollars)} />
         <Metric label="Expected exit (approx.)" value={fmtMoney(m.expectedExitPrice)} />

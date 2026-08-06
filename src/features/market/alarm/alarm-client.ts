@@ -198,3 +198,109 @@ export async function postMarketAlarmCheck(
     }),
   });
 }
+
+export type MarketAlarmScanLastHourRequest = {
+  symbol: string;
+  ruleKey?: AlarmEligibleRuleKey;
+  ruleKeys?: AlarmEligibleRuleKey[];
+  trend?: AlarmTrend;
+  bandTimeframe?: "1m" | "15m" | "1h";
+  stepMinutes?: 1 | 5 | 15;
+  /** Anchor for “last completed RTH hour” (ISO). Default = now. */
+  asOfEt?: string;
+  refreshCandles?: boolean;
+};
+
+export type MarketAlarmScanStep = {
+  simulationTimeEt: string;
+  clockEt: string;
+  lifecycle?: string | null;
+  confirmed: boolean;
+  entry: boolean;
+  met?: boolean;
+  suggestedDirection?: string | null;
+  suggestedTrend?: string | null;
+  breakoutScore?: number | null;
+  continuationScore?: number | null;
+  qualityPct?: number | null;
+  evidence?: string | null;
+  entryPath?: string | null;
+};
+
+export type MarketAlarmScanLastHourResponse = {
+  symbol: string;
+  windowStartEt: string;
+  windowEndEt: string;
+  stepMinutes: number;
+  asOfEt: string;
+  firstConfirmedAt: string | null;
+  firstEntryAt: string | null;
+  summary: string;
+  steps: MarketAlarmScanStep[];
+};
+
+export async function postMarketAlarmScanLastHour(
+  body: MarketAlarmScanLastHourRequest,
+): Promise<MarketAlarmScanLastHourResponse> {
+  const symbol = body.symbol.trim().toUpperCase();
+  const ruleKeys =
+    body.ruleKeys && body.ruleKeys.length > 0
+      ? body.ruleKeys
+      : body.ruleKey
+        ? [body.ruleKey]
+        : ["breakout_quality"];
+
+  if (USE_MOCK) {
+    await new Promise((r) => setTimeout(r, 400));
+    const base = new Date();
+    base.setMinutes(0, 0, 0);
+    const steps: MarketAlarmScanStep[] = [15, 30, 45, 60].map((m, i) => {
+      const t = new Date(base.getTime() - 60 * 60_000 + m * 60_000);
+      const confirmed = i >= 1;
+      const entry = i >= 3;
+      return {
+        simulationTimeEt: t.toISOString(),
+        clockEt: t.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+          timeZone: "America/New_York",
+        }),
+        lifecycle: entry ? "entry_ready" : confirmed ? "awaiting_entry" : "setup_forming",
+        confirmed,
+        entry,
+        met: entry,
+        suggestedDirection: "CALL",
+        suggestedTrend: "alcista",
+        breakoutScore: confirmed ? 82 : 40,
+        continuationScore: entry ? 70 : 45,
+        evidence: entry ? "mock entry" : confirmed ? "mock confirmed" : "mock setup",
+      };
+    });
+    return {
+      symbol,
+      windowStartEt: steps[0]!.simulationTimeEt,
+      windowEndEt: steps[3]!.simulationTimeEt,
+      stepMinutes: 15,
+      asOfEt: new Date().toISOString(),
+      firstConfirmedAt: steps[1]!.simulationTimeEt,
+      firstEntryAt: steps[3]!.simulationTimeEt,
+      summary: "mock · Confirmed · Entry",
+      steps,
+    };
+  }
+
+  return fetchJson<MarketAlarmScanLastHourResponse>("/market/alarm/scan-last-hour", {
+    method: "POST",
+    body: JSON.stringify({
+      symbol,
+      ruleKeys,
+      ruleKey: ruleKeys[0],
+      trend: body.trend ?? "auto",
+      stepMinutes: body.stepMinutes ?? 15,
+      refreshCandles: body.refreshCandles ?? false,
+      ...(body.bandTimeframe ? { bandTimeframe: body.bandTimeframe } : {}),
+      ...(body.asOfEt ? { asOfEt: body.asOfEt } : {}),
+    }),
+  });
+}

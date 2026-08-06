@@ -147,8 +147,13 @@ export function MarketPage() {
           runningCount={alarms.runningCount}
           timeMode={alarms.timeMode}
           simulateLocal={alarms.simulateLocal}
+          lastHourScan={alarms.lastHourScan}
+          lastHourScanError={alarms.lastHourScanError}
+          lastHourScanBusy={alarms.lastHourScanBusy}
           onTimeModeChange={alarms.setTimeMode}
           onSimulateLocalChange={alarms.setSimulateLocal}
+          onScanLastHourRth={(symbol) => void alarms.scanLastHourRth(symbol)}
+          onClearLastHourScan={alarms.clearLastHourScan}
           onClearBanner={alarms.clearMetBanner}
           onClearAlarmPopup={alarms.clearAlarmPopup}
           onConfirmEnter={alarms.confirmEnter}

@@ -83,7 +83,7 @@ export type StrategyAssessExtras = {
   qualityPctRaw?: number | null;
   adjustedQualityPct?: number | null;
   dangerPenaltyPct?: number | null;
-  qualityInvalidated?: boolean;
+  qualityInvalidated?: boolean | null;
   dangers?: DangerEval[];
 };
 

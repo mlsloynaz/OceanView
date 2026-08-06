@@ -25,10 +25,17 @@ export type BestFitMetrics = {
   moveCapPct?: number | null;
   stretchMoveCapPct?: number | null;
   expectedMaePct?: number | null;
+  p75MaePct?: number | null;
+  p90MaePct?: number | null;
+  averageMaePct?: number | null;
+  p75MfePct?: number | null;
+  p90MfePct?: number | null;
+  averageMfePct?: number | null;
   winRate?: number | null;
   atrPct?: number | null;
   suggestedStopPct?: number | null;
   pullbackPct?: number | null;
+  timeToTargetBars?: number | null;
   reachProb5?: number | null;
   reachProb10?: number | null;
   reachProb12?: number | null;
@@ -39,6 +46,8 @@ export type BestFitMetrics = {
   referencePrice?: number | null;
   moveCapDollars?: number | null;
   expectedMaeDollars?: number | null;
+  p75MaeDollars?: number | null;
+  p90MaeDollars?: number | null;
   suggestedStopDollars?: number | null;
   atrDollars?: number | null;
   expectedExitPrice?: number | null;
