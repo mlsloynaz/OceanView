@@ -287,6 +287,7 @@ export function MarketPage() {
               threshold={threshold}
               useMock={useMock}
               snapshot={snapshot}
+              assessmentLabel={assessmentLabel}
               onClose={closeDetail}
             />
           )}
@@ -299,6 +300,7 @@ export function MarketPage() {
               useMock={useMock}
               ticker={selectedTickerResult}
               strategyById={strategyById}
+              assessmentLabel={assessmentLabel}
               onClose={closeDetail}
             />
           )}

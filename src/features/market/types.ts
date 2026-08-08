@@ -296,6 +296,9 @@ export type StrategyDetailRow = StrategyAssessExtras & {
 export type StrategyDetailResponse = {
   strategy: StrategyCatalogItem;
   runId: string;
+  /** As-of clock for the assessment (live now or simulated ET). */
+  simulationTimeEt?: string | null;
+  evaluatedAt?: string | null;
   rows: StrategyDetailRow[];
 };
 
@@ -307,6 +310,9 @@ export type TickerDetailResponse = {
   symbol: string;
   name: string | null;
   runId: string;
+  /** As-of clock for the assessment (live now or simulated ET). */
+  simulationTimeEt?: string | null;
+  evaluatedAt?: string | null;
   strategies: TickerDetailStrategyRow[];
   movementProfile?: MovementProfile | null;
 };

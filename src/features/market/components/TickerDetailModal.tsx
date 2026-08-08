@@ -11,6 +11,7 @@ import {
   formatMoneyPrice,
   resolveEstimatedExitPrice,
 } from "@/features/premarket/display";
+import { formatAssessmentDisplay } from "../lib/assessment-time";
 import { MarketDetailModal } from "./MarketDetailModal";
 import { RuleCheckStrip } from "./RuleCheckStrip";
 import { RuleRequirementsList } from "./RuleRequirementsList";
@@ -29,6 +30,7 @@ type Props = {
   useMock: boolean;
   ticker: TickerEvalResult | null;
   strategyById: Map<string, StrategyCatalogItem>;
+  assessmentLabel?: string | null;
   onClose: () => void;
 };
 
@@ -47,11 +49,15 @@ export function TickerDetailModal({
   useMock,
   ticker,
   strategyById,
+  assessmentLabel,
   onClose,
 }: Props) {
   const [rows, setRows] = useState<StrategyRow[]>([]);
   const [titleName, setTitleName] = useState<string | null>(ticker?.name ?? null);
   const [movementProfile, setMovementProfile] = useState(ticker?.movementProfile ?? null);
+  const [assessmentAtLabel, setAssessmentAtLabel] = useState<string | null>(
+    assessmentLabel ?? null,
+  );
   const [loading, setLoading] = useState(!useMock);
   const [error, setError] = useState<string | null>(null);
   const [expandedStrategyId, setExpandedStrategyId] = useState<string | null>(null);
@@ -79,6 +85,7 @@ export function TickerDetailModal({
       );
       setTitleName(ticker.name);
       setMovementProfile(ticker.movementProfile ?? null);
+      setAssessmentAtLabel(assessmentLabel ?? null);
       setExpandedStrategyId(
         sorted.find((s) => isSignal(s.qualityPct, threshold))?.strategyId ??
           sorted[0]?.strategyId ??
@@ -90,6 +97,7 @@ export function TickerDetailModal({
 
     if (!runId) {
       setRows([]);
+      setAssessmentAtLabel(assessmentLabel ?? null);
       setLoading(false);
       return;
     }
@@ -102,6 +110,17 @@ export function TickerDetailModal({
         if (cancelled) return;
         setTitleName(detail.name);
         setMovementProfile(detail.movementProfile ?? null);
+        const asOfRaw = detail.simulationTimeEt || detail.evaluatedAt;
+        if (asOfRaw) {
+          const asOf = new Date(asOfRaw);
+          setAssessmentAtLabel(
+            !Number.isNaN(asOf.getTime())
+              ? `Assessment ${formatAssessmentDisplay(asOf)}`
+              : assessmentLabel ?? null,
+          );
+        } else {
+          setAssessmentAtLabel(assessmentLabel ?? null);
+        }
         const sorted = [...detail.strategies].sort((a, b) => b.qualityPct - a.qualityPct);
         setRows(
           sorted.map((ev) => {
@@ -144,7 +163,7 @@ export function TickerDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [useMock, ticker, symbol, runId, threshold, strategyById]);
+  }, [useMock, ticker, symbol, runId, threshold, strategyById, assessmentLabel]);
 
   const estimatedExit = resolveEstimatedExitPrice({
     profile: movementProfile,
@@ -156,6 +175,7 @@ export function TickerDetailModal({
       open
       onClose={onClose}
       title={symbol}
+      meta={assessmentAtLabel}
       subtitle={titleName ?? undefined}
     >
       {estimatedExit != null && (

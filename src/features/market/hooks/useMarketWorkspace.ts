@@ -15,6 +15,7 @@ import {
   MARKET_ERROR_MESSAGES,
   MarketApiError,
   fetchMarketEnvelope,
+  isAssessUsable,
   isMarketAssessActive,
   postMarketEvaluate,
   postMarketEvaluateStop,
@@ -47,6 +48,7 @@ import { defaultSimulationSessionDate } from "@/shared/lib/market-calendar";
 import type {
   CandleCoverage,
   MarketEnvelope,
+  MarketEvaluateStatusResponse,
   MarketSnapshotFile,
   MarketSnapshotMode,
   MarketViewMode,
@@ -100,7 +102,7 @@ function continuousMonitorNotice(
   mode: AssessmentTimeMode,
 ): string {
   const label = unit === "min" ? "min" : "sec";
-  const base = `Monitoring — assessing every ${value} ${label} · results update when each run finishes`;
+  const base = `Monitoring — assessing every ${value} ${label} · Top Candidates update as tickers finish`;
   if (mode === "et") {
     return `${base}. Simulate mode reuses the same assessment time each tick.`;
   }
@@ -116,6 +118,20 @@ function validationBlocks(
   if (validation.error) return true;
   if (historicalOnly && blocksAssess(at, coverage, { historicalOnly: true })) return true;
   return false;
+}
+
+function assessProgressNotice(
+  progress: { completed?: number; total?: number } | null | undefined,
+): string {
+  const completed = Number(progress?.completed ?? 0);
+  const total = Number(progress?.total ?? 0);
+  if (total > 0) {
+    return `Assessing… ${completed}/${total} tickers — Top Candidates update as each finishes.`;
+  }
+  if (completed > 0) {
+    return `Assessing… ${completed} ticker(s) ready — Top Candidates updating.`;
+  }
+  return "Assessment running… Top Candidates will update as each ticker finishes.";
 }
 
 export function useMarketWorkspace(viewMode: MarketViewMode) {
@@ -472,11 +488,48 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   const followAfterPostAssessDelay = useCallback(
     async (activeRunId: string) => {
       const settleToken = ++settleAbortRef.current;
+      let lastLoadedCompleted = -1;
+      let refreshChain: Promise<void> = Promise.resolve();
+
+      const loadPartialIfNew = (status: MarketEvaluateStatusResponse | null | undefined) => {
+        if (!status || settleToken !== settleAbortRef.current) return;
+        const completed = Number(status.progress?.completed ?? 0);
+        if (isMarketAssessActive(status.status) || isAssessUsable(status.status)) {
+          setAssessNotice(assessProgressNotice(status.progress));
+        }
+        // Wait until at least one ticker is persisted — otherwise we would reload the prior run.
+        if (!isAssessUsable(status.status) || completed <= 0 || completed <= lastLoadedCompleted) {
+          return;
+        }
+        lastLoadedCompleted = completed;
+        const historicalOnly = assessmentMode === "et";
+        const at = resolveAssessmentMoment();
+        refreshChain = refreshChain
+          .catch(() => undefined)
+          .then(async () => {
+            if (settleToken !== settleAbortRef.current) return;
+            await refreshAfterAssess(
+              activeRunId,
+              historicalOnly ? formatSimulationTimeEt(at) : null,
+            );
+          });
+      };
+
       try {
-        setAssessNotice("Assessment running… results will appear when it finishes.");
-        await pollMarketEvaluateUntilSettled(activeRunId);
+        setAssessNotice(assessProgressNotice(null));
+        const settled = await pollMarketEvaluateUntilSettled(activeRunId, (progress) => {
+          loadPartialIfNew(progress);
+        });
         if (settleToken !== settleAbortRef.current) return;
 
+        await refreshChain.catch(() => undefined);
+        if (settleToken !== settleAbortRef.current) return;
+
+        loadPartialIfNew(settled);
+        await refreshChain.catch(() => undefined);
+        if (settleToken !== settleAbortRef.current) return;
+
+        // Final load — covers terminal statuses and any missed progress tick.
         const historicalOnly = assessmentMode === "et";
         const at = resolveAssessmentMoment();
         await refreshAfterAssess(
@@ -579,7 +632,8 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
         void followAfterPostAssessDelay(start.runId);
         if (!continuous) {
           setAssessNotice(
-            start.message ?? "Assessment running… results will appear when it finishes.",
+            start.message ??
+              "Assessment running… Top Candidates will update as each ticker finishes.",
           );
         }
       } catch (err) {
@@ -859,10 +913,11 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   }, [strategies]);
 
   const assessmentLabel = useMemo(() => {
-    const at = lastAssessedAt ?? assessmentAt;
+    const fromEnvelope = parseSimulationTimeEt(envelope?.simulationTimeEt ?? null);
+    const at = fromEnvelope ?? lastAssessedAt ?? assessmentAt;
     const prefix = isAssessmentNow(at) ? "Live" : "Assessed";
     return `${prefix} ${formatAssessmentDisplay(at)}`;
-  }, [lastAssessedAt, assessmentAt]);
+  }, [assessmentAt, envelope?.simulationTimeEt, lastAssessedAt]);
 
   const lastAssessmentLabel = useMemo(() => {
     if (!lastAssessedAt && !envelope?.evaluatedAt) return null;

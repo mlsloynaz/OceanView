@@ -1,4 +1,5 @@
 import { apiFetch, errorMessageFromBody, getApiBaseUrl, readResponseBody } from "@/shared/api/api-fetch";
+import type { LabConditionGapRequest, LabConditionGapResult } from "../types-condition-gap";
 import type { LabE05SaliendoRequest, LabE05SaliendoResult } from "../types-e05-saliendo";
 import type { Lab1MonitorResponse, Lab1StartStopAck } from "../types";
 
@@ -46,4 +47,17 @@ export async function runLabE05SaliendoResearch(
 
 export async function fetchLabE05SaliendoResult(): Promise<LabE05SaliendoResult> {
   return fetchJson<LabE05SaliendoResult>("/lab/research/e05-saliendo/result");
+}
+
+export async function runLabConditionGapResearch(
+  request: LabConditionGapRequest,
+): Promise<LabConditionGapResult> {
+  return fetchJson<LabConditionGapResult>("/lab/research/condition-gap/run", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function fetchLabConditionGapResult(): Promise<LabConditionGapResult> {
+  return fetchJson<LabConditionGapResult>("/lab/research/condition-gap/result");
 }

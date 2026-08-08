@@ -190,7 +190,8 @@ function delay(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function isAssessUsable(status: string | undefined): boolean {
+/** Partial (`ready`) or finished results are safe to load into Top Candidates. */
+export function isAssessUsable(status: string | undefined): boolean {
   const value = (status ?? "").toLowerCase();
   return value === "ready" || value === "complete" || value === "partial" || value === "stopped";
 }

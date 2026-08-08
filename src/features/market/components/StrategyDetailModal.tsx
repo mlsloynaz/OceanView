@@ -13,6 +13,7 @@ import {
   strategyAchievedAtEt,
   tickersForStrategy,
 } from "../display";
+import { formatAssessmentDisplay } from "../lib/assessment-time";
 import { MarketDetailModal } from "./MarketDetailModal";
 import { RuleCheckStrip } from "./RuleCheckStrip";
 import { RuleRequirementsList } from "./RuleRequirementsList";
@@ -26,6 +27,8 @@ type Props = {
   threshold: number;
   useMock: boolean;
   snapshot: MarketSnapshotFile | null;
+  /** Fallback label from the Market workspace (e.g. "Assessed Jul 29, 10:00 AM EDT"). */
+  assessmentLabel?: string | null;
   onClose: () => void;
 };
 
@@ -43,34 +46,19 @@ type RowModel = StrategyAssessExtras & {
 
 function mapDetailRow(
   row: StrategyDetailRow,
-  strategyId: string,
+  _strategyId: string,
   catalogRules: StrategyCatalogItem["rules"],
 ): RowModel {
   const rules =
     row.rules.length > 0 && row.rules[0]?.label
       ? row.rules
       : mergeRuleDisplay(catalogRules, row.rules);
-  const evalRow = {
-    strategyId,
-    qualityPct: row.qualityPct,
-    direction: row.direction,
-    metCount: row.metCount,
-    totalCount: row.totalCount,
-    metRequired: row.metRequired ?? 0,
-    totalRequired: row.totalRequired ?? 0,
-    achievedAtEt: row.achievedAtEt,
-    rules: row.rules.map((r) => ({
-      ruleKey: r.ruleKey,
-      status: r.status,
-      metAtEt: r.metAtEt,
-      evidence: r.evidence,
-      suggestedTrend: r.suggestedTrend,
-      suggestedDirection: r.suggestedDirection,
-    })),
-  };
-  const achievedAt = row.achievedAtEt
-    ? formatAchievedTimeEt(String(row.achievedAtEt))
-    : strategyAchievedAtEt(evalRow, catalogRules);
+  // Achieved = when the *strategy* became a signal — never a single rule's metAt
+  // (e.g. prior BB mid anchored at 3:00 PM on an earlier day).
+  const achievedAt =
+    row.achievedAtEt != null && String(row.achievedAtEt).trim()
+      ? formatAchievedTimeEt(String(row.achievedAtEt))
+      : null;
 
   return {
     symbol: row.symbol,
@@ -91,16 +79,36 @@ function mapDetailRow(
   };
 }
 
+function formatAssessmentMeta(
+  simulationTimeEt?: string | null,
+  evaluatedAt?: string | null,
+  fallbackLabel?: string | null,
+): string | null {
+  const raw = (simulationTimeEt || evaluatedAt || "").trim();
+  if (raw) {
+    const asOf = new Date(raw);
+    if (!Number.isNaN(asOf.getTime())) {
+      return `Assessment ${formatAssessmentDisplay(asOf)}`;
+    }
+  }
+  const fallback = (fallbackLabel || "").trim();
+  return fallback || null;
+}
+
 export function StrategyDetailModal({
   strategy,
   runId,
   threshold,
   useMock,
   snapshot,
+  assessmentLabel,
   onClose,
 }: Props) {
   const [expandedSymbol, setExpandedSymbol] = useState<string | null>(null);
   const [rows, setRows] = useState<RowModel[]>([]);
+  const [assessmentAtLabel, setAssessmentAtLabel] = useState<string | null>(
+    assessmentLabel ?? null,
+  );
   const [loading, setLoading] = useState(!useMock);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,12 +138,16 @@ export function StrategyDetailModal({
           };
         }),
       );
+      setAssessmentAtLabel(
+        formatAssessmentMeta(null, snapshot.evaluatedAt, assessmentLabel),
+      );
       setLoading(false);
       return;
     }
 
     if (!runId) {
       setRows([]);
+      setAssessmentAtLabel(assessmentLabel ?? null);
       setLoading(false);
       return;
     }
@@ -147,6 +159,9 @@ export function StrategyDetailModal({
       .then((detail) => {
         if (cancelled) return;
         setRows(detail.rows.map((row) => mapDetailRow(row, strategy.id, strategy.rules)));
+        setAssessmentAtLabel(
+          formatAssessmentMeta(detail.simulationTimeEt, detail.evaluatedAt, assessmentLabel),
+        );
       })
       .catch((err) => {
         if (cancelled) return;
@@ -159,7 +174,7 @@ export function StrategyDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [useMock, snapshot, strategy, runId, threshold]);
+  }, [useMock, snapshot, strategy, runId, threshold, assessmentLabel]);
 
   const entryWindowLabel = formatEntryWindow(strategy.entryWindow);
 
@@ -168,6 +183,7 @@ export function StrategyDetailModal({
       open
       onClose={onClose}
       title={strategy.name}
+      meta={assessmentAtLabel}
       subtitle={strategy.description}
     >
       {entryWindowLabel && (

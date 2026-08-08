@@ -7,11 +7,21 @@ type Props = {
   onClose: () => void;
   title: ReactNode;
   subtitle?: string;
+  /** Shown under the title — e.g. assessment / simulation clock. */
+  meta?: ReactNode;
   children: ReactNode;
   className?: string;
 };
 
-export function MarketDetailModal({ open, onClose, title, subtitle, children, className }: Props) {
+export function MarketDetailModal({
+  open,
+  onClose,
+  title,
+  subtitle,
+  meta,
+  children,
+  className,
+}: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,6 +64,11 @@ export function MarketDetailModal({ open, onClose, title, subtitle, children, cl
             <h2 id="market-detail-title" className="font-display text-xl font-semibold text-ocean-foam">
               {title}
             </h2>
+            {meta != null && meta !== false && (
+              <p className="mt-1 text-sm font-medium tabular-nums text-ocean-teal-dim dark:text-ocean-teal">
+                {meta}
+              </p>
+            )}
             {subtitle && <p className="mt-1 text-sm text-ocean-sand">{subtitle}</p>}
           </div>
           <button
