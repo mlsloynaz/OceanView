@@ -127,8 +127,9 @@ function StrategySuggestionBlock({
   suggestion: PreselectionStrategySuggestion;
   onOpenDetail: () => void;
 }) {
+  const rules = (suggestion.candidateRules ?? []).filter((row) => row.met !== false);
   const metCriteria = (suggestion.breakdown ?? []).filter((row) => row.met);
-  const unmetCriteria = (suggestion.breakdown ?? []).filter((row) => !row.met);
+  const showSoft = rules.length === 0;
 
   return (
     <li className="rounded-lg border border-ocean-mid/35 bg-ocean-deep/25 px-3 py-2">
@@ -150,7 +151,32 @@ function StrategySuggestionBlock({
         </span>
       </button>
 
-      {metCriteria.length > 0 && (
+      {rules.length > 0 && (
+        <div className="mt-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-ocean-teal">
+            Strategy rules
+          </p>
+          <ul className="mt-1 space-y-1">
+            {rules.map((row) => (
+              <li
+                key={`${row.pathGroup ?? "default"}:${row.ruleKey}:${row.pathVariant ?? ""}`}
+                className="text-xs leading-relaxed text-ocean-sand"
+              >
+                <span className="text-ocean-teal">{row.label || row.ruleKey}</span>
+                <span className="ml-1 text-[10px] uppercase text-ocean-sand/80">
+                  {row.status}
+                  {row.pathVariant ? ` · ${row.pathVariant}` : ""}
+                </span>
+                {row.evidence ? (
+                  <span className="block text-[11px] text-ocean-sand/85">{row.evidence}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {showSoft && metCriteria.length > 0 && (
         <div className="mt-2">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-ocean-teal">
             Criteria met
@@ -161,27 +187,6 @@ function StrategySuggestionBlock({
             ))}
           </ul>
         </div>
-      )}
-
-      {unmetCriteria.length > 0 && (
-        <div className="mt-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">
-            Not met
-          </p>
-          <ul className="mt-1 space-y-1">
-            {unmetCriteria.map((row) => (
-              <CriterionSummary key={row.key} row={row} met={false} />
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {(suggestion.avoidReasons ?? []).length > 0 && (
-        <ul className="mt-2 space-y-1 border-t border-ocean-mid/30 pt-2">
-          {suggestion.avoidReasons.map((line) => (
-            <AvoidLine key={line} line={line} />
-          ))}
-        </ul>
       )}
     </li>
   );
@@ -326,6 +331,11 @@ function StrategyGroupSection({
             />
           </svg>
           <h3 className="font-display text-lg text-ocean-foam">{title}</h3>
+          {group.strategyId === "panorama-completo" ? (
+            <span className="rounded bg-ocean-mid/40 px-1.5 py-0.5 text-[10px] font-medium text-ocean-sand">
+              Soft scan
+            </span>
+          ) : null}
           {group.shortName && group.name && group.shortName !== group.name ? (
             <span className="text-sm text-ocean-sand">{group.name}</span>
           ) : null}
@@ -527,7 +537,7 @@ function DetailModal({
               Soft profile checklist
             </h3>
             <ul className="space-y-2">
-              {ticker.breakdown.map((row) => (
+              {ticker.breakdown.filter((row) => row.met).map((row) => (
                 <BreakdownRow key={row.key} row={row} />
               ))}
             </ul>
@@ -658,7 +668,8 @@ export function SetupScanPane() {
           persists the SemiFinal roster.{" "}
           <strong className="font-medium text-ocean-foam">9:25 visual</strong> merges history with
           in-memory premarket bars (not written to Dynamo) and does not overwrite the saved EOD
-          result.
+          result. Strategies with candidate rules (e.g. Trend Change 1H) list only those rules —
+          soft checklist fitness is under Panorama completo. Failed rule evaluations are not listed.
         </p>
 
         {ws.candidateMode === "open" ? (

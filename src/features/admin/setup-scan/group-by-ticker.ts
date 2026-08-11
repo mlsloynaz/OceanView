@@ -45,7 +45,10 @@ export function buildSemiFinalTickerGroups(
 
   for (const group of result.strategies ?? []) {
     for (const ticker of group.tickers ?? []) {
+      if (ticker.requiredPassed === false) continue;
       if (!hasSelectedBias(ticker.directionBias)) continue;
+      const rules = Array.isArray(ticker.candidateRules) ? ticker.candidateRules : [];
+      if (rules.length > 0 && rules.some((rule) => rule.met === false)) continue;
 
       const symbol = ticker.symbol.toUpperCase();
       const existing = bySymbol.get(symbol);

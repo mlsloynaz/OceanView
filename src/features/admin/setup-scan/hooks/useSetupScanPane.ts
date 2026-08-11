@@ -173,13 +173,16 @@ export function useSetupScanPane(open: boolean) {
     [filteredResult],
   );
 
-  const strategyGroups = useMemo(
-    () =>
-      [...(filteredResult?.strategies ?? [])].sort((a, b) =>
-        String(a.name || a.strategyId).localeCompare(String(b.name || b.strategyId)),
-      ),
-    [filteredResult],
-  );
+  const strategyGroups = useMemo(() => {
+    const rows = [...(filteredResult?.strategies ?? [])];
+    rows.sort((a, b) => {
+      const aPanorama = a.strategyId === "panorama-completo" ? 1 : 0;
+      const bPanorama = b.strategyId === "panorama-completo" ? 1 : 0;
+      if (aPanorama !== bPanorama) return aPanorama - bPanorama;
+      return String(a.name || a.strategyId).localeCompare(String(b.name || b.strategyId));
+    });
+    return rows;
+  }, [filteredResult]);
 
   const filteredTickerGroups = useMemo(
     () => filterSemiFinalTickerGroups(tickerGroups, search),

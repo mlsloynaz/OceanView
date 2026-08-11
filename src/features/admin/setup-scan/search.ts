@@ -33,9 +33,14 @@ export function filterSemiFinalResult(
   const strategies = Array.isArray(result.strategies) ? result.strategies : [];
   const withBiasOnly = strategies
     .map((group) => {
-      const tickers = (Array.isArray(group.tickers) ? group.tickers : []).filter(
-        (row) => row.directionBias === "CALL" || row.directionBias === "PUT",
-      );
+      const tickers = (Array.isArray(group.tickers) ? group.tickers : []).filter((row) => {
+        if (row.requiredPassed === false) return false;
+        if (row.directionBias !== "CALL" && row.directionBias !== "PUT") return false;
+        const rules = Array.isArray(row.candidateRules) ? row.candidateRules : [];
+        // Rule-gated strategies: only keep tickers whose listed rules are all met.
+        if (rules.length > 0 && rules.some((rule) => rule.met === false)) return false;
+        return true;
+      });
       return { ...group, tickers, tickerCount: tickers.length };
     })
     .filter((group) => group.tickers.length > 0);
@@ -45,8 +50,13 @@ export function filterSemiFinalResult(
   const filtered = strategies
     .map((group) => {
       const tickers = (Array.isArray(group.tickers) ? group.tickers : [])
-        .filter((row) => row.directionBias === "CALL" || row.directionBias === "PUT")
-        .filter((row) => matchesSemiFinalSearch(row, q))
+        .filter((row) => {
+          if (row.requiredPassed === false) return false;
+          if (row.directionBias !== "CALL" && row.directionBias !== "PUT") return false;
+          const rules = Array.isArray(row.candidateRules) ? row.candidateRules : [];
+          if (rules.length > 0 && rules.some((rule) => rule.met === false)) return false;
+          return matchesSemiFinalSearch(row, q);
+        })
         .sort(
           (a, b) =>
             rankSemiFinalSearch(a, q) - rankSemiFinalSearch(b, q) ||
