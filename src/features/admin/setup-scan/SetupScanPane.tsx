@@ -12,8 +12,10 @@ import {
 } from "./criterion-help";
 import { useSetupScanPane } from "./hooks/useSetupScanPane";
 import { SemiFinalTickerSearch } from "./SemiFinalTickerSearch";
+import { SetupScanViewToggle } from "./SetupScanViewToggle";
 import type {
   PreselectionBreakdownRow,
+  PreselectionStrategyGroup,
   PreselectionStrategySuggestion,
   PreselectionTickerGroup,
   PreselectionTickerRow,
@@ -278,6 +280,112 @@ function TickerGroupSection({
   );
 }
 
+function StrategyGroupSection({
+  group,
+  tickerPending,
+  defaultOpen = false,
+  onToggleActive,
+  onOpenDetail,
+}: {
+  group: PreselectionStrategyGroup;
+  tickerPending: Record<string, boolean>;
+  defaultOpen?: boolean;
+  onToggleActive: (symbol: string, currentlyActive: boolean) => void;
+  onOpenDetail: (ticker: PreselectionTickerRow) => void;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  useEffect(() => {
+    if (defaultOpen) setOpen(true);
+  }, [defaultOpen]);
+
+  const title = group.shortName || group.name || group.strategyId;
+
+  return (
+    <section className="mb-3 last:mb-0 overflow-hidden rounded-lg border border-ocean-mid/40 bg-ocean-deep/20">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-left"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <svg
+            aria-hidden
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className={cn(
+              "h-4 w-4 shrink-0 text-ocean-sand transition-transform",
+              open && "rotate-180",
+            )}
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <h3 className="font-display text-lg text-ocean-foam">{title}</h3>
+          {group.shortName && group.name && group.shortName !== group.name ? (
+            <span className="text-sm text-ocean-sand">{group.name}</span>
+          ) : null}
+          <span className="text-xs text-ocean-sand">
+            {group.tickers.length} ticker{group.tickers.length === 1 ? "" : "s"}
+          </span>
+        </button>
+      </div>
+
+      {open ? (
+        <ul className="space-y-2 border-t border-ocean-mid/30 px-3 py-2">
+          {group.tickers.map((ticker) => {
+            const pending = Boolean(tickerPending[ticker.symbol.toUpperCase()]);
+            return (
+              <li
+                key={ticker.symbol}
+                className="rounded-lg border border-ocean-mid/35 bg-ocean-deep/25 px-3 py-2"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-left"
+                    onClick={() => onOpenDetail(ticker)}
+                  >
+                    <span className="font-medium text-ocean-foam">{ticker.symbol}</span>
+                    {ticker.name ? (
+                      <span className="truncate text-xs text-ocean-sand">{ticker.name}</span>
+                    ) : null}
+                    {ticker.directionBias ? (
+                      <span className="rounded bg-ocean-teal/15 px-1.5 py-0.5 text-[10px] font-medium text-ocean-teal-dim dark:text-ocean-teal">
+                        {ticker.directionBias}
+                      </span>
+                    ) : null}
+                    <span
+                      className={cn(
+                        "inline rounded px-1.5 py-0.5 text-[10px] font-medium",
+                        TIER_CLASS[ticker.tier] ?? TIER_CLASS.skip,
+                      )}
+                    >
+                      {ticker.score}/{ticker.maxScore} · {tierLabel(String(ticker.tier))}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    className="rounded border border-ocean-mid/60 px-2 py-1 text-xs text-ocean-foam hover:border-ocean-teal/50 disabled:opacity-50"
+                    onClick={() => onToggleActive(ticker.symbol, ticker.currentlyActive)}
+                  >
+                    {pending ? "…" : ticker.currentlyActive ? "Deactivate" : "Activate"}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
 function DetailModal({
   strategyName,
   ticker,
@@ -363,7 +471,7 @@ function DetailModal({
                     </span>
                     <span
                       className={
-                        row.status === "met"
+                        row.status === "met" || row.status === "near"
                           ? "text-ocean-teal"
                           : row.status === "skipped"
                             ? "text-ocean-sand/70"
@@ -434,6 +542,7 @@ export function SetupScanPane() {
   const ws = useSetupScanPane(true);
   const usesMock = setupScanUsesMock();
   const apiBase = setupScanApiBaseUrl();
+  const byStrategy = ws.viewMode === "strategies";
 
   return (
     <>
@@ -443,11 +552,18 @@ export function SetupScanPane() {
         subtitle={
           usesMock
             ? "Mock data (VITE_USE_MOCK_SETUP_SCAN or VITE_USE_MOCK_CANDLES)"
-            : "D+1h preselection — tickers with CALL/PUT bias after assessment, grouped by symbol"
+            : byStrategy
+              ? "D+1h preselection — strategies with CALL/PUT candidates"
+              : "D+1h preselection — tickers with CALL/PUT bias, grouped by symbol"
         }
         className="min-w-0"
         headerExtra={
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <SetupScanViewToggle
+              mode={ws.viewMode}
+              onChange={ws.setViewMode}
+              disabled={ws.runPending || ws.loading}
+            />
             <div
               className="inline-flex rounded-md border border-ocean-mid/50 p-0.5"
               role="group"
@@ -558,10 +674,12 @@ export function SetupScanPane() {
 
         <p className="mb-3 text-xs text-ocean-sand">
           Scans all catalog tickers (active and inactive). Only symbols with a resolved direction
-          bias (CALL or PUT from daily/hourly trend) appear here, grouped by ticker with strategy
-          suggestions from assessed criteria. Live mode refreshes stale candles through the last
-          completed session. Simulate mode scores post-market of a chosen session day using stored
-          bars only — no candle refresh.
+          bias (CALL or PUT) appear here
+          {byStrategy
+            ? " — toggle to group by strategy or by ticker."
+            : ", grouped by ticker with strategy suggestions from assessed criteria."}{" "}
+          Live mode refreshes stale candles through the last completed session. Simulate mode scores
+          post-market of a chosen session day using stored bars only — no candle refresh.
         </p>
 
         {ws.scanMode === "simulate" && (
@@ -630,33 +748,58 @@ export function SetupScanPane() {
           <p className="text-sm text-ocean-sand">No Tickers SemiFinal result yet — run a scan to begin.</p>
         )}
 
-        {ws.result && ws.search.trim() && ws.tickerGroups.length === 0 && (
+        {ws.result &&
+          ws.search.trim() &&
+          (byStrategy ? ws.strategyGroups.length === 0 : ws.tickerGroups.length === 0) && (
           <p className="mb-3 text-sm text-ocean-sand">
-            No tickers with a selected bias match “{ws.search.trim()}”.
+            No {byStrategy ? "strategies" : "tickers"} with a selected bias match “{ws.search.trim()}”.
           </p>
         )}
 
-        {ws.tickerGroups.map((group) => {
-          const pending = Boolean(ws.tickerPending[group.symbol]);
-          const searchExact = ws.search.trim().toUpperCase() === group.symbol.toUpperCase();
-          return (
-            <TickerGroupSection
-              key={group.symbol}
-              group={group}
-              pending={pending}
-              defaultOpen={searchExact}
-              onToggleActive={() => void ws.setActive(group.symbol, !group.currentlyActive)}
-              onOpenDetail={(suggestion) =>
-                ws.setDetail({
-                  strategyName: suggestion.shortName || suggestion.strategyName,
-                  ticker: suggestionToTickerRow(group, suggestion),
-                })
-              }
-            />
-          );
-        })}
+        {byStrategy
+          ? ws.strategyGroups.map((group) => {
+              const searchExact = ws.search.trim().length > 0;
+              return (
+                <StrategyGroupSection
+                  key={group.strategyId}
+                  group={group}
+                  tickerPending={ws.tickerPending}
+                  defaultOpen={searchExact || ws.strategyGroups.length <= 3}
+                  onToggleActive={(symbol, currentlyActive) =>
+                    void ws.setActive(symbol, !currentlyActive)
+                  }
+                  onOpenDetail={(ticker) =>
+                    ws.setDetail({
+                      strategyName: group.shortName || group.name,
+                      ticker,
+                    })
+                  }
+                />
+              );
+            })
+          : ws.tickerGroups.map((group) => {
+              const pending = Boolean(ws.tickerPending[group.symbol]);
+              const searchExact = ws.search.trim().toUpperCase() === group.symbol.toUpperCase();
+              return (
+                <TickerGroupSection
+                  key={group.symbol}
+                  group={group}
+                  pending={pending}
+                  defaultOpen={searchExact}
+                  onToggleActive={() => void ws.setActive(group.symbol, !group.currentlyActive)}
+                  onOpenDetail={(suggestion) =>
+                    ws.setDetail({
+                      strategyName: suggestion.shortName || suggestion.strategyName,
+                      ticker: suggestionToTickerRow(group, suggestion),
+                    })
+                  }
+                />
+              );
+            })}
 
-        {ws.result && !ws.search.trim() && ws.tickerGroups.length === 0 && (
+        {ws.result &&
+          !ws.search.trim() &&
+          (byStrategy ? ws.strategyGroups.length === 0 : ws.tickerGroups.length === 0) && (
           <p className="text-sm text-ocean-sand">
             No tickers with a selected bias (CALL/PUT) at or above min score — neutral trend symbols
             are hidden.

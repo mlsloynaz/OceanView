@@ -25,6 +25,19 @@ import type {
   PreselectionResultResponse,
   PreselectionTickerRow,
 } from "../types";
+import type { SetupScanViewMode } from "../SetupScanViewToggle";
+
+const VIEW_MODE_KEY = "oceanview.setupScan.viewMode";
+
+function readStoredViewMode(): SetupScanViewMode {
+  try {
+    const raw = sessionStorage.getItem(VIEW_MODE_KEY);
+    if (raw === "strategies" || raw === "tickers") return raw;
+  } catch {
+    /* ignore */
+  }
+  return "tickers";
+}
 
 export type SetupScanMode = "live" | "simulate";
 
@@ -32,6 +45,7 @@ export function useSetupScanPane(open: boolean) {
   const [eodResult, setEodResult] = useState<PreselectionResultResponse | null>(null);
   const [openResult, setOpenResult] = useState<PreselectionResultResponse | null>(null);
   const [candidateMode, setCandidateMode] = useState<PreselectionCandidateMode>("eod");
+  const [viewMode, setViewModeState] = useState<SetupScanViewMode>(readStoredViewMode);
   const [minScore, setMinScore] = useState(0);
   const [scanMode, setScanModeState] = useState<SetupScanMode>("live");
   const [simulationDate, setSimulationDateState] = useState("");
@@ -62,6 +76,15 @@ export function useSetupScanPane(open: boolean) {
       setSimulationDateState((prev) =>
         prev && !validateSimulationSessionDate(prev) ? prev : defaultSimulationSessionDate(),
       );
+    }
+  }, []);
+
+  const setViewMode = useCallback((mode: SetupScanViewMode) => {
+    setViewModeState(mode);
+    try {
+      sessionStorage.setItem(VIEW_MODE_KEY, mode);
+    } catch {
+      /* ignore */
     }
   }, []);
 
@@ -147,6 +170,14 @@ export function useSetupScanPane(open: boolean) {
 
   const tickerGroups = useMemo(
     () => buildSemiFinalTickerGroups(filteredResult),
+    [filteredResult],
+  );
+
+  const strategyGroups = useMemo(
+    () =>
+      [...(filteredResult?.strategies ?? [])].sort((a, b) =>
+        String(a.name || a.strategyId).localeCompare(String(b.name || b.strategyId)),
+      ),
     [filteredResult],
   );
 
@@ -282,7 +313,10 @@ export function useSetupScanPane(open: boolean) {
   return {
     result,
     filteredResult,
+    viewMode,
+    setViewMode,
     tickerGroups: filteredTickerGroups,
+    strategyGroups,
     search,
     setSearch,
     searchSuggestions,
