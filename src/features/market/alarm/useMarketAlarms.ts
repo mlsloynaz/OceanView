@@ -17,6 +17,7 @@ import type { MarketAlarmScanLastHourResponse } from "./alarm-client";
 import {
   ALARM_ELIGIBLE_RULES,
   alarmRulesLabel,
+  alarmWatchConflicts,
   type AlarmEligibleRuleKey,
   type AlarmPopupKind,
   type AlarmTrend,
@@ -54,10 +55,6 @@ function normalizeRuleKeys(keys: string[]): AlarmEligibleRuleKey[] {
   return out;
 }
 
-function ruleKeysSignature(keys: AlarmEligibleRuleKey[]): string {
-  return [...keys].sort().join("+");
-}
-
 function migrateWatch(row: MarketAlarmWatch): MarketAlarmWatch {
   const fromList =
     Array.isArray(row.ruleKeys) && row.ruleKeys.length > 0
@@ -79,6 +76,7 @@ function migrateWatch(row: MarketAlarmWatch): MarketAlarmWatch {
     ruleKey,
     ruleKeys: ruleKeys.length > 0 ? ruleKeys : [ruleKey],
     ruleLabel: alarmRulesLabel(ruleKeys.length > 0 ? ruleKeys : [ruleKey]),
+    trend: "auto",
     status,
   };
 }
@@ -796,7 +794,8 @@ export function useMarketAlarms() {
       symbols: string[];
       ruleKeys?: AlarmEligibleRuleKey[];
       ruleKey?: AlarmEligibleRuleKey;
-      trend: AlarmTrend;
+      /** Ignored — alarms always use auto; rules set direction. */
+      trend?: AlarmTrend;
       bandTimeframe?: "1m" | "15m" | "1h";
       frequencyValue: number;
       frequencyUnit: PollIntervalUnit;
@@ -825,22 +824,12 @@ export function useMarketAlarms() {
         return false;
       }
       const primaryKey = ruleKeys[0]!;
-      const onlyBreakout = ruleKeys.length === 1 && primaryKey === "breakout_quality";
-      const trend: AlarmTrend = onlyBreakout
-        ? "auto"
-        : input.trend === "bajista"
-          ? "bajista"
-          : "alcista";
-      if (!onlyBreakout && input.trend !== "alcista" && input.trend !== "bajista") {
-        setFormError("Pick a trend (alcista or bajista).");
-        return false;
-      }
+      const trend: AlarmTrend = "auto";
       const frequencyUnit =
         input.frequencyUnit === "hour" || input.frequencyUnit === "sec"
           ? input.frequencyUnit
           : "min";
       const frequencyValue = clampPollInterval(input.frequencyValue, frequencyUnit);
-      const sig = ruleKeysSignature(ruleKeys);
       const label = alarmRulesLabel(ruleKeys);
 
       const existing = watchesRef.current;
@@ -850,18 +839,14 @@ export function useMarketAlarms() {
         const bandTf = ruleKeys.includes("touch_disipador")
           ? input.bandTimeframe ?? "1m"
           : undefined;
-        const dup = existing.some((w) => {
-          const wKeys =
-            w.ruleKeys?.length > 0 ? w.ruleKeys : [w.ruleKey];
-          return (
-            w.symbol === symbol &&
-            ruleKeysSignature(wKeys) === sig &&
-            w.trend === trend &&
-            (w.bandTimeframe ?? undefined) === bandTf &&
-            w.status !== "met"
-          );
-        });
-        if (dup || toAdd.some((w) => w.symbol === symbol)) {
+        const dup =
+          alarmWatchConflicts(existing, {
+            symbol,
+            ruleKeys,
+            bandTimeframe: bandTf,
+          }) ||
+          toAdd.some((w) => w.symbol === symbol);
+        if (dup) {
           skipped.push(symbol);
           continue;
         }
@@ -906,7 +891,7 @@ export function useMarketAlarms() {
       if (toAdd.length === 0) {
         setFormError(
           skipped.length
-            ? "Those ticker + rules + trend watches already exist."
+            ? "Those ticker + rules watches already exist."
             : "Pick at least one ticker.",
         );
         return false;

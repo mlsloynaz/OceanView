@@ -18,7 +18,6 @@ import {
   ALARM_ELIGIBLE_RULES,
   formatAlarmTrend,
   needsBandTimeframe,
-  needsTrendPicker,
   type AlarmBandTimeframe,
   type AlarmEligibleRuleKey,
   type AlarmPopupKind,
@@ -80,7 +79,7 @@ type Props = {
   onAdd: (input: {
     symbols: string[];
     ruleKeys: AlarmEligibleRuleKey[];
-    trend: AlarmTrend;
+    trend?: AlarmTrend;
     bandTimeframe?: AlarmBandTimeframe;
     frequencyValue: number;
     frequencyUnit: PollIntervalUnit;
@@ -160,12 +159,10 @@ export function MarketAlarmPanel({
   const [selectedRules, setSelectedRules] = useState<AlarmEligibleRuleKey[]>([
     "confirmation_change_trend_1h",
   ]);
-  const [trend, setTrend] = useState<AlarmTrend>("alcista");
   const [bandTimeframe, setBandTimeframe] = useState<AlarmBandTimeframe>("1m");
   const [frequencyValue, setFrequencyValue] = useState(5);
   const [frequencyUnit, setFrequencyUnit] = useState<PollIntervalUnit>("min");
   const showBandTf = needsBandTimeframe(selectedRules);
-  const showTrend = needsTrendPicker(selectedRules);
 
   const toggleRule = (key: AlarmEligibleRuleKey) => {
     setSelectedRules((prev) => {
@@ -266,8 +263,9 @@ export function MarketAlarmPanel({
             require all at once. Alarm fires on the{" "}
             <strong className="font-medium text-ocean-foam">first</strong> combined met only.
             Select tickers (or{" "}
-            <strong className="font-medium text-ocean-foam">Select all</strong>), rules, trend, and
-            check interval. Add creates one watch per ticker; Start polls until met.
+            <strong className="font-medium text-ocean-foam">Select all</strong>), rules, and
+            check interval. Trend is always <strong className="font-medium text-ocean-foam">auto</strong>
+            — the rule sets alcista/bajista. Add creates one watch per ticker; Start polls until met.
           </p>
 
           <div className="flex flex-wrap gap-2">
@@ -377,7 +375,7 @@ export function MarketAlarmPanel({
               const ok = onAdd({
                 symbols: selectedSymbols,
                 ruleKeys: selectedRules,
-                trend: showTrend ? trend : "auto",
+                trend: "auto",
                 ...(showBandTf ? { bandTimeframe } : {}),
                 frequencyValue,
                 frequencyUnit,
@@ -488,21 +486,6 @@ export function MarketAlarmPanel({
               </div>
             </div>
 
-            {showTrend ? (
-              <label className="flex flex-col gap-1 text-xs text-ocean-sand">
-                Trend
-                <select
-                  className="rounded-md border border-ocean-mid/40 bg-ocean-surface px-2 py-1.5 text-sm text-ocean-foam"
-                  value={trend}
-                  onChange={(e) => setTrend(e.target.value as AlarmTrend)}
-                  required
-                >
-                  <option value="alcista">Alcista</option>
-                  <option value="bajista">Bajista</option>
-                </select>
-              </label>
-            ) : null}
-
             {showBandTf ? (
               <label className="flex flex-col gap-1 text-xs text-ocean-sand">
                 Timeframe
@@ -580,7 +563,7 @@ export function MarketAlarmPanel({
                   const ok = onAdd({
                     symbols: selectedSymbols,
                     ruleKeys: selectedRules,
-                    trend: showTrend ? trend : "auto",
+                    trend: "auto",
                     ...(showBandTf ? { bandTimeframe } : {}),
                     frequencyValue,
                     frequencyUnit,
@@ -604,7 +587,7 @@ export function MarketAlarmPanel({
 
           {watches.length === 0 ? (
             <p className="text-xs text-ocean-sand">
-              No watches yet — select tickers + one or more rules + trend above.
+              No watches yet — select tickers + one or more rules above.
             </p>
           ) : (
             <>

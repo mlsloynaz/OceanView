@@ -59,6 +59,7 @@ export type PreselectionStrategyGroup = {
   name: string;
   shortName?: string | null;
   profileId?: string;
+  candidateRuleKeys?: string[];
   tickerCount: number;
   tickers: PreselectionTickerRow[];
 };

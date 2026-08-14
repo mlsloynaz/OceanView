@@ -146,24 +146,23 @@ export function watchRuleKeys(
 }
 
 /**
- * Same ticker + same rule (+ same trend) already on the board.
- * Overlap on any ruleKey counts — do not add confirmation 1h again if it is
- * already watched, even as part of an AND combo.
+ * Same ticker + overlapping rule already on the board (trend is always auto).
  */
 export function alarmWatchConflicts(
-  existing: Pick<MarketAlarmWatch, "symbol" | "trend" | "ruleKey" | "ruleKeys">[],
+  existing: Pick<MarketAlarmWatch, "symbol" | "ruleKey" | "ruleKeys" | "bandTimeframe">[],
   input: {
     symbol: string;
     ruleKeys: AlarmEligibleRuleKey[];
-    trend: AlarmTrend;
+    bandTimeframe?: AlarmBandTimeframe;
   },
 ): boolean {
   const incoming = new Set(input.ruleKeys);
   if (incoming.size === 0) return false;
   const symbol = input.symbol.trim().toUpperCase();
+  const bandTf = input.bandTimeframe;
   return existing.some((w) => {
     if (w.symbol !== symbol) return false;
-    if (w.trend !== input.trend) return false;
+    if ((w.bandTimeframe ?? undefined) !== bandTf) return false;
     return watchRuleKeys(w).some((key) => incoming.has(key));
   });
 }
@@ -178,10 +177,7 @@ export function needsBandTimeframe(ruleKeys: string | string[]): boolean {
   return keys.includes("touch_disipador");
 }
 
-/** Trend picker when any selected rule is not breakout-only auto. */
-export function needsTrendPicker(ruleKeys: string | string[]): boolean {
-  const keys = Array.isArray(ruleKeys) ? ruleKeys : [ruleKeys];
-  if (keys.length === 0) return true;
-  if (keys.length === 1 && keys[0] === "breakout_quality") return false;
-  return true;
+/** Trend picker removed — alarms always use ``auto``; rules set direction. */
+export function needsTrendPicker(_ruleKeys?: string | string[]): boolean {
+  return false;
 }
