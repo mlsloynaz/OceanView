@@ -29,6 +29,18 @@ import {
   stopAlarmRing,
   unlockAlarmAudio,
 } from "./play-alarm-bell";
+import { appendAlarmTrigger } from "./alarm-trigger-log";
+import {
+  buildSemifinalMonitorQueue,
+  type SemifinalMonitorCandidate,
+} from "./semifinal-monitor-queue";
+import {
+  loadMarketAlarmWatches,
+  MARKET_ALARM_CHANGED_EVENT,
+  MARKET_ALARM_START_REQUEST_EVENT,
+} from "./alarm-watch-storage";
+import { getSetupScanResult } from "@/features/admin/setup-scan/api/preselection-client";
+import type { PreselectionResultResponse } from "@/features/admin/setup-scan/types";
 
 const STORAGE_KEY = "oceanview.market.alarms";
 const SIM_STORAGE_KEY = "oceanview.market.alarms.simulate";
@@ -75,7 +87,9 @@ function migrateWatch(row: MarketAlarmWatch): MarketAlarmWatch {
     ...row,
     ruleKey,
     ruleKeys: ruleKeys.length > 0 ? ruleKeys : [ruleKey],
-    ruleLabel: alarmRulesLabel(ruleKeys.length > 0 ? ruleKeys : [ruleKey]),
+    ruleLabel:
+      (row.ruleLabel && row.ruleLabel.trim()) ||
+      alarmRulesLabel(ruleKeys.length > 0 ? ruleKeys : [ruleKey]),
     trend: "auto",
     status,
   };
@@ -96,6 +110,7 @@ function loadStored(): MarketAlarmWatch[] {
 function persist(watches: MarketAlarmWatch[]) {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(watches));
+    window.dispatchEvent(new CustomEvent(MARKET_ALARM_CHANGED_EVENT));
   } catch {
     /* ignore quota */
   }
@@ -123,6 +138,14 @@ export function useMarketAlarms() {
   const [lastHourScan, setLastHourScan] = useState<MarketAlarmScanLastHourResponse | null>(null);
   const [lastHourScanError, setLastHourScanError] = useState<string | null>(null);
   const [lastHourScanBusy, setLastHourScanBusy] = useState(false);
+  const [monitorQueue, setMonitorQueue] = useState<SemifinalMonitorCandidate[]>([]);
+  const [monitorQueueMeta, setMonitorQueueMeta] = useState<{
+    mode: string | null;
+    tradeDate: string | null;
+    evaluatedAt: string | null;
+  }>({ mode: null, tradeDate: null, evaluatedAt: null });
+  const [monitorQueueLoading, setMonitorQueueLoading] = useState(false);
+  const [monitorQueueError, setMonitorQueueError] = useState<string | null>(null);
 
   const timersRef = useRef<Map<string, number>>(new Map());
   /** Watch ids currently executing a check (HTTP in flight). */
@@ -174,6 +197,44 @@ export function useMarketAlarms() {
       cancelled = true;
     };
   }, []);
+
+  const refreshMonitorQueue = useCallback(async () => {
+    setMonitorQueueLoading(true);
+    setMonitorQueueError(null);
+    try {
+      let payload: PreselectionResultResponse | null = null;
+      try {
+        payload = await getSetupScanResult(undefined, "open");
+      } catch {
+        payload = null;
+      }
+      const openOk =
+        payload &&
+        Array.isArray(payload.strategies) &&
+        (payload.status ?? "").toLowerCase() !== "failed";
+      if (!openOk) {
+        payload = await getSetupScanResult(undefined, "eod");
+      }
+      setMonitorQueue(buildSemifinalMonitorQueue(payload));
+      setMonitorQueueMeta({
+        mode: payload?.mode ?? null,
+        tradeDate: payload?.tradeDate ?? null,
+        evaluatedAt: payload?.evaluatedAt ?? null,
+      });
+    } catch (err) {
+      setMonitorQueue([]);
+      setMonitorQueueMeta({ mode: null, tradeDate: null, evaluatedAt: null });
+      setMonitorQueueError(
+        err instanceof Error ? err.message : "Failed to load SemiFinal monitor queue.",
+      );
+    } finally {
+      setMonitorQueueLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshMonitorQueue();
+  }, [refreshMonitorQueue]);
 
   const clearTimer = useCallback((id: string) => {
     const existing = timersRef.current.get(id);
@@ -421,6 +482,9 @@ export function useMarketAlarms() {
             exitEvidence: result.evidence ?? "Setup no longer met — consider exit.",
           };
           setWatches((prev) => prev.map((w) => (w.id === id ? exitWatch : w)));
+          void appendAlarmTrigger(exitWatch, "exit").catch(() => {
+            /* list refresh is best-effort; popup/sound still fire */
+          });
           setBanner(
             `${result.symbol} · ${watch.ruleLabel} (${sideLabel}) EXIT — setup gone.${simSuffix}`,
           );
@@ -470,6 +534,9 @@ export function useMarketAlarms() {
             lastDetectedTrend: detectedTrend ?? watch.trend,
           };
           setWatches((prev) => prev.map((w) => (w.id === id ? metWatch : w)));
+          void appendAlarmTrigger(metWatch, "enter").catch(() => {
+            /* list refresh is best-effort; popup/sound still fire */
+          });
           setBanner(
             `${result.symbol} · ${watch.ruleLabel} (${sideLabel}) ENTER — rule met.${simSuffix}`,
           );
@@ -617,6 +684,36 @@ export function useMarketAlarms() {
     },
     [clearTimer, runCheck],
   );
+
+  /** SemiFinal (and other tabs) can enqueue confirm watches into sessionStorage. */
+  useEffect(() => {
+    const mergeFromStore = () => {
+      const fromStore = loadMarketAlarmWatches().map((row) => migrateWatch(row));
+      const prev = watchesRef.current;
+      const ids = new Set(prev.map((w) => w.id));
+      const newcomers = fromStore.filter((w) => !ids.has(w.id));
+      if (newcomers.length === 0) return;
+      const next = [...newcomers, ...prev];
+      watchesRef.current = next;
+      setWatches(next);
+    };
+
+    const onChanged = () => mergeFromStore();
+    const onStart = (e: Event) => {
+      const watchId = (e as CustomEvent<{ watchId?: string }>).detail?.watchId;
+      mergeFromStore();
+      if (watchId) {
+        window.setTimeout(() => startWatch(watchId), 0);
+      }
+    };
+
+    window.addEventListener(MARKET_ALARM_CHANGED_EVENT, onChanged);
+    window.addEventListener(MARKET_ALARM_START_REQUEST_EVENT, onStart);
+    return () => {
+      window.removeEventListener(MARKET_ALARM_CHANGED_EVENT, onChanged);
+      window.removeEventListener(MARKET_ALARM_START_REQUEST_EVENT, onStart);
+    };
+  }, [startWatch]);
 
   const stopWatch = useCallback(
     (id: string) => {
@@ -916,6 +1013,18 @@ export function useMarketAlarms() {
     [startWatch],
   );
 
+  const startMonitorCandidate = useCallback(
+    (row: SemifinalMonitorCandidate) =>
+      addWatch({
+        symbols: [row.symbol],
+        ruleKeys: [row.confirmRuleKey],
+        frequencyValue: row.frequencyValue,
+        frequencyUnit: row.frequencyUnit,
+        startAfterAdd: true,
+      }),
+    [addWatch],
+  );
+
   const startAllIdle = useCallback(() => {
     const ids = watchesRef.current
       .filter((w) => w.status === "idle" || w.status === "stopped" || w.status === "error")
@@ -1055,6 +1164,12 @@ export function useMarketAlarms() {
     lastHourScanBusy,
     scanLastHourRth,
     clearLastHourScan,
+    monitorQueue,
+    monitorQueueMeta,
+    monitorQueueLoading,
+    monitorQueueError,
+    refreshMonitorQueue,
+    startMonitorCandidate,
     addWatch,
     startWatch,
     stopWatch,

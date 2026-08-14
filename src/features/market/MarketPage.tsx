@@ -150,6 +150,12 @@ export function MarketPage() {
           lastHourScan={alarms.lastHourScan}
           lastHourScanError={alarms.lastHourScanError}
           lastHourScanBusy={alarms.lastHourScanBusy}
+          monitorQueue={alarms.monitorQueue}
+          monitorQueueMeta={alarms.monitorQueueMeta}
+          monitorQueueLoading={alarms.monitorQueueLoading}
+          monitorQueueError={alarms.monitorQueueError}
+          onRefreshMonitorQueue={() => void alarms.refreshMonitorQueue()}
+          onStartMonitorCandidate={alarms.startMonitorCandidate}
           onTimeModeChange={alarms.setTimeMode}
           onSimulateLocalChange={alarms.setSimulateLocal}
           onScanLastHourRth={(symbol) => void alarms.scanLastHourRth(symbol)}

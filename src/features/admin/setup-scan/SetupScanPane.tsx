@@ -1,9 +1,18 @@
 import { cn } from "@/shared/lib/cn";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane";
 import { LiveSimulateControl } from "@/shared/components/LiveSimulateControl";
 import { maxSimulationSessionDate } from "@/shared/lib/market-calendar";
 import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
+import {
+  alarmWatchConflicts,
+  type MarketAlarmWatch,
+} from "@/features/market/alarm/alarm-types";
+import {
+  enqueueConfirmWatch,
+  loadMarketAlarmWatches,
+  MARKET_ALARM_CHANGED_EVENT,
+} from "@/features/market/alarm/alarm-watch-storage";
 import { setupScanApiBaseUrl, setupScanUsesMock } from "./api/preselection-client";
 import {
   helpForCriterion,
@@ -13,6 +22,11 @@ import {
 import { useSetupScanPane } from "./hooks/useSetupScanPane";
 import { SemiFinalTickerSearch } from "./SemiFinalTickerSearch";
 import { SetupScanViewToggle } from "./SetupScanViewToggle";
+import {
+  confirmPolicyForStrategy,
+  tickerReadyForConfirmMonitor,
+  type SemifinalMonitorCandidate,
+} from "./semifinal-monitor-queue";
 import type {
   GapForecastBias,
   GapForecastResult,
@@ -419,6 +433,33 @@ function TickerGroupSection({
   );
 }
 
+function useAlarmWatchBoard(): MarketAlarmWatch[] {
+  const [watches, setWatches] = useState<MarketAlarmWatch[]>(() => loadMarketAlarmWatches());
+  useEffect(() => {
+    const sync = () => setWatches(loadMarketAlarmWatches());
+    window.addEventListener(MARKET_ALARM_CHANGED_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(MARKET_ALARM_CHANGED_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+  return watches;
+}
+
+function startConfirmFromSemifinal(row: SemifinalMonitorCandidate): "started" | "duplicate" | "invalid" {
+  const result = enqueueConfirmWatch({
+    symbol: row.symbol,
+    confirmRuleKey: row.confirmRuleKey,
+    frequencyValue: row.frequencyValue,
+    frequencyUnit: row.frequencyUnit,
+    confirmLabel: `${row.confirmLabel} · ${row.strategyName}`,
+    startNow: true,
+  });
+  if (!result.ok) return result.reason;
+  return "started";
+}
+
 function StrategyGroupSection({
   group,
   tickerPending,
@@ -433,12 +474,29 @@ function StrategyGroupSection({
   onOpenDetail: (ticker: PreselectionTickerRow) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [monitorMsg, setMonitorMsg] = useState<string | null>(null);
+  const watches = useAlarmWatchBoard();
 
   useEffect(() => {
     if (defaultOpen) setOpen(true);
   }, [defaultOpen]);
 
   const title = group.shortName || group.name || group.strategyId;
+  const confirmPolicy = confirmPolicyForStrategy(group.strategyId);
+  const strategyName = group.shortName || group.name || group.strategyId;
+
+  const readyBySymbol = useMemo(() => {
+    const map = new Map<string, SemifinalMonitorCandidate>();
+    for (const ticker of group.tickers) {
+      const row = tickerReadyForConfirmMonitor(group.strategyId, ticker, {
+        strategyName,
+      });
+      if (row) map.set(row.symbol, row);
+    }
+    return map;
+  }, [group.strategyId, group.tickers, strategyName]);
+
+  const readyCount = readyBySymbol.size;
 
   return (
     <section className="mb-3 last:mb-0 overflow-hidden rounded-lg border border-ocean-mid/40 bg-ocean-deep/20">
@@ -470,6 +528,15 @@ function StrategyGroupSection({
               Soft scan
             </span>
           ) : null}
+          {confirmPolicy ? (
+            <span
+              className="rounded bg-ocean-teal/15 px-1.5 py-0.5 text-[10px] font-medium text-ocean-teal-dim dark:text-ocean-teal"
+              title={confirmPolicy.scheduleSummary}
+            >
+              {confirmPolicy.label}
+              {readyCount > 0 ? ` · ${readyCount} ready` : ""}
+            </span>
+          ) : null}
           {group.shortName && group.name && group.shortName !== group.name ? (
             <span className="text-sm text-ocean-sand">{group.name}</span>
           ) : null}
@@ -479,10 +546,32 @@ function StrategyGroupSection({
         </button>
       </div>
 
+      {confirmPolicy && open ? (
+        <p className="border-t border-ocean-mid/20 px-3 pt-2 text-[10px] leading-snug text-ocean-sand">
+          Alarm confirm: <span className="text-ocean-foam">{confirmPolicy.label}</span>
+          {" · "}
+          {confirmPolicy.scheduleSummary}. Tickers marked Ready have setup prerequisites met
+          (confirm + vol not required yet). Start monitoring from this card — you will know it is{" "}
+          {confirmPolicy.label} because it sits under this strategy.
+        </p>
+      ) : null}
+      {monitorMsg ? (
+        <p className="px-3 pt-1 text-[10px] text-ocean-teal-dim dark:text-ocean-teal" role="status">
+          {monitorMsg}
+        </p>
+      ) : null}
+
       {open ? (
         <ul className="space-y-2 border-t border-ocean-mid/30 px-3 py-2">
           {group.tickers.map((ticker) => {
             const pending = Boolean(tickerPending[ticker.symbol.toUpperCase()]);
+            const ready = readyBySymbol.get(String(ticker.symbol).toUpperCase()) ?? null;
+            const already =
+              ready != null &&
+              alarmWatchConflicts(watches, {
+                symbol: ready.symbol,
+                ruleKeys: [ready.confirmRuleKey],
+              });
             return (
               <li
                 key={ticker.symbol}
@@ -511,7 +600,43 @@ function StrategyGroupSection({
                     >
                       {ticker.score}/{ticker.maxScore} · {tierLabel(String(ticker.tier))}
                     </span>
+                    {ready ? (
+                      <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:text-amber-100">
+                        Ready · {ready.confirmLabel}
+                      </span>
+                    ) : null}
                   </button>
+                  {ready ? (
+                    <button
+                      type="button"
+                      disabled={already}
+                      className={cn(
+                        "rounded px-2 py-1 text-xs font-medium disabled:opacity-50",
+                        already
+                          ? "border border-ocean-mid/50 text-ocean-sand"
+                          : "bg-ocean-teal text-ocean-deep hover:brightness-110",
+                      )}
+                      title={
+                        already
+                          ? "Already on Market Alarm board"
+                          : `Start ${ready.confirmLabel} · ${ready.scheduleSummary}`
+                      }
+                      onClick={() => {
+                        const status = startConfirmFromSemifinal(ready);
+                        if (status === "started") {
+                          setMonitorMsg(
+                            `${ready.symbol} → Market Alarm · ${ready.confirmLabel} (open Alarm to see poll)`,
+                          );
+                        } else if (status === "duplicate") {
+                          setMonitorMsg(`${ready.symbol} already on the Alarm board.`);
+                        } else {
+                          setMonitorMsg(`Could not start ${ready.symbol}.`);
+                        }
+                      }}
+                    >
+                      {already ? "On board" : "Start monitoring"}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     disabled={pending}
@@ -521,6 +646,14 @@ function StrategyGroupSection({
                     {pending ? "…" : ticker.currentlyActive ? "Deactivate" : "Activate"}
                   </button>
                 </div>
+                {ready ? (
+                  <p className="mt-1.5 text-[10px] leading-snug text-ocean-sand">
+                    <span className="text-ocean-teal-dim dark:text-ocean-teal">Have:</span>{" "}
+                    {ready.setupSummary}
+                    {" · "}
+                    <span className="text-amber-200/90">Waiting:</span> {ready.waitingFor}
+                  </p>
+                ) : null}
               </li>
             );
           })}
@@ -821,7 +954,7 @@ export function SetupScanPane() {
           Scans all catalog tickers (active and inactive). Only symbols with a resolved direction
           bias (CALL or PUT) appear here
           {byStrategy
-            ? " — toggle to group by strategy or by ticker."
+            ? " — By strategy: E01/E03 cards show Confirmación label, Ready (setup met) tickers, and Start monitoring."
             : ", grouped by ticker with strategy suggestions from assessed criteria."}{" "}
           Live mode refreshes stale candles through the last completed session. Simulate mode scores
           post-market of a chosen session day using stored bars only — no candle refresh.

@@ -13,9 +13,11 @@ import type { CatalogTicker } from "@/features/admin/tickers/types";
 import { formatEtDatetimeLocal } from "@/features/market/lib/assessment-time";
 import type { MarketAlarmScanLastHourResponse } from "./alarm-client";
 import { AlarmTradeModal } from "./AlarmTradeModal";
+import { AlarmTriggerList } from "./AlarmTriggerList";
 import { BreakoutKanbanBoard, watchHasBreakout } from "./BreakoutKanbanBoard";
 import {
   ALARM_ELIGIBLE_RULES,
+  alarmWatchConflicts,
   formatAlarmTrend,
   needsBandTimeframe,
   type AlarmBandTimeframe,
@@ -24,6 +26,8 @@ import {
   type AlarmTrend,
   type MarketAlarmWatch,
 } from "./alarm-types";
+import type { SemifinalMonitorCandidate } from "./semifinal-monitor-queue";
+import { groupSemifinalMonitorQueue } from "./semifinal-monitor-queue";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -68,6 +72,16 @@ type Props = {
   lastHourScan: MarketAlarmScanLastHourResponse | null;
   lastHourScanError: string | null;
   lastHourScanBusy: boolean;
+  monitorQueue: SemifinalMonitorCandidate[];
+  monitorQueueMeta: {
+    mode: string | null;
+    tradeDate: string | null;
+    evaluatedAt: string | null;
+  };
+  monitorQueueLoading: boolean;
+  monitorQueueError: string | null;
+  onRefreshMonitorQueue: () => void;
+  onStartMonitorCandidate: (row: SemifinalMonitorCandidate) => boolean;
   onTimeModeChange: (mode: LiveSimulateMode) => void;
   onSimulateLocalChange: (value: string) => void;
   onScanLastHourRth: (symbol?: string) => void;
@@ -135,6 +149,12 @@ export function MarketAlarmPanel({
   lastHourScan,
   lastHourScanError,
   lastHourScanBusy,
+  monitorQueue,
+  monitorQueueMeta,
+  monitorQueueLoading,
+  monitorQueueError,
+  onRefreshMonitorQueue,
+  onStartMonitorCandidate,
   onTimeModeChange,
   onSimulateLocalChange,
   onScanLastHourRth,
@@ -155,6 +175,10 @@ export function MarketAlarmPanel({
   onUpdateInterval,
   onRequestNotify,
 }: Props) {
+  const monitorGroups = useMemo(
+    () => groupSemifinalMonitorQueue(monitorQueue),
+    [monitorQueue],
+  );
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
   const [selectedRules, setSelectedRules] = useState<AlarmEligibleRuleKey[]>([
     "confirmation_change_trend_1h",
@@ -257,6 +281,8 @@ export function MarketAlarmPanel({
             </div>
           ) : null}
 
+          <AlarmTriggerList />
+
           <p className="text-xs leading-relaxed text-ocean-sand">
             Eligible: confirmation candle 1h / 15m, Disipador touch (candle + BB on the
             Timeframe you pick: 1m / 15m / 1h), breakout quality. Select multiple criteria to
@@ -278,6 +304,151 @@ export function MarketAlarmPanel({
               Enable desktop notify
             </button>
           </div>
+
+          <section
+            className="rounded-md border border-ocean-teal/30 bg-ocean-teal/5 px-3 py-2.5"
+            aria-labelledby="semifinal-monitor-queue-title"
+          >
+            <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3
+                  id="semifinal-monitor-queue-title"
+                  className="text-xs font-semibold text-ocean-foam"
+                >
+                  Start monitoring · confirm queue
+                </h3>
+                <p className="mt-0.5 text-[11px] leading-snug text-ocean-sand">
+                  Prefer <strong className="font-medium text-ocean-foam">SemiFinal → By strategy</strong>{" "}
+                  cards (E01 / E03 thumbnails): Ready tickers + Start monitoring sit under that
+                  strategy so you always know Confirmación E01 vs E03. This list is the same queue
+                  (active · setup met · confirm + vol ignored). Breakout/momentum stays on the
+                  Kanban below.
+                </p>
+                <ol className="mt-1.5 list-decimal space-y-0.5 pl-4 text-[10px] text-ocean-sand/90">
+                  <li>Admin → Tickers SemiFinal → 9:25 visual (once)</li>
+                  <li>Activate names · open E01 or E03 strategy card</li>
+                  <li>Start monitoring on Ready tickers (or use this list)</li>
+                </ol>
+                {monitorQueueMeta.mode || monitorQueueMeta.tradeDate ? (
+                  <p className="mt-1 text-[10px] text-ocean-sand/80">
+                    SemiFinal source: {monitorQueueMeta.mode ?? "—"}
+                    {monitorQueueMeta.tradeDate ? ` · ${monitorQueueMeta.tradeDate}` : ""}
+                    {monitorQueue.length > 0 ? ` · ${monitorQueue.length} eligible` : ""}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
+                disabled={monitorQueueLoading}
+                onClick={() => onRefreshMonitorQueue()}
+              >
+                {monitorQueueLoading ? "Loading…" : "Refresh from SemiFinal"}
+              </button>
+            </div>
+            {monitorQueueError ? (
+              <p className="text-[11px] text-rose-300" role="status">
+                {monitorQueueError}
+              </p>
+            ) : null}
+            {!monitorQueueLoading && !monitorQueueError && monitorQueue.length === 0 ? (
+              <p className="text-[11px] text-ocean-sand">
+                No active setup-ready names. Run SemiFinal Open (~9:20), activate tickers, then
+                Refresh. E01 needs prior/regime setup met (confirm + vol not required here).
+              </p>
+            ) : null}
+            {monitorGroups.length > 0 ? (
+              <div className="mt-2 space-y-3">
+                {monitorGroups.map((group) => (
+                  <div key={group.confirmRuleKey} className="space-y-1.5">
+                    <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-ocean-mid/25 pb-1">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-ocean-foam">
+                          {group.confirmLabel}
+                          <span className="ml-1.5 font-normal text-ocean-sand/80">
+                            ({group.confirmRuleKey})
+                          </span>
+                        </p>
+                        <p className="text-[10px] text-ocean-sand">
+                          {group.strategyNames.join(" · ") || "—"} ·{" "}
+                          {"scheduleSummary" in group && group.scheduleSummary
+                            ? group.scheduleSummary
+                            : `start ${group.startEt} ET`}{" "}
+                          · {group.candidates.length} ticker
+                          {group.candidates.length === 1 ? "" : "s"}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-amber-200/90">
+                          Waiting for: {group.candidates[0]?.waitingFor}
+                        </p>
+                      </div>
+                    </header>
+                    <ul className="space-y-1.5">
+                      {group.candidates.map((row) => {
+                        const already = alarmWatchConflicts(watches, {
+                          symbol: row.symbol,
+                          ruleKeys: [row.confirmRuleKey],
+                        });
+                        return (
+                          <li
+                            key={row.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded border border-ocean-mid/25 bg-ocean-deep/20 px-2.5 py-2"
+                          >
+                            <div className="min-w-0 text-[11px] leading-snug">
+                              <p className="font-semibold tabular-nums text-ocean-foam">
+                                {row.symbol}
+                                {row.name ? (
+                                  <span className="ml-1.5 font-normal text-ocean-sand">
+                                    {row.name}
+                                  </span>
+                                ) : null}
+                                <span className="ml-1.5 font-normal text-ocean-sand">
+                                  · {row.strategyName}
+                                  {row.directionBias ? ` · ${row.directionBias}` : ""}
+                                </span>
+                              </p>
+                              <p className="mt-0.5 text-ocean-sand/90">
+                                <span className="text-ocean-teal-dim dark:text-ocean-teal">
+                                  Have:
+                                </span>{" "}
+                                {row.setupSummary}
+                              </p>
+                              <p className="mt-0.5 text-amber-200/90">
+                                <span className="font-medium">Missing:</span> {row.waitingFor}
+                              </p>
+                              <p className="mt-0.5 text-[10px] text-ocean-sand/80">
+                                Schedule:{" "}
+                                {"scheduleSummary" in row && row.scheduleSummary
+                                  ? row.scheduleSummary
+                                  : `start ${row.startEt} ET`}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              className={cn(
+                                BTN,
+                                already
+                                  ? "border border-ocean-mid/40 text-ocean-sand"
+                                  : "bg-ocean-teal text-ocean-deep hover:brightness-110",
+                              )}
+                              disabled={already}
+                              title={
+                                already
+                                  ? "Watch already on the board"
+                                  : `Start monitoring ${row.confirmLabel}`
+                              }
+                              onClick={() => onStartMonitorCandidate(row)}
+                            >
+                              {already ? "On board" : "Start monitoring"}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
 
           <div className="rounded-md border border-ocean-mid/30 bg-ocean-surface/30 px-3 py-2">
             <p className="mb-1.5 text-[11px] font-medium text-ocean-foam">

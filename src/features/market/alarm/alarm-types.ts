@@ -18,6 +18,10 @@ export const ALARM_ELIGIBLE_RULES = [
     ruleKey: "breakout_quality",
     label: "Breakout quality (15M multi-TF)",
   },
+  {
+    ruleKey: "volume_stoch_1h",
+    label: "Confirmación E03 (volumen HORA Stoch)",
+  },
 ] as const;
 
 export type AlarmEligibleRuleKey = (typeof ALARM_ELIGIBLE_RULES)[number]["ruleKey"];

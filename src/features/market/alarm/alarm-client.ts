@@ -304,3 +304,75 @@ export async function postMarketAlarmScanLastHour(
     }),
   });
 }
+
+export type MarketAlarmTriggerEntry = {
+  id: string;
+  watchId: string;
+  symbol: string;
+  kind: "enter" | "exit";
+  triggeredAt: string;
+  way: string;
+  ruleLabel: string;
+  ruleKeys: string[];
+  side: string;
+  evidence: string | null;
+  tradeDate?: string;
+};
+
+export type MarketAlarmTriggersListResponse = {
+  entries: MarketAlarmTriggerEntry[];
+  count: number;
+  updatedAt?: string | null;
+  tradeDate?: string | null;
+};
+
+const mockTriggerStore: MarketAlarmTriggerEntry[] = [];
+
+export async function fetchMarketAlarmTriggers(): Promise<MarketAlarmTriggersListResponse> {
+  if (USE_MOCK) {
+    return { entries: [...mockTriggerStore], count: mockTriggerStore.length };
+  }
+  return fetchJson<MarketAlarmTriggersListResponse>("/market/alarm/triggers", {
+    method: "GET",
+  });
+}
+
+export async function postMarketAlarmTrigger(
+  entry: Omit<MarketAlarmTriggerEntry, "id"> & { id?: string },
+): Promise<{ entry: MarketAlarmTriggerEntry; count: number }> {
+  if (USE_MOCK) {
+    const row: MarketAlarmTriggerEntry = {
+      id: entry.id || `trig-mock-${Date.now()}`,
+      watchId: entry.watchId,
+      symbol: entry.symbol,
+      kind: entry.kind,
+      triggeredAt: entry.triggeredAt,
+      way: entry.way,
+      ruleLabel: entry.ruleLabel,
+      ruleKeys: entry.ruleKeys,
+      side: entry.side,
+      evidence: entry.evidence,
+      tradeDate: entry.tradeDate,
+    };
+    mockTriggerStore.unshift(row);
+    if (mockTriggerStore.length > 120) mockTriggerStore.length = 120;
+    return { entry: row, count: mockTriggerStore.length };
+  }
+  return fetchJson<{ entry: MarketAlarmTriggerEntry; count: number }>(
+    "/market/alarm/triggers",
+    {
+      method: "POST",
+      body: JSON.stringify(entry),
+    },
+  );
+}
+
+export async function deleteMarketAlarmTriggers(): Promise<{ ok: boolean; count: number }> {
+  if (USE_MOCK) {
+    mockTriggerStore.length = 0;
+    return { ok: true, count: 0 };
+  }
+  return fetchJson<{ ok: boolean; count: number }>("/market/alarm/triggers", {
+    method: "DELETE",
+  });
+}
