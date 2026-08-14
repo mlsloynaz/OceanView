@@ -12,6 +12,7 @@ const JOB_TITLES: Record<string, string> = {
   premarket: "Premarket",
   preselection: "Tickers SemiFinal",
   movement_profiles: "Movement profiles",
+  gap_forecast: "Gap forecast 15:25",
 };
 
 export function jobTypeTitle(jobType: string): string {

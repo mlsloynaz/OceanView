@@ -14,6 +14,9 @@ import { useSetupScanPane } from "./hooks/useSetupScanPane";
 import { SemiFinalTickerSearch } from "./SemiFinalTickerSearch";
 import { SetupScanViewToggle } from "./SetupScanViewToggle";
 import type {
+  GapForecastBias,
+  GapForecastResult,
+  GapForecastTickerRow,
   PreselectionBreakdownRow,
   PreselectionStrategyGroup,
   PreselectionStrategySuggestion,
@@ -92,6 +95,137 @@ function AvoidLine({ line }: { line: string }) {
       ) : null}
       <p className="mt-0.5 text-xs text-amber-800/80 dark:text-amber-100/80">{line}</p>
     </li>
+  );
+}
+
+const GAP_BUCKETS: {
+  key: keyof Pick<
+    GapForecastResult,
+    "gapUpHigh" | "gapUpModerate" | "noEdge" | "gapDownModerate" | "gapDownHigh"
+  >;
+  bias: GapForecastBias;
+  title: string;
+  tone: string;
+}[] = [
+  {
+    key: "gapUpHigh",
+    bias: "gap_up_high",
+    title: "Gap Up probability = HIGH",
+    tone: "border-emerald-500/40 bg-emerald-500/10",
+  },
+  {
+    key: "gapUpModerate",
+    bias: "gap_up_moderate",
+    title: "Gap Up bias = MODERATE",
+    tone: "border-ocean-teal/40 bg-ocean-teal/10",
+  },
+  {
+    key: "noEdge",
+    bias: "no_edge",
+    title: "NO EDGE",
+    tone: "border-ocean-mid/40 bg-ocean-deep/30",
+  },
+  {
+    key: "gapDownModerate",
+    bias: "gap_down_moderate",
+    title: "Gap Down bias = MODERATE",
+    tone: "border-amber-500/40 bg-amber-500/10",
+  },
+  {
+    key: "gapDownHigh",
+    bias: "gap_down_high",
+    title: "Gap Down probability = HIGH",
+    tone: "border-rose-500/40 bg-rose-500/10",
+  },
+];
+
+function GapForecastSection({
+  forecast,
+  pending,
+  message,
+  disabled,
+  onRun,
+}: {
+  forecast: GapForecastResult | null;
+  pending: boolean;
+  message: string | null;
+  disabled: boolean;
+  onRun: () => void;
+}) {
+  const status = (forecast?.status ?? "empty").toLowerCase();
+  return (
+    <section
+      className="mb-4 rounded-lg border border-ocean-mid/40 bg-ocean-deep/20 px-3 py-3"
+      aria-labelledby="gap-forecast-title"
+    >
+      <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 id="gap-forecast-title" className="text-sm font-semibold text-ocean-foam">
+            Overnight gap forecast (15:25)
+          </h3>
+          <p className="mt-0.5 text-[11px] text-ocean-sand">
+            Active tickers only · score buckets for next-session gap bias · used with SemiFinal
+          </p>
+        </div>
+        <button
+          type="button"
+          className={BTN_SECONDARY}
+          disabled={disabled || pending}
+          onClick={onRun}
+        >
+          {pending ? "Scoring…" : "Run 15:25 gap list"}
+        </button>
+      </header>
+      {message ? (
+        <p className="mb-2 text-xs text-ocean-teal-dim dark:text-ocean-teal" role="status">
+          {message}
+        </p>
+      ) : null}
+      {!forecast || status === "empty" ? (
+        <p className="text-xs text-ocean-sand">
+          No 15:25 list yet — schedule runs weekdays at 3:25 PM ET, or run manually.
+        </p>
+      ) : (
+        <>
+          <p className="mb-2 text-[11px] text-ocean-sand">
+            {forecast.tradeDate ? `Trade date ${forecast.tradeDate}` : "—"}
+            {forecast.asOfEt ? ` · as-of ${forecast.asOfEt}` : ""}
+            {forecast.summary?.symbolsReady != null
+              ? ` · ${forecast.summary.symbolsReady}/${forecast.summary.symbolsTotal ?? "?"} ready`
+              : ""}
+            {status === "running" ? " · running…" : ""}
+          </p>
+          <div className="grid gap-2 lg:grid-cols-5">
+            {GAP_BUCKETS.map((bucket) => {
+              const rows = (forecast[bucket.key] as GapForecastTickerRow[] | undefined) ?? [];
+              return (
+                <div
+                  key={bucket.key}
+                  className={cn("rounded-md border px-2 py-2", bucket.tone)}
+                >
+                  <p className="text-[11px] font-semibold text-ocean-foam">{bucket.title}</p>
+                  <p className="mb-1 text-[10px] text-ocean-sand">{rows.length} ticker(s)</p>
+                  {rows.length === 0 ? (
+                    <p className="text-[11px] text-ocean-sand/80">—</p>
+                  ) : (
+                    <ul className="max-h-40 space-y-1 overflow-y-auto text-[11px]">
+                      {rows.map((row) => (
+                        <li key={row.symbol} className="flex justify-between gap-2 text-ocean-foam">
+                          <span className="font-semibold tabular-nums">{row.symbol}</span>
+                          <span className="tabular-nums text-ocean-sand">
+                            {row.score > 0 ? `+${row.score}` : row.score}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -727,6 +861,14 @@ export function SetupScanPane() {
             {ws.result.tradeDate ? ` Trade date ${ws.result.tradeDate}.` : ""}
           </p>
         )}
+
+        <GapForecastSection
+          forecast={ws.gapForecast}
+          pending={ws.gapPending}
+          message={ws.gapMessage}
+          disabled={ws.loading || ws.runPending}
+          onRun={() => ws.runGapForecast()}
+        />
 
         {ws.result && (
           <div className="mb-3 flex flex-wrap items-center gap-2">

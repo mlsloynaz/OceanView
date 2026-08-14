@@ -126,6 +126,48 @@ export function alarmRulesLabel(ruleKeys: string[]): string {
   return ruleKeys.map(alarmRuleLabel).join(" + ");
 }
 
+export function watchRuleKeys(
+  watch: Pick<MarketAlarmWatch, "ruleKey" | "ruleKeys">,
+): AlarmEligibleRuleKey[] {
+  const fromList =
+    Array.isArray(watch.ruleKeys) && watch.ruleKeys.length > 0
+      ? watch.ruleKeys
+      : watch.ruleKey
+        ? [watch.ruleKey]
+        : [];
+  const out: AlarmEligibleRuleKey[] = [];
+  for (const raw of fromList) {
+    const key = String(raw || "").trim() as AlarmEligibleRuleKey;
+    if (!key) continue;
+    if (!ALARM_ELIGIBLE_RULES.some((r) => r.ruleKey === key)) continue;
+    if (!out.includes(key)) out.push(key);
+  }
+  return out;
+}
+
+/**
+ * Same ticker + same rule (+ same trend) already on the board.
+ * Overlap on any ruleKey counts — do not add confirmation 1h again if it is
+ * already watched, even as part of an AND combo.
+ */
+export function alarmWatchConflicts(
+  existing: Pick<MarketAlarmWatch, "symbol" | "trend" | "ruleKey" | "ruleKeys">[],
+  input: {
+    symbol: string;
+    ruleKeys: AlarmEligibleRuleKey[];
+    trend: AlarmTrend;
+  },
+): boolean {
+  const incoming = new Set(input.ruleKeys);
+  if (incoming.size === 0) return false;
+  const symbol = input.symbol.trim().toUpperCase();
+  return existing.some((w) => {
+    if (w.symbol !== symbol) return false;
+    if (w.trend !== input.trend) return false;
+    return watchRuleKeys(w).some((key) => incoming.has(key));
+  });
+}
+
 export function formatAlarmTrend(trend: AlarmTrend): string {
   if (trend === "auto") return "Auto (alcista/bajista)";
   return trend === "alcista" ? "Alcista" : "Bajista";

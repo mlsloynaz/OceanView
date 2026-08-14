@@ -1,7 +1,11 @@
-import { MOCK_SETUP_SCAN_RESULT } from "./mock-data";
+import { MOCK_GAP_FORECAST, MOCK_SETUP_SCAN_RESULT } from "./mock-data";
 import { mergePreselectionWithCatalogActive } from "../merge-catalog-active";
 import { getTickersCatalog } from "../../tickers/api/tickers-client";
-import type { PreselectionCandidateMode, PreselectionResultResponse } from "../types";
+import type {
+  GapForecastResult,
+  PreselectionCandidateMode,
+  PreselectionResultResponse,
+} from "../types";
 import { apiFetch, getApiBaseUrl, readResponseBody } from "@/shared/api/api-fetch";
 
 const API_BASE = getApiBaseUrl();
@@ -143,4 +147,60 @@ export async function pollSetupScanResult(
     }
   }
   throw new SetupScanApiError("Tickers SemiFinal timed out while waiting for results.", 504);
+}
+
+export async function postGapForecastRun(body?: {
+  simulationDate?: string;
+  refreshCandles?: boolean;
+}): Promise<GapForecastResult> {
+  if (USE_MOCK) {
+    await delay(800);
+    return {
+      ...MOCK_GAP_FORECAST,
+      status: "running",
+      evaluatedAt: new Date().toISOString(),
+      simulationDate: body?.simulationDate ?? null,
+      simulated: Boolean(body?.simulationDate),
+    };
+  }
+  const { data } = await fetchJson<GapForecastResult>(
+    "/preselection/gap-forecast/run",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        simulationDate: body?.simulationDate,
+        refreshCandles: body?.refreshCandles ?? true,
+      }),
+    },
+    [200, 202],
+  );
+  return data;
+}
+
+export async function getGapForecastResult(): Promise<GapForecastResult> {
+  if (USE_MOCK) {
+    await delay();
+    return { ...MOCK_GAP_FORECAST };
+  }
+  const { data } = await fetchJson<GapForecastResult>("/preselection/gap-forecast");
+  return data;
+}
+
+export async function pollGapForecastResult(
+  onProgress?: (payload: GapForecastResult) => void,
+): Promise<GapForecastResult> {
+  for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) {
+      await delay(POLL_INTERVAL_MS);
+    }
+    const payload = await getGapForecastResult();
+    onProgress?.(payload);
+    if (isTerminalStatus(payload.status) || payload.status === "empty") {
+      if ((payload.status ?? "").toLowerCase() === "failed") {
+        throw new SetupScanApiError("Gap forecast failed.", 500);
+      }
+      return payload;
+    }
+  }
+  throw new SetupScanApiError("Gap forecast timed out while waiting for results.", 504);
 }

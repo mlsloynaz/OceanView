@@ -1,4 +1,90 @@
-import type { PreselectionResultResponse } from "../types";
+import type { GapForecastResult, PreselectionResultResponse } from "../types";
+
+export const MOCK_GAP_FORECAST: GapForecastResult = {
+  runId: "gap-mock-001",
+  status: "complete",
+  asOfEt: "2026-07-02T15:25:00-04:00",
+  tradeDate: "2026-07-02",
+  evaluatedAt: new Date().toISOString(),
+  summary: {
+    symbolsTotal: 3,
+    symbolsReady: 3,
+    counts: {
+      gap_up_high: 1,
+      gap_up_moderate: 1,
+      no_edge: 0,
+      gap_down_moderate: 0,
+      gap_down_high: 1,
+    },
+  },
+  tickers: [
+    {
+      symbol: "AAPL",
+      name: "Apple Inc.",
+      ready: true,
+      score: 7,
+      bias: "gap_up_high",
+      label: "Gap Up probability = HIGH",
+      close: 214.5,
+      reasons: ["+2 rangeLocation: Close in top 20% of day."],
+    },
+    {
+      symbol: "MSFT",
+      name: "Microsoft Corp.",
+      ready: true,
+      score: 3,
+      bias: "gap_up_moderate",
+      label: "Gap Up bias = MODERATE",
+      close: 450.2,
+      reasons: [],
+    },
+    {
+      symbol: "INTC",
+      name: "Intel Corp.",
+      ready: true,
+      score: -6,
+      bias: "gap_down_high",
+      label: "Gap Down probability = HIGH",
+      close: 32.1,
+      reasons: [],
+    },
+  ],
+  gapUpHigh: [
+    {
+      symbol: "AAPL",
+      name: "Apple Inc.",
+      ready: true,
+      score: 7,
+      bias: "gap_up_high",
+      label: "Gap Up probability = HIGH",
+      close: 214.5,
+    },
+  ],
+  gapUpModerate: [
+    {
+      symbol: "MSFT",
+      name: "Microsoft Corp.",
+      ready: true,
+      score: 3,
+      bias: "gap_up_moderate",
+      label: "Gap Up bias = MODERATE",
+      close: 450.2,
+    },
+  ],
+  noEdge: [],
+  gapDownModerate: [],
+  gapDownHigh: [
+    {
+      symbol: "INTC",
+      name: "Intel Corp.",
+      ready: true,
+      score: -6,
+      bias: "gap_down_high",
+      label: "Gap Down probability = HIGH",
+      close: 32.1,
+    },
+  ],
+};
 
 export const MOCK_SETUP_SCAN_RESULT: PreselectionResultResponse = {
   runId: "presel-mock-001",
@@ -19,6 +105,7 @@ export const MOCK_SETUP_SCAN_RESULT: PreselectionResultResponse = {
     failed: [],
   },
   summary: { symbolsTotal: 5, symbolsReady: 5, strategyCount: 2 },
+  gapForecast: MOCK_GAP_FORECAST,
   strategies: [
     {
       strategyId: "estrategia-05",

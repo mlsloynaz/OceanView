@@ -27,7 +27,7 @@ Read-only Admin pane that shows the latest run for each backend job type via `GE
 |--------|------|------|
 | `GET` | `/jobs/status` | Pane open / Reload |
 
-Known `jobType` labels in UI: `candles`, `market`, `premarket`, `preselection`, `movement_profiles`. Unknown types show the raw key.
+Known `jobType` labels in UI: `candles`, `market`, `premarket`, `preselection`, `gap_forecast`, `movement_profiles`. Unknown types show the raw key.
 
 Production URL: [aws-urls.md](./aws-urls.md).
 

@@ -103,6 +103,50 @@ export type PreselectionCandlesMeta = {
   failed?: { symbol: string; message: string }[];
 };
 
+export type GapForecastBias =
+  | "gap_up_high"
+  | "gap_up_moderate"
+  | "no_edge"
+  | "gap_down_moderate"
+  | "gap_down_high";
+
+export type GapForecastTickerRow = {
+  symbol: string;
+  name?: string | null;
+  ready: boolean;
+  score: number;
+  bias: GapForecastBias | string;
+  label: string;
+  close?: number | null;
+  reasons?: string[];
+  breakdown?: { key: string; points: number; evidence: string }[];
+  error?: string | null;
+};
+
+export type GapForecastResult = {
+  runId?: string | null;
+  status: string;
+  message?: string;
+  asOfEt?: string;
+  tradeDate?: string;
+  evaluatedAt?: string;
+  simulated?: boolean;
+  simulationDate?: string | null;
+  progress?: { done?: number; total?: number };
+  summary?: {
+    symbolsTotal?: number;
+    symbolsReady?: number;
+    refreshedCount?: number;
+    counts?: Partial<Record<GapForecastBias, number>>;
+  };
+  tickers?: GapForecastTickerRow[];
+  gapUpHigh?: GapForecastTickerRow[];
+  gapUpModerate?: GapForecastTickerRow[];
+  noEdge?: GapForecastTickerRow[];
+  gapDownModerate?: GapForecastTickerRow[];
+  gapDownHigh?: GapForecastTickerRow[];
+};
+
 export type PreselectionResultResponse = {
   runId: string;
   status: string;
@@ -123,4 +167,6 @@ export type PreselectionResultResponse = {
     strategyCount?: number;
   };
   strategies?: PreselectionStrategyGroup[];
+  /** Latest 15:25 overnight gap forecast for active tickers. */
+  gapForecast?: GapForecastResult | null;
 };

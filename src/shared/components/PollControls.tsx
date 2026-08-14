@@ -28,6 +28,8 @@ export type PollControlsProps = {
   stopLabel?: string;
   refreshLabel?: string;
   showRefresh?: boolean;
+  /** Hide the Every N unit inputs (Start/Stop only). Default true. */
+  showInterval?: boolean;
   /** compact = Market 11px; default = Premarket text-xs */
   density?: "compact" | "default";
   monitoringMessage?: string | null;
@@ -71,6 +73,7 @@ export function PollControls({
   stopLabel = "Stop",
   refreshLabel = "Refresh result",
   showRefresh = false,
+  showInterval = true,
   density = "compact",
   monitoringMessage = null,
   className,
@@ -93,47 +96,49 @@ export function PollControls({
   return (
     <div className={cn("space-y-1.5", className)}>
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={ariaLabel}>
-        <label htmlFor={intervalInputId} className={cn("flex items-center gap-1.5", labelCls)}>
-          Every
-          <input
-            id={intervalInputId}
-            type="number"
-            min={intervalMin}
-            max={max}
-            step={1}
-            value={intervalValue}
-            disabled={intervalLocked}
-            onChange={(e) => {
-              const next = Number.parseInt(e.target.value, 10);
-              if (!Number.isNaN(next)) onIntervalValueChange(next);
-            }}
-            className={inputCls}
-          />
-          {showUnitSelect ? (
-            <select
-              aria-label="Interval unit"
-              value={intervalUnit}
+        {showInterval ? (
+          <label htmlFor={intervalInputId} className={cn("flex items-center gap-1.5", labelCls)}>
+            Every
+            <input
+              id={intervalInputId}
+              type="number"
+              min={intervalMin}
+              max={max}
+              step={1}
+              value={intervalValue}
               disabled={intervalLocked}
               onChange={(e) => {
-                const v = e.target.value;
-                if (v === "sec" || v === "min" || v === "hour") onIntervalUnitChange?.(v);
+                const next = Number.parseInt(e.target.value, 10);
+                if (!Number.isNaN(next)) onIntervalValueChange(next);
               }}
-              className={cn(
-                inputCls,
-                "w-auto",
-                compact ? "px-1.5" : "px-2",
-              )}
-            >
-              {units.map((u) => (
-                <option key={u} value={u}>
-                  {UNIT_LABEL[u]}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span>{UNIT_LABEL[intervalUnit]}</span>
-          )}
-        </label>
+              className={inputCls}
+            />
+            {showUnitSelect ? (
+              <select
+                aria-label="Interval unit"
+                value={intervalUnit}
+                disabled={intervalLocked}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "sec" || v === "min" || v === "hour") onIntervalUnitChange?.(v);
+                }}
+                className={cn(
+                  inputCls,
+                  "w-auto",
+                  compact ? "px-1.5" : "px-2",
+                )}
+              >
+                {units.map((u) => (
+                  <option key={u} value={u}>
+                    {UNIT_LABEL[u]}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span>{UNIT_LABEL[intervalUnit]}</span>
+            )}
+          </label>
+        ) : null}
 
         <button
           type="button"

@@ -5,8 +5,11 @@ import {
 } from "@/shared/lib/market-calendar";
 import { getTickersCatalog, patchTickerActive } from "../../tickers/api/tickers-client";
 import {
+  getGapForecastResult,
   getSetupScanResult,
+  pollGapForecastResult,
   pollSetupScanResult,
+  postGapForecastRun,
   postSetupScanRun,
   SetupScanApiError,
 } from "../api/preselection-client";
@@ -21,6 +24,7 @@ import {
   filterSemiFinalResult,
 } from "../search";
 import type {
+  GapForecastResult,
   PreselectionCandidateMode,
   PreselectionResultResponse,
   PreselectionTickerRow,
@@ -59,6 +63,9 @@ export function useSetupScanPane(open: boolean) {
     strategyName: string;
     ticker: PreselectionTickerRow;
   } | null>(null);
+  const [gapForecast, setGapForecast] = useState<GapForecastResult | null>(null);
+  const [gapPending, startGapTransition] = useTransition();
+  const [gapMessage, setGapMessage] = useState<string | null>(null);
 
   const result = candidateMode === "open" ? openResult : eodResult;
   const setResultForMode = useCallback(
@@ -126,6 +133,15 @@ export function useSetupScanPane(open: boolean) {
       ]);
       const merged = mergePreselectionWithCatalogActive(payload, catalog.tickers ?? []);
       setEodResult(merged);
+      if (merged.gapForecast) {
+        setGapForecast(merged.gapForecast);
+      } else {
+        try {
+          setGapForecast(await getGapForecastResult());
+        } catch {
+          /* gap forecast optional */
+        }
+      }
       const status = (merged.status ?? "").toLowerCase();
       if (status === "running" || status === "pending") {
         setMessage(
@@ -244,6 +260,7 @@ export function useSetupScanPane(open: boolean) {
         );
         setResultForMode(candidateMode, await applyCatalogActive(payload));
         setMessage(payload.message ?? "Tickers SemiFinal complete.");
+        if (payload.gapForecast) setGapForecast(payload.gapForecast);
       } catch (err) {
         if (err instanceof SetupScanApiError && err.status === 504) {
           setMessage("Request timed out — scan may still be running. Loading result…");
@@ -273,6 +290,40 @@ export function useSetupScanPane(open: boolean) {
       }
     });
   }, [applyCatalogActive, candidateMode, minScore, scanMode, setResultForMode, simulationDate]);
+
+  const runGapForecast = useCallback(() => {
+    startGapTransition(async () => {
+      setError(null);
+      setGapMessage(null);
+      try {
+        const ack = await postGapForecastRun({
+          simulationDate: scanMode === "simulate" ? simulationDate.trim() || undefined : undefined,
+          refreshCandles: scanMode !== "simulate",
+        });
+        if ((ack.status ?? "").toLowerCase() === "complete" && (ack.tickers?.length ?? 0) > 0) {
+          setGapForecast(ack);
+          setGapMessage("15:25 gap forecast complete.");
+          return;
+        }
+        setGapMessage(ack.message ?? "15:25 gap forecast started…");
+        const payload = await pollGapForecastResult((progress) => {
+          const done = progress.progress?.done;
+          const total = progress.progress?.total;
+          if (done != null && total != null) {
+            setGapMessage(`Gap forecast… ${done}/${total}`);
+          }
+        });
+        setGapForecast(payload);
+        setGapMessage(
+          payload.status === "empty"
+            ? "No gap forecast yet."
+            : "15:25 gap forecast complete.",
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Gap forecast failed.");
+      }
+    });
+  }, [scanMode, simulationDate]);
 
   const setActive = useCallback(async (symbol: string, active: boolean) => {
     const upper = symbol.trim().toUpperCase();
@@ -342,6 +393,10 @@ export function useSetupScanPane(open: boolean) {
     setDetail,
     loadResult,
     runScan,
+    runGapForecast,
+    gapForecast,
+    gapPending,
+    gapMessage,
     setActive,
   };
 }
