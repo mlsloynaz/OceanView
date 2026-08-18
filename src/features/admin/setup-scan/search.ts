@@ -43,7 +43,11 @@ export function filterSemiFinalResult(
       });
       return { ...group, tickers, tickerCount: tickers.length };
     })
-    .filter((group) => group.tickers.length > 0);
+    .filter((group) => {
+      if (group.tickers.length > 0) return true;
+      // Keep playbook groups that were evaluated even when nobody passed (e.g. E02).
+      return Array.isArray(group.candidateRuleKeys) && group.candidateRuleKeys.length > 0;
+    });
 
   if (!q) return { ...result, strategies: withBiasOnly };
 

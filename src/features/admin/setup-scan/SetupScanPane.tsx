@@ -598,6 +598,12 @@ function StrategyGroupSection({
       ) : null}
 
       {open ? (
+        group.tickers.length === 0 ? (
+          <p className="border-t border-ocean-mid/30 px-3 py-2 text-xs text-ocean-sand">
+            No tickers passed this playbook’s SemiFinal gates on the last scan. Re-run SemiFinal
+            after catalog changes, or wait for a setup that meets every required candidate rule.
+          </p>
+        ) : (
         <ul className="space-y-2 border-t border-ocean-mid/30 px-3 py-2">
           {group.tickers.map((ticker) => {
             const pending = Boolean(tickerPending[ticker.symbol.toUpperCase()]);
@@ -694,6 +700,7 @@ function StrategyGroupSection({
             );
           })}
         </ul>
+        )
       ) : null}
     </section>
   );
@@ -971,8 +978,10 @@ export function SetupScanPane() {
           persists the SemiFinal roster.{" "}
           <strong className="font-medium text-ocean-foam">9:25 visual</strong> merges history with
           in-memory premarket bars (not written to Dynamo) and does not overwrite the saved EOD
-          result. Strategies with candidate rules (e.g. Trend Change 1H) list only those rules —
-          soft checklist fitness is under Panorama completo. Failed rule evaluations are not listed.
+          result. Playbooks with candidate rules (Trend Change 1H, Midpoint Bounce, Magnet Effect,
+          Inside BB 15M) list only those gates — soft checklist fitness is under Panorama completo.
+          Failed rule evaluations are not listed. Empty playbook cards mean the last scan found
+          nobody who passed every required gate — re-run after catalog edits.
         </p>
 
         {ws.candidateMode === "open" ? (
