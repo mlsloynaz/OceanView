@@ -186,6 +186,47 @@ export async function getGapForecastResult(): Promise<GapForecastResult> {
   return data;
 }
 
+export async function postGapForecastReevaluate(body?: {
+  simulationDate?: string;
+  refreshCandles?: boolean;
+}): Promise<GapForecastResult> {
+  if (USE_MOCK) {
+    await delay(800);
+    return {
+      ...MOCK_GAP_FORECAST,
+      status: "complete",
+      reevaluate: true,
+      reevaluatedAt: new Date().toISOString(),
+      trigger: "reevaluate",
+      eligibleSymbols: ["AAPL", "INTC"],
+      firstHighSymbols: ["AAPL", "INTC"],
+      eligibleCount: 2,
+      tickers: (MOCK_GAP_FORECAST.tickers ?? [])
+        .filter((row) => row.bias === "gap_up_high" || row.bias === "gap_down_high")
+        .map((row) => ({
+        ...row,
+        priorScore: row.score,
+        priorBias: row.bias,
+        firstBias: row.bias,
+        firstScore: row.score,
+        firstEligible: true,
+      })),
+    };
+  }
+  const { data } = await fetchJson<GapForecastResult>(
+    "/preselection/gap-forecast/reevaluate",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        simulationDate: body?.simulationDate,
+        refreshCandles: body?.refreshCandles ?? true,
+      }),
+    },
+    [200, 202],
+  );
+  return data;
+}
+
 export async function pollGapForecastResult(
   onProgress?: (payload: GapForecastResult) => void,
 ): Promise<GapForecastResult> {

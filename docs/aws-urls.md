@@ -32,7 +32,9 @@ Quick reference for hosted OceanView in **us-east-1**. Region and IDs match the 
 | Market — by strategy | https://d1xsxf8zu41xgt.cloudfront.net/market/strategies |
 | Market — by ticker | https://d1xsxf8zu41xgt.cloudfront.net/market/tickers |
 | Market — by rule | https://d1xsxf8zu41xgt.cloudfront.net/market/rules |
-| Market — alarm | https://d1xsxf8zu41xgt.cloudfront.net/market/alarm |
+| Alarms — strategy | https://d1xsxf8zu41xgt.cloudfront.net/alarms/strategy |
+| Alarms — movement | https://d1xsxf8zu41xgt.cloudfront.net/alarms/movement |
+| Market — alarm (legacy) | https://d1xsxf8zu41xgt.cloudfront.net/market/alarm → `/alarms/strategy` |
 | Admin | https://d1xsxf8zu41xgt.cloudfront.net/admin |
 | Premarket | https://d1xsxf8zu41xgt.cloudfront.net/premarket |
 | Operations | https://d1xsxf8zu41xgt.cloudfront.net/operations |

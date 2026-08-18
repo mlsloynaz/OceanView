@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useMarketWorkspace } from "./hooks/useMarketWorkspace";
 import {
   defaultMarketMode,
@@ -8,9 +8,6 @@ import {
   writeStoredMarketMode,
 } from "./lib/market-routes";
 import type { MarketViewMode } from "./types";
-import { MarketAlarmPanel } from "./alarm/MarketAlarmPanel";
-import { AlarmTradeModal } from "./alarm/AlarmTradeModal";
-import { useMarketAlarms } from "./alarm/useMarketAlarms";
 import { AssessmentTimeControl } from "./components/AssessmentTimeControl";
 import { MarketSearchInput } from "./components/MarketSearchInput";
 import { MarketSummaryStrip } from "./components/MarketSummaryStrip";
@@ -24,7 +21,6 @@ import { TickerDetailModal } from "./components/TickerDetailModal";
 export function MarketPage() {
   const { mode: modeParam } = useParams<{ mode: string }>();
   const navigate = useNavigate();
-  const alarms = useMarketAlarms();
 
   useEffect(() => {
     if (!isMarketViewMode(modeParam)) {
@@ -33,7 +29,6 @@ export function MarketPage() {
   }, [modeParam, navigate]);
 
   const viewMode: MarketViewMode = isMarketViewMode(modeParam) ? modeParam : "strategies";
-  const isAlarmMode = viewMode === "alarm";
 
   const setViewMode = (mode: MarketViewMode) => {
     writeStoredMarketMode(mode);
@@ -103,7 +98,7 @@ export function MarketPage() {
         ? "Search by ticker or name"
         : "Search by rule or strategy";
 
-  const showGrids = !isAlarmMode && !loading && !error;
+  const showGrids = !loading && !error;
 
   return (
     <div className="w-full space-y-4">
@@ -112,13 +107,9 @@ export function MarketPage() {
           <h1 className="font-display text-xl font-semibold text-ocean-foam sm:text-2xl">Market</h1>
           <p className="mt-1 text-sm text-ocean-sand">
             Standard strategy playbooks only — activate in Admin. Dynamic screens run on Premarket.
-            Rule alarms live under the{" "}
-            <Link to={marketPath("alarm")} className="text-ocean-teal hover:underline">
-              Alarm
-            </Link>{" "}
-            tab.
+            Confirmation and breakout watches live on the Alarms page.
           </p>
-          {!isAlarmMode && catalog && (snapshot || !useMock) && (
+          {catalog && (snapshot || !useMock) && (
             <div className="mt-1">
               <MarketSummaryStrip
                 strategyCount={strategyCount}
@@ -130,187 +121,128 @@ export function MarketPage() {
             </div>
           )}
         </div>
-        {/* Always visible on every Market mode (including Alarm) so users can switch back. */}
         <MarketViewToggle mode={viewMode} onChange={setViewMode} />
       </div>
 
-      {isAlarmMode ? (
-        <MarketAlarmPanel
-          watches={alarms.watches}
-          tickers={alarms.tickers}
-          tickersLoading={alarms.tickersLoading}
-          tickersError={alarms.tickersError}
-          formError={alarms.formError}
-          banner={alarms.banner}
-          alarmPopup={alarms.alarmPopup}
-          metCount={alarms.metCount}
-          runningCount={alarms.runningCount}
-          timeMode={alarms.timeMode}
-          simulateLocal={alarms.simulateLocal}
-          lastHourScan={alarms.lastHourScan}
-          lastHourScanError={alarms.lastHourScanError}
-          lastHourScanBusy={alarms.lastHourScanBusy}
-          monitorQueue={alarms.monitorQueue}
-          monitorQueueMeta={alarms.monitorQueueMeta}
-          monitorQueueLoading={alarms.monitorQueueLoading}
-          monitorQueueError={alarms.monitorQueueError}
-          onRefreshMonitorQueue={() => void alarms.refreshMonitorQueue()}
-          onStartMonitorCandidate={alarms.startMonitorCandidate}
-          onTimeModeChange={alarms.setTimeMode}
-          onSimulateLocalChange={alarms.setSimulateLocal}
-          onScanLastHourRth={(symbol) => void alarms.scanLastHourRth(symbol)}
-          onClearLastHourScan={alarms.clearLastHourScan}
-          onClearBanner={alarms.clearMetBanner}
-          onClearAlarmPopup={alarms.clearAlarmPopup}
-          onConfirmEnter={alarms.confirmEnter}
-          onConfirmExit={alarms.confirmExit}
-          onAdd={alarms.addWatch}
-          onStart={alarms.startWatch}
-          onStop={alarms.stopWatch}
-          onStartAllIdle={alarms.startAllIdle}
-          onStopAllRunning={alarms.stopAllRunning}
-          onClearMetStatus={alarms.clearMetStatus}
-          onClearAllMetStatuses={alarms.clearAllMetStatuses}
-          onRemove={alarms.removeWatch}
-          onCheckNow={(id) => void alarms.runCheckNow(id)}
-          onUpdateInterval={alarms.updateWatchInterval}
-          onRequestNotify={() => void alarms.requestNotifyPermission()}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <MarketSearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder={searchPlaceholder}
+          className="min-w-0 w-full lg:max-w-xs"
         />
-      ) : (
-        <>
-          {alarms.alarmPopup ? (
-            <AlarmTradeModal
-              watch={alarms.alarmPopup.watch}
-              kind={alarms.alarmPopup.kind}
-              onClose={alarms.clearAlarmPopup}
-              onConfirm={() =>
-                alarms.alarmPopup!.kind === "enter"
-                  ? alarms.confirmEnter(alarms.alarmPopup!.watch.id)
-                  : alarms.confirmExit(alarms.alarmPopup!.watch.id)
-              }
-            />
-          ) : null}
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <MarketSearchInput
-              value={search}
-              onChange={setSearch}
-              placeholder={searchPlaceholder}
-              className="min-w-0 w-full lg:max-w-xs"
-            />
-            {candleCoverage && (
-              <AssessmentTimeControl
-                mode={assessmentMode}
-                value={assessmentAt}
-                coverage={candleCoverage}
-                error={assessmentError}
-                notice={assessNotice}
-                pending={assessPending}
-                refreshPending={refreshPending}
-                monitorActive={monitorActive}
-                stopPending={stopPending}
-                canStop={canStop}
-                liveEnabled={liveEnabled}
-                intervalValue={intervalValue}
-                intervalUnit={intervalUnit}
-                onIntervalValueChange={setIntervalValue}
-                onIntervalUnitChange={setIntervalUnit}
-                onModeChange={setAssessmentMode}
-                onChange={setAssessmentFromLocal}
-                onAssess={runAssessment}
-                onStartPolling={startPolling}
-                onStop={() => void stopAssessment()}
-                onRefreshResult={() => void refreshResult()}
-                className="min-w-0 flex-1 lg:max-w-3xl"
-              />
-            )}
-          </div>
+        {candleCoverage && (
+          <AssessmentTimeControl
+            mode={assessmentMode}
+            value={assessmentAt}
+            coverage={candleCoverage}
+            error={assessmentError}
+            notice={assessNotice}
+            pending={assessPending}
+            refreshPending={refreshPending}
+            monitorActive={monitorActive}
+            stopPending={stopPending}
+            canStop={canStop}
+            liveEnabled={liveEnabled}
+            intervalValue={intervalValue}
+            intervalUnit={intervalUnit}
+            onIntervalValueChange={setIntervalValue}
+            onIntervalUnitChange={setIntervalUnit}
+            onModeChange={setAssessmentMode}
+            onChange={setAssessmentFromLocal}
+            onAssess={runAssessment}
+            onStartPolling={startPolling}
+            onStop={() => void stopAssessment()}
+            onRefreshResult={() => void refreshResult()}
+            className="min-w-0 flex-1 lg:max-w-3xl"
+          />
+        )}
+      </div>
 
-          {loading && (
-            <p className="text-sm text-ocean-sand">Loading market data…</p>
-          )}
+      {loading && (
+        <p className="text-sm text-ocean-sand">Loading market data…</p>
+      )}
 
-          {error && (
-            <p className="rounded-lg border border-ocean-danger-border bg-ocean-danger-muted px-3 py-2 text-sm text-ocean-danger">
-              {error}
-            </p>
-          )}
+      {error && (
+        <p className="rounded-lg border border-ocean-danger-border bg-ocean-danger-muted px-3 py-2 text-sm text-ocean-danger">
+          {error}
+        </p>
+      )}
 
-          {needsAssess && (
-            <p className="rounded-lg border border-ocean-mid/40 bg-ocean-deep/30 px-3 py-2 text-sm text-ocean-sand">
-              No assessment run yet. Click <strong className="text-ocean-foam">Assess</strong> to evaluate active tickers.
-            </p>
-          )}
+      {needsAssess && (
+        <p className="rounded-lg border border-ocean-mid/40 bg-ocean-deep/30 px-3 py-2 text-sm text-ocean-sand">
+          No assessment run yet. Click <strong className="text-ocean-foam">Assess</strong> to evaluate active tickers.
+        </p>
+      )}
 
-          {showGrids && viewMode === "strategies" && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-              {filteredStrategyCards.map((card) => (
-                <StrategyCard
-                  key={card.strategy.id}
-                  card={card}
-                  threshold={threshold}
-                  lastAssessmentLabel={lastAssessmentLabel}
-                  onOpen={openStrategy}
-                />
-              ))}
-              {filteredStrategyCards.length === 0 && search.trim() && (
-                <p className="text-sm text-ocean-sand sm:col-span-2">No strategies match your search.</p>
-              )}
-            </div>
-          )}
-
-          {showGrids && viewMode === "tickers" && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredTickerCards.map((card) => (
-                <TickerCard
-                  key={card.symbol}
-                  card={card}
-                  threshold={threshold}
-                  strategyById={strategyById}
-                  onOpen={openTicker}
-                />
-              ))}
-              {filteredTickerCards.length === 0 && search.trim() && (
-                <p className="text-sm text-ocean-sand sm:col-span-2">No tickers match your search.</p>
-              )}
-            </div>
-          )}
-
-          {showGrids && viewMode === "rules" && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredRuleCards.map((card) => (
-                <RuleCard key={`${card.strategyId}:${card.ruleKey}`} card={card} />
-              ))}
-              {filteredRuleCards.length === 0 && search.trim() && (
-                <p className="text-sm text-ocean-sand sm:col-span-2">No rules match your search.</p>
-              )}
-            </div>
-          )}
-
-          {selectedStrategy && (
-            <StrategyDetailModal
-              strategy={selectedStrategy}
-              runId={runId}
+      {showGrids && viewMode === "strategies" && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+          {filteredStrategyCards.map((card) => (
+            <StrategyCard
+              key={card.strategy.id}
+              card={card}
               threshold={threshold}
-              useMock={useMock}
-              snapshot={snapshot}
-              assessmentLabel={assessmentLabel}
-              onClose={closeDetail}
+              lastAssessmentLabel={lastAssessmentLabel}
+              onOpen={openStrategy}
             />
+          ))}
+          {filteredStrategyCards.length === 0 && search.trim() && (
+            <p className="text-sm text-ocean-sand sm:col-span-2">No strategies match your search.</p>
           )}
+        </div>
+      )}
 
-          {selectedTicker && (
-            <TickerDetailModal
-              symbol={selectedTicker}
-              runId={runId}
+      {showGrids && viewMode === "tickers" && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredTickerCards.map((card) => (
+            <TickerCard
+              key={card.symbol}
+              card={card}
               threshold={threshold}
-              useMock={useMock}
-              ticker={selectedTickerResult}
               strategyById={strategyById}
-              assessmentLabel={assessmentLabel}
-              onClose={closeDetail}
+              onOpen={openTicker}
             />
+          ))}
+          {filteredTickerCards.length === 0 && search.trim() && (
+            <p className="text-sm text-ocean-sand sm:col-span-2">No tickers match your search.</p>
           )}
-        </>
+        </div>
+      )}
+
+      {showGrids && viewMode === "rules" && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredRuleCards.map((card) => (
+            <RuleCard key={`${card.strategyId}:${card.ruleKey}`} card={card} />
+          ))}
+          {filteredRuleCards.length === 0 && search.trim() && (
+            <p className="text-sm text-ocean-sand sm:col-span-2">No rules match your search.</p>
+          )}
+        </div>
+      )}
+
+      {selectedStrategy && (
+        <StrategyDetailModal
+          strategy={selectedStrategy}
+          runId={runId}
+          threshold={threshold}
+          useMock={useMock}
+          snapshot={snapshot}
+          assessmentLabel={assessmentLabel}
+          onClose={closeDetail}
+        />
+      )}
+
+      {selectedTicker && (
+        <TickerDetailModal
+          symbol={selectedTicker}
+          runId={runId}
+          threshold={threshold}
+          useMock={useMock}
+          ticker={selectedTickerResult}
+          strategyById={strategyById}
+          assessmentLabel={assessmentLabel}
+          onClose={closeDetail}
+        />
       )}
     </div>
   );

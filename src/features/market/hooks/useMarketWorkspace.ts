@@ -931,13 +931,11 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   const canStop = monitorActive || jobActive || assessPending;
 
   const hasModeCards =
-    viewMode === "alarm"
-      ? true
-      : viewMode === "strategies"
-        ? Boolean(snapshotCache.strategies?.strategyCards?.length)
-        : viewMode === "tickers"
-          ? Boolean(snapshotCache.tickers?.tickerCards?.length)
-          : Boolean(snapshotCache.rules?.ruleCards?.length);
+    viewMode === "strategies"
+      ? Boolean(snapshotCache.strategies?.strategyCards?.length)
+      : viewMode === "tickers"
+        ? Boolean(snapshotCache.tickers?.tickerCards?.length)
+        : Boolean(snapshotCache.rules?.ruleCards?.length);
 
   return {
     loading: loading || (snapshotLoading && !hasModeCards),

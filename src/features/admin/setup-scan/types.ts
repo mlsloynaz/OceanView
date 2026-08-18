@@ -122,6 +122,12 @@ export type GapForecastTickerRow = {
   reasons?: string[];
   breakdown?: { key: string; points: number; evidence: string }[];
   error?: string | null;
+  priorScore?: number | null;
+  priorBias?: GapForecastBias | string | null;
+  firstScore?: number | null;
+  firstBias?: GapForecastBias | string | null;
+  firstLabel?: string | null;
+  firstEligible?: boolean;
 };
 
 export type GapForecastResult = {
@@ -129,8 +135,16 @@ export type GapForecastResult = {
   status: string;
   message?: string;
   asOfEt?: string;
+  firstAsOfEt?: string;
   tradeDate?: string;
   evaluatedAt?: string;
+  reevaluatedAt?: string | null;
+  reevaluate?: boolean;
+  eligibleSymbols?: string[];
+  firstHighSymbols?: string[];
+  eligibleCount?: number;
+  usedLast15m?: boolean;
+  trigger?: string;
   simulated?: boolean;
   simulationDate?: string | null;
   progress?: { done?: number; total?: number };
@@ -138,6 +152,7 @@ export type GapForecastResult = {
     symbolsTotal?: number;
     symbolsReady?: number;
     refreshedCount?: number;
+    eligibleCount?: number;
     counts?: Partial<Record<GapForecastBias, number>>;
   };
   tickers?: GapForecastTickerRow[];

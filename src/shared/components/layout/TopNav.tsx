@@ -1,11 +1,13 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { todayPath, defaultTodayMode } from "@/features/today/lib/today-routes";
+import { alarmsPath, defaultAlarmsTab } from "@/features/alarms/lib/alarm-routes";
 import { useAuth } from "@/shared/auth/AuthProvider";
 import { ThemeToggle } from "@/shared/components/ThemeToggle";
 import { cn } from "@/shared/lib/cn";
 
 const primaryNav = [
   { to: todayPath(defaultTodayMode()), label: "Today", match: "/today", adminOnly: false },
+  { to: alarmsPath(defaultAlarmsTab()), label: "Alarms", match: "/alarms", adminOnly: false },
   { to: "/research", label: "Research", match: "/research", adminOnly: true },
   { to: "/strategies", label: "Strategies", match: "/strategies", adminOnly: true },
   { to: "/universe", label: "Universe", match: "/universe", adminOnly: true },

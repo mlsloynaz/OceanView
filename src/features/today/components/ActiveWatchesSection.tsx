@@ -1,68 +1,41 @@
-import { AlarmTradeModal } from "@/features/market/alarm/AlarmTradeModal";
-import { MarketAlarmPanel } from "@/features/market/alarm/MarketAlarmPanel";
-import { useMarketAlarms } from "@/features/market/alarm/useMarketAlarms";
+import { Link } from "react-router-dom";
+import { useAlarms } from "@/features/alarms/AlarmsProvider";
+import { alarmsPath } from "@/features/alarms/lib/alarm-routes";
 import { TodaySection } from "./TodaySection";
 
-type Alarms = ReturnType<typeof useMarketAlarms>;
+export function ActiveWatchesSection() {
+  const alarms = useAlarms();
+  const running = alarms.runningCount;
+  const met = alarms.metCount;
 
-type Props = {
-  alarms: Alarms;
-};
-
-export function ActiveWatchesSection({ alarms }: Props) {
   return (
     <TodaySection
       id="today-active-watches"
-      title="Active Watches"
-      subtitle="Confirmation and alarm monitoring — same engine as Market → Alarm"
+      title="Alarms"
+      subtitle="Monitoring moved off Live — open the Alarms page for strategy confirms and breakout watches"
+      actions={
+        <Link
+          to={alarmsPath("strategy")}
+          className="rounded-md bg-ocean-teal px-3 py-1.5 text-xs font-semibold text-ocean-deep hover:brightness-110"
+        >
+          Open Alarms
+        </Link>
+      }
     >
-      {alarms.alarmPopup ? (
-        <AlarmTradeModal
-          watch={alarms.alarmPopup.watch}
-          kind={alarms.alarmPopup.kind}
-          onClose={alarms.clearAlarmPopup}
-          onConfirm={() =>
-            alarms.alarmPopup!.kind === "enter"
-              ? alarms.confirmEnter(alarms.alarmPopup!.watch.id)
-              : alarms.confirmExit(alarms.alarmPopup!.watch.id)
-          }
-        />
-      ) : null}
-      <MarketAlarmPanel
-        watches={alarms.watches}
-        tickers={alarms.tickers}
-        tickersLoading={alarms.tickersLoading}
-        tickersError={alarms.tickersError}
-        formError={alarms.formError}
-        banner={alarms.banner}
-        alarmPopup={alarms.alarmPopup}
-        metCount={alarms.metCount}
-        runningCount={alarms.runningCount}
-        timeMode={alarms.timeMode}
-        simulateLocal={alarms.simulateLocal}
-        lastHourScan={alarms.lastHourScan}
-        lastHourScanError={alarms.lastHourScanError}
-        lastHourScanBusy={alarms.lastHourScanBusy}
-        onTimeModeChange={alarms.setTimeMode}
-        onSimulateLocalChange={alarms.setSimulateLocal}
-        onScanLastHourRth={(symbol) => void alarms.scanLastHourRth(symbol)}
-        onClearLastHourScan={alarms.clearLastHourScan}
-        onClearBanner={alarms.clearMetBanner}
-        onClearAlarmPopup={alarms.clearAlarmPopup}
-        onConfirmEnter={alarms.confirmEnter}
-        onConfirmExit={alarms.confirmExit}
-        onAdd={alarms.addWatch}
-        onStart={alarms.startWatch}
-        onStop={alarms.stopWatch}
-        onStartAllIdle={alarms.startAllIdle}
-        onStopAllRunning={alarms.stopAllRunning}
-        onClearMetStatus={alarms.clearMetStatus}
-        onClearAllMetStatuses={alarms.clearAllMetStatuses}
-        onRemove={alarms.removeWatch}
-        onCheckNow={(id) => void alarms.runCheckNow(id)}
-        onUpdateInterval={alarms.updateWatchInterval}
-        onRequestNotify={() => void alarms.requestNotifyPermission()}
-      />
+      <p className="text-sm text-ocean-sand">
+        {running > 0
+          ? `${running} watch${running === 1 ? "" : "es"} polling`
+          : "No watches polling"}
+        {met > 0 ? ` · ${met} in enter/exit cycle` : ""}
+        {". "}
+        <Link to={alarmsPath("strategy")} className="text-ocean-teal hover:underline">
+          Strategy confirms
+        </Link>
+        {" · "}
+        <Link to={alarmsPath("movement")} className="text-ocean-teal hover:underline">
+          Movement / Breakout
+        </Link>
+      </p>
     </TodaySection>
   );
 }

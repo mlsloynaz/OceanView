@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   PollControls,
   clampPollInterval,
@@ -17,10 +17,14 @@ import { AlarmTriggerList } from "./AlarmTriggerList";
 import { BreakoutKanbanBoard, watchHasBreakout } from "./BreakoutKanbanBoard";
 import {
   ALARM_ELIGIBLE_RULES,
+  MOVEMENT_ALARM_RULE_KEYS,
+  STRATEGY_CONFIRM_RULE_KEYS,
   alarmWatchConflicts,
   formatAlarmTrend,
+  isMovementAlarmWatch,
   needsBandTimeframe,
   type AlarmBandTimeframe,
+  type AlarmBoardSection,
   type AlarmEligibleRuleKey,
   type AlarmPopupKind,
   type AlarmTrend,
@@ -58,6 +62,9 @@ function groupStatusTone(
 }
 
 type Props = {
+  /** Split boards on the dedicated Alarms page. Default shows everything. */
+  section?: AlarmBoardSection;
+  title?: string;
   watches: MarketAlarmWatch[];
   tickers: CatalogTicker[];
   tickersLoading: boolean;
@@ -135,6 +142,8 @@ function statusLabel(status: MarketAlarmWatch["status"]): string {
 }
 
 export function MarketAlarmPanel({
+  section = "all",
+  title,
   watches,
   tickers,
   tickersLoading,
@@ -142,8 +151,8 @@ export function MarketAlarmPanel({
   formError,
   banner,
   alarmPopup,
-  metCount,
-  runningCount,
+  metCount: _metCount,
+  runningCount: _runningCount,
   timeMode,
   simulateLocal,
   lastHourScan,
@@ -166,10 +175,10 @@ export function MarketAlarmPanel({
   onAdd,
   onStart,
   onStop,
-  onStartAllIdle,
-  onStopAllRunning,
+  onStartAllIdle: _onStartAllIdle,
+  onStopAllRunning: _onStopAllRunning,
   onClearMetStatus,
-  onClearAllMetStatuses,
+  onClearAllMetStatuses: _onClearAllMetStatuses,
   onRemove,
   onCheckNow,
   onUpdateInterval,
@@ -179,14 +188,45 @@ export function MarketAlarmPanel({
     () => groupSemifinalMonitorQueue(monitorQueue),
     [monitorQueue],
   );
+  const eligibleRules = useMemo(() => {
+    if (section === "strategy") {
+      return ALARM_ELIGIBLE_RULES.filter((r) =>
+        STRATEGY_CONFIRM_RULE_KEYS.includes(r.ruleKey),
+      );
+    }
+    if (section === "movement") {
+      return ALARM_ELIGIBLE_RULES.filter((r) =>
+        MOVEMENT_ALARM_RULE_KEYS.includes(r.ruleKey),
+      );
+    }
+    return ALARM_ELIGIBLE_RULES;
+  }, [section]);
+
+  const visibleWatches = useMemo(() => {
+    if (section === "strategy") return watches.filter((w) => !isMovementAlarmWatch(w));
+    if (section === "movement") return watches.filter(isMovementAlarmWatch);
+    return watches;
+  }, [section, watches]);
+
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
-  const [selectedRules, setSelectedRules] = useState<AlarmEligibleRuleKey[]>([
-    "confirmation_change_trend_1h",
+  const [selectedRules, setSelectedRules] = useState<AlarmEligibleRuleKey[]>(() => [
+    section === "movement" ? "breakout_quality" : "confirmation_change_trend_1h",
   ]);
   const [bandTimeframe, setBandTimeframe] = useState<AlarmBandTimeframe>("1m");
   const [frequencyValue, setFrequencyValue] = useState(5);
   const [frequencyUnit, setFrequencyUnit] = useState<PollIntervalUnit>("min");
   const showBandTf = needsBandTimeframe(selectedRules);
+
+  useEffect(() => {
+    const allowed = new Set(eligibleRules.map((r) => r.ruleKey));
+    setSelectedRules((prev) => {
+      const next = prev.filter((k) => allowed.has(k));
+      if (next.length > 0) return next;
+      const fallback =
+        section === "movement" ? "breakout_quality" : "confirmation_change_trend_1h";
+      return allowed.has(fallback) ? [fallback] : eligibleRules[0] ? [eligibleRules[0].ruleKey] : [];
+    });
+  }, [eligibleRules, section]);
 
   const toggleRule = (key: AlarmEligibleRuleKey) => {
     setSelectedRules((prev) => {
@@ -210,11 +250,30 @@ export function MarketAlarmPanel({
   const allSelected =
     tickers.length > 0 && selectedSymbols.length > 0 && selectedSymbols.length === tickers.length;
 
-  const nonBreakoutWatchesByTicker = useMemo(
-    () => groupWatchesBySymbol(watches.filter((w) => !watchHasBreakout(w))),
-    [watches],
+  const visibleMetCount = useMemo(
+    () => visibleWatches.filter((w) => w.status === "met" || w.status === "exit").length,
+    [visibleWatches],
   );
-  const hasBreakoutWatches = useMemo(() => watches.some(watchHasBreakout), [watches]);
+  const visibleRunningCount = useMemo(
+    () =>
+      visibleWatches.filter(
+        (w) =>
+          w.status === "running" ||
+          w.status === "checking" ||
+          w.status === "paused" ||
+          w.status === "in_trade",
+      ).length,
+    [visibleWatches],
+  );
+
+  const nonBreakoutWatchesByTicker = useMemo(
+    () => groupWatchesBySymbol(visibleWatches.filter((w) => !watchHasBreakout(w))),
+    [visibleWatches],
+  );
+  const hasBreakoutWatches = useMemo(
+    () => section !== "strategy" && visibleWatches.some(watchHasBreakout),
+    [section, visibleWatches],
+  );
   const tickerNameBySymbol = useMemo(() => {
     const map = new Map<string, string>();
     for (const t of tickers) {
@@ -237,11 +296,15 @@ export function MarketAlarmPanel({
   const clearTickerSelection = () => setSelectedSymbols([]);
 
   const subtitle =
-    metCount > 0
-      ? `${metCount} in enter/exit cycle · ${runningCount} active`
-      : runningCount > 0
-        ? `${runningCount} watch${runningCount === 1 ? "" : "es"} polling`
-        : "Pick tickers + one or more rules (AND) · Start → ENTER → exit watch → EXIT → arm again";
+    visibleMetCount > 0
+      ? `${visibleMetCount} in enter/exit cycle · ${visibleRunningCount} active`
+      : visibleRunningCount > 0
+        ? `${visibleRunningCount} watch${visibleRunningCount === 1 ? "" : "es"} polling`
+        : section === "strategy"
+          ? "SemiFinal confirm queue + playbook confirmation watches"
+          : section === "movement"
+            ? "Breakout Kanban and disipador / momentum watches"
+            : "Pick tickers + one or more rules (AND) · Start → ENTER → exit watch → EXIT → arm again";
 
   return (
     <>
@@ -252,7 +315,7 @@ export function MarketAlarmPanel({
       >
         <header className="mb-3">
           <h2 id="market-alarms-title" className="text-base font-semibold text-ocean-foam">
-            Rule Alarm
+            {title ?? (section === "strategy" ? "Strategy confirms" : section === "movement" ? "Movement / Breakout" : "Rule Alarm")}
           </h2>
           <p className="mt-0.5 text-xs text-ocean-sand">{subtitle}</p>
         </header>
@@ -305,6 +368,7 @@ export function MarketAlarmPanel({
             </button>
           </div>
 
+          {section !== "movement" ? (
           <section
             className="rounded-md border border-ocean-teal/30 bg-ocean-teal/5 px-3 py-2.5"
             aria-labelledby="semifinal-monitor-queue-title"
@@ -321,8 +385,8 @@ export function MarketAlarmPanel({
                   Prefer <strong className="font-medium text-ocean-foam">SemiFinal → By strategy</strong>{" "}
                   cards (E01 / E03 thumbnails): Ready tickers + Start monitoring sit under that
                   strategy so you always know Confirmación E01 vs E03. This list is the same queue
-                  (active · setup met · confirm + vol ignored). Breakout/momentum stays on the
-                  Kanban below.
+                  (active · setup met · confirm + vol ignored). Breakout/momentum lives on{" "}
+                  <strong className="font-medium text-ocean-foam">Alarms → Movement / Breakout</strong>.
                 </p>
                 <ol className="mt-1.5 list-decimal space-y-0.5 pl-4 text-[10px] text-ocean-sand/90">
                   <li>Admin → Tickers SemiFinal → 9:25 visual (once)</li>
@@ -449,6 +513,7 @@ export function MarketAlarmPanel({
               </div>
             ) : null}
           </section>
+          ) : null}
 
           <div className="rounded-md border border-ocean-mid/30 bg-ocean-surface/30 px-3 py-2">
             <p className="mb-1.5 text-[11px] font-medium text-ocean-foam">
@@ -472,15 +537,17 @@ export function MarketAlarmPanel({
                 Schwab refresh). Use Check now / Start to re-run at that moment.
               </p>
             ) : null}
+            {section !== "strategy" ? (
+              <>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 className={cn(BTN, "border border-ocean-teal/40 text-ocean-teal-dim dark:text-ocean-teal")}
-                disabled={lastHourScanBusy || watches.length === 0}
+                disabled={lastHourScanBusy || visibleWatches.length === 0}
                 title="Replay breakout at each 15m close in the last completed regular-session hour"
                 onClick={() => {
-                  const breakout = watches.find(watchHasBreakout);
-                  onScanLastHourRth(breakout?.symbol ?? watches[0]?.symbol);
+                  const breakout = visibleWatches.find(watchHasBreakout);
+                  onScanLastHourRth(breakout?.symbol ?? visibleWatches[0]?.symbol);
                 }}
               >
                 {lastHourScanBusy ? "Scanning last RTH hour…" : "Test last regular market hour"}
@@ -535,6 +602,8 @@ export function MarketAlarmPanel({
                   ))}
                 </ul>
               </div>
+            ) : null}
+              </>
             ) : null}
           </div>
 
@@ -632,7 +701,7 @@ export function MarketAlarmPanel({
                 aria-label="Rules to combine"
               >
                 <ul className="space-y-1">
-                  {ALARM_ELIGIBLE_RULES.map((r) => {
+                  {eligibleRules.map((r) => {
                     const checked = selectedRules.includes(r.ruleKey);
                     return (
                       <li key={r.ruleKey}>
@@ -756,9 +825,13 @@ export function MarketAlarmPanel({
             </p>
           )}
 
-          {watches.length === 0 ? (
+          {visibleWatches.length === 0 ? (
             <p className="text-xs text-ocean-sand">
-              No watches yet — select tickers + one or more rules above.
+              {section === "strategy"
+                ? "No strategy confirm watches yet — start from the SemiFinal queue or add a confirmation rule below."
+                : section === "movement"
+                  ? "No movement / breakout watches yet — add Breakout quality or Disipador touch below."
+                  : "No watches yet — select tickers + one or more rules above."}
             </p>
           ) : (
             <>
@@ -766,9 +839,16 @@ export function MarketAlarmPanel({
                 <button
                   type="button"
                   className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-110")}
-                  onClick={onStartAllIdle}
+                  onClick={() => {
+                    visibleWatches
+                      .filter(
+                        (w) =>
+                          w.status === "idle" || w.status === "stopped" || w.status === "error",
+                      )
+                      .forEach((w) => onStart(w.id));
+                  }}
                   disabled={
-                    !watches.some(
+                    !visibleWatches.some(
                       (w) =>
                         w.status === "idle" || w.status === "stopped" || w.status === "error",
                     )
@@ -782,8 +862,18 @@ export function MarketAlarmPanel({
                     BTN,
                     "border border-amber-600/50 bg-amber-500/10 text-amber-900 dark:text-amber-100",
                   )}
-                  onClick={onStopAllRunning}
-                  disabled={runningCount === 0}
+                  onClick={() => {
+                    visibleWatches
+                      .filter(
+                        (w) =>
+                          w.status === "running" ||
+                          w.status === "checking" ||
+                          w.status === "paused" ||
+                          w.status === "in_trade",
+                      )
+                      .forEach((w) => onStop(w.id));
+                  }}
+                  disabled={visibleRunningCount === 0}
                 >
                   Stop all polling
                 </button>
@@ -793,16 +883,23 @@ export function MarketAlarmPanel({
                     BTN,
                     "border border-ocean-teal/50 bg-ocean-teal/10 text-ocean-foam hover:bg-ocean-teal/20",
                   )}
-                  onClick={onClearAllMetStatuses}
-                  disabled={metCount === 0}
+                  onClick={() => {
+                    visibleWatches
+                      .filter(
+                        (w) =>
+                          w.status === "met" || w.status === "exit" || w.status === "in_trade",
+                      )
+                      .forEach((w) => onClearMetStatus(w.id));
+                  }}
+                  disabled={visibleMetCount === 0}
                   title="Reset fired alarms so they can poll and fire again"
                 >
-                  Clear all signals{metCount > 0 ? ` (${metCount})` : ""}
+                  Clear all signals{visibleMetCount > 0 ? ` (${visibleMetCount})` : ""}
                 </button>
               </div>
             {hasBreakoutWatches ? (
               <BreakoutKanbanBoard
-                watches={watches}
+                watches={visibleWatches}
                 tickerNameBySymbol={tickerNameBySymbol}
                 onCheckNow={onCheckNow}
                 onStart={onStart}

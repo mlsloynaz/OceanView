@@ -134,10 +134,10 @@ export type MarketSnapshotFile = {
   results: TickerEvalResult[];
 };
 
-export type MarketViewMode = "strategies" | "tickers" | "rules" | "alarm";
+export type MarketViewMode = "strategies" | "tickers" | "rules";
 
-/** Modes that load Assess snapshot grids (Alarm is UI-only). */
-export type MarketSnapshotMode = Exclude<MarketViewMode, "alarm">;
+/** Modes that load Assess snapshot grids. */
+export type MarketSnapshotMode = MarketViewMode;
 
 /** Derived view model for strategy thumbnail grid. */
 export type StrategyCardModel = {

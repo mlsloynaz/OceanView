@@ -7,7 +7,7 @@ import {
   sortCandidatesByRank,
   useTradabilityTiers,
 } from "@/features/candidates";
-import { useMarketAlarms } from "@/features/market/alarm/useMarketAlarms";
+import { useAlarms } from "@/features/alarms/AlarmsProvider";
 import { useMarketWorkspace } from "@/features/market/hooks/useMarketWorkspace";
 import {
   filterStrategyGroupsByThreshold,
@@ -30,7 +30,7 @@ import {
 export function TodayPage() {
   const { mode: modeParam } = useParams<{ mode: string }>();
   const navigate = useNavigate();
-  const alarms = useMarketAlarms();
+  const alarms = useAlarms();
   const liveWorkspace = useMarketWorkspace("tickers");
   const premarketWorkspace = usePremarketWorkspace();
   const tradability = useTradabilityTiers();
@@ -139,7 +139,7 @@ export function TodayPage() {
       <CandidateDetailSection candidate={selected} />
 
       {/* Rule Alarm is Market/Live only — same panel was duplicated on Preparation. */}
-      {mode === "live" ? <ActiveWatchesSection alarms={alarms} /> : null}
+      {mode === "live" ? <ActiveWatchesSection /> : null}
     </div>
   );
 }

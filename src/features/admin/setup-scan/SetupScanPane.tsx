@@ -159,14 +159,27 @@ function GapForecastSection({
   message,
   disabled,
   onRun,
+  onReevaluate,
 }: {
   forecast: GapForecastResult | null;
   pending: boolean;
   message: string | null;
   disabled: boolean;
   onRun: () => void;
+  onReevaluate: () => void;
 }) {
   const status = (forecast?.status ?? "empty").toLowerCase();
+  const highFromFirst = (forecast?.tickers ?? []).filter((row) => {
+    const first = row.firstBias || row.priorBias || row.bias;
+    return first === "gap_up_high" || first === "gap_down_high";
+  }).length;
+  const eligibleCount =
+    forecast?.firstHighSymbols?.length ??
+    (highFromFirst || undefined) ??
+    (forecast
+      ? (forecast.gapUpHigh?.length ?? 0) + (forecast.gapDownHigh?.length ?? 0)
+      : 0);
+  const canReevaluate = Boolean(forecast) && status !== "empty" && eligibleCount > 0;
   return (
     <section
       className="mb-4 rounded-lg border border-ocean-mid/40 bg-ocean-deep/20 px-3 py-3"
@@ -178,17 +191,32 @@ function GapForecastSection({
             Overnight gap forecast (15:25)
           </h3>
           <p className="mt-0.5 text-[11px] text-ocean-sand">
-            Active tickers only · score buckets for next-session gap bias · used with SemiFinal
+            Active tickers only · 15:25 buckets · 15:55 auto rescores HIGH · or run now anytime
           </p>
         </div>
-        <button
-          type="button"
-          className={BTN_SECONDARY}
-          disabled={disabled || pending}
-          onClick={onRun}
-        >
-          {pending ? "Scoring…" : "Run 15:25 gap list"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className={BTN_SECONDARY}
+            disabled={disabled || pending}
+            onClick={onRun}
+          >
+            {pending && !forecast?.reevaluate ? "Scoring…" : "Run 15:25 gap list"}
+          </button>
+          <button
+            type="button"
+            className={BTN_SECONDARY}
+            disabled={disabled || pending || !canReevaluate}
+            onClick={onReevaluate}
+            title={
+              canReevaluate
+                ? `Rescore the ${eligibleCount} HIGH ticker(s) anytime. Outside regular hours, uses the last 15 minutes of that session.`
+                : "Run the 15:25 list first — then you can reevaluate HIGH names anytime"
+            }
+          >
+            {pending && forecast?.reevaluate ? "Reevaluating…" : "Reevaluate now"}
+          </button>
+        </div>
       </header>
       {message ? (
         <p className="mb-2 text-xs text-ocean-teal-dim dark:text-ocean-teal" role="status">
@@ -197,7 +225,7 @@ function GapForecastSection({
       ) : null}
       {!forecast || status === "empty" ? (
         <p className="text-xs text-ocean-sand">
-          No 15:25 list yet — schedule runs weekdays at 3:25 PM ET, or run manually.
+          No 15:25 list yet — schedule runs weekdays at 3:25 PM ET, HIGH names again at 3:55 PM ET, or Reevaluate now anytime.
         </p>
       ) : (
         <>
@@ -207,6 +235,11 @@ function GapForecastSection({
             {forecast.summary?.symbolsReady != null
               ? ` · ${forecast.summary.symbolsReady}/${forecast.summary.symbolsTotal ?? "?"} ready`
               : ""}
+            {eligibleCount > 0 ? ` · ${eligibleCount} HIGH from first 15:25 list` : ""}
+            {forecast.reevaluate || forecast.reevaluatedAt
+              ? ` · reevaluated${forecast.reevaluatedAt ? ` ${forecast.reevaluatedAt}` : ""}`
+              : ""}
+            {forecast.usedLast15m ? " · last 15m of regular hours" : ""}
             {status === "running" ? " · running…" : ""}
           </p>
           <div className="grid gap-2 lg:grid-cols-5">
@@ -228,6 +261,9 @@ function GapForecastSection({
                           <span className="font-semibold tabular-nums">{row.symbol}</span>
                           <span className="tabular-nums text-ocean-sand">
                             {row.score > 0 ? `+${row.score}` : row.score}
+                            {row.priorScore != null && row.priorScore !== row.score
+                              ? ` (was ${row.priorScore > 0 ? `+${row.priorScore}` : row.priorScore})`
+                              : ""}
                           </span>
                         </li>
                       ))}
@@ -618,14 +654,14 @@ function StrategyGroupSection({
                       )}
                       title={
                         already
-                          ? "Already on Market Alarm board"
+                          ? "Already on Alarms board"
                           : `Start ${ready.confirmLabel} · ${ready.scheduleSummary}`
                       }
                       onClick={() => {
                         const status = startConfirmFromSemifinal(ready);
                         if (status === "started") {
                           setMonitorMsg(
-                            `${ready.symbol} → Market Alarm · ${ready.confirmLabel} (open Alarm to see poll)`,
+                            `${ready.symbol} → Alarms · ${ready.confirmLabel} (open Alarms to see poll)`,
                           );
                         } else if (status === "duplicate") {
                           setMonitorMsg(`${ready.symbol} already on the Alarm board.`);
@@ -1001,6 +1037,7 @@ export function SetupScanPane() {
           message={ws.gapMessage}
           disabled={ws.loading || ws.runPending}
           onRun={() => ws.runGapForecast()}
+          onReevaluate={() => ws.runGapReevaluate()}
         />
 
         {ws.result && (

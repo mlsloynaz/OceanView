@@ -26,6 +26,22 @@ export const ALARM_ELIGIBLE_RULES = [
 
 export type AlarmEligibleRuleKey = (typeof ALARM_ELIGIBLE_RULES)[number]["ruleKey"];
 
+/** Playbook confirmation rules (E01 / E03 / E06). */
+export const STRATEGY_CONFIRM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
+  "confirmation_change_trend_1h",
+  "confirmation_change_trend_15m",
+  "volume_stoch_1h",
+];
+
+/** Movement / breakout watches — not a playbook confirm. */
+export const MOVEMENT_ALARM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
+  "breakout_quality",
+  "touch_disipador",
+];
+
+export type AlarmBoardSection = "all" | "strategy" | "movement";
+
+
 /** Same TF for candle + Bollinger (touch_disipador). */
 export type AlarmBandTimeframe = "1m" | "15m" | "1h";
 
@@ -147,6 +163,18 @@ export function watchRuleKeys(
     if (!out.includes(key)) out.push(key);
   }
   return out;
+}
+
+export function isMovementAlarmWatch(
+  watch: Pick<MarketAlarmWatch, "ruleKey" | "ruleKeys">,
+): boolean {
+  return watchRuleKeys(watch).some((key) => MOVEMENT_ALARM_RULE_KEYS.includes(key));
+}
+
+export function isStrategyConfirmWatch(
+  watch: Pick<MarketAlarmWatch, "ruleKey" | "ruleKeys">,
+): boolean {
+  return !isMovementAlarmWatch(watch);
 }
 
 /**

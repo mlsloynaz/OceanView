@@ -9,6 +9,7 @@ import {
   getSetupScanResult,
   pollGapForecastResult,
   pollSetupScanResult,
+  postGapForecastReevaluate,
   postGapForecastRun,
   postSetupScanRun,
   SetupScanApiError,
@@ -325,6 +326,42 @@ export function useSetupScanPane(open: boolean) {
     });
   }, [scanMode, simulationDate]);
 
+  const runGapReevaluate = useCallback(() => {
+    startGapTransition(async () => {
+      setError(null);
+      setGapMessage(null);
+      try {
+        const ack = await postGapForecastReevaluate({
+          simulationDate: scanMode === "simulate" ? simulationDate.trim() || undefined : undefined,
+          refreshCandles: scanMode !== "simulate",
+        });
+        if ((ack.status ?? "").toLowerCase() === "complete" && (ack.tickers?.length ?? 0) > 0) {
+          setGapForecast(ack);
+          setGapMessage(
+            `Reevaluated ${ack.eligibleCount ?? ack.tickers?.length ?? 0} HIGH ticker(s).`,
+          );
+          return;
+        }
+        setGapMessage(ack.message ?? "Reevaluate started for HIGH names…");
+        const payload = await pollGapForecastResult((progress) => {
+          const done = progress.progress?.done;
+          const total = progress.progress?.total;
+          if (done != null && total != null) {
+            setGapMessage(`Reevaluate HIGH… ${done}/${total}`);
+          }
+        });
+        setGapForecast(payload);
+        setGapMessage(
+          payload.status === "empty"
+            ? "No gap forecast yet."
+            : `Reevaluated ${payload.eligibleCount ?? payload.firstHighSymbols?.length ?? payload.eligibleSymbols?.length ?? 0} HIGH ticker(s).`,
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Gap reevaluate failed.");
+      }
+    });
+  }, [scanMode, simulationDate]);
+
   const setActive = useCallback(async (symbol: string, active: boolean) => {
     const upper = symbol.trim().toUpperCase();
     setTickerPending((prev) => ({ ...prev, [upper]: true }));
@@ -394,6 +431,7 @@ export function useSetupScanPane(open: boolean) {
     loadResult,
     runScan,
     runGapForecast,
+    runGapReevaluate,
     gapForecast,
     gapPending,
     gapMessage,

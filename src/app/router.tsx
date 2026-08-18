@@ -1,4 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
+import { AlarmsPage } from "@/features/alarms/AlarmsPage";
+import { AlarmsRedirect } from "@/features/alarms/AlarmsRedirect";
+import { alarmsPath, defaultAlarmsTab } from "@/features/alarms/lib/alarm-routes";
 import { AppShell } from "@/shared/components/layout/AppShell";
 import { RouteErrorFallback } from "@/shared/components/RouteErrorFallback";
 import { RouteNotFound } from "@/shared/components/RouteNotFound";
@@ -32,6 +35,8 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to={todayPath(defaultTodayMode())} replace /> },
       { path: "today", element: <TodayRedirect /> },
       { path: "today/:mode", element: <TodayPage /> },
+      { path: "alarms", element: <AlarmsRedirect /> },
+      { path: "alarms/:tab", element: <AlarmsPage /> },
       {
         path: "research",
         element: (
@@ -82,6 +87,10 @@ export const router = createBrowserRouter([
       },
       // Compatibility routes — preserved; primary nav no longer highlights these
       { path: "market", element: <MarketRedirect /> },
+      {
+        path: "market/alarm",
+        element: <Navigate to={alarmsPath(defaultAlarmsTab())} replace />,
+      },
       { path: "market/:mode", element: <MarketPage /> },
       { path: "premarket", element: <PremarketPage /> },
       { path: "admin", element: <RequireAdmin><AdminPage /></RequireAdmin> },

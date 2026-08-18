@@ -6,9 +6,13 @@ export const MOCK_GAP_FORECAST: GapForecastResult = {
   asOfEt: "2026-07-02T15:25:00-04:00",
   tradeDate: "2026-07-02",
   evaluatedAt: new Date().toISOString(),
+  eligibleSymbols: ["AAPL", "INTC"],
+  firstHighSymbols: ["AAPL", "INTC"],
+  eligibleCount: 2,
   summary: {
     symbolsTotal: 3,
     symbolsReady: 3,
+    eligibleCount: 2,
     counts: {
       gap_up_high: 1,
       gap_up_moderate: 1,
