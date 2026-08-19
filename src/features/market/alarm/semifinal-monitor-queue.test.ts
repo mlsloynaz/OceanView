@@ -68,7 +68,8 @@ describe("buildSemifinalMonitorQueue", () => {
     expect(queue[0]?.confirmRuleKey).toBe("confirmation_change_trend_1h");
     expect(queue[0]?.startEt).toBe("09:31");
     expect(queue[0]?.scheduleSummary).toMatch(/9:31/);
-    expect(queue[0]?.frequencyValue).toBe(60);
+    expect(queue[0]?.frequencyValue).toBe(1);
+    expect(queue[0]?.frequencyUnit).toBe("hour");
     expect(queue[0]?.setupMet).toContain("Prior bajista");
   });
 
@@ -97,6 +98,35 @@ describe("buildSemifinalMonitorQueue", () => {
                 candidateRules: [
                   {
                     ruleKey: "bb_mid_trend_1h_prior",
+                    type: "required",
+                    status: "met",
+                    met: true,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            strategyId: "estrategia-02",
+            name: "Midpoint Bounce",
+            shortName: "E02",
+            tickerCount: 1,
+            tickers: [
+              {
+                symbol: "MSFT",
+                currentlyActive: true,
+                ready: true,
+                score: 10,
+                maxScore: 10,
+                tier: "strong",
+                directionBias: "CALL",
+                reasons: [],
+                avoidReasons: [],
+                breakdown: [],
+                requiredPassed: true,
+                candidateRules: [
+                  {
+                    ruleKey: "bb_mid_trend_d",
                     type: "required",
                     status: "met",
                     met: true,
@@ -138,6 +168,11 @@ describe("buildSemifinalMonitorQueue", () => {
       }),
     );
     const groups = groupSemifinalMonitorQueue(queue);
-    expect(groups).toHaveLength(2);
+    expect(groups).toHaveLength(3);
+    expect(groups.map((g) => g.confirmRuleKey).sort()).toEqual([
+      "confirmation_change_trend_1h",
+      "daily_ma_bounce_confirm_1h",
+      "volume_stoch_1h",
+    ]);
   });
 });

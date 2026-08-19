@@ -23,6 +23,18 @@ import {
   type AlarmTrend,
   type MarketAlarmWatch,
 } from "./alarm-types";
+import {
+  E03_CONFIRM_EXPIRED_MESSAGE,
+  E03_CONFIRM_RULE_KEY,
+  filterExpiredE03ConfirmQueue,
+  isE03ConfirmExpired,
+  isE03ConfirmWatch,
+} from "./e03-confirm-window";
+import {
+  SESSION_MONITOR_ENDED_MESSAGE,
+  isActivelyMonitoringWatch,
+  isSessionMonitorEnded,
+} from "./session-monitor-end";
 import { watchHasBreakout } from "./BreakoutKanbanBoard";
 import {
   startAlarmRing,
@@ -41,6 +53,13 @@ import {
 } from "./alarm-watch-storage";
 import { getSetupScanResult } from "@/features/admin/setup-scan/api/preselection-client";
 import type { PreselectionResultResponse } from "@/features/admin/setup-scan/types";
+import {
+  SEMIFINAL_RESULT_CHANGED_AT_KEY,
+  SEMIFINAL_RESULT_CHANGED_EVENT,
+  clearSemifinalMonitorQueueCleared,
+  isSemifinalMonitorQueueCleared,
+  markSemifinalMonitorQueueCleared,
+} from "@/features/admin/setup-scan/semifinal-result-events";
 
 const STORAGE_KEY = "oceanview.market.alarms";
 const SIM_STORAGE_KEY = "oceanview.market.alarms.simulate";
@@ -146,6 +165,9 @@ export function useMarketAlarms() {
   }>({ mode: null, tradeDate: null, evaluatedAt: null });
   const [monitorQueueLoading, setMonitorQueueLoading] = useState(false);
   const [monitorQueueError, setMonitorQueueError] = useState<string | null>(null);
+  const [monitorQueueCleared, setMonitorQueueCleared] = useState(() =>
+    isSemifinalMonitorQueueCleared(),
+  );
 
   const timersRef = useRef<Map<string, number>>(new Map());
   /** Watch ids currently executing a check (HTTP in flight). */
@@ -164,6 +186,13 @@ export function useMarketAlarms() {
   timeModeRef.current = timeMode;
   const simulateLocalRef = useRef(simulateLocal);
   simulateLocalRef.current = simulateLocal;
+
+  const assessmentClock = useCallback((): Date => {
+    if (timeModeRef.current === "simulate") {
+      return parseEtDatetimeLocal(simulateLocalRef.current) ?? new Date();
+    }
+    return new Date();
+  }, []);
 
   useEffect(() => {
     persist(watches);
@@ -198,7 +227,18 @@ export function useMarketAlarms() {
     };
   }, []);
 
-  const refreshMonitorQueue = useCallback(async () => {
+  const refreshMonitorQueue = useCallback(async (opts?: { force?: boolean }) => {
+    if (!opts?.force && isSemifinalMonitorQueueCleared()) {
+      setMonitorQueue([]);
+      setMonitorQueueError(null);
+      setMonitorQueueCleared(true);
+      setMonitorQueueLoading(false);
+      return;
+    }
+    if (opts?.force) {
+      clearSemifinalMonitorQueueCleared();
+      setMonitorQueueCleared(false);
+    }
     setMonitorQueueLoading(true);
     setMonitorQueueError(null);
     try {
@@ -215,7 +255,7 @@ export function useMarketAlarms() {
       if (!openOk) {
         payload = await getSetupScanResult(undefined, "eod");
       }
-      setMonitorQueue(buildSemifinalMonitorQueue(payload));
+      setMonitorQueue(filterExpiredE03ConfirmQueue(buildSemifinalMonitorQueue(payload), assessmentClock()));
       setMonitorQueueMeta({
         mode: payload?.mode ?? null,
         tradeDate: payload?.tradeDate ?? null,
@@ -230,10 +270,39 @@ export function useMarketAlarms() {
     } finally {
       setMonitorQueueLoading(false);
     }
+  }, [assessmentClock]);
+
+  const clearMonitorQueue = useCallback(() => {
+    markSemifinalMonitorQueueCleared();
+    setMonitorQueueCleared(true);
+    setMonitorQueue([]);
+    setMonitorQueueError(null);
+    setMonitorQueueMeta({ mode: null, tradeDate: null, evaluatedAt: null });
+  }, []);
+
+  const removeMonitorQueueRow = useCallback((id: string) => {
+    setMonitorQueue((prev) => prev.filter((row) => row.id !== id));
   }, []);
 
   useEffect(() => {
     void refreshMonitorQueue();
+  }, [refreshMonitorQueue]);
+
+  useEffect(() => {
+    const reloadFromSemifinal = () => {
+      void refreshMonitorQueue({ force: true });
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === SEMIFINAL_RESULT_CHANGED_AT_KEY) {
+        reloadFromSemifinal();
+      }
+    };
+    window.addEventListener(SEMIFINAL_RESULT_CHANGED_EVENT, reloadFromSemifinal);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(SEMIFINAL_RESULT_CHANGED_EVENT, reloadFromSemifinal);
+      window.removeEventListener("storage", onStorage);
+    };
   }, [refreshMonitorQueue]);
 
   const clearTimer = useCallback((id: string) => {
@@ -250,9 +319,70 @@ export function useMarketAlarms() {
     }
   }, [clearTimer]);
 
+  const dropWatchFromQueues = useCallback(
+    (id: string) => {
+      clearTimer(id);
+      queuedIdsRef.current.delete(id);
+      checkQueueRef.current = checkQueueRef.current.filter((queued) => queued !== id);
+    },
+    [clearTimer],
+  );
+
+  const sweepExpiredE03Confirms = useCallback(() => {
+    const now = assessmentClock();
+    setMonitorQueue((prev) => filterExpiredE03ConfirmQueue(prev, now));
+    if (!isE03ConfirmExpired(now)) return;
+
+    const expired = watchesRef.current.filter(isE03ConfirmWatch);
+    if (expired.length === 0) return;
+
+    for (const watch of expired) {
+      dropWatchFromQueues(watch.id);
+    }
+    setAlarmPopup((popup) => {
+      if (popup && isE03ConfirmWatch(popup.watch)) {
+        stopAlarmRing();
+        return null;
+      }
+      return popup;
+    });
+    setWatches((prev) => prev.filter((w) => !isE03ConfirmWatch(w)));
+    setBanner(E03_CONFIRM_EXPIRED_MESSAGE);
+  }, [assessmentClock, dropWatchFromQueues]);
+
+  const stopWatchesAtSessionEnd = useCallback(() => {
+    const now = assessmentClock();
+    if (!isSessionMonitorEnded(now)) return;
+    const active = watchesRef.current.filter(isActivelyMonitoringWatch);
+    if (active.length === 0) return;
+    for (const watch of active) {
+      dropWatchFromQueues(watch.id);
+    }
+    stopAlarmRing();
+    setAlarmPopup(null);
+    setWatches((prev) =>
+      prev.map((w) =>
+        isActivelyMonitoringWatch(w)
+          ? { ...w, status: "stopped", lastError: null }
+          : w,
+      ),
+    );
+    setBanner(SESSION_MONITOR_ENDED_MESSAGE);
+  }, [assessmentClock, dropWatchFromQueues]);
+
   useEffect(() => {
     return () => stopAllTimers();
   }, [stopAllTimers]);
+
+  useEffect(() => {
+    sweepExpiredE03Confirms();
+    stopWatchesAtSessionEnd();
+    const timer = window.setInterval(() => {
+      sweepExpiredE03Confirms();
+      stopWatchesAtSessionEnd();
+    }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [sweepExpiredE03Confirms, stopWatchesAtSessionEnd, timeMode, simulateLocal]);
 
   /**
    * Skip candle refresh if same symbol was refreshed recently (shared across watches).
@@ -289,6 +419,14 @@ export function useMarketAlarms() {
       const watch = watchesRef.current.find((w) => w.id === id);
       // Waiting for user on enter/exit popup — do not poll.
       if (!watch || watch.status === "met" || watch.status === "exit") return;
+      if (isE03ConfirmWatch(watch) && isE03ConfirmExpired(assessmentClock())) {
+        sweepExpiredE03Confirms();
+        return;
+      }
+      if (isSessionMonitorEnded(assessmentClock())) {
+        stopWatchesAtSessionEnd();
+        return;
+      }
 
       inFlightRef.current.add(id);
       const priorStatus = watch.status;
@@ -377,6 +515,11 @@ export function useMarketAlarms() {
             ),
           );
           setBanner(waitMsg);
+          return;
+        }
+
+        if (result.expired && isE03ConfirmWatch(watch)) {
+          sweepExpiredE03Confirms();
           return;
         }
 
@@ -594,7 +737,7 @@ export function useMarketAlarms() {
         inFlightRef.current.delete(id);
       }
     },
-    [clearTimer, markCandleRefreshed, shouldRefreshCandles],
+    [assessmentClock, clearTimer, markCandleRefreshed, shouldRefreshCandles, stopWatchesAtSessionEnd, sweepExpiredE03Confirms],
   );
 
   const pumpCheckQueue = useCallback(() => {
@@ -639,6 +782,14 @@ export function useMarketAlarms() {
     (id: string, opts?: { mode?: "hunt" | "in_trade" }) => {
       const watch = watchesRef.current.find((w) => w.id === id);
       if (!watch) return;
+      if (isE03ConfirmWatch(watch) && isE03ConfirmExpired(assessmentClock())) {
+        sweepExpiredE03Confirms();
+        return;
+      }
+      if (isSessionMonitorEnded(assessmentClock())) {
+        stopWatchesAtSessionEnd();
+        return;
+      }
       // Enter confirm may still see status "met" until state flushes.
       if (watch.status === "met" && opts?.mode !== "in_trade") return;
       if (watch.status === "exit" && opts?.mode !== "hunt") return;
@@ -682,7 +833,7 @@ export function useMarketAlarms() {
         }
       }, 0);
     },
-    [clearTimer, runCheck],
+    [assessmentClock, clearTimer, runCheck, stopWatchesAtSessionEnd, sweepExpiredE03Confirms],
   );
 
   /** SemiFinal (and other tabs) can enqueue confirm watches into sessionStorage. */
@@ -698,10 +849,16 @@ export function useMarketAlarms() {
       setWatches(next);
     };
 
-    const onChanged = () => mergeFromStore();
+    const onChanged = () => {
+      mergeFromStore();
+      sweepExpiredE03Confirms();
+      stopWatchesAtSessionEnd();
+    };
     const onStart = (e: Event) => {
       const watchId = (e as CustomEvent<{ watchId?: string }>).detail?.watchId;
       mergeFromStore();
+      sweepExpiredE03Confirms();
+      stopWatchesAtSessionEnd();
       if (watchId) {
         window.setTimeout(() => startWatch(watchId), 0);
       }
@@ -713,7 +870,7 @@ export function useMarketAlarms() {
       window.removeEventListener(MARKET_ALARM_CHANGED_EVENT, onChanged);
       window.removeEventListener(MARKET_ALARM_START_REQUEST_EVENT, onStart);
     };
-  }, [startWatch]);
+  }, [startWatch, stopWatchesAtSessionEnd, sweepExpiredE03Confirms]);
 
   const stopWatch = useCallback(
     (id: string) => {
@@ -920,6 +1077,16 @@ export function useMarketAlarms() {
         setFormError("Pick at least one eligible rule.");
         return false;
       }
+      if (ruleKeys.includes(E03_CONFIRM_RULE_KEY) && isE03ConfirmExpired(assessmentClock())) {
+        setFormError(E03_CONFIRM_EXPIRED_MESSAGE);
+        sweepExpiredE03Confirms();
+        return false;
+      }
+      if (isSessionMonitorEnded(assessmentClock())) {
+        setFormError(SESSION_MONITOR_ENDED_MESSAGE);
+        stopWatchesAtSessionEnd();
+        return false;
+      }
       const primaryKey = ruleKeys[0]!;
       const trend: AlarmTrend = "auto";
       const frequencyUnit =
@@ -1010,7 +1177,7 @@ export function useMarketAlarms() {
 
       return true;
     },
-    [startWatch],
+    [assessmentClock, startWatch, stopWatchesAtSessionEnd, sweepExpiredE03Confirms],
   );
 
   const startMonitorCandidate = useCallback(
@@ -1168,7 +1335,10 @@ export function useMarketAlarms() {
     monitorQueueMeta,
     monitorQueueLoading,
     monitorQueueError,
+    monitorQueueCleared,
     refreshMonitorQueue,
+    clearMonitorQueue,
+    removeMonitorQueueRow,
     startMonitorCandidate,
     addWatch,
     startWatch,

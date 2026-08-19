@@ -66,7 +66,10 @@ export function AlarmsPage() {
         monitorQueueMeta={alarms.monitorQueueMeta}
         monitorQueueLoading={alarms.monitorQueueLoading}
         monitorQueueError={alarms.monitorQueueError}
-        onRefreshMonitorQueue={() => void alarms.refreshMonitorQueue()}
+        monitorQueueCleared={alarms.monitorQueueCleared}
+        onRefreshMonitorQueue={() => void alarms.refreshMonitorQueue({ force: true })}
+        onClearMonitorQueue={alarms.clearMonitorQueue}
+        onRemoveMonitorQueueRow={alarms.removeMonitorQueueRow}
         onStartMonitorCandidate={alarms.startMonitorCandidate}
         onTimeModeChange={alarms.setTimeMode}
         onSimulateLocalChange={alarms.setSimulateLocal}

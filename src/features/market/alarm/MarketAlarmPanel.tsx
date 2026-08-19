@@ -30,6 +30,11 @@ import {
   type AlarmTrend,
   type MarketAlarmWatch,
 } from "./alarm-types";
+import {
+  E03_CONFIRM_RULE_KEY,
+  isE03ConfirmExpired,
+  useNowTick,
+} from "./e03-confirm-window";
 import type { SemifinalMonitorCandidate } from "./semifinal-monitor-queue";
 import { groupSemifinalMonitorQueue } from "./semifinal-monitor-queue";
 
@@ -87,7 +92,10 @@ type Props = {
   };
   monitorQueueLoading: boolean;
   monitorQueueError: string | null;
+  monitorQueueCleared: boolean;
   onRefreshMonitorQueue: () => void;
+  onClearMonitorQueue: () => void;
+  onRemoveMonitorQueueRow: (id: string) => void;
   onStartMonitorCandidate: (row: SemifinalMonitorCandidate) => boolean;
   onTimeModeChange: (mode: LiveSimulateMode) => void;
   onSimulateLocalChange: (value: string) => void;
@@ -162,7 +170,10 @@ export function MarketAlarmPanel({
   monitorQueueMeta,
   monitorQueueLoading,
   monitorQueueError,
+  monitorQueueCleared,
   onRefreshMonitorQueue,
+  onClearMonitorQueue,
+  onRemoveMonitorQueueRow,
   onStartMonitorCandidate,
   onTimeModeChange,
   onSimulateLocalChange,
@@ -184,23 +195,20 @@ export function MarketAlarmPanel({
   onUpdateInterval,
   onRequestNotify,
 }: Props) {
+  const nowTick = useNowTick();
   const monitorGroups = useMemo(
     () => groupSemifinalMonitorQueue(monitorQueue),
     [monitorQueue],
   );
   const eligibleRules = useMemo(() => {
-    if (section === "strategy") {
-      return ALARM_ELIGIBLE_RULES.filter((r) =>
-        STRATEGY_CONFIRM_RULE_KEYS.includes(r.ruleKey),
-      );
-    }
-    if (section === "movement") {
-      return ALARM_ELIGIBLE_RULES.filter((r) =>
-        MOVEMENT_ALARM_RULE_KEYS.includes(r.ruleKey),
-      );
-    }
-    return ALARM_ELIGIBLE_RULES;
-  }, [section]);
+    const e03Closed = isE03ConfirmExpired(nowTick);
+    return ALARM_ELIGIBLE_RULES.filter((r) => {
+      if (e03Closed && r.ruleKey === E03_CONFIRM_RULE_KEY) return false;
+      if (section === "strategy") return STRATEGY_CONFIRM_RULE_KEYS.includes(r.ruleKey);
+      if (section === "movement") return MOVEMENT_ALARM_RULE_KEYS.includes(r.ruleKey);
+      return true;
+    });
+  }, [nowTick, section]);
 
   const visibleWatches = useMemo(() => {
     if (section === "strategy") return watches.filter((w) => !isMovementAlarmWatch(w));
@@ -383,14 +391,18 @@ export function MarketAlarmPanel({
                 </h3>
                 <p className="mt-0.5 text-[11px] leading-snug text-ocean-sand">
                   Prefer <strong className="font-medium text-ocean-foam">SemiFinal → By strategy</strong>{" "}
-                  cards (E01 / E03 thumbnails): Ready tickers + Start monitoring sit under that
-                  strategy so you always know Confirmación E01 vs E03. This list is the same queue
-                  (active · setup met · confirm + vol ignored). Breakout/momentum lives on{" "}
+                  cards (E01 / E02 / E03 thumbnails): Ready tickers + Start monitoring sit under that
+                  strategy so you always know Confirmación E01 vs E02 vs E03. This list is the same queue
+                  (active · setup met · confirm + vol ignored). Each SemiFinal run replaces these
+                  names. Clear empties the list until Refresh or a new scan; Remove drops one ticker.
+                  Watches already started stay on the board. Hourly trend and Midpoint Bounce poll
+                  every hour; Magnet Effect every 30s until 9:45. All polling stops at 4:00 PM ET.
+                  Breakout/momentum lives on{" "}
                   <strong className="font-medium text-ocean-foam">Alarms → Movement / Breakout</strong>.
                 </p>
                 <ol className="mt-1.5 list-decimal space-y-0.5 pl-4 text-[10px] text-ocean-sand/90">
-                  <li>Admin → Tickers SemiFinal → 9:25 visual (once)</li>
-                  <li>Activate names · open E01 or E03 strategy card</li>
+                  <li>Admin → Tickers SemiFinal → 9:25 visual</li>
+                  <li>Activate names · open E01 / E02 / E03 strategy card</li>
                   <li>Start monitoring on Ready tickers (or use this list)</li>
                 </ol>
                 {monitorQueueMeta.mode || monitorQueueMeta.tradeDate ? (
@@ -401,14 +413,24 @@ export function MarketAlarmPanel({
                   </p>
                 ) : null}
               </div>
-              <button
-                type="button"
-                className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
-                disabled={monitorQueueLoading}
-                onClick={() => onRefreshMonitorQueue()}
-              >
-                {monitorQueueLoading ? "Loading…" : "Refresh from SemiFinal"}
-              </button>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
+                  disabled={monitorQueueLoading || monitorQueue.length === 0}
+                  onClick={() => onClearMonitorQueue()}
+                >
+                  Clear list
+                </button>
+                <button
+                  type="button"
+                  className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
+                  disabled={monitorQueueLoading}
+                  onClick={() => onRefreshMonitorQueue()}
+                >
+                  {monitorQueueLoading ? "Loading…" : "Refresh from SemiFinal"}
+                </button>
+              </div>
             </div>
             {monitorQueueError ? (
               <p className="text-[11px] text-rose-300" role="status">
@@ -417,8 +439,9 @@ export function MarketAlarmPanel({
             ) : null}
             {!monitorQueueLoading && !monitorQueueError && monitorQueue.length === 0 ? (
               <p className="text-[11px] text-ocean-sand">
-                No active setup-ready names. Run SemiFinal Open (~9:20), activate tickers, then
-                Refresh. E01 needs prior/regime setup met (confirm + vol not required here).
+                {monitorQueueCleared
+                  ? "Queue cleared. Refresh from SemiFinal or run a new scan to fill it again."
+                  : "No active setup-ready names. Run SemiFinal Open (~9:20), activate tickers, then Refresh. E01 needs prior/regime setup met (confirm + vol not required here)."}
               </p>
             ) : null}
             {monitorGroups.length > 0 ? (
@@ -486,6 +509,7 @@ export function MarketAlarmPanel({
                                   : `start ${row.startEt} ET`}
                               </p>
                             </div>
+                            <div className="flex flex-wrap items-center gap-1.5">
                             <button
                               type="button"
                               className={cn(
@@ -504,6 +528,18 @@ export function MarketAlarmPanel({
                             >
                               {already ? "On board" : "Start monitoring"}
                             </button>
+                            <button
+                              type="button"
+                              className={cn(
+                                BTN,
+                                "border border-ocean-danger/50 text-ocean-danger hover:bg-ocean-danger/10",
+                              )}
+                              title={`Remove ${row.symbol} from this list`}
+                              onClick={() => onRemoveMonitorQueueRow(row.id)}
+                            >
+                              Remove
+                            </button>
+                            </div>
                           </li>
                         );
                       })}

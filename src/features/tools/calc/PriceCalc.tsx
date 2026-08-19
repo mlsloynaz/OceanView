@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   calc10,
+  calc20,
   calc35,
   calcRisk,
   formatCalcResult,
@@ -14,14 +15,21 @@ export function PriceCalc() {
   const value = parseFloat(input);
   const valid = Number.isFinite(value);
   const r35 = valid ? calc35(value) : null;
+  const r20 = valid ? calc20(value) : null;
   const r10 = valid ? calc10(value) : null;
   const rRisk = valid ? calcRisk(value) : null;
   const lastIs35 = lastLabel === "35%";
+  const lastIs20 = lastLabel === "20%";
   const lastIs10 = lastLabel === "10%";
 
   function run35() {
     if (!valid) return;
     setLastLabel("35%");
+  }
+
+  function run20() {
+    if (!valid) return;
+    setLastLabel("20%");
   }
 
   function run10() {
@@ -42,7 +50,7 @@ export function PriceCalc() {
         className="w-full rounded-lg border border-ocean-mid/60 bg-ocean-deep px-3 py-2.5 text-base font-medium text-ocean-foam placeholder:text-ocean-sand/50 focus:border-ocean-teal focus:outline-none focus:ring-2 focus:ring-ocean-teal/30"
       />
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <button
           type="button"
           onClick={run35}
@@ -51,6 +59,15 @@ export function PriceCalc() {
           title="× 1.35 + 0.02"
         >
           35%
+        </button>
+        <button
+          type="button"
+          onClick={run20}
+          disabled={!valid}
+          className="rounded-lg border border-ocean-mid/80 bg-ocean-surface px-2 py-2 text-sm font-bold text-ocean-foam transition-all hover:bg-ocean-mid/40 disabled:opacity-40"
+          title="× 1.2 + 0.02"
+        >
+          20%
         </button>
         <button
           type="button"
@@ -63,8 +80,8 @@ export function PriceCalc() {
         </button>
       </div>
 
-      {valid && r35 != null && r10 != null && (
-        <div className="grid grid-cols-2 gap-2">
+      {valid && r35 != null && r20 != null && r10 != null && (
+        <div className="grid grid-cols-3 gap-2">
           <div
             className={cn(
               "rounded-lg px-2 py-2.5 text-center",
@@ -74,6 +91,17 @@ export function PriceCalc() {
             <p className="text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">35%</p>
             <p className="mt-0.5 text-xl font-bold tabular-nums leading-tight text-ocean-teal">
               {formatCalcResult(r35)}
+            </p>
+          </div>
+          <div
+            className={cn(
+              "rounded-lg px-2 py-2.5 text-center",
+              lastIs20 ? "bg-ocean-teal/20 ring-2 ring-ocean-teal" : "bg-ocean-surface/80",
+            )}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">20%</p>
+            <p className="mt-0.5 text-xl font-bold tabular-nums leading-tight text-ocean-teal">
+              {formatCalcResult(r20)}
             </p>
           </div>
           <div

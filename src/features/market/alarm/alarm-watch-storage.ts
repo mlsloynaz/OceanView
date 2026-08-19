@@ -8,6 +8,11 @@ import {
   type AlarmEligibleRuleKey,
   type MarketAlarmWatch,
 } from "@/features/market/alarm/alarm-types";
+import {
+  E03_CONFIRM_RULE_KEY,
+  isE03ConfirmExpired,
+} from "@/features/market/alarm/e03-confirm-window";
+import { isSessionMonitorEnded } from "@/features/market/alarm/session-monitor-end";
 import { clampPollInterval, type PollIntervalUnit } from "@/shared/components/PollControls";
 
 export const MARKET_ALARM_STORAGE_KEY = "oceanview.market.alarms";
@@ -67,10 +72,16 @@ export type EnqueueConfirmWatchInput = {
  */
 export function enqueueConfirmWatch(
   input: EnqueueConfirmWatchInput,
-): { ok: true; watch: MarketAlarmWatch } | { ok: false; reason: "duplicate" | "invalid" } {
+): { ok: true; watch: MarketAlarmWatch } | { ok: false; reason: "duplicate" | "invalid" | "window_closed" | "session_ended" } {
   const symbol = input.symbol.trim().toUpperCase();
   const ruleKey = input.confirmRuleKey;
   if (!symbol || !ruleKey) return { ok: false, reason: "invalid" };
+  if (isSessionMonitorEnded()) {
+    return { ok: false, reason: "session_ended" };
+  }
+  if (ruleKey === E03_CONFIRM_RULE_KEY && isE03ConfirmExpired()) {
+    return { ok: false, reason: "window_closed" };
+  }
 
   const existing = loadMarketAlarmWatches();
   if (alarmWatchConflicts(existing, { symbol, ruleKeys: [ruleKey] })) {

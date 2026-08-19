@@ -2,6 +2,10 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+export function calc20(value: number): number {
+  return round2(value * 1.2 + 0.02);
+}
+
 export function calc35(value: number): number {
   return round2(value * 1.35 + 0.02);
 }

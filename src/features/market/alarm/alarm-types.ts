@@ -22,15 +22,20 @@ export const ALARM_ELIGIBLE_RULES = [
     ruleKey: "volume_stoch_1h",
     label: "Confirmación E03 (volumen HORA Stoch)",
   },
+  {
+    ruleKey: "daily_ma_bounce_confirm_1h",
+    label: "Confirmación E02 (rebote MA20 HORA)",
+  },
 ] as const;
 
 export type AlarmEligibleRuleKey = (typeof ALARM_ELIGIBLE_RULES)[number]["ruleKey"];
 
-/** Playbook confirmation rules (E01 / E03 / E06). */
+/** Playbook confirmation rules (E01 / E02 / E03 / E06). */
 export const STRATEGY_CONFIRM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
   "confirmation_change_trend_1h",
   "confirmation_change_trend_15m",
   "volume_stoch_1h",
+  "daily_ma_bounce_confirm_1h",
 ];
 
 /** Movement / breakout watches — not a playbook confirm. */

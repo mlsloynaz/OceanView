@@ -21,6 +21,7 @@ import {
   semiFinalTickerSearchSuggestions,
 } from "../group-by-ticker";
 import { mergePreselectionWithCatalogActive } from "../merge-catalog-active";
+import { notifySemifinalResultChanged } from "../semifinal-result-events";
 import {
   filterSemiFinalResult,
 } from "../search";
@@ -160,6 +161,7 @@ export function useSetupScanPane(open: boolean) {
             }
           }, "eod");
           setEodResult(await applyCatalogActive(finalPayload));
+          notifySemifinalResultChanged({ mode: "eod", runId });
           setMessage(finalPayload.message ?? "Tickers SemiFinal complete.");
         } catch (err) {
           setError(err instanceof Error ? err.message : "Tickers SemiFinal failed.");
@@ -240,6 +242,7 @@ export function useSetupScanPane(open: boolean) {
         const runId = ack.runId;
         if ((ack.status ?? "").toLowerCase() === "complete" && ack.strategies?.length) {
           setResultForMode(candidateMode, await applyCatalogActive(ack));
+          notifySemifinalResultChanged({ mode: candidateMode, runId });
           setMessage(ack.message ?? "Tickers SemiFinal complete.");
           return;
         }
@@ -260,6 +263,7 @@ export function useSetupScanPane(open: boolean) {
           candidateMode,
         );
         setResultForMode(candidateMode, await applyCatalogActive(payload));
+        notifySemifinalResultChanged({ mode: candidateMode, runId });
         setMessage(payload.message ?? "Tickers SemiFinal complete.");
         if (payload.gapForecast) setGapForecast(payload.gapForecast);
       } catch (err) {
@@ -278,6 +282,7 @@ export function useSetupScanPane(open: boolean) {
               candidateMode,
             );
             setResultForMode(candidateMode, await applyCatalogActive(payload));
+            notifySemifinalResultChanged({ mode: candidateMode, runId: payload.runId });
             setMessage(payload.message ?? "Tickers SemiFinal complete.");
             return;
           } catch (pollErr) {

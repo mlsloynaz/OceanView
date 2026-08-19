@@ -13,6 +13,13 @@ import {
   loadMarketAlarmWatches,
   MARKET_ALARM_CHANGED_EVENT,
 } from "@/features/market/alarm/alarm-watch-storage";
+import {
+  E03_CONFIRM_EXPIRED_MESSAGE,
+  E03_CONFIRM_RULE_KEY,
+  isE03ConfirmExpired,
+  useNowTick,
+} from "@/features/market/alarm/e03-confirm-window";
+import { SESSION_MONITOR_ENDED_MESSAGE } from "@/features/market/alarm/session-monitor-end";
 import { setupScanApiBaseUrl, setupScanUsesMock } from "./api/preselection-client";
 import {
   helpForCriterion,
@@ -412,7 +419,7 @@ function TickerGroupSection({
 
   return (
     <section className="mb-3 last:mb-0 overflow-hidden rounded-lg border border-ocean-mid/40 bg-ocean-deep/20">
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 transition-colors hover:bg-ocean-teal/15">
         <button
           type="button"
           className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-left"
@@ -483,7 +490,7 @@ function useAlarmWatchBoard(): MarketAlarmWatch[] {
   return watches;
 }
 
-function startConfirmFromSemifinal(row: SemifinalMonitorCandidate): "started" | "duplicate" | "invalid" {
+function startConfirmFromSemifinal(row: SemifinalMonitorCandidate): "started" | "duplicate" | "invalid" | "window_closed" | "session_ended" {
   const result = enqueueConfirmWatch({
     symbol: row.symbol,
     confirmRuleKey: row.confirmRuleKey,
@@ -509,6 +516,7 @@ function StrategyGroupSection({
   onToggleActive: (symbol: string, currentlyActive: boolean) => void;
   onOpenDetail: (ticker: PreselectionTickerRow) => void;
 }) {
+  const nowTick = useNowTick();
   const [open, setOpen] = useState(defaultOpen);
   const [monitorMsg, setMonitorMsg] = useState<string | null>(null);
   const watches = useAlarmWatchBoard();
@@ -608,8 +616,11 @@ function StrategyGroupSection({
           {group.tickers.map((ticker) => {
             const pending = Boolean(tickerPending[ticker.symbol.toUpperCase()]);
             const ready = readyBySymbol.get(String(ticker.symbol).toUpperCase()) ?? null;
+            const e03Closed =
+              ready?.confirmRuleKey === E03_CONFIRM_RULE_KEY && isE03ConfirmExpired(nowTick);
             const already =
               ready != null &&
+              !e03Closed &&
               alarmWatchConflicts(watches, {
                 symbol: ready.symbol,
                 ruleKeys: [ready.confirmRuleKey],
@@ -617,7 +628,7 @@ function StrategyGroupSection({
             return (
               <li
                 key={ticker.symbol}
-                className="rounded-lg border border-ocean-mid/35 bg-ocean-deep/25 px-3 py-2"
+                className="rounded-lg border border-ocean-mid/35 bg-ocean-deep/25 px-3 py-2 transition-colors hover:border-ocean-teal/45 hover:bg-ocean-teal/15"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -648,7 +659,7 @@ function StrategyGroupSection({
                       </span>
                     ) : null}
                   </button>
-                  {ready ? (
+                  {ready && !e03Closed ? (
                     <button
                       type="button"
                       disabled={already}
@@ -671,6 +682,10 @@ function StrategyGroupSection({
                           );
                         } else if (status === "duplicate") {
                           setMonitorMsg(`${ready.symbol} already on the Alarm board.`);
+                        } else if (status === "window_closed") {
+                          setMonitorMsg(E03_CONFIRM_EXPIRED_MESSAGE);
+                        } else if (status === "session_ended") {
+                          setMonitorMsg(SESSION_MONITOR_ENDED_MESSAGE);
                         } else {
                           setMonitorMsg(`Could not start ${ready.symbol}.`);
                         }
@@ -678,6 +693,10 @@ function StrategyGroupSection({
                     >
                       {already ? "On board" : "Start monitoring"}
                     </button>
+                  ) : ready && e03Closed ? (
+                    <span className="text-[10px] text-ocean-sand" title={E03_CONFIRM_EXPIRED_MESSAGE}>
+                      Window closed 9:45
+                    </span>
                   ) : null}
                   <button
                     type="button"
@@ -999,7 +1018,7 @@ export function SetupScanPane() {
           Scans all catalog tickers (active and inactive). Only symbols with a resolved direction
           bias (CALL or PUT) appear here
           {byStrategy
-            ? " — By strategy: E01/E03 cards show Confirmación label, Ready (setup met) tickers, and Start monitoring."
+            ? " — By strategy: E01 / E02 / E03 cards show Confirmación label, Ready (setup met) tickers, and Start monitoring."
             : ", grouped by ticker with strategy suggestions from assessed criteria."}{" "}
           Live mode refreshes stale candles through the last completed session. Simulate mode scores
           post-market of a chosen session day using stored bars only — no candle refresh.

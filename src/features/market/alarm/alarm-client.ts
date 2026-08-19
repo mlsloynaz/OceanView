@@ -52,6 +52,8 @@ export type MarketAlarmCheckResponse = {
   candle?: { symbol?: string; status?: string; error?: string } | null;
   /** Outside RTH — keep polling; resume automatically at next open. */
   paused?: boolean;
+  /** Confirmación E03 after 9:45 ET — client should drop the watch. */
+  expired?: boolean;
   marketOpen?: boolean | null;
   message?: string | null;
   nextOpenEt?: string | null;
