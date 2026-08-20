@@ -26,7 +26,6 @@ import {
 import {
   E03_CONFIRM_EXPIRED_MESSAGE,
   E03_CONFIRM_RULE_KEY,
-  filterExpiredE03ConfirmQueue,
   isE03ConfirmExpired,
   isE03ConfirmWatch,
 } from "./e03-confirm-window";
@@ -43,23 +42,10 @@ import {
 } from "./play-alarm-bell";
 import { appendAlarmTrigger } from "./alarm-trigger-log";
 import {
-  buildSemifinalMonitorQueue,
-  type SemifinalMonitorCandidate,
-} from "./semifinal-monitor-queue";
-import {
   loadMarketAlarmWatches,
   MARKET_ALARM_CHANGED_EVENT,
   MARKET_ALARM_START_REQUEST_EVENT,
 } from "./alarm-watch-storage";
-import { getSetupScanResult } from "@/features/admin/setup-scan/api/preselection-client";
-import type { PreselectionResultResponse } from "@/features/admin/setup-scan/types";
-import {
-  SEMIFINAL_RESULT_CHANGED_AT_KEY,
-  SEMIFINAL_RESULT_CHANGED_EVENT,
-  clearSemifinalMonitorQueueCleared,
-  isSemifinalMonitorQueueCleared,
-  markSemifinalMonitorQueueCleared,
-} from "@/features/admin/setup-scan/semifinal-result-events";
 
 const STORAGE_KEY = "oceanview.market.alarms";
 const SIM_STORAGE_KEY = "oceanview.market.alarms.simulate";
@@ -157,17 +143,6 @@ export function useMarketAlarms() {
   const [lastHourScan, setLastHourScan] = useState<MarketAlarmScanLastHourResponse | null>(null);
   const [lastHourScanError, setLastHourScanError] = useState<string | null>(null);
   const [lastHourScanBusy, setLastHourScanBusy] = useState(false);
-  const [monitorQueue, setMonitorQueue] = useState<SemifinalMonitorCandidate[]>([]);
-  const [monitorQueueMeta, setMonitorQueueMeta] = useState<{
-    mode: string | null;
-    tradeDate: string | null;
-    evaluatedAt: string | null;
-  }>({ mode: null, tradeDate: null, evaluatedAt: null });
-  const [monitorQueueLoading, setMonitorQueueLoading] = useState(false);
-  const [monitorQueueError, setMonitorQueueError] = useState<string | null>(null);
-  const [monitorQueueCleared, setMonitorQueueCleared] = useState(() =>
-    isSemifinalMonitorQueueCleared(),
-  );
 
   const timersRef = useRef<Map<string, number>>(new Map());
   /** Watch ids currently executing a check (HTTP in flight). */
@@ -227,84 +202,6 @@ export function useMarketAlarms() {
     };
   }, []);
 
-  const refreshMonitorQueue = useCallback(async (opts?: { force?: boolean }) => {
-    if (!opts?.force && isSemifinalMonitorQueueCleared()) {
-      setMonitorQueue([]);
-      setMonitorQueueError(null);
-      setMonitorQueueCleared(true);
-      setMonitorQueueLoading(false);
-      return;
-    }
-    if (opts?.force) {
-      clearSemifinalMonitorQueueCleared();
-      setMonitorQueueCleared(false);
-    }
-    setMonitorQueueLoading(true);
-    setMonitorQueueError(null);
-    try {
-      let payload: PreselectionResultResponse | null = null;
-      try {
-        payload = await getSetupScanResult(undefined, "open");
-      } catch {
-        payload = null;
-      }
-      const openOk =
-        payload &&
-        Array.isArray(payload.strategies) &&
-        (payload.status ?? "").toLowerCase() !== "failed";
-      if (!openOk) {
-        payload = await getSetupScanResult(undefined, "eod");
-      }
-      setMonitorQueue(filterExpiredE03ConfirmQueue(buildSemifinalMonitorQueue(payload), assessmentClock()));
-      setMonitorQueueMeta({
-        mode: payload?.mode ?? null,
-        tradeDate: payload?.tradeDate ?? null,
-        evaluatedAt: payload?.evaluatedAt ?? null,
-      });
-    } catch (err) {
-      setMonitorQueue([]);
-      setMonitorQueueMeta({ mode: null, tradeDate: null, evaluatedAt: null });
-      setMonitorQueueError(
-        err instanceof Error ? err.message : "Failed to load SemiFinal monitor queue.",
-      );
-    } finally {
-      setMonitorQueueLoading(false);
-    }
-  }, [assessmentClock]);
-
-  const clearMonitorQueue = useCallback(() => {
-    markSemifinalMonitorQueueCleared();
-    setMonitorQueueCleared(true);
-    setMonitorQueue([]);
-    setMonitorQueueError(null);
-    setMonitorQueueMeta({ mode: null, tradeDate: null, evaluatedAt: null });
-  }, []);
-
-  const removeMonitorQueueRow = useCallback((id: string) => {
-    setMonitorQueue((prev) => prev.filter((row) => row.id !== id));
-  }, []);
-
-  useEffect(() => {
-    void refreshMonitorQueue();
-  }, [refreshMonitorQueue]);
-
-  useEffect(() => {
-    const reloadFromSemifinal = () => {
-      void refreshMonitorQueue({ force: true });
-    };
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === SEMIFINAL_RESULT_CHANGED_AT_KEY) {
-        reloadFromSemifinal();
-      }
-    };
-    window.addEventListener(SEMIFINAL_RESULT_CHANGED_EVENT, reloadFromSemifinal);
-    window.addEventListener("storage", onStorage);
-    return () => {
-      window.removeEventListener(SEMIFINAL_RESULT_CHANGED_EVENT, reloadFromSemifinal);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, [refreshMonitorQueue]);
-
   const clearTimer = useCallback((id: string) => {
     const existing = timersRef.current.get(id);
     if (existing != null) {
@@ -330,7 +227,6 @@ export function useMarketAlarms() {
 
   const sweepExpiredE03Confirms = useCallback(() => {
     const now = assessmentClock();
-    setMonitorQueue((prev) => filterExpiredE03ConfirmQueue(prev, now));
     if (!isE03ConfirmExpired(now)) return;
 
     const expired = watchesRef.current.filter(isE03ConfirmWatch);
@@ -1180,18 +1076,6 @@ export function useMarketAlarms() {
     [assessmentClock, startWatch, stopWatchesAtSessionEnd, sweepExpiredE03Confirms],
   );
 
-  const startMonitorCandidate = useCallback(
-    (row: SemifinalMonitorCandidate) =>
-      addWatch({
-        symbols: [row.symbol],
-        ruleKeys: [row.confirmRuleKey],
-        frequencyValue: row.frequencyValue,
-        frequencyUnit: row.frequencyUnit,
-        startAfterAdd: true,
-      }),
-    [addWatch],
-  );
-
   const startAllIdle = useCallback(() => {
     const ids = watchesRef.current
       .filter((w) => w.status === "idle" || w.status === "stopped" || w.status === "error")
@@ -1331,15 +1215,6 @@ export function useMarketAlarms() {
     lastHourScanBusy,
     scanLastHourRth,
     clearLastHourScan,
-    monitorQueue,
-    monitorQueueMeta,
-    monitorQueueLoading,
-    monitorQueueError,
-    monitorQueueCleared,
-    refreshMonitorQueue,
-    clearMonitorQueue,
-    removeMonitorQueueRow,
-    startMonitorCandidate,
     addWatch,
     startWatch,
     stopWatch,

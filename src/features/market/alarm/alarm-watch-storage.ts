@@ -63,7 +63,7 @@ export type EnqueueConfirmWatchInput = {
   frequencyUnit: PollIntervalUnit;
   /** Hint for rule label (e.g. Confirmación E01). */
   confirmLabel?: string;
-  /** Ask Market Alarm (if open) to start polling immediately. */
+  /** Ask Market Alarm (if mounted) to start polling immediately. Prefer idle + Start on Alarms. */
   startNow?: boolean;
 };
 

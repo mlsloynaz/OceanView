@@ -490,17 +490,16 @@ function useAlarmWatchBoard(): MarketAlarmWatch[] {
   return watches;
 }
 
-function startConfirmFromSemifinal(row: SemifinalMonitorCandidate): "started" | "duplicate" | "invalid" | "window_closed" | "session_ended" {
+function addConfirmFromSemifinal(row: SemifinalMonitorCandidate): "added" | "duplicate" | "invalid" | "window_closed" | "session_ended" {
   const result = enqueueConfirmWatch({
     symbol: row.symbol,
     confirmRuleKey: row.confirmRuleKey,
     frequencyValue: row.frequencyValue,
     frequencyUnit: row.frequencyUnit,
     confirmLabel: `${row.confirmLabel} · ${row.strategyName}`,
-    startNow: true,
   });
   if (!result.ok) return result.reason;
-  return "started";
+  return "added";
 }
 
 function StrategyGroupSection({
@@ -595,8 +594,8 @@ function StrategyGroupSection({
           Alarm confirm: <span className="text-ocean-foam">{confirmPolicy.label}</span>
           {" · "}
           {confirmPolicy.scheduleSummary}. Tickers marked Ready have setup prerequisites met
-          (confirm + vol not required yet). Start monitoring from this card — you will know it is{" "}
-          {confirmPolicy.label} because it sits under this strategy.
+          (confirm + vol not required yet). Monitor adds an idle watch on Alarms — click Start
+          there to poll.
         </p>
       ) : null}
       {monitorMsg ? (
@@ -671,27 +670,27 @@ function StrategyGroupSection({
                       )}
                       title={
                         already
-                          ? "Already on Alarms board"
-                          : `Start ${ready.confirmLabel} · ${ready.scheduleSummary}`
+                          ? "Already on Alarms board — open Alarms and click Start to poll"
+                          : `Add ${ready.confirmLabel} to Alarms · ${ready.scheduleSummary}`
                       }
                       onClick={() => {
-                        const status = startConfirmFromSemifinal(ready);
-                        if (status === "started") {
+                        const status = addConfirmFromSemifinal(ready);
+                        if (status === "added") {
                           setMonitorMsg(
-                            `${ready.symbol} → Alarms · ${ready.confirmLabel} (open Alarms to see poll)`,
+                            `${ready.symbol} → Alarms (${ready.confirmLabel}). Open Alarms and click Start to poll.`,
                           );
                         } else if (status === "duplicate") {
-                          setMonitorMsg(`${ready.symbol} already on the Alarm board.`);
+                          setMonitorMsg(`${ready.symbol} already on the Alarms board.`);
                         } else if (status === "window_closed") {
                           setMonitorMsg(E03_CONFIRM_EXPIRED_MESSAGE);
                         } else if (status === "session_ended") {
                           setMonitorMsg(SESSION_MONITOR_ENDED_MESSAGE);
                         } else {
-                          setMonitorMsg(`Could not start ${ready.symbol}.`);
+                          setMonitorMsg(`Could not add ${ready.symbol} to Alarms.`);
                         }
                       }}
                     >
-                      {already ? "On board" : "Start monitoring"}
+                      {already ? "On Alarms" : "Monitor"}
                     </button>
                   ) : ready && e03Closed ? (
                     <span className="text-[10px] text-ocean-sand" title={E03_CONFIRM_EXPIRED_MESSAGE}>
@@ -1018,7 +1017,7 @@ export function SetupScanPane() {
           Scans all catalog tickers (active and inactive). Only symbols with a resolved direction
           bias (CALL or PUT) appear here
           {byStrategy
-            ? " — By strategy: E01 / E02 / E03 cards show Confirmación label, Ready (setup met) tickers, and Start monitoring."
+            ? " — By strategy: E01 / E02 / E03 cards show Confirmación label, Ready (setup met) tickers, and Monitor (adds idle watch on Alarms)."
             : ", grouped by ticker with strategy suggestions from assessed criteria."}{" "}
           Live mode refreshes stale candles through the last completed session. Simulate mode scores
           post-market of a chosen session day using stored bars only — no candle refresh.

@@ -19,7 +19,6 @@ import {
   ALARM_ELIGIBLE_RULES,
   MOVEMENT_ALARM_RULE_KEYS,
   STRATEGY_CONFIRM_RULE_KEYS,
-  alarmWatchConflicts,
   formatAlarmTrend,
   isMovementAlarmWatch,
   needsBandTimeframe,
@@ -35,8 +34,6 @@ import {
   isE03ConfirmExpired,
   useNowTick,
 } from "./e03-confirm-window";
-import type { SemifinalMonitorCandidate } from "./semifinal-monitor-queue";
-import { groupSemifinalMonitorQueue } from "./semifinal-monitor-queue";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -84,19 +81,6 @@ type Props = {
   lastHourScan: MarketAlarmScanLastHourResponse | null;
   lastHourScanError: string | null;
   lastHourScanBusy: boolean;
-  monitorQueue: SemifinalMonitorCandidate[];
-  monitorQueueMeta: {
-    mode: string | null;
-    tradeDate: string | null;
-    evaluatedAt: string | null;
-  };
-  monitorQueueLoading: boolean;
-  monitorQueueError: string | null;
-  monitorQueueCleared: boolean;
-  onRefreshMonitorQueue: () => void;
-  onClearMonitorQueue: () => void;
-  onRemoveMonitorQueueRow: (id: string) => void;
-  onStartMonitorCandidate: (row: SemifinalMonitorCandidate) => boolean;
   onTimeModeChange: (mode: LiveSimulateMode) => void;
   onSimulateLocalChange: (value: string) => void;
   onScanLastHourRth: (symbol?: string) => void;
@@ -166,15 +150,6 @@ export function MarketAlarmPanel({
   lastHourScan,
   lastHourScanError,
   lastHourScanBusy,
-  monitorQueue,
-  monitorQueueMeta,
-  monitorQueueLoading,
-  monitorQueueError,
-  monitorQueueCleared,
-  onRefreshMonitorQueue,
-  onClearMonitorQueue,
-  onRemoveMonitorQueueRow,
-  onStartMonitorCandidate,
   onTimeModeChange,
   onSimulateLocalChange,
   onScanLastHourRth,
@@ -196,10 +171,6 @@ export function MarketAlarmPanel({
   onRequestNotify,
 }: Props) {
   const nowTick = useNowTick();
-  const monitorGroups = useMemo(
-    () => groupSemifinalMonitorQueue(monitorQueue),
-    [monitorQueue],
-  );
   const eligibleRules = useMemo(() => {
     const e03Closed = isE03ConfirmExpired(nowTick);
     return ALARM_ELIGIBLE_RULES.filter((r) => {
@@ -309,7 +280,7 @@ export function MarketAlarmPanel({
       : visibleRunningCount > 0
         ? `${visibleRunningCount} watch${visibleRunningCount === 1 ? "" : "es"} polling`
         : section === "strategy"
-          ? "SemiFinal confirm queue + playbook confirmation watches"
+          ? "SemiFinal Monitor adds idle watches — Start here to poll"
           : section === "movement"
             ? "Breakout Kanban and disipador / momentum watches"
             : "Pick tickers + one or more rules (AND) · Start → ENTER → exit watch → EXIT → arm again";
@@ -376,179 +347,14 @@ export function MarketAlarmPanel({
             </button>
           </div>
 
-          {section !== "movement" ? (
-          <section
-            className="rounded-md border border-ocean-teal/30 bg-ocean-teal/5 px-3 py-2.5"
-            aria-labelledby="semifinal-monitor-queue-title"
-          >
-            <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h3
-                  id="semifinal-monitor-queue-title"
-                  className="text-xs font-semibold text-ocean-foam"
-                >
-                  Start monitoring · confirm queue
-                </h3>
-                <p className="mt-0.5 text-[11px] leading-snug text-ocean-sand">
-                  Prefer <strong className="font-medium text-ocean-foam">SemiFinal → By strategy</strong>{" "}
-                  cards (E01 / E02 / E03 thumbnails): Ready tickers + Start monitoring sit under that
-                  strategy so you always know Confirmación E01 vs E02 vs E03. This list is the same queue
-                  (active · setup met · confirm + vol ignored). Each SemiFinal run replaces these
-                  names. Clear empties the list until Refresh or a new scan; Remove drops one ticker.
-                  Watches already started stay on the board. Hourly trend and Midpoint Bounce poll
-                  every hour; Magnet Effect every 30s until 9:45. All polling stops at 4:00 PM ET.
-                  Breakout/momentum lives on{" "}
-                  <strong className="font-medium text-ocean-foam">Alarms → Movement / Breakout</strong>.
-                </p>
-                <ol className="mt-1.5 list-decimal space-y-0.5 pl-4 text-[10px] text-ocean-sand/90">
-                  <li>Admin → Tickers SemiFinal → 9:25 visual</li>
-                  <li>Activate names · open E01 / E02 / E03 strategy card</li>
-                  <li>Start monitoring on Ready tickers (or use this list)</li>
-                </ol>
-                {monitorQueueMeta.mode || monitorQueueMeta.tradeDate ? (
-                  <p className="mt-1 text-[10px] text-ocean-sand/80">
-                    SemiFinal source: {monitorQueueMeta.mode ?? "—"}
-                    {monitorQueueMeta.tradeDate ? ` · ${monitorQueueMeta.tradeDate}` : ""}
-                    {monitorQueue.length > 0 ? ` · ${monitorQueue.length} eligible` : ""}
-                  </p>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
-                  disabled={monitorQueueLoading || monitorQueue.length === 0}
-                  onClick={() => onClearMonitorQueue()}
-                >
-                  Clear list
-                </button>
-                <button
-                  type="button"
-                  className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
-                  disabled={monitorQueueLoading}
-                  onClick={() => onRefreshMonitorQueue()}
-                >
-                  {monitorQueueLoading ? "Loading…" : "Refresh from SemiFinal"}
-                </button>
-              </div>
-            </div>
-            {monitorQueueError ? (
-              <p className="text-[11px] text-rose-300" role="status">
-                {monitorQueueError}
-              </p>
-            ) : null}
-            {!monitorQueueLoading && !monitorQueueError && monitorQueue.length === 0 ? (
-              <p className="text-[11px] text-ocean-sand">
-                {monitorQueueCleared
-                  ? "Queue cleared. Refresh from SemiFinal or run a new scan to fill it again."
-                  : "No active setup-ready names. Run SemiFinal Open (~9:20), activate tickers, then Refresh. E01 needs prior/regime setup met (confirm + vol not required here)."}
-              </p>
-            ) : null}
-            {monitorGroups.length > 0 ? (
-              <div className="mt-2 space-y-3">
-                {monitorGroups.map((group) => (
-                  <div key={group.confirmRuleKey} className="space-y-1.5">
-                    <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-ocean-mid/25 pb-1">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold text-ocean-foam">
-                          {group.confirmLabel}
-                          <span className="ml-1.5 font-normal text-ocean-sand/80">
-                            ({group.confirmRuleKey})
-                          </span>
-                        </p>
-                        <p className="text-[10px] text-ocean-sand">
-                          {group.strategyNames.join(" · ") || "—"} ·{" "}
-                          {"scheduleSummary" in group && group.scheduleSummary
-                            ? group.scheduleSummary
-                            : `start ${group.startEt} ET`}{" "}
-                          · {group.candidates.length} ticker
-                          {group.candidates.length === 1 ? "" : "s"}
-                        </p>
-                        <p className="mt-0.5 text-[10px] text-amber-200/90">
-                          Waiting for: {group.candidates[0]?.waitingFor}
-                        </p>
-                      </div>
-                    </header>
-                    <ul className="space-y-1.5">
-                      {group.candidates.map((row) => {
-                        const already = alarmWatchConflicts(watches, {
-                          symbol: row.symbol,
-                          ruleKeys: [row.confirmRuleKey],
-                        });
-                        return (
-                          <li
-                            key={row.id}
-                            className="flex flex-wrap items-center justify-between gap-2 rounded border border-ocean-mid/25 bg-ocean-deep/20 px-2.5 py-2"
-                          >
-                            <div className="min-w-0 text-[11px] leading-snug">
-                              <p className="font-semibold tabular-nums text-ocean-foam">
-                                {row.symbol}
-                                {row.name ? (
-                                  <span className="ml-1.5 font-normal text-ocean-sand">
-                                    {row.name}
-                                  </span>
-                                ) : null}
-                                <span className="ml-1.5 font-normal text-ocean-sand">
-                                  · {row.strategyName}
-                                  {row.directionBias ? ` · ${row.directionBias}` : ""}
-                                </span>
-                              </p>
-                              <p className="mt-0.5 text-ocean-sand/90">
-                                <span className="text-ocean-teal-dim dark:text-ocean-teal">
-                                  Have:
-                                </span>{" "}
-                                {row.setupSummary}
-                              </p>
-                              <p className="mt-0.5 text-amber-200/90">
-                                <span className="font-medium">Missing:</span> {row.waitingFor}
-                              </p>
-                              <p className="mt-0.5 text-[10px] text-ocean-sand/80">
-                                Schedule:{" "}
-                                {"scheduleSummary" in row && row.scheduleSummary
-                                  ? row.scheduleSummary
-                                  : `start ${row.startEt} ET`}
-                              </p>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-1.5">
-                            <button
-                              type="button"
-                              className={cn(
-                                BTN,
-                                already
-                                  ? "border border-ocean-mid/40 text-ocean-sand"
-                                  : "bg-ocean-teal text-ocean-deep hover:brightness-110",
-                              )}
-                              disabled={already}
-                              title={
-                                already
-                                  ? "Watch already on the board"
-                                  : `Start monitoring ${row.confirmLabel}`
-                              }
-                              onClick={() => onStartMonitorCandidate(row)}
-                            >
-                              {already ? "On board" : "Start monitoring"}
-                            </button>
-                            <button
-                              type="button"
-                              className={cn(
-                                BTN,
-                                "border border-ocean-danger/50 text-ocean-danger hover:bg-ocean-danger/10",
-                              )}
-                              title={`Remove ${row.symbol} from this list`}
-                              onClick={() => onRemoveMonitorQueueRow(row.id)}
-                            >
-                              Remove
-                            </button>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </section>
+          {section === "strategy" ? (
+            <p className="text-xs leading-relaxed text-ocean-sand">
+              Use <strong className="font-medium text-ocean-foam">SemiFinal → Monitor</strong> on
+              Ready tickers to add watches here (idle). Click{" "}
+              <strong className="font-medium text-ocean-foam">Start</strong> on each row to begin
+              polling — E01 hourly from 9:31 ET, E03 every 30s until 9:45. All watches stop at 4:00
+              PM ET.
+            </p>
           ) : null}
 
           <div className="rounded-md border border-ocean-mid/30 bg-ocean-surface/30 px-3 py-2">
@@ -827,31 +633,33 @@ export function MarketAlarmPanel({
                   ? `Add ${selectedSymbols.length} watches`
                   : "Add watch"}
               </button>
-              <button
-                type="button"
-                className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-110")}
-                disabled={
-                  tickers.length === 0 ||
-                  selectedSymbols.length === 0 ||
-                  selectedRules.length === 0
-                }
-                onClick={() => {
-                  const ok = onAdd({
-                    symbols: selectedSymbols,
-                    ruleKeys: selectedRules,
-                    trend: "auto",
-                    ...(showBandTf ? { bandTimeframe } : {}),
-                    frequencyValue,
-                    frequencyUnit,
-                    startAfterAdd: true,
-                  });
-                  if (ok) setSelectedSymbols([]);
-                }}
-              >
-                {selectedSymbols.length > 1
-                  ? `Add & start ${selectedSymbols.length}`
-                  : "Add & start"}
-              </button>
+              {section !== "strategy" ? (
+                <button
+                  type="button"
+                  className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-110")}
+                  disabled={
+                    tickers.length === 0 ||
+                    selectedSymbols.length === 0 ||
+                    selectedRules.length === 0
+                  }
+                  onClick={() => {
+                    const ok = onAdd({
+                      symbols: selectedSymbols,
+                      ruleKeys: selectedRules,
+                      trend: "auto",
+                      ...(showBandTf ? { bandTimeframe } : {}),
+                      frequencyValue,
+                      frequencyUnit,
+                      startAfterAdd: true,
+                    });
+                    if (ok) setSelectedSymbols([]);
+                  }}
+                >
+                  {selectedSymbols.length > 1
+                    ? `Add & start ${selectedSymbols.length}`
+                    : "Add & start"}
+                </button>
+              ) : null}
             </div>
           </form>
 
@@ -864,7 +672,7 @@ export function MarketAlarmPanel({
           {visibleWatches.length === 0 ? (
             <p className="text-xs text-ocean-sand">
               {section === "strategy"
-                ? "No strategy confirm watches yet — start from the SemiFinal queue or add a confirmation rule below."
+                ? "No strategy confirm watches yet — use SemiFinal → Monitor, or add a confirmation rule below (then Start to poll)."
                 : section === "movement"
                   ? "No movement / breakout watches yet — add Breakout quality or Disipador touch below."
                   : "No watches yet — select tickers + one or more rules above."}

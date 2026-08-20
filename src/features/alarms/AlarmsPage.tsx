@@ -38,7 +38,7 @@ export function AlarmsPage() {
           <p className="mt-1 text-sm text-ocean-sand">
             Strategy confirmation watches and movement / breakout alarms — off the Live page.
             {tab === "strategy"
-              ? " Seed from SemiFinal, then poll the confirmation rule."
+              ? " Add from SemiFinal (Monitor), then Start polling on each watch."
               : " Breakout quality Kanban and disipador / momentum watches."}
           </p>
         </div>
@@ -62,15 +62,6 @@ export function AlarmsPage() {
         lastHourScan={alarms.lastHourScan}
         lastHourScanError={alarms.lastHourScanError}
         lastHourScanBusy={alarms.lastHourScanBusy}
-        monitorQueue={alarms.monitorQueue}
-        monitorQueueMeta={alarms.monitorQueueMeta}
-        monitorQueueLoading={alarms.monitorQueueLoading}
-        monitorQueueError={alarms.monitorQueueError}
-        monitorQueueCleared={alarms.monitorQueueCleared}
-        onRefreshMonitorQueue={() => void alarms.refreshMonitorQueue({ force: true })}
-        onClearMonitorQueue={alarms.clearMonitorQueue}
-        onRemoveMonitorQueueRow={alarms.removeMonitorQueueRow}
-        onStartMonitorCandidate={alarms.startMonitorCandidate}
         onTimeModeChange={alarms.setTimeMode}
         onSimulateLocalChange={alarms.setSimulateLocal}
         onScanLastHourRth={(symbol) => void alarms.scanLastHourRth(symbol)}
