@@ -54,6 +54,7 @@ export function adaptTickerSnapshotItems(items: TickerSnapshotItem[]): TickerCar
           }
         : null,
       directionAgreement: item.directionAgreement ?? null,
+      strategyFits: item.strategyFits ?? undefined,
       movementProfile: item.movementProfile ?? null,
       optionRoom: item.optionRoom ?? null,
     };

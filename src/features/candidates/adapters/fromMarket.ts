@@ -168,6 +168,15 @@ export function adaptMarketTickerCard(
   const strategyName =
     evalRow?.strategyName || (sameBest ? best?.strategyName : null) || strategyId;
 
+  const secondaryStrategies = (card.strategyFits ?? [])
+    .filter((f) => !f.primary && f.strategyId !== strategyId)
+    .map((f) => ({
+      strategyId: f.strategyId,
+      strategyName: f.strategyName,
+      qualityPct: f.qualityPct,
+      direction: asDirection(f.direction ?? null),
+    }));
+
   const leanEval: TickerStrategyEval = evalRow
     ? { ...evalRow, direction: evalRow.direction ?? best?.direction ?? null }
     : {
@@ -188,6 +197,7 @@ export function adaptMarketTickerCard(
     direction,
     strategyId,
     strategyName,
+    secondaryStrategies: secondaryStrategies.length ? secondaryStrategies : undefined,
     readiness,
     qualityPct,
     historicalEdge,

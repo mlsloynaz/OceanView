@@ -146,6 +146,15 @@ export type StrategyCardModel = {
   previewTickers: { symbol: string; qualityPct: number; achievedAtEt?: string }[];
 };
 
+/** Lean multi-fit row for Today Setup column (API ``strategyFits``). */
+export type StrategyFitItem = {
+  strategyId: string;
+  strategyName: string;
+  qualityPct: number;
+  direction?: TradeDirection | null;
+  primary: boolean;
+};
+
 /** Derived view model for ticker thumbnail grid. */
 export type TickerCardModel = {
   symbol: string;
@@ -159,6 +168,8 @@ export type TickerCardModel = {
     achievedAtEt?: string;
   } | null;
   topStrategyEval: TickerStrategyEval | null;
+  /** Primary + notable secondaries (≥50%) for Setup column stack. */
+  strategyFits?: StrategyFitItem[];
   /** Active strategies agreeing on top bias (CALL/PUT). */
   directionAgreement?: {
     direction: TradeDirection;
@@ -275,6 +286,7 @@ export type TickerSnapshotItem = {
     dangers?: DangerEval[];
   } | null;
   directionAgreement?: TickerCardModel["directionAgreement"];
+  strategyFits?: StrategyFitItem[];
   movementProfile?: MovementProfile | null;
   optionRoom?: TickerCardModel["optionRoom"];
 };

@@ -62,6 +62,13 @@ export type CandidateViewModel = {
   direction: CandidateDirection;
   strategyId: string;
   strategyName: string;
+  /** Secondary Setup lines (non-primary strategyFits), same cell under primary. */
+  secondaryStrategies?: Array<{
+    strategyId: string;
+    strategyName: string;
+    qualityPct: number;
+    direction?: CandidateDirection | null;
+  }>;
   readiness: CandidateReadiness;
   /** Setup completeness vs strategy rules — not win probability. */
   qualityPct: number;

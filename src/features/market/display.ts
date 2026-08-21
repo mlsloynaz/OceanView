@@ -175,6 +175,42 @@ export function buildTickerCards(
       };
     }
 
+    const strategyFits: TickerCardModel["strategyFits"] = [];
+    if (top) {
+      strategyFits.push({
+        strategyId: top.strategyId,
+        strategyName: catalogById.get(top.strategyId)?.name ?? top.strategyId,
+        qualityPct: top.qualityPct,
+        direction: top.direction ?? null,
+        primary: true,
+      });
+      const secondaries = activeEvals
+        .filter((s) => s.strategyId !== top.strategyId && s.qualityPct >= 50)
+        .sort((a, b) => {
+          const aDir = String(a.direction ?? "")
+            .trim()
+            .toUpperCase();
+          const bDir = String(b.direction ?? "")
+            .trim()
+            .toUpperCase();
+          const aSame = topDir === "CALL" || topDir === "PUT" ? (aDir === topDir ? 0 : 1) : 0;
+          const bSame = topDir === "CALL" || topDir === "PUT" ? (bDir === topDir ? 0 : 1) : 0;
+          if (aSame !== bSame) return aSame - bSame;
+          if (b.qualityPct !== a.qualityPct) return b.qualityPct - a.qualityPct;
+          return a.strategyId.localeCompare(b.strategyId);
+        })
+        .slice(0, 2);
+      for (const s of secondaries) {
+        strategyFits.push({
+          strategyId: s.strategyId,
+          strategyName: catalogById.get(s.strategyId)?.name ?? s.strategyId,
+          qualityPct: s.qualityPct,
+          direction: s.direction ?? null,
+          primary: false,
+        });
+      }
+    }
+
     return {
       symbol: ticker.symbol,
       name: ticker.name,
@@ -188,6 +224,7 @@ export function buildTickerCards(
           } satisfies TickerCardModel["bestSignal"] & object
         : null,
       topStrategyEval: top,
+      strategyFits: strategyFits.length ? strategyFits : undefined,
       directionAgreement,
       movementProfile: ticker.movementProfile ?? null,
       optionRoom: ticker.optionRoom ?? null,

@@ -127,10 +127,28 @@ export function CandidateTable({
                   {directionLabel(row.direction)}
                 </td>
                 <td
-                  className="max-w-[12rem] truncate px-3 py-2.5 text-ocean-sand"
-                  title={row.strategyName}
+                  className="max-w-[14rem] px-3 py-2.5 text-ocean-sand"
+                  title={[
+                    row.strategyName,
+                    ...(row.secondaryStrategies ?? []).map(
+                      (s) =>
+                        `${s.strategyName} (${Math.round(s.qualityPct)}%${
+                          s.direction && s.direction !== "neutral" ? ` ${s.direction}` : ""
+                        })`,
+                    ),
+                  ].join(" · ")}
                 >
-                  {row.strategyName}
+                  <div className="flex flex-col gap-0.5 leading-snug">
+                    <span className="truncate text-sm text-ocean-sand">{row.strategyName}</span>
+                    {(row.secondaryStrategies ?? []).map((s) => (
+                      <span
+                        key={s.strategyId}
+                        className="truncate text-xs text-ocean-sand/60"
+                      >
+                        {s.strategyName}
+                      </span>
+                    ))}
+                  </div>
                 </td>
                 <td
                   className={cn(
