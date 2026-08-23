@@ -199,6 +199,7 @@ export function TradablePane({ onBack }: Props) {
   const batchSize = tradable?.batchSize ?? tradable?.maxSamplesPerRun ?? 5;
   const pollSeconds = tradable?.pollIntervalSeconds ?? tradable?.batchIntervalSeconds ?? 30;
 
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [focusedSymbol, setFocusedSymbol] = useState<string | null>(null);
   const [promoting, setPromoting] = useState(false);
@@ -233,16 +234,40 @@ export function TradablePane({ onBack }: Props) {
     [selected],
   );
 
+  const filteredProgress = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return progress;
+    return progress.filter(
+      (row) =>
+        row.symbol.toLowerCase().includes(q) ||
+        (row.name?.toLowerCase().includes(q) ?? false),
+    );
+  }, [progress, search]);
+
+  const filteredWatchlist = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return watchlist;
+    return watchlist.filter(
+      (row) =>
+        row.symbol.toLowerCase().includes(q) ||
+        (row.name?.toLowerCase().includes(q) ?? false),
+    );
+  }, [watchlist, search]);
+
   const sortedProgress = useMemo(
     () =>
-      [...progress].sort((a, b) => compareProgress(a, b, progressSortKey, progressSortDir)),
-    [progress, progressSortKey, progressSortDir],
+      [...filteredProgress].sort((a, b) =>
+        compareProgress(a, b, progressSortKey, progressSortDir),
+      ),
+    [filteredProgress, progressSortKey, progressSortDir],
   );
 
   const sortedWatchlist = useMemo(
     () =>
-      [...watchlist].sort((a, b) => compareWatchlist(a, b, watchlistSortKey, watchlistSortDir)),
-    [watchlist, watchlistSortKey, watchlistSortDir],
+      [...filteredWatchlist].sort((a, b) =>
+        compareWatchlist(a, b, watchlistSortKey, watchlistSortDir),
+      ),
+    [filteredWatchlist, watchlistSortKey, watchlistSortDir],
   );
 
   const toggleProgressSort = (key: ProgressSortKey) => {
@@ -411,141 +436,181 @@ export function TradablePane({ onBack }: Props) {
         </p>
       ) : null}
 
+      {progress.length > 0 || watchlist.length > 0 ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <label className="relative min-w-0 max-w-sm flex-1">
+            <span className="sr-only">Search tradable tickers</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search symbol or name…"
+              disabled={busy}
+              className="w-full rounded-md border border-ocean-mid/40 bg-ocean-surface px-3 py-1.5 text-sm text-ocean-foam placeholder:text-ocean-sand/60 focus:border-ocean-teal/50 focus:outline-none"
+            />
+          </label>
+          {search.trim() ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setSearch("")}
+              className="rounded border border-ocean-mid/50 px-2 py-1 text-[11px] text-ocean-sand hover:border-ocean-teal/40"
+            >
+              Clear search
+            </button>
+          ) : null}
+          {search.trim() ? (
+            <span className="text-[11px] text-ocean-sand">
+              Progress {filteredProgress.length}/{progress.length}
+              {watchlist.length > 0
+                ? ` · ranked ${filteredWatchlist.length}/${watchlist.length}`
+                : null}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
       {tradableLoading && !tradable ? (
         <p className="text-xs text-ocean-sand">Loading…</p>
       ) : progress.length > 0 ? (
-        <div className="mb-6 overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-left text-xs">
-            <thead>
-              <tr className="border-b border-ocean-mid/40 text-[11px]">
-                <SortTh
-                  label="Symbol"
-                  column="symbol"
-                  sortKey={progressSortKey}
-                  sortDir={progressSortDir}
-                  onSort={toggleProgressSort}
-                />
-                <SortTh
-                  label="Samples"
-                  column="samples"
-                  sortKey={progressSortKey}
-                  sortDir={progressSortDir}
-                  onSort={toggleProgressSort}
-                />
-                <SortTh
-                  label="Ready"
-                  column="ready"
-                  sortKey={progressSortKey}
-                  sortDir={progressSortDir}
-                  onSort={toggleProgressSort}
-                />
-                <SortTh
-                  label="Recent"
-                  column="recent"
-                  sortKey={progressSortKey}
-                  sortDir={progressSortDir}
-                  onSort={toggleProgressSort}
-                />
-                <SortTh
-                  label="Bid–ask $"
-                  column="bidAsk"
-                  sortKey={progressSortKey}
-                  sortDir={progressSortDir}
-                  onSort={toggleProgressSort}
-                />
-                <SortTh
-                  label="$ move → 12% opt"
-                  column="move12"
-                  sortKey={progressSortKey}
-                  sortDir={progressSortDir}
-                  onSort={toggleProgressSort}
-                />
-              </tr>
-            </thead>
-            <tbody>
-              {sortedProgress.map((row: TradableProgressRow) => {
-                const recent = isRecent(row.lastSampleAt);
-                return (
-                  <tr
-                    key={row.symbol}
-                    className={rowClass(row.symbol)}
-                    onClick={() => setFocusedSymbol(row.symbol)}
-                    aria-selected={focusedSymbol === row.symbol}
-                  >
-                    <td className="px-2 py-1.5 font-semibold">
-                      {row.symbol}
-                      {row.name ? (
-                        <span className="ml-1 font-normal text-ocean-sand/80">{row.name}</span>
-                      ) : null}
-                    </td>
-                    <td className="px-2 py-1.5 tabular-nums">
-                      {row.sampleCount}/{row.minSamplesReady}
-                    </td>
-                    <td className="px-2 py-1.5">
-                      {row.ready ? (
-                        <span className="text-emerald-700 dark:text-emerald-300">yes</span>
-                      ) : (
-                        <span className="text-ocean-sand">no</span>
-                      )}
-                    </td>
-                    <td className="px-2 py-1.5">
-                      {row.lastSampleAt ? (
-                        recent ? (
+        filteredProgress.length === 0 ? (
+          <p className="mb-4 text-xs text-ocean-sand">
+            No tickers match “{search.trim()}”.
+          </p>
+        ) : (
+          <div className="mb-6 overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse text-left text-xs">
+              <thead>
+                <tr className="border-b border-ocean-mid/40 text-[11px]">
+                  <SortTh
+                    label="Symbol"
+                    column="symbol"
+                    sortKey={progressSortKey}
+                    sortDir={progressSortDir}
+                    onSort={toggleProgressSort}
+                  />
+                  <SortTh
+                    label="Samples"
+                    column="samples"
+                    sortKey={progressSortKey}
+                    sortDir={progressSortDir}
+                    onSort={toggleProgressSort}
+                  />
+                  <SortTh
+                    label="Ready"
+                    column="ready"
+                    sortKey={progressSortKey}
+                    sortDir={progressSortDir}
+                    onSort={toggleProgressSort}
+                  />
+                  <SortTh
+                    label="Recent"
+                    column="recent"
+                    sortKey={progressSortKey}
+                    sortDir={progressSortDir}
+                    onSort={toggleProgressSort}
+                  />
+                  <SortTh
+                    label="Bid–ask $"
+                    column="bidAsk"
+                    sortKey={progressSortKey}
+                    sortDir={progressSortDir}
+                    onSort={toggleProgressSort}
+                  />
+                  <SortTh
+                    label="$ move → 12% opt"
+                    column="move12"
+                    sortKey={progressSortKey}
+                    sortDir={progressSortDir}
+                    onSort={toggleProgressSort}
+                  />
+                </tr>
+              </thead>
+              <tbody>
+                {sortedProgress.map((row: TradableProgressRow) => {
+                  const recent = isRecent(row.lastSampleAt);
+                  return (
+                    <tr
+                      key={row.symbol}
+                      className={rowClass(row.symbol)}
+                      onClick={() => setFocusedSymbol(row.symbol)}
+                      aria-selected={focusedSymbol === row.symbol}
+                    >
+                      <td className="px-2 py-1.5 font-semibold">
+                        {row.symbol}
+                        {row.name ? (
+                          <span className="ml-1 font-normal text-ocean-sand/80">{row.name}</span>
+                        ) : null}
+                      </td>
+                      <td className="px-2 py-1.5 tabular-nums">
+                        {row.sampleCount}/{row.minSamplesReady}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        {row.ready ? (
+                          <span className="text-emerald-700 dark:text-emerald-300">yes</span>
+                        ) : (
+                          <span className="text-ocean-sand">no</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        {row.lastSampleAt ? (
+                          recent ? (
+                            <span
+                              className="text-emerald-700 dark:text-emerald-300"
+                              title={row.lastSampleAt}
+                            >
+                              yes
+                            </span>
+                          ) : (
+                            <span
+                              className="text-amber-800 dark:text-amber-200"
+                              title={row.lastSampleAt}
+                            >
+                              stale
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-ocean-sand">—</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5 tabular-nums">
+                        {row.typicalBidAskDollars != null ? (
                           <span
-                            className="text-emerald-700 dark:text-emerald-300"
-                            title={row.lastSampleAt}
+                            className={
+                              row.hasSpreadDayWarning
+                                ? "text-amber-800 dark:text-amber-200"
+                                : undefined
+                            }
+                            title={
+                              row.hasSpreadDayWarning
+                                ? (row.warnings?.join(" · ") ??
+                                  "WARNING: one day's bid–ask differed from the majority over ~2 weeks (soft flag only).")
+                                : undefined
+                            }
                           >
-                            yes
+                            {`$${row.typicalBidAskDollars.toFixed(2)}`}
+                            {row.hasSpreadDayWarning ? (
+                              <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide">
+                                warn
+                              </span>
+                            ) : null}
                           </span>
                         ) : (
-                          <span
-                            className="text-amber-800 dark:text-amber-200"
-                            title={row.lastSampleAt}
-                          >
-                            stale
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-ocean-sand">—</span>
-                      )}
-                    </td>
-                    <td className="px-2 py-1.5 tabular-nums">
-                      {row.typicalBidAskDollars != null ? (
-                        <span
-                          className={
-                            row.hasSpreadDayWarning
-                              ? "text-amber-800 dark:text-amber-200"
-                              : undefined
-                          }
-                          title={
-                            row.hasSpreadDayWarning
-                              ? (row.warnings?.join(" · ") ??
-                                "WARNING: one day's bid–ask differed from the majority over ~2 weeks (soft flag only).")
-                              : undefined
-                          }
-                        >
-                          {`$${row.typicalBidAskDollars.toFixed(2)}`}
-                          {row.hasSpreadDayWarning ? (
-                            <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide">
-                              warn
-                            </span>
-                          ) : null}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-2 py-1.5 tabular-nums">
-                      {row.underlyingMoveDollarsForOption12Pct != null
-                        ? `$${row.underlyingMoveDollarsForOption12Pct.toFixed(2)}`
-                        : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5 tabular-nums">
+                        {row.underlyingMoveDollarsForOption12Pct != null
+                          ? `$${row.underlyingMoveDollarsForOption12Pct.toFixed(2)}`
+                          : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
       ) : canCollect ? (
         <p className="mb-4 text-xs text-ocean-sand">No samples yet — click Collect samples.</p>
       ) : null}
@@ -555,113 +620,119 @@ export function TradablePane({ onBack }: Props) {
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ocean-sand">
             Ranked tradable (ready only, best on top)
           </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] border-collapse text-left text-xs">
-              <thead>
-                <tr className="border-b border-ocean-mid/40 text-[11px]">
-                  <th className="px-2 py-1.5 font-medium text-ocean-sand">Promote</th>
-                  <SortTh
-                    label="#"
-                    column="rank"
-                    sortKey={watchlistSortKey}
-                    sortDir={watchlistSortDir}
-                    onSort={toggleWatchlistSort}
-                  />
-                  <SortTh
-                    label="Symbol"
-                    column="symbol"
-                    sortKey={watchlistSortKey}
-                    sortDir={watchlistSortDir}
-                    onSort={toggleWatchlistSort}
-                  />
-                  <SortTh
-                    label="Tradability"
-                    column="score"
-                    sortKey={watchlistSortKey}
-                    sortDir={watchlistSortDir}
-                    onSort={toggleWatchlistSort}
-                  />
-                  <SortTh
-                    label="Tier"
-                    column="tier"
-                    sortKey={watchlistSortKey}
-                    sortDir={watchlistSortDir}
-                    onSort={toggleWatchlistSort}
-                  />
-                  <SortTh
-                    label="Stock #"
-                    column="stockRank"
-                    sortKey={watchlistSortKey}
-                    sortDir={watchlistSortDir}
-                    onSort={toggleWatchlistSort}
-                  />
-                  <SortTh
-                    label="Call spr%"
-                    column="callSpr"
-                    sortKey={watchlistSortKey}
-                    sortDir={watchlistSortDir}
-                    onSort={toggleWatchlistSort}
-                  />
-                  <SortTh
-                    label="Put spr%"
-                    column="putSpr"
-                    sortKey={watchlistSortKey}
-                    sortDir={watchlistSortDir}
-                    onSort={toggleWatchlistSort}
-                  />
-                </tr>
-              </thead>
-              <tbody>
-                {sortedWatchlist.map((row: TradableWatchlistRow) => (
-                  <tr
-                    key={row.symbol}
-                    className={rowClass(row.symbol)}
-                    onClick={() => setFocusedSymbol(row.symbol)}
-                    aria-selected={focusedSymbol === row.symbol}
-                  >
-                    <td className="px-2 py-1.5">
-                      <input
-                        type="checkbox"
-                        className="rounded border-ocean-mid"
-                        checked={Boolean(selected[row.symbol])}
-                        disabled={busy}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) =>
-                          setSelected((prev) => ({
-                            ...prev,
-                            [row.symbol]: event.target.checked,
-                          }))
-                        }
-                        aria-label={`Promote ${row.symbol}`}
-                      />
-                    </td>
-                    <td className="px-2 py-1.5 tabular-nums text-ocean-sand">{row.rank}</td>
-                    <td className="px-2 py-1.5 font-semibold">{row.symbol}</td>
-                    <td className="px-2 py-1.5 tabular-nums">{row.score.toFixed(1)}</td>
-                    <td className="px-2 py-1.5">
-                      <span
-                        className={cn(
-                          "rounded px-1.5 py-0.5 text-[11px] font-medium",
-                          TIER_CLASS[row.tier] ?? TIER_CLASS.watch,
-                        )}
-                      >
-                        {row.tier}
-                      </span>
-                    </td>
-                    <td className="px-2 py-1.5 tabular-nums text-ocean-sand">
-                      {row.stockRank ?? "—"}
-                    </td>
-                    <td className="px-2 py-1.5 tabular-nums">
-                      {fmtSpreadPct(row.call?.metrics?.medianSpreadPct)}
-                    </td>
-                    <td className="px-2 py-1.5 tabular-nums">
-                      {fmtSpreadPct(row.put?.metrics?.medianSpreadPct)}
-                    </td>
+          {filteredWatchlist.length === 0 ? (
+            <p className="text-xs text-ocean-sand">
+              No ranked tickers match “{search.trim()}”.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] border-collapse text-left text-xs">
+                <thead>
+                  <tr className="border-b border-ocean-mid/40 text-[11px]">
+                    <th className="px-2 py-1.5 font-medium text-ocean-sand">Promote</th>
+                    <SortTh
+                      label="#"
+                      column="rank"
+                      sortKey={watchlistSortKey}
+                      sortDir={watchlistSortDir}
+                      onSort={toggleWatchlistSort}
+                    />
+                    <SortTh
+                      label="Symbol"
+                      column="symbol"
+                      sortKey={watchlistSortKey}
+                      sortDir={watchlistSortDir}
+                      onSort={toggleWatchlistSort}
+                    />
+                    <SortTh
+                      label="Tradability"
+                      column="score"
+                      sortKey={watchlistSortKey}
+                      sortDir={watchlistSortDir}
+                      onSort={toggleWatchlistSort}
+                    />
+                    <SortTh
+                      label="Tier"
+                      column="tier"
+                      sortKey={watchlistSortKey}
+                      sortDir={watchlistSortDir}
+                      onSort={toggleWatchlistSort}
+                    />
+                    <SortTh
+                      label="Stock #"
+                      column="stockRank"
+                      sortKey={watchlistSortKey}
+                      sortDir={watchlistSortDir}
+                      onSort={toggleWatchlistSort}
+                    />
+                    <SortTh
+                      label="Call spr%"
+                      column="callSpr"
+                      sortKey={watchlistSortKey}
+                      sortDir={watchlistSortDir}
+                      onSort={toggleWatchlistSort}
+                    />
+                    <SortTh
+                      label="Put spr%"
+                      column="putSpr"
+                      sortKey={watchlistSortKey}
+                      sortDir={watchlistSortDir}
+                      onSort={toggleWatchlistSort}
+                    />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {sortedWatchlist.map((row: TradableWatchlistRow) => (
+                    <tr
+                      key={row.symbol}
+                      className={rowClass(row.symbol)}
+                      onClick={() => setFocusedSymbol(row.symbol)}
+                      aria-selected={focusedSymbol === row.symbol}
+                    >
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="checkbox"
+                          className="rounded border-ocean-mid"
+                          checked={Boolean(selected[row.symbol])}
+                          disabled={busy}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={(event) =>
+                            setSelected((prev) => ({
+                              ...prev,
+                              [row.symbol]: event.target.checked,
+                            }))
+                          }
+                          aria-label={`Promote ${row.symbol}`}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 tabular-nums text-ocean-sand">{row.rank}</td>
+                      <td className="px-2 py-1.5 font-semibold">{row.symbol}</td>
+                      <td className="px-2 py-1.5 tabular-nums">{row.score.toFixed(1)}</td>
+                      <td className="px-2 py-1.5">
+                        <span
+                          className={cn(
+                            "rounded px-1.5 py-0.5 text-[11px] font-medium",
+                            TIER_CLASS[row.tier] ?? TIER_CLASS.watch,
+                          )}
+                        >
+                          {row.tier}
+                        </span>
+                      </td>
+                      <td className="px-2 py-1.5 tabular-nums text-ocean-sand">
+                        {row.stockRank ?? "—"}
+                      </td>
+                      <td className="px-2 py-1.5 tabular-nums">
+                        {fmtSpreadPct(row.call?.metrics?.medianSpreadPct)}
+                      </td>
+                      <td className="px-2 py-1.5 tabular-nums">
+                        {fmtSpreadPct(row.put?.metrics?.medianSpreadPct)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       ) : null}
     </AdminExpandedPane>

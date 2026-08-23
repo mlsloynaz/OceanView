@@ -32,7 +32,8 @@ export const TICKERS_HUB: Record<Exclude<TickersHubView, "hub">, TickersHubMeta>
     id: "tradable",
     anchorId: "admin-tickers-tradable",
     title: "Tradable",
-    description: "Option bid–ask for the full catalog — Ready + freshness, promote with checkboxes",
+    description:
+      "Option bid–ask for the full catalog — search, Ready + freshness, promote with checkboxes",
   },
 };
 

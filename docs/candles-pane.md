@@ -534,7 +534,10 @@ Removed from legacy pane: Request Earning Calendar, Refresh + foundation.
 src/features/admin/
   AdminPage.tsx                 # TickersPane + CandlesPane
   tickers/
-    TickersPane.tsx             # catalog filters + add form + active toggle
+    TickersPane.tsx             # hub → Watchlist / Best-fit / Tradable
+    WatchlistPane.tsx           # catalog search, activate/deactivate, add
+    BestFitPane.tsx             # ranked fitness + symbol/name search
+    TradablePane.tsx            # option samples + symbol/name search (progress + ranked)
     AddTickerForm.tsx
     TickersTable.tsx
     TickerMovementInfoPanel.tsx # expanded row: stacked label-above-value metrics (no wide L/R gap)
