@@ -392,8 +392,8 @@ export function BreakoutKanbanBoard({
         </p>
       </div>
 
-      {/* Setup (1) · Confirmed spans 2 (graph | card) · Entry (1) */}
-      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+      {/* Mobile: stacked columns · md: 2-col · xl: Setup | Confirmed×2 | Entry */}
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
         {BREAKOUT_KANBAN_COLUMNS.map((col) => {
           const rows = byColumn[col.id];
           const isEntry = col.id === "entry";
@@ -403,7 +403,7 @@ export function BreakoutKanbanBoard({
             <section
               key={col.id}
               className={cn(
-                "flex min-h-[12rem] flex-col rounded-lg border px-2.5 py-2",
+                "flex min-h-[12rem] min-w-0 flex-col rounded-lg border px-2.5 py-2",
                 isConfirmed && "md:col-span-2",
                 isEntry
                   ? "border-ocean-teal/45 bg-ocean-teal/5"
@@ -441,7 +441,7 @@ export function BreakoutKanbanBoard({
                     rows.map((w) => (
                       <li
                         key={w.id}
-                        className="grid grid-cols-2 items-stretch gap-1.5"
+                        className="grid grid-cols-1 items-stretch gap-1.5 sm:grid-cols-2"
                       >
                         <ConfirmedChartThumb
                           watch={w}

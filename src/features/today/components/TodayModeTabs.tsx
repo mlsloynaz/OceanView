@@ -9,7 +9,7 @@ type Props = {
 export function TodayModeTabs({ mode, onChange }: Props) {
   return (
     <div
-      className="inline-flex flex-wrap gap-1 rounded-lg border border-ocean-mid/50 bg-ocean-deep/30 p-1"
+      className="flex w-full flex-wrap gap-1 rounded-lg border border-ocean-mid/50 bg-ocean-deep/30 p-1 sm:inline-flex sm:w-auto"
       role="tablist"
       aria-label="Today mode"
     >
@@ -23,7 +23,7 @@ export function TodayModeTabs({ mode, onChange }: Props) {
             aria-selected={active}
             onClick={() => onChange(item)}
             className={cn(
-              "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+              "min-w-0 flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors sm:flex-none",
               active
                 ? "bg-ocean-teal text-ocean-deep"
                 : "text-ocean-sand hover:bg-ocean-mid/40 hover:text-ocean-foam",

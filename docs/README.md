@@ -64,4 +64,4 @@ Admin (/admin)          Market (/market)        Premarket (/premarket)     Opera
 
 Local full-stack: `npm run dev:local` — see [cursor-rules-skills.md](./cursor-rules-skills.md).
 
-**Shell layout:** Main pages use the full width of `<main>` (beside Tools). Root type is `html { font-size: 18px }` in `src/index.css`; main padding is `p-2 md:p-3` in `AppShell`.
+**Shell layout:** Main pages use the full width of `<main>`. From `lg` up, Tools is a fixed left column; below `lg`, Tools is a floating drawer (bottom-left toggle) so each view stays full-width on tablet/phone. TopNav collapses to a Menu button below `md`. Root type is `html { font-size: 18px }` in `src/index.css`; main padding is `p-2 md:p-3` in `AppShell`.
