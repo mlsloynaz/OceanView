@@ -24,6 +24,19 @@ export function rankSemiFinalSearch(
   return 2;
 }
 
+/** CALL/PUT, or undirected EOD watch (E04 lateral — bias set later at 9:25 open). */
+export function isSemiFinalDisplayableTicker(row: PreselectionTickerRow): boolean {
+  if (row.requiredPassed === false) return false;
+  const rules = Array.isArray(row.candidateRules) ? row.candidateRules : [];
+  // Rule-gated strategies: only keep tickers whose listed rules are all met.
+  if (rules.length > 0 && rules.some((rule) => rule.met === false)) return false;
+  const bias = row.directionBias;
+  if (bias === "CALL" || bias === "PUT") return true;
+  // Undirected pass: backend already requiredPassed + met rules (e.g. E04 EOD).
+  if (bias == null || bias === "") return rules.length > 0 || row.requiredPassed === true;
+  return false;
+}
+
 export function filterSemiFinalResult(
   result: PreselectionResultResponse | null,
   query: string,
@@ -31,16 +44,11 @@ export function filterSemiFinalResult(
   if (!result) return null;
   const q = query.trim();
   const strategies = Array.isArray(result.strategies) ? result.strategies : [];
-  const withBiasOnly = strategies
+  const gated = strategies
     .map((group) => {
-      const tickers = (Array.isArray(group.tickers) ? group.tickers : []).filter((row) => {
-        if (row.requiredPassed === false) return false;
-        if (row.directionBias !== "CALL" && row.directionBias !== "PUT") return false;
-        const rules = Array.isArray(row.candidateRules) ? row.candidateRules : [];
-        // Rule-gated strategies: only keep tickers whose listed rules are all met.
-        if (rules.length > 0 && rules.some((rule) => rule.met === false)) return false;
-        return true;
-      });
+      const tickers = (Array.isArray(group.tickers) ? group.tickers : []).filter(
+        isSemiFinalDisplayableTicker,
+      );
       return { ...group, tickers, tickerCount: tickers.length };
     })
     .filter((group) => {
@@ -49,18 +57,12 @@ export function filterSemiFinalResult(
       return Array.isArray(group.candidateRuleKeys) && group.candidateRuleKeys.length > 0;
     });
 
-  if (!q) return { ...result, strategies: withBiasOnly };
+  if (!q) return { ...result, strategies: gated };
 
   const filtered = strategies
     .map((group) => {
       const tickers = (Array.isArray(group.tickers) ? group.tickers : [])
-        .filter((row) => {
-          if (row.requiredPassed === false) return false;
-          if (row.directionBias !== "CALL" && row.directionBias !== "PUT") return false;
-          const rules = Array.isArray(row.candidateRules) ? row.candidateRules : [];
-          if (rules.length > 0 && rules.some((rule) => rule.met === false)) return false;
-          return matchesSemiFinalSearch(row, q);
-        })
+        .filter((row) => isSemiFinalDisplayableTicker(row) && matchesSemiFinalSearch(row, q))
         .sort(
           (a, b) =>
             rankSemiFinalSearch(a, q) - rankSemiFinalSearch(b, q) ||
@@ -88,7 +90,7 @@ export function semiFinalSearchSuggestions(
 
   for (const group of result.strategies ?? []) {
     for (const row of group.tickers ?? []) {
-      if (row.directionBias !== "CALL" && row.directionBias !== "PUT") continue;
+      if (!isSemiFinalDisplayableTicker(row)) continue;
       const upper = row.symbol.toUpperCase();
       if (seen.has(upper) || !matchesSemiFinalSearch(row, query)) continue;
       seen.add(upper);
@@ -111,7 +113,7 @@ export function semiFinalMatchCount(result: PreselectionResultResponse | null, q
   let count = 0;
   for (const group of result.strategies ?? []) {
     for (const row of group.tickers ?? []) {
-      if (row.directionBias !== "CALL" && row.directionBias !== "PUT") continue;
+      if (!isSemiFinalDisplayableTicker(row)) continue;
       const upper = row.symbol.toUpperCase();
       if (seen.has(upper) || !matchesSemiFinalSearch(row, query)) continue;
       seen.add(upper);

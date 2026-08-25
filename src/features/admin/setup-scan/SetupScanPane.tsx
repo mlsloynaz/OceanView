@@ -443,9 +443,15 @@ function TickerGroupSection({
           </svg>
           <h3 className="font-display text-lg text-ocean-foam">{group.symbol}</h3>
           {group.name && <span className="text-sm text-ocean-sand">{group.name}</span>}
-          <span className="rounded bg-ocean-teal/15 px-2 py-0.5 text-xs font-medium text-ocean-teal-dim dark:text-ocean-teal">
-            {group.directionBias}
-          </span>
+          {group.directionBias ? (
+            <span className="rounded bg-ocean-teal/15 px-2 py-0.5 text-xs font-medium text-ocean-teal-dim dark:text-ocean-teal">
+              {group.directionBias}
+            </span>
+          ) : (
+            <span className="rounded bg-ocean-mid/40 px-2 py-0.5 text-xs font-medium text-ocean-sand">
+              WATCH
+            </span>
+          )}
           <span className="text-xs text-ocean-sand">
             {group.suggestions.length} strateg
             {group.suggestions.length === 1 ? "y" : "ies"}
@@ -891,8 +897,8 @@ export function SetupScanPane() {
           usesMock
             ? "Mock data (VITE_USE_MOCK_SETUP_SCAN or VITE_USE_MOCK_CANDLES)"
             : byStrategy
-              ? "D+1h preselection — strategies with CALL/PUT candidates"
-              : "D+1h preselection — tickers with CALL/PUT bias, grouped by symbol"
+              ? "D+1h preselection — strategies with candidates (CALL/PUT or undirected watch)"
+              : "D+1h preselection — tickers grouped by symbol (CALL/PUT or undirected watch)"
         }
         className="min-w-0"
         headerExtra={
@@ -1151,8 +1157,8 @@ export function SetupScanPane() {
           !ws.search.trim() &&
           (byStrategy ? ws.strategyGroups.length === 0 : ws.tickerGroups.length === 0) && (
           <p className="text-sm text-ocean-sand">
-            No tickers with a selected bias (CALL/PUT) at or above min score — neutral trend symbols
-            are hidden.
+            No tickers passed SemiFinal gates on the last scan (required rules / min score). Undirected
+            EOD watches (e.g. E04 lateral) appear without CALL/PUT until the open gap pass.
           </p>
         )}
       </AdminExpandedPane>

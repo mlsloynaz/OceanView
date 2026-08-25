@@ -86,7 +86,8 @@ export type PreselectionStrategySuggestion = {
 export type PreselectionTickerGroup = {
   symbol: string;
   name?: string | null;
-  directionBias: "CALL" | "PUT";
+  /** Null when EOD undirected (e.g. E04 lateral watch before 9:25 gap). */
+  directionBias: "CALL" | "PUT" | null;
   currentlyActive: boolean;
   suggestions: PreselectionStrategySuggestion[];
 };
