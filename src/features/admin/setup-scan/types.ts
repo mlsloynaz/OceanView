@@ -184,6 +184,12 @@ export type PreselectionResultResponse = {
     strategyCount?: number;
   };
   strategies?: PreselectionStrategyGroup[];
+  /** Progressive SemiFinal subset (passed / near) for open-mode and Market scope. */
+  watchPool?: {
+    symbols?: string[];
+    stages?: Record<string, string>;
+    [key: string]: unknown;
+  } | null;
   /** Latest 15:25 overnight gap forecast for active tickers. */
   gapForecast?: GapForecastResult | null;
 };

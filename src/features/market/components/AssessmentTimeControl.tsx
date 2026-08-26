@@ -7,6 +7,10 @@ import {
   type AssessmentTimeMode,
 } from "../lib/assessment-time";
 import {
+  MARKET_TICKER_SCOPE_LABEL,
+  type MarketTickerScope,
+} from "../lib/ticker-scope";
+import {
   assessmentToLiveSimulate,
   liveSimulateToAssessment,
 } from "@/shared/components/SimulationTimeControl";
@@ -22,6 +26,8 @@ export type { PollIntervalUnit };
 const BTN =
   "rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
 const BTN_PRIMARY = cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105");
+const BTN_SCOPE =
+  "rounded px-2 py-0.5 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
 
 type Props = {
   mode: AssessmentTimeMode;
@@ -40,6 +46,8 @@ type Props = {
   onIntervalUnitChange: (unit: PollIntervalUnit) => void;
   liveEnabled?: boolean;
   simulateEnabled?: boolean;
+  tickerScope?: MarketTickerScope;
+  onTickerScopeChange?: (scope: MarketTickerScope) => void;
   onModeChange: (mode: AssessmentTimeMode) => void;
   onChange: (value: string) => void;
   onAssess: () => void;
@@ -71,6 +79,8 @@ export function AssessmentTimeControl({
   onIntervalUnitChange,
   liveEnabled = true,
   simulateEnabled = true,
+  tickerScope = "allActive",
+  onTickerScopeChange,
   onModeChange,
   onChange,
   onAssess,
@@ -91,6 +101,7 @@ export function AssessmentTimeControl({
   const intervalLabel = intervalUnit === "min" ? "min" : "sec";
   const showTestExit = typeof onTestExit === "function";
   const exitDisabled = testExitDisabled || testExitPending || busy;
+  const scopeLabel = MARKET_TICKER_SCOPE_LABEL[tickerScope];
 
   return (
     <div className={cn("min-w-0 space-y-2", className)}>
@@ -115,6 +126,34 @@ export function AssessmentTimeControl({
           ariaLabel="Assessment time mode"
         />
 
+        <div
+          className="inline-flex rounded-md border border-ocean-mid/50 p-0.5"
+          role="group"
+          aria-label="Ticker discovery scope"
+        >
+          {(["allActive", "watchPool"] as const).map((scope) => (
+            <button
+              key={scope}
+              type="button"
+              disabled={busy || monitorActive || !onTickerScopeChange}
+              onClick={() => onTickerScopeChange?.(scope)}
+              className={cn(
+                BTN_SCOPE,
+                tickerScope === scope
+                  ? "bg-ocean-teal/20 text-ocean-teal"
+                  : "text-ocean-sand hover:text-ocean-foam",
+              )}
+              title={
+                scope === "allActive"
+                  ? "Discover across all Active catalog tickers"
+                  : "Limit to SemiFinal watch pool (passed / near)"
+              }
+            >
+              {MARKET_TICKER_SCOPE_LABEL[scope]}
+            </button>
+          ))}
+        </div>
+
         <button
           type="button"
           onClick={onAssess}
@@ -127,8 +166,8 @@ export function AssessmentTimeControl({
                   ? "Assessment time is outside stored candle history"
                   : "Assessment time is before earliest candle data"
                 : mode === "now"
-                  ? "Run one assessment at the current Eastern time"
-                  : "Run one assessment at the selected time"
+                  ? `Discover · ${scopeLabel} at the current Eastern time (strategies outside entry window skipped)`
+                  : `Discover · ${scopeLabel} at the selected time (strategies outside entry window skipped)`
           }
           className={BTN_PRIMARY}
         >
@@ -156,6 +195,12 @@ export function AssessmentTimeControl({
         ) : null}
       </div>
 
+      <p className="text-[10px] text-ocean-sand/80">
+        Discover · <span className="text-ocean-foam/90">{scopeLabel}</span>
+        {" — "}
+        strategies outside their entry window are skipped.
+      </p>
+
       <PollControls
         density="compact"
         monitorActive={monitorActive}
@@ -176,7 +221,7 @@ export function AssessmentTimeControl({
         intervalInputId="market-assess-interval"
         monitoringMessage={
           monitorActive
-            ? `Monitoring — next assess every ${intervalValue} ${intervalLabel}${
+            ? `Monitoring — ${scopeLabel} every ${intervalValue} ${intervalLabel}${
                 mode === "et" ? " · Simulate reuses the same time each tick" : ""
               }. Results update when each run finishes. Strategies outside their entry window are skipped.`
             : null

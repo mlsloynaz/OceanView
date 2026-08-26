@@ -81,6 +81,8 @@ export function MarketPage() {
     intervalUnit,
     setIntervalValue,
     setIntervalUnit,
+    tickerScope,
+    setTickerScope,
     setAssessmentMode,
     setAssessmentFromLocal,
     runAssessment,
@@ -148,6 +150,8 @@ export function MarketPage() {
             intervalUnit={intervalUnit}
             onIntervalValueChange={setIntervalValue}
             onIntervalUnitChange={setIntervalUnit}
+            tickerScope={tickerScope}
+            onTickerScopeChange={setTickerScope}
             onModeChange={setAssessmentMode}
             onChange={setAssessmentFromLocal}
             onAssess={runAssessment}
@@ -171,7 +175,9 @@ export function MarketPage() {
 
       {needsAssess && (
         <p className="rounded-lg border border-ocean-mid/40 bg-ocean-deep/30 px-3 py-2 text-sm text-ocean-sand">
-          No assessment run yet. Click <strong className="text-ocean-foam">Assess</strong> to evaluate active tickers.
+          No assessment run yet. Click <strong className="text-ocean-foam">Assess</strong> to discover
+          across <strong className="text-ocean-foam">All active</strong> tickers (or the SemiFinal
+          watch pool). Strategies outside their entry window are skipped.
         </p>
       )}
 

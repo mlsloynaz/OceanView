@@ -42,6 +42,9 @@ import {
   resolveMarketNowAssessmentMoment,
 } from "../lib/assessment-time";
 import { isStrategyInEntryWindow } from "../lib/entry-window";
+import { loadMarketWatchPoolSymbols } from "../lib/load-watch-pool-symbols";
+import type { MarketTickerScope } from "../lib/ticker-scope";
+import { MARKET_TICKER_SCOPE_LABEL } from "../lib/ticker-scope";
 import type { PollIntervalUnit } from "@/shared/components/PollControls";
 import { useLiveMarketHours } from "@/shared/hooks/useLiveMarketHours";
 import { defaultSimulationSessionDate } from "@/shared/lib/market-calendar";
@@ -166,6 +169,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   const [monitorActive, setMonitorActive] = useState(false);
   const [intervalValue, setIntervalValueState] = useState(DEFAULT_INTERVAL_VALUE);
   const [intervalUnit, setIntervalUnitState] = useState<PollIntervalUnit>("min");
+  const [tickerScope, setTickerScope] = useState<MarketTickerScope>("allActive");
   const [pendingRunId, setPendingRunId] = useState<string | null>(null);
   const [jobActive, setJobActive] = useState(false);
   const [coverageInitialized, setCoverageInitialized] = useState(false);
@@ -181,6 +185,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   const monitorActiveRef = useRef(false);
   const intervalValueRef = useRef(DEFAULT_INTERVAL_VALUE);
   const intervalUnitRef = useRef<PollIntervalUnit>("min");
+  const tickerScopeRef = useRef<MarketTickerScope>("allActive");
   const evaluateTimerRef = useRef<number | null>(null);
   const settleAbortRef = useRef(0);
   const jobActiveRef = useRef(false);
@@ -188,6 +193,7 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
   monitorActiveRef.current = monitorActive;
   intervalValueRef.current = intervalValue;
   intervalUnitRef.current = intervalUnit;
+  tickerScopeRef.current = tickerScope;
   jobActiveRef.current = jobActive;
 
   const clearMonitorTimers = useCallback(() => {
@@ -620,9 +626,27 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
       );
 
       try {
+        const scope = tickerScopeRef.current;
+        let symbols: string[] | undefined;
+        if (scope === "watchPool") {
+          symbols = await loadMarketWatchPoolSymbols();
+          if (symbols.length === 0) {
+            setJobActive(false);
+            assessInFlightRef.current = false;
+            setAssessPending(false);
+            setAssessmentError(
+              "SemiFinal watch pool is empty — run EOD or Open SemiFinal first, or switch to All active.",
+            );
+            setAssessNotice(null);
+            return;
+          }
+        }
+
+        const scopeLabel = MARKET_TICKER_SCOPE_LABEL[scope];
         const start = await postMarketEvaluate({
           assessmentTimeMode: assessmentMode,
           strategyIds,
+          ...(symbols ? { symbols } : {}),
           ...(historicalOnly ? { simulationTimeEt: formatSimulationTimeEt(at) } : {}),
           options: { signalThresholdPct: envelope?.signalThresholdPct ?? 50 },
         });
@@ -631,9 +655,12 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
         await pollMarketEvaluate(start.runId);
         void followAfterPostAssessDelay(start.runId);
         if (!continuous) {
+          const n = symbols?.length;
           setAssessNotice(
             start.message ??
-              "Assessment running… Top Candidates will update as each ticker finishes.",
+              (n != null
+                ? `Discover · ${scopeLabel} (${n}) — Top Candidates update as each ticker finishes.`
+                : `Discover · ${scopeLabel} — Top Candidates update as each ticker finishes.`),
           );
         }
       } catch (err) {
@@ -979,6 +1006,8 @@ export function useMarketWorkspace(viewMode: MarketViewMode) {
     intervalUnit,
     setIntervalValue,
     setIntervalUnit,
+    tickerScope,
+    setTickerScope,
     setAssessmentMode,
     setAssessmentFromLocal,
     runAssessment,

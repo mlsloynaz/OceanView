@@ -303,6 +303,8 @@ function LiveCandidates({
             intervalUnit={ws.intervalUnit}
             onIntervalValueChange={ws.setIntervalValue}
             onIntervalUnitChange={ws.setIntervalUnit}
+            tickerScope={ws.tickerScope}
+            onTickerScopeChange={ws.setTickerScope}
             onModeChange={ws.setAssessmentMode}
             onChange={ws.setAssessmentFromLocal}
             onAssess={ws.runAssessment}
