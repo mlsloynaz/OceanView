@@ -16,6 +16,7 @@ import {
 import { AssessmentTimeControl } from "@/features/market/components/AssessmentTimeControl";
 import { MarketSearchInput } from "@/features/market/components/MarketSearchInput";
 import { useMarketWorkspace } from "@/features/market/hooks/useMarketWorkspace";
+import { formatSimulationTimeEt } from "@/features/market/lib/assessment-time";
 import { TodaySection } from "./TodaySection";
 
 type LiveWorkspace = ReturnType<typeof useMarketWorkspace>;
