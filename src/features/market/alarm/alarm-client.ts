@@ -378,3 +378,78 @@ export async function deleteMarketAlarmTriggers(): Promise<{ ok: boolean; count:
     method: "DELETE",
   });
 }
+
+export type OrbAutoJobStatus = {
+  jobType: string;
+  kind: string;
+  status: "idle" | "running" | "cancelled" | "completed" | string;
+  symbols: string[];
+  tradeDate?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  cancelledAt?: string | null;
+  message?: string | null;
+  windowOpen?: boolean;
+  windowMessage?: string | null;
+  defaultSymbols?: string[];
+  pollIntervalSeconds?: number;
+};
+
+export async function fetchOrbAutoJobStatus(): Promise<OrbAutoJobStatus> {
+  if (USE_MOCK) {
+    return {
+      jobType: "orb_auto_monitor",
+      kind: "orb_auto_monitor",
+      status: "idle",
+      symbols: ["TSLA", "MSFT", "SPY"],
+      windowOpen: true,
+      pollIntervalSeconds: 45,
+      message: "ORB auto idle (mock).",
+    };
+  }
+  return fetchJson<OrbAutoJobStatus>("/market/alarm/orb-auto/status", { method: "GET" });
+}
+
+export async function startOrbAutoJob(body?: {
+  symbols?: string[];
+  trigger?: string;
+}): Promise<OrbAutoJobStatus> {
+  if (USE_MOCK) {
+    return {
+      jobType: "orb_auto_monitor",
+      kind: "orb_auto_monitor",
+      status: "running",
+      symbols: body?.symbols?.length ? body.symbols : ["TSLA", "MSFT", "SPY"],
+      windowOpen: true,
+      pollIntervalSeconds: 45,
+      message: "ORB auto running — TSLA, MSFT, SPY (mock).",
+    };
+  }
+  return fetchJson<OrbAutoJobStatus>("/market/alarm/orb-auto/start", {
+    method: "POST",
+    body: JSON.stringify(body ?? {}),
+  });
+}
+
+export async function stopOrbAutoJob(
+  reason: "cancelled" | "completed" = "cancelled",
+): Promise<OrbAutoJobStatus> {
+  if (USE_MOCK) {
+    return {
+      jobType: "orb_auto_monitor",
+      kind: "orb_auto_monitor",
+      status: reason === "completed" ? "completed" : "cancelled",
+      symbols: ["TSLA", "MSFT", "SPY"],
+      windowOpen: false,
+      pollIntervalSeconds: 45,
+      message:
+        reason === "completed"
+          ? "ORB window ended — auto job completed."
+          : "ORB auto cancelled — use manual ticker selection.",
+    };
+  }
+  return fetchJson<OrbAutoJobStatus>("/market/alarm/orb-auto/stop", {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}

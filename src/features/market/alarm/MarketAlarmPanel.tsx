@@ -22,6 +22,7 @@ import {
   formatAlarmTrend,
   isMovementAlarmWatch,
   needsBandTimeframe,
+  usesBreakoutAlarmTarget,
   type AlarmBandTimeframe,
   type AlarmBoardSection,
   type AlarmEligibleRuleKey,
@@ -34,6 +35,8 @@ import {
   isE03ConfirmExpired,
   useNowTick,
 } from "./e03-confirm-window";
+import { isOrbWindowOpen, ORB_BREAKOUT_RULE_KEY } from "./orb-window";
+import type { OrbAutoJobStatus } from "./alarm-client";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -108,6 +111,8 @@ type Props = {
   onCheckNow: (id: string) => void;
   onUpdateInterval: (id: string, value: number, unit: PollIntervalUnit) => void;
   onRequestNotify: () => void;
+  orbAutoJob?: OrbAutoJobStatus | null;
+  onCancelOrbAuto?: () => void;
 };
 
 function statusLabel(status: MarketAlarmWatch["status"]): string {
@@ -169,12 +174,21 @@ export function MarketAlarmPanel({
   onCheckNow,
   onUpdateInterval,
   onRequestNotify,
+  orbAutoJob,
+  onCancelOrbAuto,
 }: Props) {
   const nowTick = useNowTick();
   const eligibleRules = useMemo(() => {
     const e03Closed = isE03ConfirmExpired(nowTick);
     return ALARM_ELIGIBLE_RULES.filter((r) => {
       if (e03Closed && r.ruleKey === E03_CONFIRM_RULE_KEY) return false;
+      if (
+        section === "movement" &&
+        r.ruleKey === ORB_BREAKOUT_RULE_KEY &&
+        !isOrbWindowOpen(nowTick)
+      ) {
+        return false;
+      }
       if (section === "strategy") return STRATEGY_CONFIRM_RULE_KEYS.includes(r.ruleKey);
       if (section === "movement") return MOVEMENT_ALARM_RULE_KEYS.includes(r.ruleKey);
       return true;
@@ -210,7 +224,7 @@ export function MarketAlarmPanel({
   const toggleRule = (key: AlarmEligibleRuleKey) => {
     setSelectedRules((prev) => {
       const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key];
-      if (next.length === 1 && next[0] === "breakout_quality") {
+      if (next.length === 1 && usesBreakoutAlarmTarget(next)) {
         setFrequencyUnit("sec");
         setFrequencyValue(30);
       }
@@ -307,6 +321,31 @@ export function MarketAlarmPanel({
             Confirmed). Confirm entry and keep watching until the setup drops →{" "}
             <span className="font-medium text-ocean-foam">EXIT</span>, then arm again.
           </p>
+          {orbAutoJob?.status === "running" && section !== "strategy" ? (
+            <div
+              className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2"
+              role="status"
+            >
+              <div>
+                <p className="font-semibold text-ocean-foam">
+                  ORB Auto running — {orbAutoJob.symbols.join(", ")}
+                </p>
+                <p className="mt-0.5 text-xs text-ocean-sand">
+                  Opening-range break only · 9:45–11:30 AM ET · popup + sound on Entry.
+                </p>
+              </div>
+              {onCancelOrbAuto ? (
+                <button
+                  type="button"
+                  className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
+                  onClick={() => onCancelOrbAuto()}
+                >
+                  Cancel auto
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
           {banner ? (
             <div
               className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-ocean-teal/40 bg-ocean-teal/15 px-3 py-2"

@@ -19,6 +19,10 @@ export const ALARM_ELIGIBLE_RULES = [
     label: "Breakout quality (15M multi-TF)",
   },
   {
+    ruleKey: "orb_breakout",
+    label: "ORB — Opening Range (15M)",
+  },
+  {
     ruleKey: "volume_stoch_1h",
     label: "Confirmación E03 (volumen HORA Stoch)",
   },
@@ -41,8 +45,27 @@ export const STRATEGY_CONFIRM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
 /** Movement / breakout watches — not a playbook confirm. */
 export const MOVEMENT_ALARM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
   "breakout_quality",
+  "orb_breakout",
   "touch_disipador",
 ];
+
+/** Rules that use the Movement / Breakout Kanban + entry_ready alarm target. */
+export const BREAKOUT_KANBAN_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
+  "breakout_quality",
+  "orb_breakout",
+];
+
+export function usesBreakoutAlarmTarget(ruleKeys: string[]): boolean {
+  return ruleKeys.some((key) =>
+    BREAKOUT_KANBAN_RULE_KEYS.includes(key as AlarmEligibleRuleKey),
+  );
+}
+
+export function isBreakoutKanbanWatch(
+  watch: Pick<MarketAlarmWatch, "ruleKey" | "ruleKeys">,
+): boolean {
+  return watchRuleKeys(watch).some((key) => BREAKOUT_KANBAN_RULE_KEYS.includes(key));
+}
 
 export type AlarmBoardSection = "all" | "strategy" | "movement";
 
@@ -50,7 +73,7 @@ export type AlarmBoardSection = "all" | "strategy" | "movement";
 /** Same TF for candle + Bollinger (touch_disipador). */
 export type AlarmBandTimeframe = "1m" | "15m" | "1h";
 
-/** ``auto`` = both directions (breakout_quality alone only). */
+/** ``auto`` = both directions (breakout_quality / orb_breakout alone only). */
 export type AlarmTrend = "alcista" | "bajista" | "auto";
 
 export type AlarmWatchStatus =
@@ -136,6 +159,8 @@ export type MarketAlarmWatch = {
   lastWarnings?: string[] | null;
   /** Breakout watches default to entry_ready (alert only on Entry). */
   alarmTarget?: "confirmed" | "entry_ready";
+  /** ORB auto-monitor job (TSLA / MSFT / SPY default) — not manual picks. */
+  orbAuto?: boolean;
   lastDetectedTrend?: AlarmTrend | null;
   /** Per-rule status from last combined check. */
   lastRuleResults?: { ruleKey: string; status: string; met?: boolean; evidence?: string | null }[] | null;

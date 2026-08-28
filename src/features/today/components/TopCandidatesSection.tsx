@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   adaptMarketTickerCards,
-  adaptPremarketBestHits,
   sortCandidatesByRank,
   useTradabilityTiers,
   type CandidateViewModel,
@@ -16,27 +15,14 @@ import {
 } from "@/features/market/api/exit-client";
 import { AssessmentTimeControl } from "@/features/market/components/AssessmentTimeControl";
 import { MarketSearchInput } from "@/features/market/components/MarketSearchInput";
-import { formatSimulationTimeEt } from "@/features/market/lib/assessment-time";
 import { useMarketWorkspace } from "@/features/market/hooks/useMarketWorkspace";
-import { useAuth } from "@/shared/auth/AuthProvider";
-import { PremarketToolbar } from "@/features/premarket/components/PremarketToolbar";
-import {
-  anyTickerMeetsThreshold,
-  filterStrategyGroupsByThreshold,
-  resolvePremarketBestHits,
-} from "@/features/premarket/display";
-import { usePremarketWorkspace } from "@/features/premarket/hooks/usePremarketWorkspace";
-import type { TodayMode } from "../lib/today-routes";
 import { TodaySection } from "./TodaySection";
 
 type LiveWorkspace = ReturnType<typeof useMarketWorkspace>;
-type PremarketWorkspace = ReturnType<typeof usePremarketWorkspace>;
 type TradabilityTiers = ReturnType<typeof useTradabilityTiers>;
 
 type Props = {
-  mode: TodayMode;
   liveWorkspace: LiveWorkspace;
-  premarketWorkspace: PremarketWorkspace;
   tradability: TradabilityTiers;
   selectedId: string | null;
   onSelect: (candidate: CandidateViewModel | null) => void;
@@ -406,190 +392,12 @@ function LiveCandidates({
   );
 }
 
-function PreparationCandidates({
-  ws,
-  tradability,
-  selectedId,
-  onSelect,
-}: {
-  ws: PremarketWorkspace;
-  tradability: TradabilityTiers;
-  selectedId: string | null;
-  onSelect: (c: CandidateViewModel | null) => void;
-}) {
-  const { isAdmin } = useAuth();
-  const displayThreshold = ws.thresholdInput;
-  const rawStrategies = ws.result?.strategies ?? [];
-  const thresholdMet = anyTickerMeetsThreshold(rawStrategies, displayThreshold);
-
-  const baseCandidates = useMemo(() => {
-    const hits = resolvePremarketBestHits(
-      filterStrategyGroupsByThreshold(rawStrategies, displayThreshold),
-      ws.result?.bestResults,
-      10,
-      displayThreshold,
-    );
-    const adapted = adaptPremarketBestHits(hits, {
-      updatedAt: ws.result?.evaluatedAt ?? new Date().toISOString(),
-      tradabilityBySymbol: tradability.bySymbol,
-    });
-    return sortCandidatesByRank(adapted);
-  }, [
-    rawStrategies,
-    displayThreshold,
-    ws.result?.bestResults,
-    ws.result?.evaluatedAt,
-    tradability.bySymbol,
-  ]);
-
-  const simulateMode = ws.assessmentMode === "et";
-  const assessFingerprint = useMemo(() => {
-    const runId = ws.result?.runId ?? null;
-    if (!runId) return null;
-    const keys = baseCandidates
-      .slice(0, 8)
-      .map((c) => `${c.symbol}:${c.direction}`)
-      .join(",");
-    return `${runId}|${ws.result?.evaluatedAt ?? ""}|${keys}`;
-  }, [ws.result?.runId, ws.result?.evaluatedAt, baseCandidates]);
-
-  const exit = useExitOverlays(baseCandidates, {
-    simulateMode,
-    assessmentAt: ws.assessmentAt,
-    assessFingerprint,
-    onSelect,
-    selectedId,
-  });
-
-  const simulationLabel =
-    simulateMode && ws.assessmentAt
-      ? ws.assessmentAt.toLocaleString(undefined, {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        })
-      : null;
-
-  return (
-    <>
-      <PremarketToolbar
-        isAdmin={isAdmin}
-        result={ws.result}
-        activeStrategyCount={ws.activeStrategyCount}
-        evaluateGroupLabel={ws.evaluateGroupLabel}
-        evaluateRunning={ws.evaluateRunning}
-        canStopEvaluate={ws.canStopEvaluate}
-        startPending={ws.startPending}
-        stopPending={ws.stopPending}
-        monitorActive={ws.monitorActive}
-        intervalMinutes={ws.intervalMinutes}
-        onIntervalMinutesChange={ws.setIntervalMinutes}
-        loading={ws.loading}
-        threshold={ws.thresholdInput}
-        onThresholdChange={ws.setThresholdPct}
-        assessmentMode={ws.assessmentMode}
-        assessmentAt={ws.assessmentAt}
-        assessmentError={ws.assessmentError}
-        assessmentNotice={ws.assessmentNotice}
-        coverageMin={ws.coverageBounds?.min}
-        coverageMax={ws.coverageBounds?.max}
-        onAssessmentModeChange={ws.setAssessmentMode}
-        onAssessmentTimeChange={ws.setAssessmentFromLocal}
-        onEvaluateAdhoc={() => void ws.evaluateAdhoc()}
-        onStart={() => void ws.startEvaluate()}
-        onStop={() => void ws.stopEvaluate()}
-        onRefresh={() => void ws.refreshResult()}
-      />
-
-      <TradabilityHint tradability={tradability} />
-
-      {exit.error ? (
-        <p className="mt-3 text-xs text-ocean-danger" role="alert">
-          {exit.error}
-        </p>
-      ) : null}
-      {!exit.error && exit.notice ? (
-        <p className="mt-3 text-xs text-ocean-teal-dim dark:text-ocean-teal">{exit.notice}</p>
-      ) : null}
-
-      {ws.error ? (
-        <p className="mt-3 text-sm text-ocean-danger" role="alert">
-          {ws.error}
-        </p>
-      ) : null}
-
-      {displayThreshold > 0 && exit.candidates.length > 0 && !thresholdMet ? (
-        <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
-          No tickers reached ≥ {displayThreshold}% — showing best available.
-        </p>
-      ) : null}
-
-      <div className="mt-4">
-        <CandidateTable
-          candidates={exit.candidates}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          emptyMessage={
-            ws.result?.status === "complete" || ws.result?.status === "partial"
-              ? (ws.result.summary?.strategyCount ?? 0) === 0
-                ? "No strategies scored — Simulate time is likely outside the entry windows set on active playbooks in Strategy builder. Adjust Time to sit inside those windows and Evaluate again."
-                : "No tickers met the quality threshold for this run."
-              : "No preparation candidates yet. Run Premarket evaluate to populate Top Candidates."
-          }
-        />
-      </div>
-
-      <CandidateDetailDrawer
-        candidate={exit.selected}
-        open={Boolean(exit.selected)}
-        onClose={() => onSelect(null)}
-        simulateMode={simulateMode}
-        simulationLabel={simulationLabel}
-        exitTestPending={exit.pendingId === exit.selected?.id}
-        exitTestError={exit.error}
-        onTestExit={
-          exit.selected
-            ? () => {
-                void exit.testExit(exit.selected!);
-              }
-            : undefined
-        }
-      />
-    </>
-  );
-}
-
 export function TopCandidatesSection({
-  mode,
   liveWorkspace,
-  premarketWorkspace,
   tradability,
   selectedId,
   onSelect,
 }: Props) {
-  if (mode === "preparation") {
-    return (
-      <TodaySection
-        id="today-top-candidates"
-        title="Top Candidates"
-        subtitle="Preparation · Premarket evaluate adapted into CandidateViewModel. Quality ≠ historical edge."
-        actions={
-          <Link to="/premarket" className="text-xs font-semibold text-ocean-teal hover:underline">
-            Full Premarket page
-          </Link>
-        }
-      >
-        <PreparationCandidates
-          ws={premarketWorkspace}
-          tradability={tradability}
-          selectedId={selectedId}
-          onSelect={onSelect}
-        />
-      </TodaySection>
-    );
-  }
-
   return (
     <TodaySection
       id="today-top-candidates"
@@ -610,3 +418,4 @@ export function TopCandidatesSection({
     </TodaySection>
   );
 }
+

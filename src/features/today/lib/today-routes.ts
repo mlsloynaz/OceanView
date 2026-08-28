@@ -1,9 +1,10 @@
-export type TodayMode = "preparation" | "live";
+/** Today is Live (Market) only — Premarket stays on `/premarket`. */
 
-export const TODAY_MODES: TodayMode[] = ["preparation", "live"];
+export type TodayMode = "live";
+
+export const TODAY_MODES: TodayMode[] = ["live"];
 
 export const TODAY_MODE_LABELS: Record<TodayMode, string> = {
-  preparation: "Preparation",
   live: "Live",
 };
 

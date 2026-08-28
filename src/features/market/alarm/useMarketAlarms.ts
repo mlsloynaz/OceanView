@@ -12,12 +12,13 @@ import {
   type PollIntervalUnit,
 } from "@/shared/components/PollControls";
 import type { LiveSimulateMode } from "@/shared/components/LiveSimulateControl";
-import { MarketAlarmApiError, postMarketAlarmCheck, postMarketAlarmScanLastHour } from "./alarm-client";
+import { MarketAlarmApiError, postMarketAlarmCheck, postMarketAlarmScanLastHour, fetchOrbAutoJobStatus, startOrbAutoJob, stopOrbAutoJob, type OrbAutoJobStatus } from "./alarm-client";
 import type { MarketAlarmScanLastHourResponse } from "./alarm-client";
 import {
   ALARM_ELIGIBLE_RULES,
   alarmRulesLabel,
   alarmWatchConflicts,
+  usesBreakoutAlarmTarget,
   type AlarmEligibleRuleKey,
   type AlarmPopupKind,
   type AlarmTrend,
@@ -34,6 +35,17 @@ import {
   isActivelyMonitoringWatch,
   isSessionMonitorEnded,
 } from "./session-monitor-end";
+import {
+  ORB_WINDOW_CLOSED_MESSAGE,
+  ORB_BREAKOUT_RULE_KEY,
+  ORB_WINDOW_END_MINUTES_ET,
+  easternClockMinutes,
+  isOrbBreakoutWatch,
+  isOrbAutoWatch,
+  isOrbWindowOpen,
+  orbWindowMessage,
+} from "./orb-window";
+import { diffOrbAutoWatches, orbAutoSymbolsToEnsure } from "./orb-auto-job";
 import { watchHasBreakout } from "./BreakoutKanbanBoard";
 import {
   startAlarmRing,
@@ -143,6 +155,7 @@ export function useMarketAlarms() {
   const [lastHourScan, setLastHourScan] = useState<MarketAlarmScanLastHourResponse | null>(null);
   const [lastHourScanError, setLastHourScanError] = useState<string | null>(null);
   const [lastHourScanBusy, setLastHourScanBusy] = useState(false);
+  const [orbAutoJob, setOrbAutoJob] = useState<OrbAutoJobStatus | null>(null);
 
   const timersRef = useRef<Map<string, number>>(new Map());
   /** Watch ids currently executing a check (HTTP in flight). */
@@ -161,6 +174,7 @@ export function useMarketAlarms() {
   timeModeRef.current = timeMode;
   const simulateLocalRef = useRef(simulateLocal);
   simulateLocalRef.current = simulateLocal;
+  const orbAutoSyncBusyRef = useRef(false);
 
   const assessmentClock = useCallback((): Date => {
     if (timeModeRef.current === "simulate") {
@@ -377,7 +391,7 @@ export function useMarketAlarms() {
           refreshCandles,
           ...(watch.bandTimeframe ? { bandTimeframe: watch.bandTimeframe } : {}),
           ...(simulationTimeEt ? { simulationTimeEt } : {}),
-          ...(ruleKeys.includes("breakout_quality")
+          ...(usesBreakoutAlarmTarget(ruleKeys)
             ? { alarmTarget: watch.alarmTarget ?? "entry_ready" }
             : {}),
         });
@@ -682,6 +696,14 @@ export function useMarketAlarms() {
         sweepExpiredE03Confirms();
         return;
       }
+      if (
+        isOrbBreakoutWatch(watch) &&
+        !isOrbAutoWatch(watch) &&
+        !isOrbWindowOpen(assessmentClock())
+      ) {
+        setFormError(orbWindowMessage(assessmentClock()) ?? ORB_WINDOW_CLOSED_MESSAGE);
+        return;
+      }
       if (isSessionMonitorEnded(assessmentClock())) {
         stopWatchesAtSessionEnd();
         return;
@@ -731,6 +753,122 @@ export function useMarketAlarms() {
     },
     [assessmentClock, clearTimer, runCheck, stopWatchesAtSessionEnd, sweepExpiredE03Confirms],
   );
+
+  const removeOrbAutoWatches = useCallback(() => {
+    const autoRows = watchesRef.current.filter(isOrbAutoWatch);
+    if (autoRows.length === 0) return;
+    for (const watch of autoRows) {
+      dropWatchFromQueues(watch.id);
+    }
+    setWatches((prev) => prev.filter((w) => !isOrbAutoWatch(w)));
+  }, [dropWatchFromQueues]);
+
+  const ensureOrbAutoWatches = useCallback(
+    (symbols: string[], pollIntervalSeconds: number) => {
+      const { toAdd, toRemoveIds } = diffOrbAutoWatches(
+        watchesRef.current,
+        symbols,
+        pollIntervalSeconds,
+      );
+      if (toRemoveIds.length === 0 && toAdd.length === 0) {
+        for (const watch of watchesRef.current.filter(isOrbAutoWatch)) {
+          if (watch.status === "idle" || watch.status === "stopped" || watch.status === "error") {
+            startWatch(watch.id);
+          }
+        }
+        return;
+      }
+      for (const id of toRemoveIds) {
+        dropWatchFromQueues(id);
+      }
+      const next = [
+        ...watchesRef.current.filter((w) => !toRemoveIds.includes(w.id)),
+        ...toAdd,
+      ];
+      watchesRef.current = next;
+      setWatches(next);
+      for (const watch of toAdd) {
+        window.setTimeout(() => startWatch(watch.id), 0);
+      }
+      for (const watch of next.filter(isOrbAutoWatch)) {
+        if (
+          !toAdd.some((row) => row.id === watch.id) &&
+          (watch.status === "idle" || watch.status === "stopped" || watch.status === "error")
+        ) {
+          window.setTimeout(() => startWatch(watch.id), 0);
+        }
+      }
+    },
+    [dropWatchFromQueues, startWatch],
+  );
+
+  const cancelOrbAutoJob = useCallback(async () => {
+    removeOrbAutoWatches();
+    try {
+      const status = await stopOrbAutoJob("cancelled");
+      setOrbAutoJob(status);
+      setBanner(status.message ?? "ORB auto cancelled — use manual ticker selection.");
+    } catch (err) {
+      setBanner(err instanceof Error ? err.message : "Failed to cancel ORB auto job.");
+    }
+  }, [removeOrbAutoWatches]);
+
+  const syncOrbAutoJob = useCallback(async () => {
+    if (timeModeRef.current !== "live") return;
+    if (orbAutoSyncBusyRef.current) return;
+    orbAutoSyncBusyRef.current = true;
+    try {
+      const now = assessmentClock();
+      const mins = easternClockMinutes(now);
+      if (mins > ORB_WINDOW_END_MINUTES_ET) {
+        removeOrbAutoWatches();
+        try {
+          let status = await fetchOrbAutoJobStatus();
+          if (status.status === "running") {
+            status = await stopOrbAutoJob("completed");
+          }
+          setOrbAutoJob(status);
+        } catch {
+          /* best-effort */
+        }
+        return;
+      }
+      if (!isOrbWindowOpen(now)) return;
+
+      let status = await fetchOrbAutoJobStatus();
+      if (status.status === "idle" || status.status === "completed") {
+        try {
+          status = await startOrbAutoJob({ trigger: "auto" });
+        } catch (err) {
+          const code =
+            err instanceof MarketAlarmApiError ? err.code : undefined;
+          if (code === "ORB_AUTO_CANCELLED") {
+            status = await fetchOrbAutoJobStatus();
+          } else {
+            throw err;
+          }
+        }
+      }
+      setOrbAutoJob(status);
+      if (status.status === "running") {
+        const symbols = orbAutoSymbolsToEnsure(status.symbols);
+        ensureOrbAutoWatches(symbols, status.pollIntervalSeconds ?? 45);
+      } else if (status.status === "cancelled") {
+        removeOrbAutoWatches();
+      }
+    } catch {
+      /* polling continues on next tick */
+    } finally {
+      orbAutoSyncBusyRef.current = false;
+    }
+  }, [assessmentClock, ensureOrbAutoWatches, removeOrbAutoWatches]);
+
+  useEffect(() => {
+    if (timeMode !== "live") return;
+    void syncOrbAutoJob();
+    const timer = window.setInterval(() => void syncOrbAutoJob(), 30_000);
+    return () => window.clearInterval(timer);
+  }, [timeMode, syncOrbAutoJob]);
 
   /** SemiFinal (and other tabs) can enqueue confirm watches into sessionStorage. */
   useEffect(() => {
@@ -978,6 +1116,18 @@ export function useMarketAlarms() {
         sweepExpiredE03Confirms();
         return false;
       }
+      if (ruleKeys.includes(ORB_BREAKOUT_RULE_KEY)) {
+        if (!isOrbWindowOpen(assessmentClock())) {
+          setFormError(orbWindowMessage(assessmentClock()) ?? ORB_WINDOW_CLOSED_MESSAGE);
+          return false;
+        }
+        removeOrbAutoWatches();
+        void stopOrbAutoJob("cancelled")
+          .then((status) => setOrbAutoJob(status))
+          .catch(() => {
+            /* manual ORB still proceeds locally */
+          });
+      }
       if (isSessionMonitorEnded(assessmentClock())) {
         setFormError(SESSION_MONITOR_ENDED_MESSAGE);
         stopWatchesAtSessionEnd();
@@ -1018,7 +1168,7 @@ export function useMarketAlarms() {
           ruleLabel: label,
           trend,
           ...(bandTf ? { bandTimeframe: bandTf } : {}),
-          ...(ruleKeys.includes("breakout_quality")
+          ...(usesBreakoutAlarmTarget(ruleKeys)
             ? { alarmTarget: "entry_ready" as const }
             : {}),
           frequencyValue,
@@ -1073,7 +1223,7 @@ export function useMarketAlarms() {
 
       return true;
     },
-    [assessmentClock, startWatch, stopWatchesAtSessionEnd, sweepExpiredE03Confirms],
+    [assessmentClock, startWatch, stopWatchesAtSessionEnd, sweepExpiredE03Confirms, removeOrbAutoWatches],
   );
 
   const startAllIdle = useCallback(() => {
@@ -1224,5 +1374,7 @@ export function useMarketAlarms() {
     updateWatchInterval,
     runCheckNow: runCheck,
     requestNotifyPermission,
+    orbAutoJob,
+    cancelOrbAutoJob,
   };
 }

@@ -1,4 +1,4 @@
-export type LabHubView = "hub" | "research" | "lab1" | "e05Saliendo";
+export type LabHubView = "hub" | "research" | "lab1" | "e05Saliendo" | "orbBreakout";
 
 export type LabHubMeta = {
   id: Exclude<LabHubView, "hub">;
@@ -11,6 +11,7 @@ export const LAB_HUB_ORDER: Array<Exclude<LabHubView, "hub">> = [
   "research",
   "lab1",
   "e05Saliendo",
+  "orbBreakout",
 ];
 
 export const LAB_HUB: Record<Exclude<LabHubView, "hub">, LabHubMeta> = {
@@ -32,6 +33,13 @@ export const LAB_HUB: Record<Exclude<LabHubView, "hub">, LabHubMeta> = {
     title: "E05 saliendo research",
     description:
       "15m open-inside + vol + mid bias + saliendo — time-of-day, bias hold, outside BB, breakout lift",
+  },
+  orbBreakout: {
+    id: "orbBreakout",
+    anchorId: "admin-lab-orb-breakout",
+    title: "ORB breakout research",
+    description:
+      "Opening range entry_ready hit rate + follow-through (Alpaca bars) — 09:45–11:30 ET",
   },
 };
 

@@ -1,7 +1,4 @@
-import { TODAY_MODE_LABELS, type TodayMode } from "../lib/today-routes";
-
 type Props = {
-  mode: TodayMode;
   activeWatchCount: number;
   candidateCount: number;
   onRefresh?: () => void;
@@ -28,7 +25,6 @@ function formatRefreshTime(now = new Date()): string {
 }
 
 export function TodayHeader({
-  mode,
   activeWatchCount,
   candidateCount,
   onRefresh,
@@ -42,9 +38,7 @@ export function TodayHeader({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="font-display text-xl font-semibold text-ocean-foam sm:text-2xl">Today</h1>
-          <p className="mt-1 text-sm text-ocean-sand">
-            {dateLabel} · Mode: {TODAY_MODE_LABELS[mode]}
-          </p>
+          <p className="mt-1 text-sm text-ocean-sand">{dateLabel} · Live market</p>
         </div>
         {onRefresh ? (
           <button

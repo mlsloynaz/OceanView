@@ -4,7 +4,7 @@ import { useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
 import { BbSparkline15mChart } from "./BbSparkline15mChart";
-import { formatAlarmTrend, type MarketAlarmWatch } from "./alarm-types";
+import { formatAlarmTrend, type MarketAlarmWatch, isBreakoutKanbanWatch } from "./alarm-types";
 
 export const BREAKOUT_KANBAN_COLUMNS = [
   {
@@ -30,8 +30,7 @@ const BTN =
   "rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
 export function watchHasBreakout(watch: MarketAlarmWatch): boolean {
-  const keys = watch.ruleKeys?.length ? watch.ruleKeys : [watch.ruleKey];
-  return keys.includes("breakout_quality");
+  return isBreakoutKanbanWatch(watch);
 }
 
 /** Map API lifecycle (+ watch status) → one Kanban column. */
@@ -49,8 +48,16 @@ export function breakoutKanbanColumn(watch: MarketAlarmWatch): BreakoutKanbanCol
   ) {
     return "confirmed";
   }
-  // failed / setup_forming / testing_level / idle / unknown / unscanned → Setup
-  // (failed used to sit in Confirmed and looked like a live put/call)
+  if (
+    life === "waiting_for_opening_range" ||
+    life === "opening_range_ready" ||
+    life === "setup_forming" ||
+    life === "testing_level" ||
+    life === "idle"
+  ) {
+    return "setup";
+  }
+  // failed / unknown / unscanned → Setup (failed used to sit in Confirmed)
   return "setup";
 }
 
@@ -153,7 +160,9 @@ function WatchCard({
     w.status === "in_trade";
   const awaitingUser = w.status === "met" || w.status === "exit";
   const side = watchSideLabel(w);
-  const otherRules = (w.lastRuleResults ?? []).filter((r) => r.ruleKey !== "breakout_quality");
+  const otherRules = (w.lastRuleResults ?? []).filter(
+    (r) => r.ruleKey !== "breakout_quality" && r.ruleKey !== "orb_breakout",
+  );
 
   return (
     <div

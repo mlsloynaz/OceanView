@@ -3,6 +3,7 @@ import { AdminPaneThumbnail } from "@/features/admin/components/AdminPaneThumbna
 import { ResearchStatsPane } from "@/features/admin/research-stats/ResearchStatsPane";
 import { Lab1Pane } from "./Lab1Pane";
 import { LabE05SaliendoPane } from "./LabE05SaliendoPane";
+import { LabOrbBreakoutPane } from "./LabOrbBreakoutPane";
 import {
   hashForLabHubView,
   LAB_HUB,
@@ -41,10 +42,19 @@ function IconE05() {
   );
 }
 
+function IconOrb() {
+  return (
+    <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+      <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8.25 7.25a.75.75 0 00-1.5 0v5.5a.75.75 0 001.5 0V10h2.69l2.28 2.97a.75.75 0 001.2-.92l-2.1-2.74A2.25 2.25 0 0011 7.25H8.25z" />
+    </svg>
+  );
+}
+
 const HUB_ICONS: Record<Exclude<LabHubView, "hub">, ReactNode> = {
   research: <IconResearch />,
   lab1: <IconLab1 />,
   e05Saliendo: <IconE05 />,
+  orbBreakout: <IconOrb />,
 };
 
 export function LabPane() {
@@ -69,6 +79,9 @@ export function LabPane() {
   }
   if (view === "e05Saliendo") {
     return <LabE05SaliendoPane onBack={() => openView("hub")} />;
+  }
+  if (view === "orbBreakout") {
+    return <LabOrbBreakoutPane onBack={() => openView("hub")} />;
   }
 
   return (
