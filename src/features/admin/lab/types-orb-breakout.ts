@@ -16,6 +16,15 @@ export type LabOrbBreakoutLabel = {
   value: unknown;
 };
 
+export type LabOrbBreakoutStartAck = {
+  runId: string;
+  status: "running";
+  message?: string;
+  request?: LabOrbBreakoutRequest & { symbols?: string[]; maxEvents?: number };
+  progress?: { done?: number; total?: number };
+  kind?: string;
+};
+
 export type LabOrbBreakoutResult = {
   studyId: string;
   conditionKey?: string;
@@ -46,5 +55,16 @@ export type LabOrbBreakoutResult = {
   sampleEvents?: Array<Record<string, unknown>>;
   errors?: Array<{ symbol: string; error: string }>;
   savedTo?: string | null;
+  startedAt?: string;
   finishedAt?: string;
+  /** complete | running | failed — from GET /result */
+  status?: "complete" | "running" | "failed" | string;
+  runId?: string;
+  jobRunId?: string;
+  message?: string;
+  error?: string;
+  code?: string;
+  progress?: { done?: number; total?: number };
+  request?: Record<string, unknown>;
+  kind?: string;
 };

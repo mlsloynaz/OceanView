@@ -1,7 +1,11 @@
 import { apiFetch, errorMessageFromBody, getApiBaseUrl, readResponseBody } from "@/shared/api/api-fetch";
 import type { LabConditionGapRequest, LabConditionGapResult } from "../types-condition-gap";
 import type { LabE05SaliendoRequest, LabE05SaliendoResult } from "../types-e05-saliendo";
-import type { LabOrbBreakoutRequest, LabOrbBreakoutResult } from "../types-orb-breakout";
+import type {
+  LabOrbBreakoutRequest,
+  LabOrbBreakoutResult,
+  LabOrbBreakoutStartAck,
+} from "../types-orb-breakout";
 import type { Lab1MonitorResponse, Lab1StartStopAck } from "../types";
 
 const API_BASE = getApiBaseUrl();
@@ -65,8 +69,8 @@ export async function fetchLabConditionGapResult(): Promise<LabConditionGapResul
 
 export async function runLabOrbBreakoutResearch(
   request: LabOrbBreakoutRequest,
-): Promise<LabOrbBreakoutResult> {
-  return fetchJson<LabOrbBreakoutResult>("/lab/research/orb-breakout/run", {
+): Promise<LabOrbBreakoutStartAck> {
+  return fetchJson<LabOrbBreakoutStartAck>("/lab/research/orb-breakout/run", {
     method: "POST",
     body: JSON.stringify(request),
   });

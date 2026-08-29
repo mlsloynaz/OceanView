@@ -6,6 +6,10 @@ import type { LabOrbBreakoutLabel } from "./types-orb-breakout";
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 const BTN_PRIMARY = cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-105");
+const BTN_SECONDARY = cn(
+  BTN,
+  "border border-ocean-mid/50 bg-ocean-deep/40 text-ocean-foam hover:border-ocean-teal/50",
+);
 const FIELD =
   "w-full rounded-md border border-ocean-mid/50 bg-ocean-deep/40 px-2.5 py-1.5 text-xs text-ocean-foam outline-none focus:border-ocean-teal/60";
 const LABEL = "mb-1 block text-[11px] font-medium text-ocean-sand";
@@ -111,19 +115,32 @@ export function LabOrbBreakoutPane({ onBack }: Props) {
       }
       subtitle="Historical Opening Range Breakout — how often entry_ready fired and price followed the CALL/PUT side"
       headerExtra={
-        <button
-          type="button"
-          className={BTN_PRIMARY}
-          disabled={ws.loading}
-          onClick={() => void ws.submit()}
-        >
-          {ws.loading ? "Running…" : "Run study"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className={BTN_SECONDARY}
+            disabled={ws.refreshing || ws.starting}
+            onClick={() => void ws.refreshResult()}
+          >
+            {ws.refreshing ? "Refreshing…" : "Refresh result"}
+          </button>
+          <button
+            type="button"
+            className={BTN_PRIMARY}
+            disabled={ws.starting || ws.jobStatus === "running"}
+            onClick={() => void ws.submit()}
+          >
+            {ws.starting ? "Starting…" : ws.jobStatus === "running" ? "Running…" : "Run study"}
+          </button>
+        </div>
       }
     >
       <div className="space-y-4">
         <p className="text-[11px] text-ocean-sand">
-          Calls <code className="text-ocean-foam/80">POST /lab/research/orb-breakout/run</code>.
+          <code className="text-ocean-foam/80">POST /lab/research/orb-breakout/run</code> starts an{" "}
+          <strong className="font-medium text-ocean-foam/90">async</strong> job (returns immediately).
+          Use <strong className="font-medium text-ocean-foam/90">Refresh result</strong> (
+          <code className="text-ocean-foam/80">GET …/result</code>) when it finishes.
           Default bars from <strong className="font-medium text-ocean-foam/90">Alpaca</strong>{" "}
           (in-memory IEX — not written to Dynamo). Same <code className="text-ocean-foam/80">evaluate_orb</code>{" "}
           gates as the Market Alarm; counts the first <code className="text-ocean-foam/80">entry_ready</code>{" "}
@@ -197,6 +214,13 @@ export function LabOrbBreakoutPane({ onBack }: Props) {
         {ws.error ? (
           <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-800 dark:text-red-200">
             {ws.error}
+          </p>
+        ) : null}
+
+        {ws.notice ? (
+          <p className="rounded-lg border border-ocean-teal/40 bg-ocean-teal/10 px-3 py-2 text-xs text-ocean-foam">
+            {ws.notice}
+            {ws.jobStatus === "running" ? " Click Refresh result in a bit." : null}
           </p>
         ) : null}
 
