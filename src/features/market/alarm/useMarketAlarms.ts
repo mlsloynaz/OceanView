@@ -38,12 +38,17 @@ import {
 import {
   ORB_WINDOW_CLOSED_MESSAGE,
   ORB_BREAKOUT_RULE_KEY,
+  ORB5M_BREAKOUT_RULE_KEY,
+  ORB5M_WINDOW_CLOSED_MESSAGE,
   ORB_WINDOW_END_MINUTES_ET,
   easternClockMinutes,
   isOrbBreakoutWatch,
+  isOrb5mBreakoutWatch,
   isOrbAutoWatch,
   isOrbWindowOpen,
+  isOrb5mWindowOpen,
   orbWindowMessage,
+  orb5mWindowMessage,
 } from "./orb-window";
 import { diffOrbAutoWatches, orbAutoSymbolsToEnsure } from "./orb-auto-job";
 import { watchHasBreakout } from "./BreakoutKanbanBoard";
@@ -521,6 +526,18 @@ export function useMarketAlarms() {
           lastWarnings: Array.isArray(result.warnings)
             ? result.warnings
             : (watch.lastWarnings ?? null),
+          lastBrokenNow:
+            typeof result.brokenNow === "boolean"
+              ? result.brokenNow
+              : (watch.lastBrokenNow ?? null),
+          lastTrend1h:
+            typeof result.trend1h === "string"
+              ? result.trend1h
+              : (watch.lastTrend1h ?? null),
+          lastGrade:
+            typeof result.grade === "string"
+              ? result.grade
+              : (watch.lastGrade ?? null),
           lastDetectedTrend: detectedTrend ?? watch.lastDetectedTrend ?? null,
         };
 
@@ -702,6 +719,10 @@ export function useMarketAlarms() {
         !isOrbWindowOpen(assessmentClock())
       ) {
         setFormError(orbWindowMessage(assessmentClock()) ?? ORB_WINDOW_CLOSED_MESSAGE);
+        return;
+      }
+      if (isOrb5mBreakoutWatch(watch) && !isOrb5mWindowOpen(assessmentClock())) {
+        setFormError(orb5mWindowMessage(assessmentClock()) ?? ORB5M_WINDOW_CLOSED_MESSAGE);
         return;
       }
       if (isSessionMonitorEnded(assessmentClock())) {
@@ -1127,6 +1148,10 @@ export function useMarketAlarms() {
           .catch(() => {
             /* manual ORB still proceeds locally */
           });
+      }
+      if (ruleKeys.includes(ORB5M_BREAKOUT_RULE_KEY) && !isOrb5mWindowOpen(assessmentClock())) {
+        setFormError(orb5mWindowMessage(assessmentClock()) ?? ORB5M_WINDOW_CLOSED_MESSAGE);
+        return false;
       }
       if (isSessionMonitorEnded(assessmentClock())) {
         setFormError(SESSION_MONITOR_ENDED_MESSAGE);

@@ -39,7 +39,7 @@ export function AlarmsPage() {
             Strategy confirmation watches and movement / breakout alarms — off the Live page.
             {tab === "strategy"
               ? " Add from SemiFinal (Monitor), then Start polling on each watch."
-              : " Breakout quality Kanban and disipador / momentum watches."}
+              : " Breakout quality Kanban, 15m/5m ORB, and disipador / momentum watches."}
           </p>
         </div>
         <AlarmsTabToggle tab={tab} onChange={setTab} />

@@ -161,7 +161,10 @@ function WatchCard({
   const awaitingUser = w.status === "met" || w.status === "exit";
   const side = watchSideLabel(w);
   const otherRules = (w.lastRuleResults ?? []).filter(
-    (r) => r.ruleKey !== "breakout_quality" && r.ruleKey !== "orb_breakout",
+    (r) =>
+      r.ruleKey !== "breakout_quality" &&
+      r.ruleKey !== "orb_breakout" &&
+      r.ruleKey !== "orb_breakout_5m",
   );
 
   return (
@@ -186,8 +189,15 @@ function WatchCard({
           </p>
           {name ? <p className="truncate text-[10px] text-ocean-sand/80">{name}</p> : null}
         </div>
-        <span className="shrink-0 rounded bg-ocean-deep/40 px-1 py-0.5 text-[10px] capitalize text-ocean-sand">
-          {lifecycleChip(w)}
+        <span className="flex shrink-0 flex-col items-end gap-0.5">
+          <span className="rounded bg-ocean-deep/40 px-1 py-0.5 text-[10px] capitalize text-ocean-sand">
+            {lifecycleChip(w)}
+          </span>
+          {w.lastBrokenNow ? (
+            <span className="rounded bg-amber-500/20 px-1 py-0.5 text-[10px] font-semibold uppercase text-amber-800 dark:text-amber-200">
+              Live
+            </span>
+          ) : null}
         </span>
       </div>
 
@@ -198,6 +208,8 @@ function WatchCard({
         {typeof w.lastContinuationScore === "number"
           ? ` · cont ${Math.round(w.lastContinuationScore)}`
           : ""}
+        {w.lastTrend1h ? ` · 1H ${w.lastTrend1h}` : ""}
+        {w.lastGrade ? ` · ${w.lastGrade}` : ""}
         {w.lastBreakoutType && w.lastBreakoutType !== "none"
           ? ` · ${w.lastBreakoutType.replace(/_/g, " ")}`
           : ""}

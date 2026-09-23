@@ -35,7 +35,12 @@ import {
   isE03ConfirmExpired,
   useNowTick,
 } from "./e03-confirm-window";
-import { isOrbWindowOpen, ORB_BREAKOUT_RULE_KEY } from "./orb-window";
+import {
+  isOrbWindowOpen,
+  isOrb5mWindowOpen,
+  ORB_BREAKOUT_RULE_KEY,
+  ORB5M_BREAKOUT_RULE_KEY,
+} from "./orb-window";
 import type { OrbAutoJobStatus } from "./alarm-client";
 
 const BTN =
@@ -186,6 +191,13 @@ export function MarketAlarmPanel({
         section === "movement" &&
         r.ruleKey === ORB_BREAKOUT_RULE_KEY &&
         !isOrbWindowOpen(nowTick)
+      ) {
+        return false;
+      }
+      if (
+        section === "movement" &&
+        r.ruleKey === ORB5M_BREAKOUT_RULE_KEY &&
+        !isOrb5mWindowOpen(nowTick)
       ) {
         return false;
       }

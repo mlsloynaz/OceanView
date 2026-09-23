@@ -4,15 +4,21 @@
 import { watchRuleKeys, type MarketAlarmWatch } from "./alarm-types";
 
 export const ORB_BREAKOUT_RULE_KEY = "orb_breakout" as const;
+export const ORB5M_BREAKOUT_RULE_KEY = "orb_breakout_5m" as const;
 
 export const ORB_WINDOW_START_MINUTES_ET = 9 * 60 + 45;
 export const ORB_WINDOW_END_MINUTES_ET = 11 * 60 + 30;
+export const ORB5M_WINDOW_START_MINUTES_ET = 9 * 60 + 35;
+export const ORB5M_WINDOW_END_MINUTES_ET = 11 * 60 + 30;
 
 export const DEFAULT_ORB_AUTO_SYMBOLS = ["TSLA", "MSFT", "SPY"] as const;
 
 export const ORB_WINDOW_WAIT_MESSAGE =
   "ORB opens at 9:45 AM ET (opening range must close first).";
 export const ORB_WINDOW_CLOSED_MESSAGE = "ORB window closed (9:45–11:30 AM ET).";
+export const ORB5M_WINDOW_WAIT_MESSAGE =
+  "5m ORB opens at 9:35 AM ET (opening range must close first).";
+export const ORB5M_WINDOW_CLOSED_MESSAGE = "5m ORB window closed (9:35–11:30 AM ET).";
 
 const ET = "America/New_York";
 
@@ -43,10 +49,28 @@ export function orbWindowMessage(now: Date = new Date()): string | null {
   return null;
 }
 
+export function isOrb5mWindowOpen(now: Date = new Date()): boolean {
+  const mins = easternClockMinutes(now);
+  return mins >= ORB5M_WINDOW_START_MINUTES_ET && mins <= ORB5M_WINDOW_END_MINUTES_ET;
+}
+
+export function orb5mWindowMessage(now: Date = new Date()): string | null {
+  const mins = easternClockMinutes(now);
+  if (mins < ORB5M_WINDOW_START_MINUTES_ET) return ORB5M_WINDOW_WAIT_MESSAGE;
+  if (mins > ORB5M_WINDOW_END_MINUTES_ET) return ORB5M_WINDOW_CLOSED_MESSAGE;
+  return null;
+}
+
 export function isOrbBreakoutWatch(
   watch: Pick<MarketAlarmWatch, "ruleKey" | "ruleKeys">,
 ): boolean {
   return watchRuleKeys(watch).includes(ORB_BREAKOUT_RULE_KEY);
+}
+
+export function isOrb5mBreakoutWatch(
+  watch: Pick<MarketAlarmWatch, "ruleKey" | "ruleKeys">,
+): boolean {
+  return watchRuleKeys(watch).includes(ORB5M_BREAKOUT_RULE_KEY);
 }
 
 export function isOrbAutoWatch(

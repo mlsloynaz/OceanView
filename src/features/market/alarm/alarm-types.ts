@@ -23,6 +23,10 @@ export const ALARM_ELIGIBLE_RULES = [
     label: "ORB — Opening Range (15M)",
   },
   {
+    ruleKey: "orb_breakout_5m",
+    label: "ORB — Opening Range (5M)",
+  },
+  {
     ruleKey: "volume_stoch_1h",
     label: "Confirmación E03 (volumen HORA Stoch)",
   },
@@ -46,6 +50,7 @@ export const STRATEGY_CONFIRM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
 export const MOVEMENT_ALARM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
   "breakout_quality",
   "orb_breakout",
+  "orb_breakout_5m",
   "touch_disipador",
 ];
 
@@ -53,6 +58,7 @@ export const MOVEMENT_ALARM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
 export const BREAKOUT_KANBAN_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
   "breakout_quality",
   "orb_breakout",
+  "orb_breakout_5m",
 ];
 
 export function usesBreakoutAlarmTarget(ruleKeys: string[]): boolean {
@@ -157,6 +163,10 @@ export type MarketAlarmWatch = {
   lastAcceptanceScore?: number | null;
   lastImpulseScore?: number | null;
   lastWarnings?: string[] | null;
+  /** Live last vs ORB+buffer — can flip every poll (5m ORB). */
+  lastBrokenNow?: boolean | null;
+  lastTrend1h?: string | null;
+  lastGrade?: string | null;
   /** Breakout watches default to entry_ready (alert only on Entry). */
   alarmTarget?: "confirmed" | "entry_ready";
   /** ORB auto-monitor job (TSLA / MSFT / SPY default) — not manual picks. */

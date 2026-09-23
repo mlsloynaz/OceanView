@@ -81,6 +81,12 @@ export type MarketAlarmCheckResponse = {
   holdScore?: number;
   reasons?: string[];
   warnings?: string[];
+  brokenNow?: boolean;
+  entryOk?: boolean;
+  countertrend?: boolean;
+  trend1h?: string;
+  grade?: string;
+  last?: number;
   bbSparkline15m?: {
     symbol: string;
     timeframe: "15m";

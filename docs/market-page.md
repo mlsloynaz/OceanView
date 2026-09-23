@@ -367,7 +367,7 @@ Both show rule check strips, quality badges, and expandable rule requirement lis
 | `MarketSummaryStrip` | Counts + assessment label under page title |
 | `AssessmentTimeControl` | Live/Simulate + typeable Session/Time · **Assess** (only primary CTA) · continuous Start/Stop/Refresh |
 | `LiveSimulateControl` | Soft Live/Simulate toggle (not primary); Session `YYYY-MM-DD` + Time `HH:MM` text fields |
-| `MarketAlarmPanel` | `/alarms/*` — multi-select tickers; **Disipador touch** + Timeframe; **met** = first touch/pass only; **not_met** = no touch or 2+ consecutive (≥3) |
+| `MarketAlarmPanel` | `/alarms/*` — multi-select tickers; **Disipador touch** + Timeframe; **ORB 15m** (9:45–11:30) and **ORB 5m** (9:35–11:30, live break chip); **met** = first touch/pass only; **not_met** = no touch or 2+ consecutive (≥3) |
 | `StrategyCard` | Strategy grid tile + “View detail” |
 | `TickerCard` | Ticker grid tile; rule icon strip from `topStrategyEval` |
 | `RuleCard` | Rule grid tile (no detail modal in v1) |
