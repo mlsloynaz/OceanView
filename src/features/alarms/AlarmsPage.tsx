@@ -83,6 +83,12 @@ export function AlarmsPage() {
         onRequestNotify={() => void alarms.requestNotifyPermission()}
         orbAutoJob={alarms.orbAutoJob}
         onCancelOrbAuto={() => void alarms.cancelOrbAutoJob()}
+        orb5mAutoJob={alarms.orb5mAutoJob}
+        orbAutoBusy={alarms.orbAutoBusy}
+        orb5mAutoBusy={alarms.orb5mAutoBusy}
+        onStartOrbAuto={(symbols) => void alarms.startOrbAutoJobManual(symbols)}
+        onStartOrb5mAuto={alarms.startOrb5mAutoJob}
+        onCancelOrb5mAuto={alarms.cancelOrb5mAutoJob}
       />
     </div>
   );

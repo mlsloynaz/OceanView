@@ -38,19 +38,28 @@ import {
 import {
   ORB_WINDOW_CLOSED_MESSAGE,
   ORB_BREAKOUT_RULE_KEY,
-  ORB5M_BREAKOUT_RULE_KEY,
   ORB5M_WINDOW_CLOSED_MESSAGE,
+  ORB5M_WINDOW_END_MINUTES_ET,
   ORB_WINDOW_END_MINUTES_ET,
   easternClockMinutes,
   isOrbBreakoutWatch,
   isOrb5mBreakoutWatch,
   isOrbAutoWatch,
+  isOrb5mAutoWatch,
   isOrbWindowOpen,
   isOrb5mWindowOpen,
   orbWindowMessage,
   orb5mWindowMessage,
 } from "./orb-window";
 import { diffOrbAutoWatches, orbAutoSymbolsToEnsure } from "./orb-auto-job";
+import {
+  diffOrb5mAutoWatches,
+  loadOrb5mAutoJob,
+  orb5mAutoSymbolsToEnsure,
+  saveOrb5mAutoJob,
+  tradeDateEt,
+  type Orb5mAutoJobStatus,
+} from "./orb5m-auto-job";
 import { watchHasBreakout } from "./BreakoutKanbanBoard";
 import {
   startAlarmRing,
@@ -161,6 +170,11 @@ export function useMarketAlarms() {
   const [lastHourScanError, setLastHourScanError] = useState<string | null>(null);
   const [lastHourScanBusy, setLastHourScanBusy] = useState(false);
   const [orbAutoJob, setOrbAutoJob] = useState<OrbAutoJobStatus | null>(null);
+  const [orb5mAutoJob, setOrb5mAutoJob] = useState<Orb5mAutoJobStatus | null>(() =>
+    loadOrb5mAutoJob(),
+  );
+  const [orbAutoBusy, setOrbAutoBusy] = useState(false);
+  const [orb5mAutoBusy, setOrb5mAutoBusy] = useState(false);
 
   const timersRef = useRef<Map<string, number>>(new Map());
   /** Watch ids currently executing a check (HTTP in flight). */
@@ -180,6 +194,7 @@ export function useMarketAlarms() {
   const simulateLocalRef = useRef(simulateLocal);
   simulateLocalRef.current = simulateLocal;
   const orbAutoSyncBusyRef = useRef(false);
+  const orb5mAutoSyncBusyRef = useRef(false);
 
   const assessmentClock = useCallback((): Date => {
     if (timeModeRef.current === "simulate") {
@@ -721,7 +736,11 @@ export function useMarketAlarms() {
         setFormError(orbWindowMessage(assessmentClock()) ?? ORB_WINDOW_CLOSED_MESSAGE);
         return;
       }
-      if (isOrb5mBreakoutWatch(watch) && !isOrb5mWindowOpen(assessmentClock())) {
+      if (
+        isOrb5mBreakoutWatch(watch) &&
+        !isOrb5mAutoWatch(watch) &&
+        !isOrb5mWindowOpen(assessmentClock())
+      ) {
         setFormError(orb5mWindowMessage(assessmentClock()) ?? ORB5M_WINDOW_CLOSED_MESSAGE);
         return;
       }
@@ -834,6 +853,170 @@ export function useMarketAlarms() {
     }
   }, [removeOrbAutoWatches]);
 
+  const startOrbAutoJobManual = useCallback(
+    async (symbols: string[]) => {
+      setOrbAutoBusy(true);
+      try {
+        const cleaned = orbAutoSymbolsToEnsure(symbols);
+        const status = await startOrbAutoJob({ symbols: cleaned, trigger: "manual" });
+        setOrbAutoJob(status);
+        if (status.status === "running") {
+          ensureOrbAutoWatches(cleaned, status.pollIntervalSeconds ?? 45);
+        }
+      } catch (err) {
+        setFormError(err instanceof Error ? err.message : "Failed to start 15m ORB auto.");
+      } finally {
+        setOrbAutoBusy(false);
+      }
+    },
+    [ensureOrbAutoWatches],
+  );
+
+  const removeOrb5mAutoWatches = useCallback(() => {
+    const autoRows = watchesRef.current.filter(isOrb5mAutoWatch);
+    if (autoRows.length === 0) return;
+    for (const watch of autoRows) {
+      dropWatchFromQueues(watch.id);
+    }
+    setWatches((prev) => prev.filter((w) => !isOrb5mAutoWatch(w)));
+  }, [dropWatchFromQueues]);
+
+  const ensureOrb5mAutoWatches = useCallback(
+    (symbols: string[], pollIntervalSeconds: number) => {
+      const { toAdd, toRemoveIds } = diffOrb5mAutoWatches(
+        watchesRef.current,
+        symbols,
+        pollIntervalSeconds,
+      );
+      if (toRemoveIds.length === 0 && toAdd.length === 0) {
+        for (const watch of watchesRef.current.filter(isOrb5mAutoWatch)) {
+          if (watch.status === "idle" || watch.status === "stopped" || watch.status === "error") {
+            startWatch(watch.id);
+          }
+        }
+        return;
+      }
+      for (const id of toRemoveIds) {
+        dropWatchFromQueues(id);
+      }
+      const next = [
+        ...watchesRef.current.filter((w) => !toRemoveIds.includes(w.id)),
+        ...toAdd,
+      ];
+      watchesRef.current = next;
+      setWatches(next);
+      for (const watch of toAdd) {
+        window.setTimeout(() => startWatch(watch.id), 0);
+      }
+      for (const watch of next.filter(isOrb5mAutoWatch)) {
+        if (
+          !toAdd.some((row) => row.id === watch.id) &&
+          (watch.status === "idle" || watch.status === "stopped" || watch.status === "error")
+        ) {
+          window.setTimeout(() => startWatch(watch.id), 0);
+        }
+      }
+    },
+    [dropWatchFromQueues, startWatch],
+  );
+
+  const startOrb5mAutoJob = useCallback(
+    (symbols: string[]) => {
+      const now = assessmentClock();
+      if (!isOrb5mWindowOpen(now)) {
+        setFormError(orb5mWindowMessage(now) ?? ORB5M_WINDOW_CLOSED_MESSAGE);
+        return;
+      }
+      const existing = loadOrb5mAutoJob(now);
+      if (existing.status === "cancelled" && existing.tradeDate === tradeDateEt(now)) {
+        setFormError("5m ORB auto was cancelled for today — add a manual watch or wait until tomorrow.");
+        return;
+      }
+      setOrb5mAutoBusy(true);
+      try {
+        const cleaned = orb5mAutoSymbolsToEnsure(symbols);
+        const job = saveOrb5mAutoJob({
+          jobType: "orb5m_auto_monitor",
+          kind: "orb5m_auto_monitor",
+          status: "running",
+          symbols: cleaned,
+          tradeDate: tradeDateEt(now),
+          message: `5m ORB auto running — ${cleaned.join(", ")} (9:35–11:30 ET).`,
+          windowOpen: true,
+          pollIntervalSeconds: 30,
+        });
+        setOrb5mAutoJob(job);
+        ensureOrb5mAutoWatches(cleaned, 30);
+      } finally {
+        setOrb5mAutoBusy(false);
+      }
+    },
+    [assessmentClock, ensureOrb5mAutoWatches],
+  );
+
+  const cancelOrb5mAutoJob = useCallback(() => {
+    removeOrb5mAutoWatches();
+    const now = assessmentClock();
+    const prev = loadOrb5mAutoJob(now);
+    const job = saveOrb5mAutoJob({
+      ...prev,
+      status: "cancelled",
+      tradeDate: tradeDateEt(now),
+      message: "5m ORB auto cancelled — use manual ticker selection.",
+      windowOpen: isOrb5mWindowOpen(now),
+    });
+    setOrb5mAutoJob(job);
+    setBanner(job.message);
+  }, [assessmentClock, removeOrb5mAutoWatches]);
+
+  const syncOrb5mAutoJob = useCallback(() => {
+    if (timeModeRef.current !== "live") return;
+    if (orb5mAutoSyncBusyRef.current) return;
+    orb5mAutoSyncBusyRef.current = true;
+    try {
+      const now = assessmentClock();
+      const mins = easternClockMinutes(now);
+      let job = loadOrb5mAutoJob(now);
+      if (mins > ORB5M_WINDOW_END_MINUTES_ET) {
+        if (job.status === "running") {
+          job = saveOrb5mAutoJob({
+            ...job,
+            status: "completed",
+            message: "5m ORB window ended — auto job completed.",
+            windowOpen: false,
+          });
+        }
+        setOrb5mAutoJob(job);
+        removeOrb5mAutoWatches();
+        return;
+      }
+      if (!isOrb5mWindowOpen(now)) {
+        setOrb5mAutoJob(job);
+        return;
+      }
+      if (job.status === "cancelled") {
+        setOrb5mAutoJob(job);
+        removeOrb5mAutoWatches();
+        return;
+      }
+      if (job.status === "idle" || job.status === "completed") {
+        job = saveOrb5mAutoJob({
+          ...job,
+          status: "running",
+          tradeDate: tradeDateEt(now),
+          message: `5m ORB auto running — ${job.symbols.join(", ")} (9:35–11:30 ET).`,
+          windowOpen: true,
+        });
+      }
+      setOrb5mAutoJob(job);
+      if (job.status === "running") {
+        ensureOrb5mAutoWatches(orb5mAutoSymbolsToEnsure(job.symbols), job.pollIntervalSeconds);
+      }
+    } finally {
+      orb5mAutoSyncBusyRef.current = false;
+    }
+  }, [assessmentClock, ensureOrb5mAutoWatches, removeOrb5mAutoWatches]);
+
   const syncOrbAutoJob = useCallback(async () => {
     if (timeModeRef.current !== "live") return;
     if (orbAutoSyncBusyRef.current) return;
@@ -890,6 +1073,13 @@ export function useMarketAlarms() {
     const timer = window.setInterval(() => void syncOrbAutoJob(), 30_000);
     return () => window.clearInterval(timer);
   }, [timeMode, syncOrbAutoJob]);
+
+  useEffect(() => {
+    if (timeMode !== "live") return;
+    syncOrb5mAutoJob();
+    const timer = window.setInterval(() => syncOrb5mAutoJob(), 30_000);
+    return () => window.clearInterval(timer);
+  }, [timeMode, syncOrb5mAutoJob]);
 
   /** SemiFinal (and other tabs) can enqueue confirm watches into sessionStorage. */
   useEffect(() => {
@@ -1138,20 +1328,12 @@ export function useMarketAlarms() {
         return false;
       }
       if (ruleKeys.includes(ORB_BREAKOUT_RULE_KEY)) {
-        if (!isOrbWindowOpen(assessmentClock())) {
-          setFormError(orbWindowMessage(assessmentClock()) ?? ORB_WINDOW_CLOSED_MESSAGE);
-          return false;
-        }
         removeOrbAutoWatches();
         void stopOrbAutoJob("cancelled")
           .then((status) => setOrbAutoJob(status))
           .catch(() => {
             /* manual ORB still proceeds locally */
           });
-      }
-      if (ruleKeys.includes(ORB5M_BREAKOUT_RULE_KEY) && !isOrb5mWindowOpen(assessmentClock())) {
-        setFormError(orb5mWindowMessage(assessmentClock()) ?? ORB5M_WINDOW_CLOSED_MESSAGE);
-        return false;
       }
       if (isSessionMonitorEnded(assessmentClock())) {
         setFormError(SESSION_MONITOR_ENDED_MESSAGE);
@@ -1401,5 +1583,11 @@ export function useMarketAlarms() {
     requestNotifyPermission,
     orbAutoJob,
     cancelOrbAutoJob,
+    startOrbAutoJobManual,
+    orbAutoBusy,
+    orb5mAutoJob,
+    startOrb5mAutoJob,
+    cancelOrb5mAutoJob,
+    orb5mAutoBusy,
   };
 }

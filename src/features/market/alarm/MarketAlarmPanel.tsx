@@ -35,13 +35,9 @@ import {
   isE03ConfirmExpired,
   useNowTick,
 } from "./e03-confirm-window";
-import {
-  isOrbWindowOpen,
-  isOrb5mWindowOpen,
-  ORB_BREAKOUT_RULE_KEY,
-  ORB5M_BREAKOUT_RULE_KEY,
-} from "./orb-window";
 import type { OrbAutoJobStatus } from "./alarm-client";
+import type { Orb5mAutoJobStatus } from "./orb5m-auto-job";
+import { OrbMonitorPanel } from "./OrbMonitorPanel";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -118,6 +114,12 @@ type Props = {
   onRequestNotify: () => void;
   orbAutoJob?: OrbAutoJobStatus | null;
   onCancelOrbAuto?: () => void;
+  orb5mAutoJob?: Orb5mAutoJobStatus | null;
+  orbAutoBusy?: boolean;
+  orb5mAutoBusy?: boolean;
+  onStartOrbAuto?: (symbols: string[]) => void;
+  onStartOrb5mAuto?: (symbols: string[]) => void;
+  onCancelOrb5mAuto?: () => void;
 };
 
 function statusLabel(status: MarketAlarmWatch["status"]): string {
@@ -181,26 +183,18 @@ export function MarketAlarmPanel({
   onRequestNotify,
   orbAutoJob,
   onCancelOrbAuto,
+  orb5mAutoJob,
+  orbAutoBusy,
+  orb5mAutoBusy,
+  onStartOrbAuto,
+  onStartOrb5mAuto,
+  onCancelOrb5mAuto,
 }: Props) {
   const nowTick = useNowTick();
   const eligibleRules = useMemo(() => {
     const e03Closed = isE03ConfirmExpired(nowTick);
     return ALARM_ELIGIBLE_RULES.filter((r) => {
       if (e03Closed && r.ruleKey === E03_CONFIRM_RULE_KEY) return false;
-      if (
-        section === "movement" &&
-        r.ruleKey === ORB_BREAKOUT_RULE_KEY &&
-        !isOrbWindowOpen(nowTick)
-      ) {
-        return false;
-      }
-      if (
-        section === "movement" &&
-        r.ruleKey === ORB5M_BREAKOUT_RULE_KEY &&
-        !isOrb5mWindowOpen(nowTick)
-      ) {
-        return false;
-      }
       if (section === "strategy") return STRATEGY_CONFIRM_RULE_KEYS.includes(r.ruleKey);
       if (section === "movement") return MOVEMENT_ALARM_RULE_KEYS.includes(r.ruleKey);
       return true;
@@ -308,7 +302,7 @@ export function MarketAlarmPanel({
         : section === "strategy"
           ? "SemiFinal Monitor adds idle watches — Start here to poll"
           : section === "movement"
-            ? "Breakout Kanban and disipador / momentum watches"
+            ? "ORB monitor, breakout Kanban, and disipador / momentum watches"
             : "Pick tickers + one or more rules (AND) · Start → ENTER → exit watch → EXIT → arm again";
 
   return (
@@ -333,7 +327,20 @@ export function MarketAlarmPanel({
             Confirmed). Confirm entry and keep watching until the setup drops →{" "}
             <span className="font-medium text-ocean-foam">EXIT</span>, then arm again.
           </p>
-          {orbAutoJob?.status === "running" && section !== "strategy" ? (
+          {section === "movement" && onStartOrbAuto && onCancelOrbAuto && onStartOrb5mAuto && onCancelOrb5mAuto ? (
+            <OrbMonitorPanel
+              nowTick={nowTick}
+              timeMode={timeMode}
+              orbAutoJob={orbAutoJob ?? null}
+              orb5mAutoJob={orb5mAutoJob ?? null}
+              busy15m={orbAutoBusy}
+              busy5m={orb5mAutoBusy}
+              onStart15m={onStartOrbAuto}
+              onCancel15m={onCancelOrbAuto}
+              onStart5m={onStartOrb5mAuto}
+              onCancel5m={onCancelOrb5mAuto}
+            />
+          ) : orbAutoJob?.status === "running" && section !== "strategy" ? (
             <div
               className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2"
               role="status"

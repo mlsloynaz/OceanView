@@ -78,3 +78,9 @@ export function isOrbAutoWatch(
 ): boolean {
   return Boolean(watch.orbAuto) && isOrbBreakoutWatch(watch);
 }
+
+export function isOrb5mAutoWatch(
+  watch: Pick<MarketAlarmWatch, "orb5mAuto" | "ruleKey" | "ruleKeys">,
+): boolean {
+  return Boolean(watch.orb5mAuto) && isOrb5mBreakoutWatch(watch);
+}

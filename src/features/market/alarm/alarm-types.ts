@@ -169,8 +169,10 @@ export type MarketAlarmWatch = {
   lastGrade?: string | null;
   /** Breakout watches default to entry_ready (alert only on Entry). */
   alarmTarget?: "confirmed" | "entry_ready";
-  /** ORB auto-monitor job (TSLA / MSFT / SPY default) — not manual picks. */
+  /** 15m ORB auto-monitor job (TSLA / MSFT / SPY default) — not manual picks. */
   orbAuto?: boolean;
+  /** 5m ORB auto-monitor — client-side list on Movement. */
+  orb5mAuto?: boolean;
   lastDetectedTrend?: AlarmTrend | null;
   /** Per-rule status from last combined check. */
   lastRuleResults?: { ruleKey: string; status: string; met?: boolean; evidence?: string | null }[] | null;
