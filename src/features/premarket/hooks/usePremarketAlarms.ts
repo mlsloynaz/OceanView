@@ -12,6 +12,11 @@ import {
   type AlarmFrequencyUnit,
   type PremarketAlarmWatch,
 } from "../alarm-types";
+import {
+  armDesktopAlarmAlerts,
+  requestDesktopNotifyPermission,
+  showDesktopAlarmAlert,
+} from "@/features/market/alarm/desktop-alarm-notify";
 
 const STORAGE_KEY = "oceanview.premarket.alarms";
 
@@ -47,13 +52,13 @@ function persist(watches: PremarketAlarmWatch[]) {
 function notifyMet(watch: PremarketAlarmWatch) {
   const title = `Alarm: ${watch.symbol}`;
   const body = `${watch.strategyName} met (≥ ${watch.thresholdPct}%)`;
-  try {
-    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      new Notification(title, { body, tag: `ov-alarm-${watch.id}` });
-    }
-  } catch {
-    /* ignore */
-  }
+  showDesktopAlarmAlert({
+    kind: "enter",
+    symbol: watch.symbol,
+    title,
+    body,
+    tag: `ov-alarm-${watch.id}`,
+  });
   try {
     window.dispatchEvent(
       new CustomEvent("oceanview:premarket-alarm", {
@@ -224,6 +229,7 @@ export function usePremarketAlarms({ strategies, thresholdPct }: Args) {
       const watch = watchesRef.current.find((w) => w.id === id);
       if (!watch || watch.status === "met") return;
 
+      armDesktopAlarmAlerts();
       clearTimer(id);
       setFormError(null);
       setWatches((prev) =>
@@ -347,13 +353,8 @@ export function usePremarketAlarms({ strategies, thresholdPct }: Args) {
   );
 
   const requestNotifyPermission = useCallback(async () => {
-    if (typeof Notification === "undefined") return;
-    if (Notification.permission === "granted" || Notification.permission === "denied") return;
-    try {
-      await Notification.requestPermission();
-    } catch {
-      /* ignore */
-    }
+    armDesktopAlarmAlerts();
+    await requestDesktopNotifyPermission();
   }, []);
 
   const metCount = watches.filter((w) => w.status === "met").length;

@@ -53,6 +53,12 @@ import {
 } from "./orb-window";
 import { diffOrbAutoWatches, orbAutoSymbolsToEnsure } from "./orb-auto-job";
 import {
+  heldOrbAutoSymbols,
+  holdKindForWatch,
+  holdOrbAutoSymbol,
+  releaseOrbAutoSymbol,
+} from "./orb-auto-hold";
+import {
   diffOrb5mAutoWatches,
   loadOrb5mAutoJob,
   orb5mAutoSymbolsToEnsure,
@@ -61,6 +67,13 @@ import {
   type Orb5mAutoJobStatus,
 } from "./orb5m-auto-job";
 import { watchHasBreakout } from "./BreakoutKanbanBoard";
+import {
+  armDesktopAlarmAlerts,
+  clearDesktopAlarmAlert,
+  desktopNotifyPermission,
+  requestDesktopNotifyPermission,
+  showDesktopAlarmAlert,
+} from "./desktop-alarm-notify";
 import {
   startAlarmRing,
   stopAlarmRing,
@@ -158,6 +171,8 @@ export function useMarketAlarms() {
     kind: AlarmPopupKind;
     watch: MarketAlarmWatch;
   } | null>(null);
+  const alarmPopupRef = useRef(alarmPopup);
+  alarmPopupRef.current = alarmPopup;
   const [timeMode, setTimeMode] = useState<LiveSimulateMode>(() => {
     try {
       return sessionStorage.getItem(SIM_STORAGE_KEY) === "simulate" ? "simulate" : "live";
@@ -169,6 +184,9 @@ export function useMarketAlarms() {
   const [lastHourScan, setLastHourScan] = useState<MarketAlarmScanLastHourResponse | null>(null);
   const [lastHourScanError, setLastHourScanError] = useState<string | null>(null);
   const [lastHourScanBusy, setLastHourScanBusy] = useState(false);
+  const [notifyPermission, setNotifyPermission] = useState<
+    NotificationPermission | "unsupported"
+  >(() => desktopNotifyPermission());
   const [orbAutoJob, setOrbAutoJob] = useState<OrbAutoJobStatus | null>(null);
   const [orb5mAutoJob, setOrb5mAutoJob] = useState<Orb5mAutoJobStatus | null>(() =>
     loadOrb5mAutoJob(),
@@ -272,6 +290,7 @@ export function useMarketAlarms() {
     setAlarmPopup((popup) => {
       if (popup && isE03ConfirmWatch(popup.watch)) {
         stopAlarmRing();
+        clearDesktopAlarmAlert();
         return null;
       }
       return popup;
@@ -289,6 +308,7 @@ export function useMarketAlarms() {
       dropWatchFromQueues(watch.id);
     }
     stopAlarmRing();
+    clearDesktopAlarmAlert();
     setAlarmPopup(null);
     setWatches((prev) =>
       prev.map((w) =>
@@ -575,16 +595,35 @@ export function useMarketAlarms() {
           );
           setAlarmPopup({ kind: "exit", watch: exitWatch });
           startAlarmRing();
-          try {
-            if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-              new Notification(`Exit: ${watch.symbol}`, {
-                body: `${watch.ruleLabel} · ${sideLabel} — exit now`,
-                tag: `ov-market-alarm-exit-${watch.id}`,
-              });
-            }
-          } catch {
-            /* ignore */
+          showDesktopAlarmAlert({
+            kind: "exit",
+            symbol: watch.symbol,
+            title: `Exit: ${watch.symbol}`,
+            body: `${watch.ruleLabel} · ${sideLabel} — exit now`,
+            tag: `ov-market-alarm-exit-${watch.id}`,
+          });
+          return;
+        }
+
+        // Dismissed EXIT — wait until the setup is unmet before a new ENTER popup.
+        if (watch.suppressEnterUntilUnmet) {
+          if (!result.met) {
+            setWatches((prev) =>
+              prev.map((w) =>
+                w.id === id
+                  ? { ...w, ...patchBase, status: "running", suppressEnterUntilUnmet: false }
+                  : w,
+              ),
+            );
+            return;
           }
+          setWatches((prev) =>
+            prev.map((w) =>
+              w.id === id
+                ? { ...w, ...patchBase, status: "running", suppressEnterUntilUnmet: true }
+                : w,
+            ),
+          );
           return;
         }
 
@@ -628,16 +667,13 @@ export function useMarketAlarms() {
           setAlarmPopup({ kind: "enter", watch: metWatch });
           // Entry alarm: ring until confirm / dismiss / clear.
           startAlarmRing();
-          try {
-            if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-              new Notification(`Enter: ${watch.symbol}`, {
-                body: `${watch.ruleLabel} · ${sideLabel} — enter now`,
-                tag: `ov-market-alarm-enter-${watch.id}`,
-              });
-            }
-          } catch {
-            /* ignore */
-          }
+          showDesktopAlarmAlert({
+            kind: "enter",
+            symbol: watch.symbol,
+            title: `Enter: ${watch.symbol}`,
+            body: `${watch.ruleLabel} · ${sideLabel} — enter now`,
+            tag: `ov-market-alarm-enter-${watch.id}`,
+          });
           return;
         }
 
@@ -756,6 +792,9 @@ export function useMarketAlarms() {
         opts?.mode ?? (watch.status === "in_trade" ? "in_trade" : "hunt");
 
       unlockAlarmAudio();
+      armDesktopAlarmAlerts();
+      const holdKind = holdKindForWatch(watch);
+      if (holdKind) releaseOrbAutoSymbol(holdKind, watch.symbol);
       clearTimer(id);
       setFormError(null);
       setWatches((prev) =>
@@ -805,13 +844,16 @@ export function useMarketAlarms() {
 
   const ensureOrbAutoWatches = useCallback(
     (symbols: string[], pollIntervalSeconds: number) => {
+      const held = heldOrbAutoSymbols("orb15");
       const { toAdd, toRemoveIds } = diffOrbAutoWatches(
         watchesRef.current,
         symbols,
         pollIntervalSeconds,
+        held,
       );
       if (toRemoveIds.length === 0 && toAdd.length === 0) {
         for (const watch of watchesRef.current.filter(isOrbAutoWatch)) {
+          if (held.has(watch.symbol)) continue;
           if (watch.status === "idle" || watch.status === "stopped" || watch.status === "error") {
             startWatch(watch.id);
           }
@@ -831,6 +873,7 @@ export function useMarketAlarms() {
         window.setTimeout(() => startWatch(watch.id), 0);
       }
       for (const watch of next.filter(isOrbAutoWatch)) {
+        if (held.has(watch.symbol)) continue;
         if (
           !toAdd.some((row) => row.id === watch.id) &&
           (watch.status === "idle" || watch.status === "stopped" || watch.status === "error")
@@ -855,6 +898,7 @@ export function useMarketAlarms() {
 
   const startOrbAutoJobManual = useCallback(
     async (symbols: string[]) => {
+      armDesktopAlarmAlerts();
       setOrbAutoBusy(true);
       try {
         const cleaned = orbAutoSymbolsToEnsure(symbols);
@@ -883,13 +927,16 @@ export function useMarketAlarms() {
 
   const ensureOrb5mAutoWatches = useCallback(
     (symbols: string[], pollIntervalSeconds: number) => {
+      const held = heldOrbAutoSymbols("orb5m");
       const { toAdd, toRemoveIds } = diffOrb5mAutoWatches(
         watchesRef.current,
         symbols,
         pollIntervalSeconds,
+        held,
       );
       if (toRemoveIds.length === 0 && toAdd.length === 0) {
         for (const watch of watchesRef.current.filter(isOrb5mAutoWatch)) {
+          if (held.has(watch.symbol)) continue;
           if (watch.status === "idle" || watch.status === "stopped" || watch.status === "error") {
             startWatch(watch.id);
           }
@@ -909,6 +956,7 @@ export function useMarketAlarms() {
         window.setTimeout(() => startWatch(watch.id), 0);
       }
       for (const watch of next.filter(isOrb5mAutoWatch)) {
+        if (held.has(watch.symbol)) continue;
         if (
           !toAdd.some((row) => row.id === watch.id) &&
           (watch.status === "idle" || watch.status === "stopped" || watch.status === "error")
@@ -922,6 +970,7 @@ export function useMarketAlarms() {
 
   const startOrb5mAutoJob = useCallback(
     (symbols: string[]) => {
+      armDesktopAlarmAlerts();
       const now = assessmentClock();
       if (!isOrb5mWindowOpen(now)) {
         setFormError(orb5mWindowMessage(now) ?? ORB5M_WINDOW_CLOSED_MESSAGE);
@@ -1119,7 +1168,10 @@ export function useMarketAlarms() {
 
   const stopWatch = useCallback(
     (id: string) => {
+      const watch = watchesRef.current.find((w) => w.id === id);
       clearTimer(id);
+      const holdKind = watch ? holdKindForWatch(watch) : null;
+      if (watch && holdKind) holdOrbAutoSymbol(holdKind, watch.symbol);
       setWatches((prev) =>
         prev.map((w) =>
           w.id === id &&
@@ -1157,10 +1209,19 @@ export function useMarketAlarms() {
 
   const removeWatch = useCallback(
     (id: string) => {
+      const watch = watchesRef.current.find((w) => w.id === id);
       clearTimer(id);
+      const holdKind = watch ? holdKindForWatch(watch) : null;
+      if (watch && holdKind) holdOrbAutoSymbol(holdKind, watch.symbol);
+      if (watch?.orb5mAuto) {
+        const job = loadOrb5mAutoJob();
+        const symbols = job.symbols.filter((s) => s !== watch.symbol);
+        setOrb5mAutoJob(saveOrb5mAutoJob({ ...job, symbols }));
+      }
       setAlarmPopup((popup) => {
         if (popup?.watch.id === id) {
           stopAlarmRing();
+          clearDesktopAlarmAlert();
           return null;
         }
         return popup;
@@ -1173,14 +1234,63 @@ export function useMarketAlarms() {
   const clearMetBanner = useCallback(() => setBanner(null), []);
   const clearAlarmPopup = useCallback(() => {
     stopAlarmRing();
+    clearDesktopAlarmAlert();
     setAlarmPopup(null);
   }, []);
+
+  /** Dismiss = already notified. Stop sound/overlay and do not show this signal again. */
+  const dismissAlarmPopup = useCallback(() => {
+    const popup = alarmPopupRef.current;
+    stopAlarmRing();
+    clearDesktopAlarmAlert();
+    setAlarmPopup(null);
+    setBanner(null);
+    if (!popup) return;
+    if (popup.kind === "enter") {
+      const now = new Date().toISOString();
+      setWatches((prev) =>
+        prev.map((w) =>
+          w.id === popup.watch.id
+            ? {
+                ...w,
+                status: "in_trade",
+                enteredAt: now,
+                exitedAt: null,
+                exitEvidence: null,
+                lastError: null,
+                suppressEnterUntilUnmet: false,
+              }
+            : w,
+        ),
+      );
+      window.setTimeout(() => startWatch(popup.watch.id, { mode: "in_trade" }), 0);
+      return;
+    }
+    setWatches((prev) =>
+      prev.map((w) =>
+        w.id === popup.watch.id
+          ? {
+              ...w,
+              status: "idle",
+              metAt: null,
+              enteredAt: null,
+              exitedAt: null,
+              exitEvidence: null,
+              lastError: null,
+              suppressEnterUntilUnmet: true,
+            }
+          : w,
+      ),
+    );
+    window.setTimeout(() => startWatch(popup.watch.id, { mode: "hunt" }), 0);
+  }, [startWatch]);
 
   /** User confirmed enter — keep polling until setup drops (exit). */
   const confirmEnter = useCallback(
     (id: string) => {
       const now = new Date().toISOString();
       stopAlarmRing();
+      clearDesktopAlarmAlert();
       setAlarmPopup(null);
       setBanner(null);
       setWatches((prev) =>
@@ -1206,6 +1316,7 @@ export function useMarketAlarms() {
   const confirmExit = useCallback(
     (id: string) => {
       stopAlarmRing();
+      clearDesktopAlarmAlert();
       setAlarmPopup(null);
       setBanner(null);
       setWatches((prev) =>
@@ -1235,6 +1346,7 @@ export function useMarketAlarms() {
       setAlarmPopup((popup) => {
         if (popup?.watch.id === id) {
           stopAlarmRing();
+          clearDesktopAlarmAlert();
           return null;
         }
         return popup;
@@ -1269,6 +1381,7 @@ export function useMarketAlarms() {
       .map((w) => w.id);
     for (const id of ids) clearTimer(id);
     stopAlarmRing();
+    clearDesktopAlarmAlert();
     setAlarmPopup(null);
     setBanner(null);
     setWatches((prev) =>
@@ -1422,6 +1535,7 @@ export function useMarketAlarms() {
       setWatches((prev) => [...toAdd, ...prev]);
 
       if (input.startAfterAdd) {
+        armDesktopAlarmAlerts();
         const ids = toAdd.map((w) => w.id);
         window.setTimeout(() => {
           for (const id of ids) startWatch(id);
@@ -1455,13 +1569,9 @@ export function useMarketAlarms() {
 
   const requestNotifyPermission = useCallback(async () => {
     unlockAlarmAudio();
-    if (typeof Notification === "undefined") return;
-    if (Notification.permission === "granted" || Notification.permission === "denied") return;
-    try {
-      await Notification.requestPermission();
-    } catch {
-      /* ignore */
-    }
+    armDesktopAlarmAlerts();
+    const perm = await requestDesktopNotifyPermission();
+    setNotifyPermission(perm);
   }, []);
 
   const scanLastHourRth = useCallback(
@@ -1533,6 +1643,7 @@ export function useMarketAlarms() {
   useEffect(() => {
     return () => {
       stopAlarmRing();
+      clearDesktopAlarmAlert();
     };
   }, []);
   const metCount = watches.filter(
@@ -1581,6 +1692,8 @@ export function useMarketAlarms() {
     updateWatchInterval,
     runCheckNow: runCheck,
     requestNotifyPermission,
+    notifyPermission,
+    dismissAlarmPopup,
     orbAutoJob,
     cancelOrbAutoJob,
     startOrbAutoJobManual,

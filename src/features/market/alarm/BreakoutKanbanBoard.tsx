@@ -126,6 +126,7 @@ function entryDebugLines(w: MarketAlarmWatch): string[] {
 }
 
 function lifecycleChip(watch: MarketAlarmWatch): string {
+  if (watch.status === "stopped") return "stopped";
   if (watch.status === "met") return "ENTER";
   if (watch.status === "in_trade") return "in trade";
   if (watch.status === "exit") return "EXIT";

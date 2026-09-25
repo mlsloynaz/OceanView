@@ -149,6 +149,9 @@ export function OrbMonitorPanel({
         <p className="mt-0.5 text-[11px] text-ocean-sand">
           Always visible. Auto starts in Live when the window opens. Popup + sound only on{" "}
           <span className="font-medium text-ocean-foam">Entry</span>. Keep OceanView open.
+          Stop on a card pauses that ticker for the rest of the session — the job will not restart
+          it. 15m job runs 9:45–11:30 ET · 5m job runs 9:35–11:30 ET. Other alarms keep polling
+          until 4:00 PM ET.
           {timeMode !== "live" ? " Switch to Live to auto-start." : ""}
         </p>
       </div>

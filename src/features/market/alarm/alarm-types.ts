@@ -142,6 +142,8 @@ export type MarketAlarmWatch = {
   lastCheckedAt: string | null;
   lastError: string | null;
   metAt: string | null;
+  /** After Dismiss on EXIT — do not fire ENTER again until the setup has been unmet once. */
+  suppressEnterUntilUnmet?: boolean;
   enteredAt?: string | null;
   exitedAt?: string | null;
   exitEvidence?: string | null;

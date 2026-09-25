@@ -81,6 +81,7 @@ export function AlarmsPage() {
         onCheckNow={(id) => void alarms.runCheckNow(id)}
         onUpdateInterval={alarms.updateWatchInterval}
         onRequestNotify={() => void alarms.requestNotifyPermission()}
+        notifyPermission={alarms.notifyPermission}
         orbAutoJob={alarms.orbAutoJob}
         onCancelOrbAuto={() => void alarms.cancelOrbAutoJob()}
         orb5mAutoJob={alarms.orb5mAutoJob}

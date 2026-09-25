@@ -112,6 +112,7 @@ type Props = {
   onCheckNow: (id: string) => void;
   onUpdateInterval: (id: string, value: number, unit: PollIntervalUnit) => void;
   onRequestNotify: () => void;
+  notifyPermission?: NotificationPermission | "unsupported";
   orbAutoJob?: OrbAutoJobStatus | null;
   onCancelOrbAuto?: () => void;
   orb5mAutoJob?: Orb5mAutoJobStatus | null;
@@ -181,6 +182,7 @@ export function MarketAlarmPanel({
   onCheckNow,
   onUpdateInterval,
   onRequestNotify,
+  notifyPermission = "default",
   orbAutoJob,
   onCancelOrbAuto,
   orb5mAutoJob,
@@ -394,15 +396,24 @@ export function MarketAlarmPanel({
             — the rule sets alcista/bajista. Add creates one watch per ticker; Start polls until met.
           </p>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
               onClick={onRequestNotify}
-              title="Allow browser notifications for fired alarms"
+              title="Allow Windows banners and open a small always-on-top alert window"
             >
-              Enable desktop notify
+              {notifyPermission === "granted"
+                ? "Show alert overlay"
+                : notifyPermission === "denied"
+                  ? "Desktop notify blocked"
+                  : "Enable desktop notify"}
             </button>
+            <p className="text-[11px] text-ocean-sand">
+              {notifyPermission === "denied"
+                ? "Chrome/Edge blocked this site. Allow Notifications in the browser, then click again."
+                : "Opens a small always-on-top window so ENTER/EXIT can sit over other apps. Also allow Windows notification banners for Chrome/Edge."}
+            </p>
           </div>
 
           {section === "strategy" ? (

@@ -65,12 +65,19 @@ export function diffOrbAutoWatches(
   existing: MarketAlarmWatch[],
   symbols: string[],
   pollIntervalSeconds: number,
+  heldSymbols: Iterable<string> = [],
 ): { toAdd: MarketAlarmWatch[]; toRemoveIds: string[] } {
   const autoRows = existing.filter(isOrbAutoWatch);
   const want = new Set(symbols.map((s) => s.toUpperCase()));
+  const held = new Set(
+    [...heldSymbols].map((s) => s.trim().toUpperCase()).filter(Boolean),
+  );
   const have = new Set(autoRows.map((w) => w.symbol));
   const toAdd = symbols
-    .filter((s) => !have.has(s.toUpperCase()))
+    .filter((s) => {
+      const upper = s.toUpperCase();
+      return !held.has(upper) && !have.has(upper);
+    })
     .map((s) => buildOrbAutoWatch(s, pollIntervalSeconds));
   const toRemoveIds = autoRows
     .filter((w) => !want.has(w.symbol))

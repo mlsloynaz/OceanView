@@ -70,8 +70,8 @@ export function AlarmTradeModal({ watch, kind, onClose, onConfirm }: Props) {
         </div>
         <p className="text-[11px] text-ocean-sand/90">
           {isEnter
-            ? "Confirm after you enter. Polling continues and will alert when the setup drops (exit)."
-            : "Confirm after you exit. This watch resets and can fire a new enter alarm."}
+            ? "Confirm after you enter, or Dismiss if you already saw this — the popup and bell stop. Polling continues and will alert only on exit."
+            : "Confirm after you exit, or Dismiss if you already saw this — the popup and bell stop. No new ENTER until the setup has been unmet."}
         </p>
       </div>
     </MarketDetailModal>
