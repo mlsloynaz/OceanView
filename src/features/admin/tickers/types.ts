@@ -92,6 +92,84 @@ export type BestFitWatchlistResponse = {
   message?: string | null;
 };
 
+export type BestFitOrb5mMetrics = {
+  sampleSize?: number | null;
+  eventCount?: number | null;
+  followedPct?: number | null;
+  earned20Pct?: number | null;
+  earned35Pct?: number | null;
+  succeedNextEq1hTrendCount?: number | null;
+  succeedNextEq1hTrendPct?: number | null;
+  succeedNextWithVolCount?: number | null;
+  succeedNextWithVolPct?: number | null;
+  withTrendPct?: number | null;
+  againstTrendPct?: number | null;
+  withVwapFollowCount?: number | null;
+  withVwapPct?: number | null;
+  againstVwapPct?: number | null;
+  vwapMinusTrendPct?: number | null;
+  stayedBeyondOrPct?: number | null;
+  signalRatePct?: number | null;
+  sessionsInRange?: number | null;
+  sessionsWithOpeningRange?: number | null;
+  mostProbableHourEt?: string | null;
+  avgReturnToSma10Pct?: number | null;
+  sma10TurnCount?: number | null;
+  sma10TurnPct?: number | null;
+  medianSma10TurnGapPct?: number | null;
+  mostFrequentSma10TurnGapPct?: number | null;
+  avgSma10TurnGapPct?: number | null;
+  referencePrice?: number | null;
+  sma10TurnGapDollars?: number | null;
+  avgMfePct?: number | null;
+  avgMaePct?: number | null;
+  callCount?: number | null;
+  putCount?: number | null;
+  timeframe?: string | null;
+  historyStart?: string | null;
+  historyEnd?: string | null;
+};
+
+export type BestFitOrb5mRow = {
+  rank: number;
+  symbol: string;
+  name?: string | null;
+  currentlyActive?: boolean;
+  score: number;
+  tier: string;
+  reasons: string[];
+  metrics: BestFitOrb5mMetrics;
+};
+
+export type BestFitOrb5mResponse = {
+  kind?: string;
+  status?: string;
+  runId?: string | null;
+  resolvedAt: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  limit: number;
+  lookbackDays?: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  universeSize: number;
+  scoredCount: number;
+  skippedCount: number;
+  scannedCount?: number;
+  watchlist: BestFitOrb5mRow[];
+  ranked?: BestFitOrb5mRow[];
+  skipped: BestFitSkippedRow[];
+  skipReasons?: Record<string, number>;
+  progress?: { done?: number; total?: number };
+  trigger?: string;
+  batchSize?: number;
+  batchIntervalSeconds?: number;
+  pollIntervalSeconds?: number;
+  nextBatchAt?: string | null;
+  errors?: Array<{ symbol?: string; error?: string }>;
+  message?: string | null;
+};
+
 export type TradableSideMetrics = {
   contractCount?: number | null;
   liquidRate?: number | null;

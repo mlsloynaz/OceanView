@@ -77,8 +77,8 @@ export function TickersPane() {
       <div>
         <h2 className="font-display text-xl font-semibold text-ocean-foam">Tickers</h2>
         <p className="mt-1 max-w-2xl text-sm text-ocean-sand">
-          Watchlist for catalog control, Best-fit for long-term stock ranking, Tradable for option
-          spreads. Open a thumbnail below.
+          Watchlist for catalog control, Best-fit for long-term stock ranking (Movement and ORB 5m),
+          Tradable for option spreads. Open a thumbnail below.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

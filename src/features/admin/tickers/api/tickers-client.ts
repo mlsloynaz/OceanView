@@ -1,4 +1,5 @@
 import type {
+  BestFitOrb5mResponse,
   BestFitWatchlistResponse,
   CatalogTicker,
   CatalogTickersResponse,
@@ -32,6 +33,23 @@ let mockBestFit: BestFitWatchlistResponse = {
   ranked: [],
   skipped: [],
   message: "No best-fit ranking yet. Run Resolve on Best-fit.",
+};
+
+let mockBestFitOrb5m: BestFitOrb5mResponse = {
+  kind: "best_fit_orb5m",
+  status: "idle",
+  resolvedAt: null,
+  limit: 10,
+  lookbackDays: 45,
+  universeSize: 0,
+  scoredCount: 0,
+  skippedCount: 0,
+  watchlist: [],
+  ranked: [],
+  skipped: [],
+  progress: { done: 0, total: 0 },
+  pollIntervalSeconds: 5,
+  message: "No ORB 5m ranking yet. Run Resolve on Best-fit → ORB 5m.",
 };
 
 let mockTradable: TradableWatchlistResponse = {
@@ -495,6 +513,107 @@ export async function resolveBestFitWatchlist(input?: {
   return fetchJson<BestFitWatchlistResponse>("/tickers/best-fit/resolve", {
     method: "POST",
     body: JSON.stringify({ limit, activateTop }),
+  });
+}
+
+export async function getBestFitOrb5m(): Promise<BestFitOrb5mResponse> {
+  if (USE_MOCK) {
+    await delay();
+    return {
+      ...mockBestFitOrb5m,
+      watchlist: [...mockBestFitOrb5m.watchlist],
+      ranked: [...(mockBestFitOrb5m.ranked ?? mockBestFitOrb5m.watchlist)],
+      skipped: [...mockBestFitOrb5m.skipped],
+    };
+  }
+  return fetchJson<BestFitOrb5mResponse>("/tickers/best-fit/orb-5m");
+}
+
+export async function resolveBestFitOrb5m(input?: {
+  limit?: number;
+  lookbackDays?: number;
+  forceFull?: boolean;
+}): Promise<BestFitOrb5mResponse> {
+  const limit = input?.limit ?? 10;
+  const lookbackDays = input?.lookbackDays ?? 45;
+  const forceFull = Boolean(input?.forceFull);
+
+  if (USE_MOCK) {
+    await delay(250);
+    const ranked = mockCatalog.map((row, index) => ({
+      rank: index + 1,
+      symbol: row.symbol,
+      name: row.name,
+      currentlyActive: row.active,
+      score: 78 - index * 2.4,
+      tier: index < 2 ? "excellent" : index < 4 ? "strong" : "moderate",
+      reasons: [`+mock 5m ORB follow for ${row.symbol}`],
+      metrics: {
+        sampleSize: 14,
+        eventCount: 14,
+        followedPct: 68 - index * 3,
+        earned20Pct: 42 - index * 2,
+        earned35Pct: 22 - index,
+        withTrendPct: 74 - index * 2,
+        withVwapPct: 81 - index * 2,
+        againstVwapPct: 14,
+        vwapMinusTrendPct: 7,
+        succeedNextEq1hTrendPct: 48 - index * 2,
+        succeedNextEq1hTrendCount: 10,
+        succeedNextWithVolPct: 40 - index * 2,
+        succeedNextWithVolCount: 8,
+        againstTrendPct: 12,
+        stayedBeyondOrPct: 36,
+        signalRatePct: 55,
+        sessionsInRange: 22,
+        sessionsWithOpeningRange: 20,
+        mostProbableHourEt: index % 2 === 0 ? "09:40" : "09:45",
+        avgReturnToSma10Pct: 0.32,
+        sma10TurnCount: 10,
+        sma10TurnPct: 72,
+        medianSma10TurnGapPct: 0.30,
+        mostFrequentSma10TurnGapPct: 0.25,
+        avgSma10TurnGapPct: 0.31,
+        referencePrice: 100 + index * 12,
+        sma10TurnGapDollars: Number((((100 + index * 12) * 0.25) / 100).toFixed(2)),
+        avgMfePct: 0.85,
+        avgMaePct: 0.22,
+        callCount: 8,
+        putCount: 6,
+        timeframe: "5m",
+        historyStart: "2026-08-11",
+        historyEnd: "2026-09-25",
+      },
+    }));
+    mockBestFitOrb5m = {
+      kind: "best_fit_orb5m",
+      status: "completed",
+      resolvedAt: new Date().toISOString(),
+      limit,
+      lookbackDays,
+      startDate: "2026-08-11",
+      endDate: "2026-09-25",
+      universeSize: mockCatalog.length,
+      scoredCount: ranked.length,
+      skippedCount: 0,
+      watchlist: ranked.slice(0, Math.min(limit, ranked.length)),
+      ranked,
+      skipped: [],
+      progress: { done: mockCatalog.length, total: mockCatalog.length },
+      pollIntervalSeconds: 5,
+      message: `Best-fit ORB 5m: ${ranked.length} scored (suggested top ${Math.min(limit, ranked.length)}) (mock).`,
+    };
+    return {
+      ...mockBestFitOrb5m,
+      watchlist: [...mockBestFitOrb5m.watchlist],
+      ranked: [...(mockBestFitOrb5m.ranked ?? [])],
+      skipped: [...mockBestFitOrb5m.skipped],
+    };
+  }
+
+  return fetchJson<BestFitOrb5mResponse>("/tickers/best-fit/orb-5m/resolve", {
+    method: "POST",
+    body: JSON.stringify({ limit, lookbackDays, forceFull }),
   });
 }
 

@@ -3,6 +3,7 @@ import {
   createTicker,
   deleteTicker,
   fetchMovementProfilesForSymbols,
+  getBestFitOrb5m,
   getBestFitWatchlist,
   getTickersCatalog,
   getTradableWatchlist,
@@ -12,6 +13,7 @@ import {
   patchAllTickersActive,
   postTradableOceanDeskExport,
   refineTradableWatchlist,
+  resolveBestFitOrb5m,
   resolveBestFitWatchlist,
   resetTradabilitySamples,
   stopTradableCollect,
@@ -25,6 +27,7 @@ import {
 } from "../pagination";
 import { filterTickersBySearch } from "../search";
 import type {
+  BestFitOrb5mResponse,
   BestFitWatchlistResponse,
   CatalogTicker,
   TickerCatalogFilter,
@@ -58,6 +61,10 @@ export function useTickersPane(open: boolean) {
   const [bestFitLoading, setBestFitLoading] = useState(false);
   const [bestFitResolving, setBestFitResolving] = useState(false);
   const [bestFitError, setBestFitError] = useState<string | null>(null);
+  const [bestFitOrb5m, setBestFitOrb5m] = useState<BestFitOrb5mResponse | null>(null);
+  const [bestFitOrb5mLoading, setBestFitOrb5mLoading] = useState(false);
+  const [bestFitOrb5mResolving, setBestFitOrb5mResolving] = useState(false);
+  const [bestFitOrb5mError, setBestFitOrb5mError] = useState<string | null>(null);
   const [tradable, setTradable] = useState<TradableWatchlistResponse | null>(null);
   const [tradableLoading, setTradableLoading] = useState(false);
   const [tradableRefining, setTradableRefining] = useState(false);
@@ -93,6 +100,42 @@ export function useTickersPane(open: boolean) {
       setBestFitLoading(false);
     }
   }, []);
+
+  const loadBestFitOrb5m = useCallback(async () => {
+    setBestFitOrb5mError(null);
+    setBestFitOrb5mLoading(true);
+    try {
+      const payload = await getBestFitOrb5m();
+      setBestFitOrb5m(payload);
+    } catch (err) {
+      setBestFitOrb5mError(err instanceof Error ? err.message : "Failed to load ORB 5m ranking.");
+    } finally {
+      setBestFitOrb5mLoading(false);
+    }
+  }, []);
+
+  const resolveBestFitOrb5mRanking = useCallback(async (opts?: { forceFull?: boolean }) => {
+    setBestFitOrb5mError(null);
+    setBestFitOrb5mResolving(true);
+    try {
+      const payload = await resolveBestFitOrb5m({
+        limit: 10,
+        lookbackDays: 45,
+        forceFull: opts?.forceFull,
+      });
+      setBestFitOrb5m(payload);
+      setMessage(payload.message ?? "ORB 5m ranking started.");
+    } catch (err) {
+      setBestFitOrb5mError(err instanceof Error ? err.message : "Failed to resolve ORB 5m ranking.");
+    } finally {
+      setBestFitOrb5mResolving(false);
+    }
+  }, []);
+
+  const bestFitOrb5mScanning = useMemo(() => {
+    const status = String(bestFitOrb5m?.status || "").toLowerCase();
+    return status === "running";
+  }, [bestFitOrb5m?.status]);
 
   const resolveBestFit = useCallback(async () => {
     setBestFitError(null);
@@ -247,8 +290,18 @@ export function useTickersPane(open: boolean) {
   useEffect(() => {
     if (!open) return;
     void loadBestFit();
+    void loadBestFitOrb5m();
     void loadTradable();
-  }, [open, loadBestFit, loadTradable]);
+  }, [open, loadBestFit, loadBestFitOrb5m, loadTradable]);
+
+  useEffect(() => {
+    if (!open || !bestFitOrb5mScanning) return;
+    const pollMs = Math.max(3, Number(bestFitOrb5m?.pollIntervalSeconds) || 5) * 1000;
+    const id = window.setInterval(() => {
+      void loadBestFitOrb5m();
+    }, pollMs);
+    return () => window.clearInterval(id);
+  }, [open, bestFitOrb5mScanning, bestFitOrb5m?.pollIntervalSeconds, loadBestFitOrb5m]);
 
   const setFilterAndResetPage = useCallback((next: TickerCatalogFilter) => {
     setFilter(next);
@@ -644,6 +697,12 @@ export function useTickersPane(open: boolean) {
     bestFitResolving,
     bestFitError,
     resolveBestFit,
+    bestFitOrb5m,
+    bestFitOrb5mLoading,
+    bestFitOrb5mResolving,
+    bestFitOrb5mScanning,
+    bestFitOrb5mError,
+    resolveBestFitOrb5m: resolveBestFitOrb5mRanking,
     tradable,
     tradableLoading,
     tradableRefining,
