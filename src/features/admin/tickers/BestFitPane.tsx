@@ -4,8 +4,14 @@ import { AdminExpandedPane } from "@/features/admin/components/AdminExpandedPane
 import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
 import { patchTickersActive } from "./api/tickers-client";
 import { BEST_FIT_COLUMN_HELP } from "./best-fit-column-help";
+import { BestFitOrb5mSection } from "./BestFitOrb5mSection";
 import { BestFitTickerDetail } from "./BestFitTickerDetail";
 import { useTickersPane } from "./hooks/useTickersPane";
+import {
+  bestFitSubTabFromHash,
+  hashForBestFitSubTab,
+  type BestFitSubTab,
+} from "./tickers-hub";
 import type { BestFitWatchlistRow } from "./types";
 
 const TIER_CLASS: Record<string, string> = {
@@ -73,16 +79,48 @@ export function BestFitPane({ onBack }: Props) {
     bestFitResolving,
     bestFitError,
     resolveBestFit,
+    bestFitOrb5m,
+    bestFitOrb5mLoading,
+    bestFitOrb5mResolving,
+    bestFitOrb5mScanning,
+    bestFitOrb5mError,
+    resolveBestFitOrb5m,
     reload,
     message,
     tickers,
   } = useTickersPane(true);
+
+  const [subTab, setSubTab] = useState<BestFitSubTab>(() =>
+    bestFitSubTabFromHash(window.location.hash),
+  );
+
+  useEffect(() => {
+    const sync = () => setSubTab(bestFitSubTabFromHash(window.location.hash));
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
+
+  const openSubTab = (next: BestFitSubTab) => {
+    setSubTab(next);
+    window.history.replaceState(null, "", `${window.location.pathname}${hashForBestFitSubTab(next)}`);
+  };
 
   const ranked = useMemo(() => {
     if (!bestFit) return [] as BestFitWatchlistRow[];
     const rows = bestFit.ranked?.length ? bestFit.ranked : bestFit.watchlist;
     return rows;
   }, [bestFit]);
+
+  const priceBySymbol = useMemo(() => {
+    const prices: Record<string, number> = {};
+    for (const row of ranked) {
+      const price = row.metrics?.referencePrice;
+      if (typeof price === "number" && !Number.isNaN(price) && price > 0) {
+        prices[row.symbol] = price;
+      }
+    }
+    return prices;
+  }, [ranked]);
 
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -204,40 +242,91 @@ export function BestFitPane({ onBack }: Props) {
           <span>Best-fit</span>
         </span>
       }
-      subtitle="Movement-profile fitness (not strategy hit rate). Click a symbol for % and $. Check boxes to promote."
+      subtitle={
+        subTab === "orb-5m"
+          ? "5-minute opening-range fitness from historical entries. Resolve scans Alpaca 5Min bars."
+          : "Movement-profile fitness (not strategy hit rate). Click a symbol for % and $. Check boxes to promote."
+      }
       headerExtra={
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setHelpOpen(true)}
-            className={cn(BTN, "border border-ocean-mid/50 text-ocean-sand hover:border-ocean-teal/40")}
-            title="What do these columns mean?"
-            aria-haspopup="dialog"
-          >
-            Column help
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void resolveBestFit()}
-            className={cn(BTN, "border border-ocean-teal/50 bg-ocean-teal/15 text-ocean-foam")}
-          >
-            {bestFitResolving ? "Resolving…" : "Resolve ranking"}
-          </button>
-          <button
-            type="button"
-            disabled={busy || ranked.length === 0 || selectedSymbols.length === 0}
-            onClick={() => void promoteSelected()}
-            className={cn(
-              BTN,
-              "border-2 border-ocean-teal bg-ocean-deep text-ocean-foam hover:bg-ocean-teal/10",
-            )}
-          >
-            {promoting ? "Promoting…" : `Promote selected (${selectedSymbols.length})`}
-          </button>
-        </div>
+        subTab === "movement" ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setHelpOpen(true)}
+              className={cn(BTN, "border border-ocean-mid/50 text-ocean-sand hover:border-ocean-teal/40")}
+              title="What do these columns mean?"
+              aria-haspopup="dialog"
+            >
+              Column help
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void resolveBestFit()}
+              className={cn(BTN, "border border-ocean-teal/50 bg-ocean-teal/15 text-ocean-foam")}
+            >
+              {bestFitResolving ? "Resolving…" : "Resolve ranking"}
+            </button>
+            <button
+              type="button"
+              disabled={busy || ranked.length === 0 || selectedSymbols.length === 0}
+              onClick={() => void promoteSelected()}
+              className={cn(
+                BTN,
+                "border-2 border-ocean-teal bg-ocean-deep text-ocean-foam hover:bg-ocean-teal/10",
+              )}
+            >
+              {promoting ? "Promoting…" : `Promote selected (${selectedSymbols.length})`}
+            </button>
+          </div>
+        ) : null
       }
     >
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-ocean-mid/30 pb-2" role="tablist" aria-label="Best-fit ranking">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={subTab === "movement"}
+          onClick={() => openSubTab("movement")}
+          className={cn(
+            "rounded-md px-3 py-1.5 text-xs font-semibold",
+            subTab === "movement"
+              ? "bg-ocean-teal/20 text-ocean-foam"
+              : "text-ocean-sand hover:text-ocean-foam",
+          )}
+        >
+          Movement
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={subTab === "orb-5m"}
+          onClick={() => openSubTab("orb-5m")}
+          className={cn(
+            "rounded-md px-3 py-1.5 text-xs font-semibold",
+            subTab === "orb-5m"
+              ? "bg-ocean-teal/20 text-ocean-foam"
+              : "text-ocean-sand hover:text-ocean-foam",
+          )}
+        >
+          ORB 5m
+        </button>
+      </div>
+
+      {subTab === "orb-5m" ? (
+        <BestFitOrb5mSection
+          data={bestFitOrb5m}
+          loading={bestFitOrb5mLoading}
+          resolving={bestFitOrb5mResolving}
+          scanning={bestFitOrb5mScanning}
+          error={bestFitOrb5mError}
+          tickers={tickers}
+          priceBySymbol={priceBySymbol}
+          onResolve={resolveBestFitOrb5m}
+          onReload={reload}
+        />
+      ) : (
+        <>
       <p className="mb-3 text-xs text-ocean-sand">
         Ranking uses stored movement profiles (Candles → Build movement profiles). Score reflects
         historical breakout movement fitness — not how often strategies were true. Display is
@@ -467,6 +556,8 @@ export function BestFitPane({ onBack }: Props) {
           Close
         </button>
       </MarketDetailModal>
+        </>
+      )}
     </AdminExpandedPane>
   );
 }

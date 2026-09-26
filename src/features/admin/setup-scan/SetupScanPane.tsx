@@ -1003,7 +1003,8 @@ export function SetupScanPane() {
           <strong className="font-medium text-ocean-foam">9:25 visual</strong> merges history with
           in-memory premarket bars (not written to Dynamo) and does not overwrite the saved EOD
           result. Playbooks with candidate rules (Trend Change 1H, Midpoint Bounce, Magnet Effect,
-          Inside BB 15M) list only those gates — soft checklist fitness is under Panorama completo.
+          Inside BB 15M, ORB 5m) list only those gates — soft checklist fitness is under Panorama
+          completo. ORB 5m is a day-of funnel (1h trend + not extended); live 5m ORB starts at 9:35.
           Failed rule evaluations are not listed. Empty playbook cards mean the last scan found
           nobody who passed every required gate — re-run after catalog edits.
         </p>
