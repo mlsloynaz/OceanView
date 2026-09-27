@@ -90,21 +90,14 @@ export function BestFitOrb5mTickerDetail({ row, fallbackPrice }: Props) {
         <Metric label="vs 1h" value={fmtPct(m.withTrendPct)} />
         <Metric label="vs VWAP" value={fmtPct(m.withVwapPct)} />
         <Metric label="vs 9:30 VWAP" value={fmtPct(m.withFrozenVwapPct)} />
-        <Metric label="VWAP9:30 − vs 1h + vol" value={fmtPct(m.alarmStackPct)} />
+        <Metric label="VWAP9:30 − vs 1h" value={fmtPct(m.alarmStackPct)} />
+        <Metric label="VWAP9:30 − vs 1h + vol" value={fmtPct(m.alarmStackVolPct)} />
         <Metric
           label="9:30 VWAP − live"
           value={
             m.frozenVwapMinusLivePct == null || Number.isNaN(m.frozenVwapMinusLivePct)
               ? null
               : `${m.frozenVwapMinusLivePct > 0 ? "+" : ""}${m.frozenVwapMinusLivePct.toFixed(1)} pp`
-          }
-        />
-        <Metric
-          label="VWAP − vs 1h"
-          value={
-            m.vwapMinusTrendPct == null || Number.isNaN(m.vwapMinusTrendPct)
-              ? null
-              : `${m.vwapMinusTrendPct > 0 ? "+" : ""}${m.vwapMinusTrendPct.toFixed(1)} pp`
           }
         />
         <Metric label="Next=1h" value={fmtPct(m.succeedNextEq1hTrendPct)} />

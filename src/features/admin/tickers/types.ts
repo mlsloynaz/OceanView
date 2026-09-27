@@ -114,6 +114,8 @@ export type BestFitOrb5mMetrics = {
   frozenVwapMinusLivePct?: number | null;
   alarmStackCount?: number | null;
   alarmStackPct?: number | null;
+  alarmStackVolCount?: number | null;
+  alarmStackVolPct?: number | null;
   stayedBeyondOrPct?: number | null;
   signalRatePct?: number | null;
   sessionsInRange?: number | null;

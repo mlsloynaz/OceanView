@@ -12,10 +12,10 @@ export const BEST_FIT_ORB5M_RANKING_HELP = {
   pieces: [
     { label: "Follow", points: "up to 28", why: "Biggest piece. Did price keep going our way in the next hour?" },
     { label: "vs 1h", points: "up to 12", why: "When it followed and the 1-hour trend was up or down (not sideways), did it match that trend?" },
-    { label: "vs VWAP", points: "up to 12", why: "When it followed and session VWAP existed, was the break on the VWAP side? Compare this % to vs 1h — positive VWAP−1h means VWAP agreed more often." },
-    { label: "VWAP − vs 1h", points: "display only", why: "vs VWAP minus vs 1h. Positive = VWAP was the better direction match. Not extra score points — those already come from the two % columns." },
+    { label: "vs VWAP", points: "up to 12", why: "When it followed and session VWAP existed, was the break on the VWAP side?" },
     { label: "vs 9:30 VWAP", points: "up to 6", why: "Same side check, but VWAP is frozen at 9:35:00 (premarket + completed 9:30, or yesterday’s VWAP). It does not move with the 9:35 candle. Compare to vs VWAP." },
-    { label: "VWAP9:30 − vs 1h + vol", points: "up to 12", why: "Same stack the 5m ORB alarm uses (trendVwapVolStack): 1h agrees, price on the frozen 9:30 VWAP side, and 5m vol is opening (or BB expanding). One number — all three must be true, not a subtraction." },
+    { label: "VWAP9:30 − vs 1h", points: "up to 12", why: "How often both were true at once: 1h agrees and close is on the frozen 9:30 VWAP side. Not a subtraction." },
+    { label: "VWAP9:30 − vs 1h + vol", points: "up to 12", why: "Same as VWAP9:30 − vs 1h, plus 5m vol opening (or BB expanding). Same stack the live alarm uses for trendVwapVolStack." },
     { label: "Earned 20", points: "up to 12", why: "Was the follow big enough — at least 20% of that morning’s opening-range height?" },
     { label: "n (sample)", points: "up to 10", why: "More past entries make the numbers more trustworthy." },
     { label: "How often it signals", points: "up to 10", why: "On days that had an opening range, how often did an entry appear? (in ticker detail)" },
@@ -96,9 +96,15 @@ export const BEST_FIT_ORB5M_COLUMN_HELP: Orb5mMetricHelp[] = [
   },
   {
     id: "alarmstack",
+    column: "VWAP9:30 − vs 1h",
+    meaning:
+      "How often the historical entry had both: 1h trend agrees and close on the frozen 9:30 VWAP side. Both at once — not a subtraction of the two % columns. Code name: alarmStackPct (same idea as trendVwapStack on the alarm).",
+  },
+  {
+    id: "alarmstackvol",
     column: "VWAP9:30 − vs 1h + vol",
     meaning:
-      "How often the historical entry had the same stack the live 5m ORB alarm uses for a priority-3 / A-grade: 1h trend agrees, close on the frozen 9:30 VWAP side, and 5-minute volatility is opening (or BB expanding). All three at once — not a subtraction. Code name: alarmStackPct (same predicate as trendVwapVolStack on the alarm).",
+      "How often the historical entry had 1h, frozen 9:30 VWAP, and 5-minute volatility opening (or BB expanding). All three at once. Code name: alarmStackVolPct (same idea as trendVwapVolStack on the alarm).",
   },
   {
     id: "frozenminuslive",
@@ -167,12 +173,6 @@ export const BEST_FIT_ORB5M_DETAIL_HELP: Orb5mMetricHelp[] = [
     column: "Against 9:30 VWAP",
     meaning:
       "The opposite of vs 9:30 VWAP: Follow mornings where the break was on the wrong side of the frozen open VWAP.",
-  },
-  {
-    id: "vwapminus1h",
-    column: "VWAP − vs 1h",
-    meaning:
-      "vs VWAP minus vs 1h, in percentage points. Positive means VWAP agreed more often than the 1-hour trend. Zero is a tie. Negative means 1h was the better direction match.",
   },
   {
     id: "stayed",

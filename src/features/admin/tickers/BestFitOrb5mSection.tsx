@@ -23,21 +23,6 @@ function fmtPct(value: number | null | undefined, digits = 0): string {
   return `${value.toFixed(digits)}%`;
 }
 
-function vwapMinusTrend(row: BestFitOrb5mRow): number | null {
-  const stored = row.metrics?.vwapMinusTrendPct;
-  if (stored != null && !Number.isNaN(stored)) return stored;
-  const vwap = row.metrics?.withVwapPct;
-  const trend = row.metrics?.withTrendPct;
-  if (vwap == null || trend == null || Number.isNaN(vwap) || Number.isNaN(trend)) return null;
-  return vwap - trend;
-}
-
-function fmtDeltaPp(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return "—";
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${value.toFixed(1)} pp`;
-}
-
 function fmtUsd(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "—";
   const digits = Math.abs(value) >= 0.1 ? 2 : 3;
@@ -371,8 +356,8 @@ export function BestFitOrb5mSection({
                     "vs 1h",
                     "vs VWAP",
                     "vs 9:30 VWAP",
+                    "VWAP9:30 − vs 1h",
                     "VWAP9:30 − vs 1h + vol",
-                    "VWAP − vs 1h",
                     "Next=1h",
                     "Next+Vol",
                     "Hour",
@@ -437,7 +422,7 @@ export function BestFitOrb5mSection({
                   <td className="px-2 py-1.5 tabular-nums">{fmtPct(row.metrics?.withVwapPct)}</td>
                   <td className="px-2 py-1.5 tabular-nums">{fmtPct(row.metrics?.withFrozenVwapPct)}</td>
                   <td className="px-2 py-1.5 tabular-nums">{fmtPct(row.metrics?.alarmStackPct)}</td>
-                  <td className="px-2 py-1.5 tabular-nums">{fmtDeltaPp(vwapMinusTrend(row))}</td>
+                  <td className="px-2 py-1.5 tabular-nums">{fmtPct(row.metrics?.alarmStackVolPct)}</td>
                   <td className="px-2 py-1.5 tabular-nums">{fmtPct(row.metrics?.succeedNextEq1hTrendPct)}</td>
                   <td className="px-2 py-1.5 tabular-nums">{fmtPct(row.metrics?.succeedNextWithVolPct)}</td>
                   <td className="px-2 py-1.5 tabular-nums text-ocean-sand">
