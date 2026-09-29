@@ -42,7 +42,7 @@ function readStoredViewMode(): SetupScanViewMode {
   } catch {
     /* ignore */
   }
-  return "tickers";
+  return "strategies";
 }
 
 export type SetupScanMode = "live" | "simulate";

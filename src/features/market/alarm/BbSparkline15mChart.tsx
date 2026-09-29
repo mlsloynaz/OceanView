@@ -16,7 +16,8 @@ type Props = {
 
 const SIZE: Record<Variant, { pad: { top: number; right: number; bottom: number; left: number }; w: number; h: number }> =
   {
-    thumb: { pad: { top: 4, right: 4, bottom: 12, left: 4 }, w: 200, h: 72 },
+    // ~16:10 — readable candles without the ultra-wide strip look
+    thumb: { pad: { top: 6, right: 6, bottom: 14, left: 6 }, w: 240, h: 150 },
     full: { pad: { top: 12, right: 10, bottom: 22, left: 10 }, w: 640, h: 360 },
   };
 

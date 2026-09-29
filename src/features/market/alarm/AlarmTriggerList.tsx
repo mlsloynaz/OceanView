@@ -137,7 +137,7 @@ export function AlarmTriggerList() {
                 key={row.id}
                 className="rounded border border-ocean-mid/25 bg-ocean-deep/25 px-2.5 py-1.5 text-[11px] leading-snug"
               >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="min-w-0">
                   <p className="font-semibold tabular-nums text-ocean-foam">
                     {row.symbol}
                     <span
@@ -156,14 +156,14 @@ export function AlarmTriggerList() {
                         : ""}
                     </span>
                   </p>
+                  <p className="mt-0.5 text-ocean-sand">{row.way}</p>
                   <time
-                    className="shrink-0 tabular-nums text-[10px] text-ocean-sand"
+                    className="mt-0.5 block tabular-nums text-[10px] text-ocean-sand"
                     dateTime={row.triggeredAt}
                   >
                     {formatWhen(row.triggeredAt)}
                   </time>
                 </div>
-                <p className="mt-0.5 text-ocean-sand">{row.way}</p>
               </li>
             ))}
           </ul>

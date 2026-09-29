@@ -328,7 +328,7 @@ function ConfirmedChartThumb({
     <button
       type="button"
       onClick={onEnlarge}
-      className="flex h-full min-h-0 flex-col rounded-md border border-ocean-mid/30 bg-ocean-surface/40 px-1.5 py-1 text-left transition-colors hover:border-ocean-teal/45 hover:bg-ocean-surface/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ocean-teal/60"
+      className="flex w-full max-w-[16rem] flex-col self-start rounded-md border border-ocean-mid/30 bg-ocean-surface/40 px-1.5 py-1 text-left transition-colors hover:border-ocean-teal/45 hover:bg-ocean-surface/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ocean-teal/60"
       title={`Enlarge ${watch.symbol} 15m BB`}
       aria-label={`Enlarge ${watch.symbol} 15m Bollinger chart`}
     >
@@ -336,7 +336,7 @@ function ConfirmedChartThumb({
         <p className="text-[10px] font-semibold tabular-nums text-ocean-foam">{watch.symbol}</p>
         <span className="text-[9px] text-ocean-sand/70">click ↑</span>
       </div>
-      <div className="min-h-0 flex-1 text-ocean-foam">
+      <div className="aspect-[16/10] w-full min-h-0 text-ocean-foam">
         <BbSparkline15mChart
           data={watch.lastBbSparkline15m}
           breakoutLevel={watch.lastBreakoutLevel}
@@ -463,7 +463,7 @@ export function BreakoutKanbanBoard({
                     rows.map((w) => (
                       <li
                         key={w.id}
-                        className="grid grid-cols-1 items-stretch gap-1.5 sm:grid-cols-2"
+                        className="flex flex-col gap-1.5 sm:flex-row sm:items-start"
                       >
                         <ConfirmedChartThumb
                           watch={w}
@@ -477,7 +477,7 @@ export function BreakoutKanbanBoard({
                           onStop={onStop}
                           onRemove={onRemove}
                           onClearMetStatus={onClearMetStatus}
-                          className="h-full"
+                          className="min-w-0 flex-1"
                         />
                       </li>
                     ))
