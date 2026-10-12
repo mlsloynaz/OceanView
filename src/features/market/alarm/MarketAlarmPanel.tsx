@@ -37,6 +37,7 @@ import {
 import type { OrbAutoJobStatus } from "./alarm-client";
 import type { Orb5mAutoJobStatus } from "./orb5m-auto-job";
 import { AwsRunningMovements } from "./AwsRunningMovements";
+import { charlesCallLabel } from "./schwab-refresh";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -338,6 +339,7 @@ export function MarketAlarmPanel({
           </p>
           {section === "movement" ? (
             <AwsRunningMovements
+              watches={visibleWatches}
               onStopped15m={onCancelOrbAuto}
               onStopped5m={onCancelOrb5mAuto}
             />
@@ -840,6 +842,7 @@ export function MarketAlarmPanel({
                     w.status === "paused" ||
                     w.status === "in_trade",
                 ).length;
+                const charles = charlesCallLabel(visibleWatches, group.symbol);
                 return (
                   <section
                     key={group.symbol}
@@ -870,6 +873,9 @@ export function MarketAlarmPanel({
                             </span>
                           ) : null}
                         </h3>
+                        {charles ? (
+                          <p className="mt-0.5 text-[11px] text-ocean-sand">Charles {charles}</p>
+                        ) : null}
                       </div>
                       <p className="text-[11px] text-ocean-sand">
                         {group.watches.length} watch

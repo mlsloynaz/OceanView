@@ -7,6 +7,8 @@ import {
   stopOrbAutoJob,
   type OrbAutoJobStatus,
 } from "./alarm-client";
+import type { MarketAlarmWatch } from "./alarm-types";
+import { charlesCallLabel, formatSchwabInterval } from "./schwab-refresh";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -18,17 +20,12 @@ type Row = {
   tickers: string[];
 };
 
-function formatFrequency(seconds: number | undefined): string {
-  const value = Number(seconds);
-  if (!Number.isFinite(value) || value <= 0) return "—";
-  if (value % 60 === 0) {
-    const minutes = value / 60;
-    return minutes === 1 ? "every 1 min" : `every ${minutes} min`;
-  }
-  return `every ${value}s`;
-}
-
-function rowFromJob(id: Row["id"], movement: string, job: OrbAutoJobStatus | null): Row | null {
+function rowFromJob(
+  id: Row["id"],
+  movement: string,
+  job: OrbAutoJobStatus | null,
+  watches: MarketAlarmWatch[],
+): Row | null {
   if (!job || String(job.status).toLowerCase() !== "running") return null;
   const tickers = (job.symbols ?? [])
     .map((symbol) => String(symbol).trim().toUpperCase())
@@ -36,17 +33,35 @@ function rowFromJob(id: Row["id"], movement: string, job: OrbAutoJobStatus | nul
   return {
     id,
     movement,
-    frequency: formatFrequency(job.pollIntervalSeconds),
+    frequency: charlesFrequency(tickers, watches, job.pollIntervalSeconds),
     tickers,
   };
 }
 
+function charlesFrequency(tickers: string[], watches: MarketAlarmWatch[], fallbackSeconds: number | undefined): string {
+  const labels = tickers.map((ticker) => {
+    const fromWatches = charlesCallLabel(watches, ticker);
+    const fallback = Number(fallbackSeconds);
+    const label =
+      fromWatches ??
+      (Number.isFinite(fallback) && fallback > 0 ? formatSchwabInterval(fallback * 1000) : null);
+    return label ? `${ticker} ${label}` : null;
+  }).filter((label): label is string => Boolean(label));
+  if (labels.length === 0) {
+    return formatSchwabInterval((fallbackSeconds && fallbackSeconds > 0 ? fallbackSeconds : 60) * 1000);
+  }
+  const rates = new Set(labels.map((label) => label.slice(label.indexOf(" ") + 1)));
+  if (rates.size === 1) return [...rates][0]!;
+  return labels.join(" · ");
+}
+
 type Props = {
+  watches: MarketAlarmWatch[];
   onStopped15m?: () => void;
   onStopped5m?: () => void;
 };
 
-export function AwsRunningMovements({ onStopped15m, onStopped5m }: Props) {
+export function AwsRunningMovements({ watches, onStopped15m, onStopped5m }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [stopping, setStopping] = useState<Row["id"] | null>(null);
@@ -58,15 +73,15 @@ export function AwsRunningMovements({ onStopped15m, onStopped5m }: Props) {
         fetchOrbAutoJobStatus(),
       ]);
       const next = [
-        rowFromJob("orb5m", "5m ORB", orb5m),
-        rowFromJob("orb15", "15m ORB", orb15),
+        rowFromJob("orb5m", "5m ORB", orb5m, watches),
+        rowFromJob("orb15", "15m ORB", orb15, watches),
       ].filter((row): row is Row => row !== null);
       setRows(next);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read AWS movement jobs.");
     }
-  }, []);
+  }, [watches]);
 
   useEffect(() => {
     void refresh();
@@ -118,7 +133,7 @@ export function AwsRunningMovements({ onStopped15m, onStopped5m }: Props) {
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-ocean-foam">
                   {row.movement}
-                  <span className="ml-2 font-normal text-ocean-sand">{row.frequency}</span>
+                  <span className="ml-2 font-normal text-ocean-sand">Charles {row.frequency}</span>
                 </p>
                 <p className="mt-0.5 font-mono text-xs text-ocean-foam">
                   {row.tickers.length > 0 ? row.tickers.join(", ") : "No tickers"}

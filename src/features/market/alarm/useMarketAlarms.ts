@@ -67,6 +67,7 @@ import {
   type Orb5mAutoJobStatus,
 } from "./orb5m-auto-job";
 import { watchHasBreakout } from "./BreakoutKanbanBoard";
+import { schwabRefreshCooldownMs } from "./schwab-refresh";
 import {
   armDesktopAlarmAlerts,
   clearDesktopAlarmAlert,
@@ -336,33 +337,31 @@ export function useMarketAlarms() {
   }, [sweepExpiredE03Confirms, stopWatchesAtSessionEnd, timeMode, simulateLocal]);
 
   /**
-   * Skip candle refresh if same symbol was refreshed recently (shared across watches).
-   * Cooldown follows the *longest* poll interval among active watches on that symbol
-   * so multi-criteria / multi-watch setups pull Schwab candles once per big cadence.
+   * One Schwab pull per ticker. Cooldown is the shortest interval among alarms
+   * that are actually polling that symbol. Another ticker keeps its own interval.
+   * The slot is claimed immediately so two alarms firing together do not both call Schwab.
    */
   const shouldRefreshCandles = useCallback((symbol: string) => {
     const upper = symbol.toUpperCase();
     const last = lastCandleRefreshRef.current.get(upper) ?? 0;
-    const sameSymbolWatches = watchesRef.current.filter(
-      (w) =>
-        w.symbol === upper &&
-        (w.status === "running" ||
-          w.status === "checking" ||
-          w.status === "paused" ||
-          w.status === "in_trade" ||
-          timersRef.current.has(w.id)),
-    );
-    let maxMs = 0;
-    for (const w of sameSymbolWatches) {
-      const ms = pollIntervalToMs(w.frequencyValue, w.frequencyUnit);
-      if (ms > maxMs) maxMs = ms;
-    }
-    const cooldown = Math.max(15_000, maxMs || 60_000);
-    return Date.now() - last >= cooldown;
+    const intervals = watchesRef.current
+      .filter(
+        (w) =>
+          w.symbol === upper &&
+          (w.status === "running" ||
+            w.status === "checking" ||
+            w.status === "in_trade" ||
+            timersRef.current.has(w.id)),
+      )
+      .map((w) => pollIntervalToMs(w.frequencyValue, w.frequencyUnit));
+    const cooldown = schwabRefreshCooldownMs(intervals);
+    if (Date.now() - last < cooldown) return false;
+    lastCandleRefreshRef.current.set(upper, Date.now());
+    return true;
   }, []);
 
-  const markCandleRefreshed = useCallback((symbol: string) => {
-    lastCandleRefreshRef.current.set(symbol.toUpperCase(), Date.now());
+  const releaseCandleRefresh = useCallback((symbol: string) => {
+    lastCandleRefreshRef.current.delete(symbol.toUpperCase());
   }, []);
 
   const executeCheck = useCallback(
@@ -440,8 +439,8 @@ export function useMarketAlarms() {
         const candleFailed =
           result.candle?.status === "failed" ||
           (result.candle as { outcome?: string } | null | undefined)?.outcome === "failed";
-        if (!simulating && refreshCandles && !candleFailed && !result.paused) {
-          markCandleRefreshed(watch.symbol);
+        if (!simulating && refreshCandles && (candleFailed || result.paused)) {
+          releaseCandleRefresh(watch.symbol);
         }
 
         // Outside market hours — keep timer; resume automatically at next open.
@@ -690,6 +689,7 @@ export function useMarketAlarms() {
           ),
         );
       } catch (err) {
+        if (refreshCandles) releaseCandleRefresh(watch.symbol);
         const message =
           err instanceof MarketAlarmApiError
             ? err.message
@@ -716,7 +716,7 @@ export function useMarketAlarms() {
         inFlightRef.current.delete(id);
       }
     },
-    [assessmentClock, clearTimer, markCandleRefreshed, shouldRefreshCandles, stopWatchesAtSessionEnd, sweepExpiredE03Confirms],
+    [assessmentClock, clearTimer, releaseCandleRefresh, shouldRefreshCandles, stopWatchesAtSessionEnd, sweepExpiredE03Confirms],
   );
 
   const pumpCheckQueue = useCallback(() => {
