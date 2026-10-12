@@ -14,8 +14,8 @@ export function buildOrbAutoWatch(
   return {
     id: `orb-auto-${sym}-${Date.now()}`,
     symbol: sym,
-    ruleKey: ORB_BREAKOUT_RULE_KEY,
-    ruleKeys: [...ruleKeys],
+    ruleKey: ORB_BREAKOUT_RULE_KEY as MarketAlarmWatch["ruleKey"],
+    ruleKeys: [ORB_BREAKOUT_RULE_KEY as MarketAlarmWatch["ruleKey"]],
     ruleLabel: alarmRulesLabel([...ruleKeys]),
     trend: "auto",
     alarmTarget: "entry_ready",

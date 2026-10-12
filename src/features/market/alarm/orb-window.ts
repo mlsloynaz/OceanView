@@ -64,7 +64,11 @@ export function orb5mWindowMessage(now: Date = new Date()): string | null {
 export function isOrbBreakoutWatch(
   watch: Pick<MarketAlarmWatch, "ruleKey" | "ruleKeys">,
 ): boolean {
-  return watchRuleKeys(watch).includes(ORB_BREAKOUT_RULE_KEY);
+  const keys = [
+    ...(watch.ruleKeys ?? []),
+    watch.ruleKey,
+  ].map((key) => String(key));
+  return keys.includes(ORB_BREAKOUT_RULE_KEY);
 }
 
 export function isOrb5mBreakoutWatch(

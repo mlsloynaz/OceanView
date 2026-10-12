@@ -38,7 +38,6 @@ import {
 } from "./session-monitor-end";
 import {
   ORB_WINDOW_CLOSED_MESSAGE,
-  ORB_BREAKOUT_RULE_KEY,
   ORB5M_WINDOW_CLOSED_MESSAGE,
   ORB5M_WINDOW_END_MINUTES_ET,
   easternClockMinutes,
@@ -1434,14 +1433,6 @@ export function useMarketAlarms() {
         sweepExpiredE03Confirms();
         return false;
       }
-      if (ruleKeys.includes(ORB_BREAKOUT_RULE_KEY)) {
-        removeOrbAutoWatches();
-        void stopOrbAutoJob("cancelled")
-          .then((status) => setOrbAutoJob(status))
-          .catch(() => {
-            /* manual ORB still proceeds locally */
-          });
-      }
       if (isSessionMonitorEnded(assessmentClock())) {
         setFormError(SESSION_MONITOR_ENDED_MESSAGE);
         stopWatchesAtSessionEnd();
@@ -1460,9 +1451,7 @@ export function useMarketAlarms() {
       const toAdd: MarketAlarmWatch[] = [];
       const skipped: string[] = [];
       for (const symbol of symbols) {
-        const bandTf = ruleKeys.includes("touch_disipador")
-          ? input.bandTimeframe ?? "1m"
-          : undefined;
+        const bandTf = undefined;
         const dup =
           alarmWatchConflicts(existing, {
             symbol,
