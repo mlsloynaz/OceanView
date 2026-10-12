@@ -39,7 +39,7 @@ export function AlarmsPage() {
             Strategy confirmation watches and movement / breakout alarms — off the Live page.
             {tab === "strategy"
               ? " Add from SemiFinal (Monitor), then Start polling on each watch."
-              : " Breakout Kanban and ORB stay on this tab. 5m trend change, 15m trend change, and EMA cross 5m are separate movements — select any of them together."}
+              : " Each movement you are watching has its own tab, including breakout."}
           </p>
         </div>
         <AlarmsTabToggle tab={tab} onChange={setTab} />

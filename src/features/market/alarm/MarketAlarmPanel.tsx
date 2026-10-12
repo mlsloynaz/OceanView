@@ -22,6 +22,7 @@ import {
   formatAlarmTrend,
   isMovementAlarmWatch,
   needsBandTimeframe,
+  watchRuleKeys,
   type AlarmBandTimeframe,
   type AlarmBoardSection,
   type AlarmEligibleRuleKey,
@@ -364,13 +365,32 @@ export function MarketAlarmPanel({
     [visibleWatches],
   );
 
-  const nonBreakoutWatchesByTicker = useMemo(
-    () => groupWatchesBySymbol(visibleWatches.filter((w) => !watchHasBreakout(w))),
-    [visibleWatches],
+  const movementTabs = useMemo(() => {
+    if (section !== "movement") return [];
+    return MOVEMENT_ALARM_RULE_KEYS.filter((key) =>
+      visibleWatches.some((watch) => watchRuleKeys(watch).includes(key)),
+    ).map((key) => ({
+      key,
+      label: ALARM_ELIGIBLE_RULES.find((rule) => rule.ruleKey === key)?.label ?? key,
+      count: visibleWatches.filter((watch) => watchRuleKeys(watch).includes(key)).length,
+    }));
+  }, [section, visibleWatches]);
+  const [movementFocus, setMovementFocus] = useState<AlarmEligibleRuleKey | "all">("all");
+  useEffect(() => {
+    if (movementFocus === "all") return;
+    if (!movementTabs.some((tab) => tab.key === movementFocus)) setMovementFocus("all");
+  }, [movementFocus, movementTabs]);
+  const boardWatches = useMemo(() => {
+    if (section !== "movement" || movementFocus === "all") return visibleWatches;
+    return visibleWatches.filter((watch) => watchRuleKeys(watch).includes(movementFocus));
+  }, [movementFocus, section, visibleWatches]);
+  const watchesByTicker = useMemo(
+    () => groupWatchesBySymbol(boardWatches),
+    [boardWatches],
   );
   const hasBreakoutWatches = useMemo(
-    () => section !== "strategy" && visibleWatches.some(watchHasBreakout),
-    [section, visibleWatches],
+    () => section === "movement" && movementFocus !== "all" && boardWatches.some(watchHasBreakout),
+    [boardWatches, movementFocus, section],
   );
   const tickerNameBySymbol = useMemo(() => {
     const map = new Map<string, string>();
@@ -843,7 +863,7 @@ export function MarketAlarmPanel({
                   type="button"
                   className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-110")}
                   onClick={() => {
-                    visibleWatches
+                    boardWatches
                       .filter(
                         (w) =>
                           w.status === "idle" || w.status === "stopped" || w.status === "error",
@@ -851,7 +871,7 @@ export function MarketAlarmPanel({
                       .forEach((w) => onStart(w.id));
                   }}
                   disabled={
-                    !visibleWatches.some(
+                    !boardWatches.some(
                       (w) =>
                         w.status === "idle" || w.status === "stopped" || w.status === "error",
                     )
@@ -866,7 +886,7 @@ export function MarketAlarmPanel({
                     "border border-amber-600/50 bg-amber-500/10 text-amber-900 dark:text-amber-100",
                   )}
                   onClick={() => {
-                    visibleWatches
+                    boardWatches
                       .filter(
                         (w) =>
                           w.status === "running" ||
@@ -876,7 +896,15 @@ export function MarketAlarmPanel({
                       )
                       .forEach((w) => onStop(w.id));
                   }}
-                  disabled={visibleRunningCount === 0}
+                  disabled={
+                    !boardWatches.some(
+                      (w) =>
+                        w.status === "running" ||
+                        w.status === "checking" ||
+                        w.status === "paused" ||
+                        w.status === "in_trade",
+                    )
+                  }
                 >
                   Stop all polling
                 </button>
@@ -886,8 +914,8 @@ export function MarketAlarmPanel({
                     BTN,
                     "border border-ocean-danger/50 text-ocean-danger hover:bg-ocean-danger/10",
                   )}
-                  onClick={() => onRemoveAll(visibleWatches.map((watch) => watch.id))}
-                  disabled={visibleWatches.length === 0}
+                  onClick={() => onRemoveAll(boardWatches.map((watch) => watch.id))}
+                  disabled={boardWatches.length === 0}
                   title="Stop polling and remove every ticker on this board"
                 >
                   Remove all tickers
@@ -899,22 +927,77 @@ export function MarketAlarmPanel({
                     "border border-ocean-teal/50 bg-ocean-teal/10 text-ocean-foam hover:bg-ocean-teal/20",
                   )}
                   onClick={() => {
-                    visibleWatches
+                    boardWatches
                       .filter(
                         (w) =>
                           w.status === "met" || w.status === "exit" || w.status === "in_trade",
                       )
                       .forEach((w) => onClearMetStatus(w.id));
                   }}
-                  disabled={visibleMetCount === 0}
+                  disabled={
+                    !boardWatches.some(
+                      (w) => w.status === "met" || w.status === "exit" || w.status === "in_trade",
+                    )
+                  }
                   title="Reset fired alarms so they can poll and fire again"
                 >
-                  Clear all signals{visibleMetCount > 0 ? ` (${visibleMetCount})` : ""}
+                  Clear all signals
+                  {boardWatches.some(
+                    (w) => w.status === "met" || w.status === "exit" || w.status === "in_trade",
+                  )
+                    ? ` (${
+                        boardWatches.filter(
+                          (w) =>
+                            w.status === "met" || w.status === "exit" || w.status === "in_trade",
+                        ).length
+                      })`
+                    : ""}
                 </button>
               </div>
+            {section === "movement" && movementTabs.length > 0 ? (
+              <div
+                className="flex flex-wrap gap-0.5 rounded-md border border-ocean-mid/40 bg-ocean-deep/30 p-0.5"
+                role="tablist"
+                aria-label="Movement type"
+              >
+                {movementTabs.length > 1 ? (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={movementFocus === "all"}
+                    className={cn(
+                      "rounded px-3 py-1.5 text-[11px] font-medium",
+                      movementFocus === "all"
+                        ? "bg-ocean-teal text-ocean-deep"
+                        : "text-ocean-sand hover:text-ocean-foam",
+                    )}
+                    onClick={() => setMovementFocus("all")}
+                  >
+                    All ({visibleWatches.length})
+                  </button>
+                ) : null}
+                {movementTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={movementFocus === tab.key || movementTabs.length === 1}
+                    className={cn(
+                      "rounded px-3 py-1.5 text-[11px] font-medium",
+                      movementFocus === tab.key || movementTabs.length === 1
+                        ? "bg-ocean-teal text-ocean-deep"
+                        : "text-ocean-sand hover:text-ocean-foam",
+                    )}
+                    onClick={() => setMovementFocus(tab.key)}
+                  >
+                    {tab.label} ({tab.count})
+                  </button>
+                ))}
+              </div>
+            ) : null}
             {hasBreakoutWatches ? (
               <BreakoutKanbanBoard
-                watches={visibleWatches}
+                watches={boardWatches}
                 tickerNameBySymbol={tickerNameBySymbol}
                 onCheckNow={onCheckNow}
                 onStart={onStart}
@@ -924,10 +1007,10 @@ export function MarketAlarmPanel({
               />
             ) : null}
             <div className="space-y-4">
-              {hasBreakoutWatches && nonBreakoutWatchesByTicker.length > 0 ? (
-                <p className="text-[11px] font-medium text-ocean-sand">Other rule watches</p>
+              {watchesByTicker.length === 0 ? (
+                <p className="text-xs text-ocean-sand">No watches on this movement.</p>
               ) : null}
-              {nonBreakoutWatchesByTicker.map((group) => {
+              {watchesByTicker.map((group) => {
                 const tone = groupStatusTone(group.watches);
                 const name = tickerNameBySymbol.get(group.symbol);
                 const activeCount = group.watches.filter(

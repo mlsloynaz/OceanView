@@ -224,7 +224,11 @@ async function ensureAlarmOverlayWindow(): Promise<void> {
     return;
   }
   pipWindow.addEventListener("pagehide", () => {
+    const payload = activePayload;
     pipWindow = null;
+    if (payload && onAlarmAction) {
+      onAlarmAction("dismiss", payload);
+    }
   });
   pipWindow.document.addEventListener("click", (event) => {
     const target = event.target;
