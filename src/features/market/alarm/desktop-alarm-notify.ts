@@ -8,16 +8,27 @@ export type DesktopAlarmPayload = {
   title: string;
   body: string;
   tag: string;
+  /** Market-alarm watch id. Present when this window can confirm or dismiss. */
+  watchId?: string;
 };
+
+export type DesktopAlarmAction = "confirm" | "dismiss";
+
+type DesktopAlarmActionHandler = (
+  action: DesktopAlarmAction,
+  payload: DesktopAlarmPayload,
+) => void;
 
 type DocumentPictureInPicture = {
   requestWindow: (opts?: { width?: number; height?: number }) => Promise<Window>;
 };
 
 const PIP_WIDTH = 400;
-const PIP_HEIGHT = 240;
+const PIP_HEIGHT = 320;
 
 let pipWindow: Window | null = null;
+let activePayload: DesktopAlarmPayload | null = null;
+let onAlarmAction: DesktopAlarmActionHandler | null = null;
 let lastNotification: Notification | null = null;
 let titleFlashTimer: number | null = null;
 let titleBeforeFlash: string | null = null;
@@ -52,12 +63,23 @@ export function overlayHtmlForAlarm(payload: DesktopAlarmPayload | null): string
   }
   const tone = payload.kind === "enter" ? "enter" : "exit";
   const action = payload.kind === "enter" ? "ENTER" : "EXIT";
+  const confirmLabel =
+    payload.kind === "enter" ? "Entered — watch for exit" : "Exited — arm again";
+  const actions = payload.watchId
+    ? `
+      <div class="actions">
+        <button type="button" data-action="confirm">${escapeHtml(confirmLabel)}</button>
+        <button type="button" data-action="dismiss">Dismiss</button>
+      </div>
+      <p class="hint">Stops the bell here. You can stay on this window.</p>
+    `
+    : `<p class="hint" data-action="show">Click to show OceanView</p>`;
   return `
     <div class="wrap ${tone}">
       <p class="kicker">${action} now</p>
       <h1>${escapeHtml(payload.symbol)}</h1>
       <p class="sub">${escapeHtml(payload.body)}</p>
-      <p class="hint">Click to show OceanView</p>
+      ${actions}
     </div>
   `;
 }
@@ -71,7 +93,6 @@ export function overlayStyles(): string {
       font-family: "Segoe UI", system-ui, sans-serif;
       background: #06141c;
       color: #e8f1f4;
-      cursor: pointer;
     }
     .wrap {
       height: 100%;
@@ -96,6 +117,23 @@ export function overlayStyles(): string {
     h1 { margin: 0; font-size: 34px; line-height: 1.1; }
     .sub { margin: 0; font-size: 14px; color: #d5e4e8; }
     .hint { margin: 8px 0 0; font-size: 11px; color: #8aa8b0; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    button {
+      border: 0;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .wrap.enter button[data-action="confirm"] { background: #2ec4b6; color: #04221f; }
+    .wrap.exit button[data-action="confirm"] { background: #f0a202; color: #2a1800; }
+    button[data-action="dismiss"] {
+      background: transparent;
+      color: #d5e4e8;
+      border: 1px solid #6d8b94;
+    }
   `;
 }
 
@@ -119,13 +157,20 @@ export async function requestDesktopNotifyPermission(): Promise<
   }
 }
 
+/** Market alarms register this so the always-on-top window can confirm or dismiss. */
+export function setDesktopAlarmActionHandler(handler: DesktopAlarmActionHandler | null): void {
+  onAlarmAction = handler;
+}
+
 export function showDesktopAlarmAlert(payload: DesktopAlarmPayload): void {
+  activePayload = payload;
   showStickyNotification(payload);
   renderOverlay(payload);
   startTitleFlash(payload.title);
 }
 
 export function clearDesktopAlarmAlert(): void {
+  activePayload = null;
   stopTitleFlash();
   try {
     lastNotification?.close();
@@ -181,11 +226,20 @@ async function ensureAlarmOverlayWindow(): Promise<void> {
   pipWindow.addEventListener("pagehide", () => {
     pipWindow = null;
   });
-  pipWindow.document.addEventListener("click", () => {
-    try {
-      window.focus();
-    } catch {
-      /* ignore */
+  pipWindow.document.addEventListener("click", (event) => {
+    const target = event.target;
+    const el = target instanceof Element ? target.closest("[data-action]") : null;
+    const action = el?.getAttribute("data-action");
+    if (action === "show") {
+      try {
+        window.focus();
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    if ((action === "confirm" || action === "dismiss") && activePayload && onAlarmAction) {
+      onAlarmAction(action, activePayload);
     }
   });
   renderOverlay(null);

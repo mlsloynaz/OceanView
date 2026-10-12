@@ -72,6 +72,7 @@ import {
   clearDesktopAlarmAlert,
   desktopNotifyPermission,
   requestDesktopNotifyPermission,
+  setDesktopAlarmActionHandler,
   showDesktopAlarmAlert,
 } from "./desktop-alarm-notify";
 import {
@@ -608,6 +609,7 @@ export function useMarketAlarms() {
             title: `Exit: ${watch.symbol}`,
             body: `${watch.ruleLabel} · ${sideLabel} — exit now`,
             tag: `ov-market-alarm-exit-${watch.id}`,
+            watchId: watch.id,
           });
           return;
         }
@@ -680,6 +682,7 @@ export function useMarketAlarms() {
             title: `Enter: ${watch.symbol}`,
             body: `${watch.ruleLabel} · ${sideLabel} — enter now`,
             tag: `ov-market-alarm-enter-${watch.id}`,
+            watchId: watch.id,
           });
           return;
         }
@@ -1627,6 +1630,20 @@ export function useMarketAlarms() {
     setLastHourScan(null);
     setLastHourScanError(null);
   }, []);
+
+  useEffect(() => {
+    setDesktopAlarmActionHandler((action, payload) => {
+      const id = payload.watchId;
+      if (!id) return;
+      if (action === "dismiss") {
+        dismissAlarmPopup();
+        return;
+      }
+      if (payload.kind === "enter") confirmEnter(id);
+      else confirmExit(id);
+    });
+    return () => setDesktopAlarmActionHandler(null);
+  }, [confirmEnter, confirmExit, dismissAlarmPopup]);
 
   useEffect(() => {
     return () => {
