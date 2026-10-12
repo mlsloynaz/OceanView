@@ -36,7 +36,6 @@ import {
 } from "./e03-confirm-window";
 import type { OrbAutoJobStatus } from "./alarm-client";
 import type { Orb5mAutoJobStatus } from "./orb5m-auto-job";
-import { AwsRunningMovements } from "./AwsRunningMovements";
 import { charlesCallLabel } from "./schwab-refresh";
 
 const BTN =
@@ -286,7 +285,6 @@ export function MarketAlarmPanel({
   orb5mAutoBusy: _orb5mAutoBusy,
   onStartOrbAuto: _onStartOrbAuto,
   onStartOrb5mAuto: _onStartOrb5mAuto,
-  onCancelOrb5mAuto,
 }: Props) {
   const nowTick = useNowTick();
   const eligibleRules = useMemo(() => {
@@ -428,12 +426,7 @@ export function MarketAlarmPanel({
             Confirmed). Confirm entry and keep watching until the setup drops →{" "}
             <span className="font-medium text-ocean-foam">EXIT</span>, then arm again.
           </p>
-          {section === "movement" ? (
-            <AwsRunningMovements
-              watches={visibleWatches}
-              onStopped5m={onCancelOrb5mAuto}
-            />
-          ) : orbAutoJob?.status === "running" && section !== "strategy" ? (
+          {orbAutoJob?.status === "running" && section !== "strategy" ? (
             <div
               className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2"
               role="status"
