@@ -78,6 +78,7 @@ export function AlarmsPage() {
         onClearMetStatus={alarms.clearMetStatus}
         onClearAllMetStatuses={alarms.clearAllMetStatuses}
         onRemove={alarms.removeWatch}
+        onRemoveAll={alarms.removeWatches}
         onCheckNow={(id) => void alarms.runCheckNow(id)}
         onUpdateInterval={alarms.updateWatchInterval}
         onRequestNotify={() => void alarms.requestNotifyPermission()}

@@ -11,10 +11,6 @@ export const ALARM_ELIGIBLE_RULES = [
     label: "Confirmation change-trend (15m)",
   },
   {
-    ruleKey: "touch_disipador",
-    label: "Disipador touch (candle + BB)",
-  },
-  {
     ruleKey: "breakout_quality",
     label: "Breakout quality (15M multi-TF)",
   },
@@ -58,7 +54,6 @@ export const STRATEGY_CONFIRM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
 export const MOVEMENT_ALARM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
   "breakout_quality",
   "orb_breakout_5m",
-  "touch_disipador",
   "trend_change_5m",
   "trend_change_15m",
   "ema_cross_5m",

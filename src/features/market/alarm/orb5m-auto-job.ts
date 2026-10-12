@@ -1,6 +1,5 @@
 import { alarmRulesLabel, type MarketAlarmWatch } from "./alarm-types";
 import {
-  DEFAULT_ORB_AUTO_SYMBOLS,
   ORB5M_BREAKOUT_RULE_KEY,
   isOrb5mAutoWatch,
 } from "./orb-window";
@@ -98,15 +97,14 @@ export function resolveOrb5mAutoSymbols(
 }
 
 export function orb5mAutoSymbolsToEnsure(symbols: string[] | undefined): string[] {
-  const raw = symbols?.length ? symbols : [...DEFAULT_ORB_AUTO_SYMBOLS];
   const out: string[] = [];
-  for (const item of raw) {
+  for (const item of symbols ?? []) {
     const sym = String(item || "")
       .trim()
       .toUpperCase();
     if (sym && !out.includes(sym)) out.push(sym);
   }
-  return out.length > 0 ? out : [...DEFAULT_ORB_AUTO_SYMBOLS];
+  return out;
 }
 
 export function diffOrb5mAutoWatches(

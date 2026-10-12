@@ -2,9 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import {
   fetchOrb5mAutoJobStatus,
-  fetchOrbAutoJobStatus,
   stopOrb5mAutoJobAws,
-  stopOrbAutoJob,
   type OrbAutoJobStatus,
 } from "./alarm-client";
 import type { MarketAlarmWatch } from "./alarm-types";
@@ -14,7 +12,7 @@ const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
 type Row = {
-  id: "orb5m" | "orb15";
+  id: "orb5m";
   movement: string;
   frequency: string;
   tickers: string[];
@@ -57,25 +55,20 @@ function charlesFrequency(tickers: string[], watches: MarketAlarmWatch[], fallba
 
 type Props = {
   watches: MarketAlarmWatch[];
-  onStopped15m?: () => void;
   onStopped5m?: () => void;
 };
 
-export function AwsRunningMovements({ watches, onStopped15m, onStopped5m }: Props) {
+export function AwsRunningMovements({ watches, onStopped5m }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [stopping, setStopping] = useState<Row["id"] | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [orb5m, orb15] = await Promise.all([
-        fetchOrb5mAutoJobStatus(),
-        fetchOrbAutoJobStatus(),
-      ]);
-      const next = [
-        rowFromJob("orb5m", "5m ORB", orb5m, watches),
-        rowFromJob("orb15", "15m ORB", orb15, watches),
-      ].filter((row): row is Row => row !== null);
+      const orb5m = await fetchOrb5mAutoJobStatus();
+      const next = [rowFromJob("orb5m", "5m ORB", orb5m, watches)].filter(
+        (row): row is Row => row !== null,
+      );
       setRows(next);
       setError(null);
     } catch (err) {
@@ -92,13 +85,8 @@ export function AwsRunningMovements({ watches, onStopped15m, onStopped5m }: Prop
   const stop = async (id: Row["id"]) => {
     setStopping(id);
     try {
-      if (id === "orb5m") {
-        await stopOrb5mAutoJobAws("cancelled");
-        onStopped5m?.();
-      } else {
-        await stopOrbAutoJob("cancelled");
-        onStopped15m?.();
-      }
+      await stopOrb5mAutoJobAws("cancelled");
+      onStopped5m?.();
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Stop failed.");
@@ -109,48 +97,54 @@ export function AwsRunningMovements({ watches, onStopped15m, onStopped5m }: Prop
 
   return (
     <section
-      className="space-y-2 rounded-xl border border-ocean-mid/50 bg-ocean-deep/30 p-3"
+      className="overflow-hidden rounded-xl border border-ocean-mid/50 bg-ocean-deep/30"
       aria-label="Movements running in AWS"
     >
-      <div>
+      <div className="border-b border-ocean-mid/30 px-3 py-2">
         <h3 className="text-sm font-semibold text-ocean-foam">
-          {rows.length} movement{rows.length === 1 ? "" : "s"} running in AWS
+          {rows.length} movement{rows.length === 1 ? "" : "s"} running
         </h3>
-        <p className="mt-0.5 text-[11px] text-ocean-sand">
-          Live job status. Stop ends that job so AWS stops checking those tickers.
-        </p>
       </div>
-      {error ? <p className="text-[11px] text-ocean-danger">{error}</p> : null}
-      {rows.length === 0 ? (
-        <p className="text-xs text-ocean-sand">No movement job is running in AWS.</p>
-      ) : (
-        <ul className="space-y-2">
-          {rows.map((row) => (
-            <li
-              key={row.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-ocean-foam">
-                  {row.movement}
-                  <span className="ml-2 font-normal text-ocean-sand">Charles {row.frequency}</span>
-                </p>
-                <p className="mt-0.5 font-mono text-xs text-ocean-foam">
-                  {row.tickers.length > 0 ? row.tickers.join(", ") : "No tickers"}
-                </p>
-              </div>
-              <button
-                type="button"
-                className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
-                disabled={stopping !== null}
-                onClick={() => void stop(row.id)}
-              >
-                {stopping === row.id ? "…" : "Stop"}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {error ? <p className="px-3 py-2 text-[11px] text-ocean-danger">{error}</p> : null}
+      <table className="w-full text-left text-xs">
+        <thead className="text-[11px] uppercase tracking-wide text-ocean-sand">
+          <tr>
+            <th className="px-3 py-2 font-medium">Movement</th>
+            <th className="px-3 py-2 font-medium">Freq</th>
+            <th className="px-3 py-2 font-medium">Tickers</th>
+            <th className="px-3 py-2 font-medium" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td className="px-3 py-3 text-ocean-sand" colSpan={4}>
+                No movement is running.
+              </td>
+            </tr>
+          ) : (
+            rows.map((row) => (
+              <tr key={row.id} className="border-t border-ocean-mid/25">
+                <td className="px-3 py-2 font-semibold text-ocean-foam">{row.movement}</td>
+                <td className="px-3 py-2 text-ocean-sand">{row.frequency}</td>
+                <td className="px-3 py-2 font-mono text-ocean-foam">
+                  {row.tickers.length > 0 ? row.tickers.join(", ") : "—"}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
+                    disabled={stopping !== null}
+                    onClick={() => void stop(row.id)}
+                  >
+                    {stopping === row.id ? "…" : "Stop"}
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
     </section>
   );
 }

@@ -109,6 +109,7 @@ type Props = {
   onClearMetStatus: (id: string, opts?: { restart?: boolean }) => void;
   onClearAllMetStatuses: () => void;
   onRemove: (id: string) => void;
+  onRemoveAll: (ids: string[]) => void;
   onCheckNow: (id: string) => void;
   onUpdateInterval: (id: string, value: number, unit: PollIntervalUnit) => void;
   onRequestNotify: () => void;
@@ -192,6 +193,7 @@ export function MarketAlarmPanel({
   onClearMetStatus,
   onClearAllMetStatuses: _onClearAllMetStatuses,
   onRemove,
+  onRemoveAll,
   onCheckNow,
   onUpdateInterval,
   onRequestNotify,
@@ -340,7 +342,6 @@ export function MarketAlarmPanel({
           {section === "movement" ? (
             <AwsRunningMovements
               watches={visibleWatches}
-              onStopped15m={onCancelOrbAuto}
               onStopped5m={onCancelOrb5mAuto}
             />
           ) : orbAutoJob?.status === "running" && section !== "strategy" ? (
@@ -796,6 +797,18 @@ export function MarketAlarmPanel({
                   disabled={visibleRunningCount === 0}
                 >
                   Stop all polling
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    BTN,
+                    "border border-ocean-danger/50 text-ocean-danger hover:bg-ocean-danger/10",
+                  )}
+                  onClick={() => onRemoveAll(visibleWatches.map((watch) => watch.id))}
+                  disabled={visibleWatches.length === 0}
+                  title="Stop polling and remove every ticker on this board"
+                >
+                  Remove all tickers
                 </button>
                 <button
                   type="button"

@@ -12,12 +12,13 @@ import {
   type PollIntervalUnit,
 } from "@/shared/components/PollControls";
 import type { LiveSimulateMode } from "@/shared/components/LiveSimulateControl";
-import { MarketAlarmApiError, postMarketAlarmCheck, postMarketAlarmScanLastHour, fetchOrbAutoJobStatus, startOrbAutoJob, stopOrbAutoJob, type OrbAutoJobStatus } from "./alarm-client";
+import { MarketAlarmApiError, postMarketAlarmCheck, postMarketAlarmScanLastHour, startOrbAutoJob, stopOrbAutoJob, type OrbAutoJobStatus } from "./alarm-client";
 import type { MarketAlarmScanLastHourResponse } from "./alarm-client";
 import {
   ALARM_ELIGIBLE_RULES,
   alarmRulesLabel,
   alarmWatchConflicts,
+  watchRuleKeys,
   usesBreakoutAlarmTarget,
   type AlarmEligibleRuleKey,
   type AlarmPopupKind,
@@ -40,7 +41,6 @@ import {
   ORB_BREAKOUT_RULE_KEY,
   ORB5M_WINDOW_CLOSED_MESSAGE,
   ORB5M_WINDOW_END_MINUTES_ET,
-  ORB_WINDOW_END_MINUTES_ET,
   easternClockMinutes,
   isOrbBreakoutWatch,
   isOrb5mBreakoutWatch,
@@ -60,8 +60,8 @@ import {
 } from "./orb-auto-hold";
 import {
   diffOrb5mAutoWatches,
+  favoriteOrbSymbols,
   loadOrb5mAutoJob,
-  orb5mAutoSymbolsToEnsure,
   saveOrb5mAutoJob,
   tradeDateEt,
   type Orb5mAutoJobStatus,
@@ -147,7 +147,9 @@ function loadStored(): MarketAlarmWatch[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as MarketAlarmWatch[];
     if (!Array.isArray(parsed)) return [];
-    return parsed.map((row) => migrateWatch(row));
+    return parsed
+      .map((row) => migrateWatch(row))
+      .filter((row) => !row.orbAuto && watchRuleKeys(row).length > 0);
   } catch {
     return [];
   }
@@ -165,6 +167,7 @@ function persist(watches: MarketAlarmWatch[]) {
 export function useMarketAlarms() {
   const [watches, setWatches] = useState<MarketAlarmWatch[]>(() => loadStored());
   const [tickers, setTickers] = useState<CatalogTicker[]>([]);
+  const tickersRef = useRef<CatalogTicker[]>([]);
   const [tickersLoading, setTickersLoading] = useState(true);
   const [tickersError, setTickersError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -209,11 +212,11 @@ export function useMarketAlarms() {
   const lastCandleRefreshRef = useRef<Map<string, number>>(new Map());
   const watchesRef = useRef(watches);
   watchesRef.current = watches;
+  tickersRef.current = tickers;
   const timeModeRef = useRef(timeMode);
   timeModeRef.current = timeMode;
   const simulateLocalRef = useRef(simulateLocal);
   simulateLocalRef.current = simulateLocal;
-  const orbAutoSyncBusyRef = useRef(false);
   const orb5mAutoSyncBusyRef = useRef(false);
 
   const assessmentClock = useCallback((): Date => {
@@ -970,7 +973,7 @@ export function useMarketAlarms() {
   );
 
   const startOrb5mAutoJob = useCallback(
-    (symbols: string[]) => {
+    (_symbols: string[]) => {
       armDesktopAlarmAlerts();
       const now = assessmentClock();
       if (!isOrb5mWindowOpen(now)) {
@@ -984,19 +987,23 @@ export function useMarketAlarms() {
       }
       setOrb5mAutoBusy(true);
       try {
-        const cleaned = orb5mAutoSymbolsToEnsure(symbols);
+        const favorites = favoriteOrbSymbols(tickersRef.current);
+        if (favorites.length === 0) {
+          setFormError("No favorite tickers. Mark tickers as favorites for 5m ORB auto.");
+          return;
+        }
         const job = saveOrb5mAutoJob({
           jobType: "orb5m_auto_monitor",
           kind: "orb5m_auto_monitor",
           status: "running",
-          symbols: cleaned,
+          symbols: favorites,
           tradeDate: tradeDateEt(now),
-          message: `5m ORB auto running — ${cleaned.join(", ")} (9:35–11:30 ET).`,
+          message: `5m ORB auto running — ${favorites.join(", ")} (9:35–11:30 ET).`,
           windowOpen: true,
           pollIntervalSeconds: 30,
         });
         setOrb5mAutoJob(job);
-        ensureOrb5mAutoWatches(cleaned, 30);
+        ensureOrb5mAutoWatches(favorites, 30);
       } finally {
         setOrb5mAutoBusy(false);
       }
@@ -1049,80 +1056,29 @@ export function useMarketAlarms() {
         removeOrb5mAutoWatches();
         return;
       }
-      if (job.status === "idle" || job.status === "completed") {
-        job = saveOrb5mAutoJob({
-          ...job,
-          status: "running",
-          tradeDate: tradeDateEt(now),
-          message: `5m ORB auto running — ${job.symbols.join(", ")} (9:35–11:30 ET).`,
-          windowOpen: true,
-        });
+      const favorites = favoriteOrbSymbols(tickersRef.current);
+      if (favorites.length === 0) {
+        setOrb5mAutoJob(job);
+        return;
       }
+      job = saveOrb5mAutoJob({
+        ...job,
+        status: "running",
+        symbols: favorites,
+        tradeDate: tradeDateEt(now),
+        message: `5m ORB auto running — ${favorites.join(", ")} (9:35–11:30 ET).`,
+        windowOpen: true,
+      });
       setOrb5mAutoJob(job);
-      if (job.status === "running") {
-        ensureOrb5mAutoWatches(orb5mAutoSymbolsToEnsure(job.symbols), job.pollIntervalSeconds);
-      }
+      ensureOrb5mAutoWatches(favorites, job.pollIntervalSeconds);
     } finally {
       orb5mAutoSyncBusyRef.current = false;
     }
   }, [assessmentClock, ensureOrb5mAutoWatches, removeOrb5mAutoWatches]);
 
-  const syncOrbAutoJob = useCallback(async () => {
-    if (timeModeRef.current !== "live") return;
-    if (orbAutoSyncBusyRef.current) return;
-    orbAutoSyncBusyRef.current = true;
-    try {
-      const now = assessmentClock();
-      const mins = easternClockMinutes(now);
-      if (mins > ORB_WINDOW_END_MINUTES_ET) {
-        removeOrbAutoWatches();
-        try {
-          let status = await fetchOrbAutoJobStatus();
-          if (status.status === "running") {
-            status = await stopOrbAutoJob("completed");
-          }
-          setOrbAutoJob(status);
-        } catch {
-          /* best-effort */
-        }
-        return;
-      }
-      if (!isOrbWindowOpen(now)) return;
-
-      let status = await fetchOrbAutoJobStatus();
-      if (status.status === "idle" || status.status === "completed") {
-        try {
-          status = await startOrbAutoJob({ trigger: "auto" });
-        } catch (err) {
-          const code =
-            err instanceof MarketAlarmApiError ? err.code : undefined;
-          if (code === "ORB_AUTO_CANCELLED") {
-            status = await fetchOrbAutoJobStatus();
-          } else {
-            throw err;
-          }
-        }
-      }
-      setOrbAutoJob(status);
-      if (status.status === "running") {
-        const symbols = orbAutoSymbolsToEnsure(status.symbols);
-        ensureOrbAutoWatches(symbols, status.pollIntervalSeconds ?? 45);
-      } else if (status.status === "cancelled") {
-        removeOrbAutoWatches();
-      }
-    } catch {
-      /* polling continues on next tick */
-    } finally {
-      orbAutoSyncBusyRef.current = false;
-    }
-  }, [assessmentClock, ensureOrbAutoWatches, removeOrbAutoWatches]);
-
   useEffect(() => {
-    if (timeMode !== "live") return;
-    void syncOrbAutoJob();
-    const timer = window.setInterval(() => void syncOrbAutoJob(), 30_000);
-    return () => window.clearInterval(timer);
-  }, [timeMode, syncOrbAutoJob]);
+    removeOrbAutoWatches();
+  }, [removeOrbAutoWatches]);
 
   useEffect(() => {
     if (timeMode !== "live") return;
@@ -1206,6 +1162,43 @@ export function useMarketAlarms() {
       }
     },
     [clearTimer, runCheck],
+  );
+
+  const removeWatches = useCallback(
+    (ids: string[]) => {
+      const idSet = new Set(ids);
+      const removing = watchesRef.current.filter((watch) => idSet.has(watch.id));
+      if (removing.length === 0) return;
+      const cancel5m = removing.some((watch) => watch.orb5mAuto);
+      for (const watch of removing) {
+        clearTimer(watch.id);
+        dropWatchFromQueues(watch.id);
+      }
+      setAlarmPopup((popup) => {
+        if (popup && idSet.has(popup.watch.id)) {
+          stopAlarmRing();
+          clearDesktopAlarmAlert();
+          return null;
+        }
+        return popup;
+      });
+      setWatches((prev) => prev.filter((watch) => !idSet.has(watch.id)));
+      if (cancel5m) {
+        const now = assessmentClock();
+        const prev = loadOrb5mAutoJob(now);
+        setOrb5mAutoJob(
+          saveOrb5mAutoJob({
+            ...prev,
+            status: "cancelled",
+            tradeDate: tradeDateEt(now),
+            symbols: [],
+            message: "5m ORB auto cancelled — tickers removed.",
+            windowOpen: isOrb5mWindowOpen(now),
+          }),
+        );
+      }
+    },
+    [assessmentClock, clearTimer, dropWatchFromQueues],
   );
 
   const removeWatch = useCallback(
@@ -1690,6 +1683,7 @@ export function useMarketAlarms() {
     startAllIdle,
     stopAllRunning,
     removeWatch,
+    removeWatches,
     updateWatchInterval,
     runCheckNow: runCheck,
     requestNotifyPermission,
