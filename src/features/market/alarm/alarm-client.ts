@@ -43,6 +43,8 @@ export type MarketAlarmCheckResponse = {
   ruleResults?: { ruleKey: string; status: string; met?: boolean; evidence?: string | null }[];
   qualityPct?: number;
   evidence?: string | null;
+  entryAt?: string | null;
+  possibleOptionGainPct?: number | null;
   suggestedTrend?: string | null;
   suggestedDirection?: string | null;
   checkedAt: string;

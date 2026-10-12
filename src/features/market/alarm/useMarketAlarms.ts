@@ -494,6 +494,11 @@ export function useMarketAlarms() {
         const patchBase = {
           lastRuleStatus: result.ruleStatus,
           lastEvidence: result.evidence ?? null,
+          lastEntryAt: result.entryAt ?? watch.lastEntryAt ?? null,
+          lastOptionGainPct:
+            typeof result.possibleOptionGainPct === "number"
+              ? result.possibleOptionGainPct
+              : (watch.lastOptionGainPct ?? null),
           lastCheckedAt: result.checkedAt,
           lastError: result.error ?? null,
           lastRuleResults: result.ruleResults ?? null,

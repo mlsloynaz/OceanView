@@ -124,17 +124,98 @@ type Props = {
   onCancelOrb5mAuto?: () => void;
 };
 
-function shownPoll(watch: MarketAlarmWatch, section: AlarmBoardSection): {
-  value: number;
-  unit: PollIntervalUnit;
-} {
-  const auto = Boolean(watch.orbAuto || watch.orb5mAuto);
-  if (section === "movement" && !auto && watch.frequencyUnit === "sec") {
-    return { value: 1, unit: "min" };
+function validClock(entryAt: string | null | undefined, evidence: string | null): string | null {
+  const source = `${entryAt ?? ""} ${evidence ?? ""}`;
+  const match = source.match(/(\d{2}):(\d{2})(?::\d{2})?/);
+  if (!match) return null;
+  return `${match[1]}:${match[2]}`;
+}
+
+function earningPct(
+  optionGainPct: number | null | undefined,
+  evidence: string | null,
+): number | null {
+  if (typeof optionGainPct === "number" && Number.isFinite(optionGainPct)) return optionGainPct;
+  const match = evidence?.match(/est\. earning\s+([0-9]+(?:\.[0-9]+)?)%/i);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
+}
+
+function evidenceDetail(evidence: string | null): string | null {
+  if (!evidence) return null;
+  const text = evidence
+    .replace(/\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?/, "")
+    .replace(/\s+·\s+est\. earning\s+[0-9.]+%/i, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+·\s*$/, "")
+    .trim();
+  return text || null;
+}
+
+function earlyAngles(evidence: string | null): {
+  five: string | null;
+  fifteen: string | null;
+  separation: string | null;
+} | null {
+  if (!evidence || !/early entry/i.test(evidence)) return null;
+  return {
+    five: evidence.match(/5m angle\s+([+-]?[0-9.]+)/i)?.[1] ?? null,
+    fifteen: evidence.match(/15m angle\s+([+-]?[0-9.]+)/i)?.[1] ?? null,
+    separation: evidence.match(/separation\s+([+-]?[0-9.]+)/i)?.[1] ?? null,
+  };
+}
+
+function ValidEntryLine({
+  evidence,
+  entryAt,
+  optionGainPct,
+}: {
+  evidence: string | null;
+  entryAt?: string | null;
+  optionGainPct?: number | null;
+}) {
+  const clock = validClock(entryAt, evidence);
+  const gain = earningPct(optionGainPct, evidence);
+  const early = earlyAngles(evidence);
+  const bias = evidence?.match(/Ticker bias 1h (CALL|PUT)/)?.[1] ?? null;
+  if (early) {
+    return (
+      <div className="mt-1">
+        <p className="flex flex-wrap items-baseline gap-2">
+          <span className="text-base font-bold text-ocean-foam">Early entry</span>
+          {clock ? (
+            <span className="text-xl font-bold tabular-nums text-ocean-foam">{clock}</span>
+          ) : null}
+          {gain != null ? (
+            <span className="text-base font-semibold text-ocean-teal">Est. earning {gain}%</span>
+          ) : null}
+        </p>
+        <p className="mt-0.5 text-sm text-ocean-sand">
+          5m angle {early.five ?? "—"}° · 15m angle {early.fifteen ?? "—"}° · separation{" "}
+          {early.separation ?? "—"}
+          {bias ? ` · Ticker bias 1h ${bias}` : ""}
+        </p>
+      </div>
+    );
   }
-  const unit: PollIntervalUnit =
-    watch.frequencyUnit === "hour" ? "hour" : watch.frequencyUnit === "sec" ? "sec" : "min";
-  return { value: watch.frequencyValue, unit };
+  const detail = evidenceDetail(evidence);
+  if (!clock && gain == null && !detail) return null;
+  return (
+    <div className="mt-1">
+      {clock || gain != null ? (
+        <p className="flex flex-wrap items-baseline gap-3">
+          {clock ? (
+            <span className="text-xl font-bold tabular-nums text-ocean-foam">{clock}</span>
+          ) : null}
+          {gain != null ? (
+            <span className="text-base font-semibold text-ocean-teal">Est. earning {gain}%</span>
+          ) : null}
+        </p>
+      ) : null}
+      {detail ? <p className="mt-0.5 text-[11px] text-ocean-sand/90">{detail}</p> : null}
+    </div>
+  );
 }
 
 function statusLabel(status: MarketAlarmWatch["status"]): string {
@@ -257,6 +338,14 @@ export function MarketAlarmPanel({
     setFrequencyUnit(unit);
     setFrequencyValue((v) => clampPollInterval(v, unit));
   };
+
+  useEffect(() => {
+    for (const watch of visibleWatches) {
+      if (watch.orbAuto || watch.orb5mAuto) continue;
+      if (watch.frequencyValue === frequencyValue && watch.frequencyUnit === frequencyUnit) continue;
+      onUpdateInterval(watch.id, frequencyValue, frequencyUnit);
+    }
+  }, [frequencyValue, frequencyUnit, visibleWatches, onUpdateInterval]);
 
   const allSelected =
     tickers.length > 0 && selectedSymbols.length > 0 && selectedSymbols.length === tickers.length;
@@ -934,21 +1023,40 @@ export function MarketAlarmPanel({
                                       : formatAlarmTrend(w.trend)}
                                   </span>
                                 </p>
-                                <p className="mt-0.5 text-[11px] text-ocean-sand">
-                                  {statusLabel(w.status)}
-                                  {w.lastRuleStatus ? ` · ${w.lastRuleStatus}` : ""}
-                                  {typeof w.lastBreakoutScore === "number"
-                                    ? ` · score ${Math.round(w.lastBreakoutScore)}`
-                                    : ""}
-                                  {w.lastCheckedAt
-                                    ? ` · ${new Date(w.lastCheckedAt).toLocaleTimeString()}`
-                                    : ""}
+                                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ocean-sand">
+                                  <span>
+                                    {statusLabel(w.status)}
+                                    {w.lastRuleStatus ? ` · ${w.lastRuleStatus}` : ""}
+                                    {typeof w.lastBreakoutScore === "number"
+                                      ? ` · score ${Math.round(w.lastBreakoutScore)}`
+                                      : ""}
+                                    {w.lastCheckedAt
+                                      ? ` · ${new Date(w.lastCheckedAt).toLocaleTimeString()}`
+                                      : ""}
+                                  </span>
+                                  {polling ? (
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-1 rounded-full bg-ocean-mid/20 px-2 py-0.5 font-medium text-ocean-foam disabled:opacity-70"
+                                      disabled={w.status === "checking"}
+                                      onClick={() => onCheckNow(w.id)}
+                                    >
+                                      <span
+                                        className={cn(
+                                          "inline-block h-2.5 w-2.5 rounded-full border border-ocean-teal",
+                                          w.status === "checking" && "animate-spin border-t-transparent",
+                                        )}
+                                        aria-hidden
+                                      />
+                                      {w.status === "checking" ? "Checking now" : "Check now"}
+                                    </button>
+                                  ) : null}
                                 </p>
-                                {w.lastEvidence ? (
-                                  <p className="mt-1 text-[11px] text-ocean-sand/90">
-                                    {w.lastEvidence}
-                                  </p>
-                                ) : null}
+                                <ValidEntryLine
+                                  evidence={w.lastEvidence}
+                                  entryAt={w.lastEntryAt}
+                                  optionGainPct={w.lastOptionGainPct}
+                                />
                                 {w.lastRuleResults && w.lastRuleResults.length > 1 ? (
                                   <ul className="mt-1 space-y-0.5 text-[11px] text-ocean-sand/80">
                                     {w.lastRuleResults.map((rr) => (
@@ -978,19 +1086,6 @@ export function MarketAlarmPanel({
                                 ) : null}
                               </div>
                               <div className="flex flex-wrap gap-1.5">
-                                {polling ? (
-                                  <button
-                                    type="button"
-                                    className={cn(
-                                      BTN,
-                                      "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20",
-                                    )}
-                                    disabled={w.status === "checking"}
-                                    onClick={() => onCheckNow(w.id)}
-                                  >
-                                    Check now
-                                  </button>
-                                ) : null}
                                 {w.status === "met" ? (
                                   <button
                                     type="button"
@@ -1048,32 +1143,19 @@ export function MarketAlarmPanel({
                                   monitorActive={polling}
                                   canStop={polling}
                                   startPending={w.status === "checking"}
-                                  intervalValue={shownPoll(w, section).value}
-                                  intervalUnit={shownPoll(w, section).unit}
-                                  units={
-                                    w.orbAuto || w.orb5mAuto
-                                      ? ["sec"]
-                                      : section === "movement"
-                                        ? ["min", "hour"]
-                                        : ["min", "sec", "hour"]
-                                  }
-                                  onIntervalValueChange={(v) =>
-                                    onUpdateInterval(w.id, v, shownPoll(w, section).unit)
-                                  }
-                                  onIntervalUnitChange={(u) =>
-                                    onUpdateInterval(w.id, shownPoll(w, section).value, u)
-                                  }
+                                  showInterval={false}
+                                  intervalValue={frequencyValue}
+                                  intervalUnit={frequencyUnit}
+                                  onIntervalValueChange={() => undefined}
                                   onStart={() => onStart(w.id)}
                                   onStop={() => onStop(w.id)}
                                   startDisabled={polling}
-                                  intervalDisabled={false}
-                                  intervalInputId={`alarm-interval-${w.id}`}
+                                  ariaLabel={`Alarm poll ${w.symbol}`}
                                   monitoringMessage={
                                     polling
                                       ? `${w.status === "in_trade" ? "Exit watch" : "Enter watch"} ${w.symbol} · ${w.ruleLabel}`
                                       : null
                                   }
-                                  ariaLabel={`Alarm poll ${w.symbol}`}
                                 />
                               </div>
                             ) : null}

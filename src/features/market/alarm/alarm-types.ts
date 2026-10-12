@@ -143,6 +143,8 @@ export type MarketAlarmWatch = {
   status: AlarmWatchStatus;
   lastRuleStatus: string | null;
   lastEvidence: string | null;
+  lastEntryAt?: string | null;
+  lastOptionGainPct?: number | null;
   lastCheckedAt: string | null;
   lastError: string | null;
   metAt: string | null;
