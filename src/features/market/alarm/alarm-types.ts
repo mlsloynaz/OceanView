@@ -19,10 +19,6 @@ export const ALARM_ELIGIBLE_RULES = [
     label: "Breakout quality (15M multi-TF)",
   },
   {
-    ruleKey: "orb_breakout",
-    label: "ORB — Opening Range (15M)",
-  },
-  {
     ruleKey: "orb_breakout_5m",
     label: "ORB — Opening Range (5M)",
   },
@@ -61,7 +57,6 @@ export const STRATEGY_CONFIRM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
 /** Movement / breakout watches — not a playbook confirm. */
 export const MOVEMENT_ALARM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
   "breakout_quality",
-  "orb_breakout",
   "orb_breakout_5m",
   "touch_disipador",
   "trend_change_5m",
@@ -72,7 +67,6 @@ export const MOVEMENT_ALARM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
 /** Rules that use the Movement / Breakout Kanban + entry_ready alarm target. */
 export const BREAKOUT_KANBAN_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
   "breakout_quality",
-  "orb_breakout",
   "orb_breakout_5m",
 ];
 

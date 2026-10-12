@@ -60,6 +60,43 @@ export function buildOrb5mAutoWatch(
   };
 }
 
+const LEGACY_ORB_AUTO_SYMBOLS = ["TSLA", "MSFT", "SPY"] as const;
+
+export function favoriteOrbSymbols(
+  tickers: readonly { symbol: string; isFavorite?: boolean; active?: boolean }[],
+): string[] {
+  const favActive: string[] = [];
+  const favAll: string[] = [];
+  for (const row of tickers) {
+    if (!row.isFavorite) continue;
+    const sym = String(row.symbol || "").trim().toUpperCase();
+    if (!sym) continue;
+    if (!favAll.includes(sym)) favAll.push(sym);
+    if (row.active !== false && !favActive.includes(sym)) favActive.push(sym);
+  }
+  return favActive.length > 0 ? favActive : favAll;
+}
+
+export function isLegacyOrbAutoTrio(symbols: readonly string[]): boolean {
+  const normalized = symbols.map((s) => s.trim().toUpperCase()).filter(Boolean);
+  return (
+    normalized.length === LEGACY_ORB_AUTO_SYMBOLS.length &&
+    LEGACY_ORB_AUTO_SYMBOLS.every((sym) => normalized.includes(sym))
+  );
+}
+
+/** Favorites win. The old TSLA / MSFT / SPY list is not a real watchlist. */
+export function resolveOrb5mAutoSymbols(
+  stored: readonly string[] | undefined,
+  favorites: readonly string[],
+): string[] {
+  const fav = favorites.map((s) => s.trim().toUpperCase()).filter(Boolean);
+  if (fav.length > 0) return [...new Set(fav)];
+  const kept = (stored ?? []).map((s) => s.trim().toUpperCase()).filter(Boolean);
+  if (kept.length === 0 || isLegacyOrbAutoTrio(kept)) return [];
+  return [...new Set(kept)];
+}
+
 export function orb5mAutoSymbolsToEnsure(symbols: string[] | undefined): string[] {
   const raw = symbols?.length ? symbols : [...DEFAULT_ORB_AUTO_SYMBOLS];
   const out: string[] = [];
@@ -120,9 +157,9 @@ function defaultJob(now: Date): Orb5mAutoJobStatus {
     jobType: "orb5m_auto_monitor",
     kind: "orb5m_auto_monitor",
     status: "idle",
-    symbols: [...DEFAULT_ORB_AUTO_SYMBOLS],
+    symbols: [],
     tradeDate: tradeDateEt(now),
-    message: "5m ORB auto idle.",
+    message: "5m ORB auto checks favorite tickers.",
     windowOpen: false,
     pollIntervalSeconds: 30,
   };
@@ -142,7 +179,10 @@ export function loadOrb5mAutoJob(now: Date = new Date()): Orb5mAutoJobStatus {
       ...parsed,
       status,
       tradeDate: tradeDate === today ? tradeDate : today,
-      symbols: orb5mAutoSymbolsToEnsure(parsed.symbols),
+      symbols: resolveOrb5mAutoSymbols(
+        Array.isArray(parsed.symbols) ? parsed.symbols : [],
+        [],
+      ),
     };
   } catch {
     return defaultJob(now);

@@ -459,3 +459,36 @@ export async function stopOrbAutoJob(
     body: JSON.stringify({ reason }),
   });
 }
+
+export async function fetchOrb5mAutoJobStatus(): Promise<OrbAutoJobStatus> {
+  if (USE_MOCK) {
+    return {
+      jobType: "orb5m_auto_monitor",
+      kind: "orb5m_auto_monitor",
+      status: "idle",
+      symbols: [],
+      pollIntervalSeconds: 30,
+      message: "5m ORB auto idle (mock).",
+    };
+  }
+  return fetchJson<OrbAutoJobStatus>("/market/alarm/orb-5m-auto/status", { method: "GET" });
+}
+
+export async function stopOrb5mAutoJobAws(
+  reason: "cancelled" | "completed" = "cancelled",
+): Promise<OrbAutoJobStatus> {
+  if (USE_MOCK) {
+    return {
+      jobType: "orb5m_auto_monitor",
+      kind: "orb5m_auto_monitor",
+      status: reason === "completed" ? "completed" : "cancelled",
+      symbols: [],
+      pollIntervalSeconds: 30,
+      message: "5m ORB auto cancelled.",
+    };
+  }
+  return fetchJson<OrbAutoJobStatus>("/market/alarm/orb-5m-auto/stop", {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}

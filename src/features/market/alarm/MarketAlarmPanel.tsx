@@ -36,7 +36,7 @@ import {
 } from "./e03-confirm-window";
 import type { OrbAutoJobStatus } from "./alarm-client";
 import type { Orb5mAutoJobStatus } from "./orb5m-auto-job";
-import { OrbMonitorPanel } from "./OrbMonitorPanel";
+import { AwsRunningMovements } from "./AwsRunningMovements";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -197,11 +197,11 @@ export function MarketAlarmPanel({
   notifyPermission = "default",
   orbAutoJob,
   onCancelOrbAuto,
-  orb5mAutoJob,
-  orbAutoBusy,
-  orb5mAutoBusy,
-  onStartOrbAuto,
-  onStartOrb5mAuto,
+  orb5mAutoJob: _orb5mAutoJob,
+  orbAutoBusy: _orbAutoBusy,
+  orb5mAutoBusy: _orb5mAutoBusy,
+  onStartOrbAuto: _onStartOrbAuto,
+  onStartOrb5mAuto: _onStartOrb5mAuto,
   onCancelOrb5mAuto,
 }: Props) {
   const nowTick = useNowTick();
@@ -336,18 +336,10 @@ export function MarketAlarmPanel({
             Confirmed). Confirm entry and keep watching until the setup drops →{" "}
             <span className="font-medium text-ocean-foam">EXIT</span>, then arm again.
           </p>
-          {section === "movement" && onStartOrbAuto && onCancelOrbAuto && onStartOrb5mAuto && onCancelOrb5mAuto ? (
-            <OrbMonitorPanel
-              nowTick={nowTick}
-              timeMode={timeMode}
-              orbAutoJob={orbAutoJob ?? null}
-              orb5mAutoJob={orb5mAutoJob ?? null}
-              busy15m={orbAutoBusy}
-              busy5m={orb5mAutoBusy}
-              onStart15m={onStartOrbAuto}
-              onCancel15m={onCancelOrbAuto}
-              onStart5m={onStartOrb5mAuto}
-              onCancel5m={onCancelOrb5mAuto}
+          {section === "movement" ? (
+            <AwsRunningMovements
+              onStopped15m={onCancelOrbAuto}
+              onStopped5m={onCancelOrb5mAuto}
             />
           ) : orbAutoJob?.status === "running" && section !== "strategy" ? (
             <div
