@@ -70,7 +70,7 @@ export function BbSparkline15mChart({
           className,
         )}
       >
-        No 15m bars yet — run a check
+        No {data?.timeframe ?? "15m"} bars yet — run a check
       </div>
     );
   }
@@ -79,8 +79,20 @@ export function BbSparkline15mChart({
   const lows = bars.map((b) => b.low);
   const bbUps = bars.map((b) => b.bbUpper).filter((v): v is number => v != null);
   const bbLows = bars.map((b) => b.bbLower).filter((v): v is number => v != null);
-  let yMin = Math.min(...lows, ...(bbLows.length ? bbLows : lows));
-  let yMax = Math.max(...highs, ...(bbUps.length ? bbUps : highs));
+  const ema10s = bars.map((b) => b.ema10).filter((v): v is number => v != null);
+  const ema21s = bars.map((b) => b.ema21).filter((v): v is number => v != null);
+  let yMin = Math.min(
+    ...lows,
+    ...(bbLows.length ? bbLows : lows),
+    ...(ema10s.length ? ema10s : lows),
+    ...(ema21s.length ? ema21s : lows),
+  );
+  let yMax = Math.max(
+    ...highs,
+    ...(bbUps.length ? bbUps : highs),
+    ...(ema10s.length ? ema10s : highs),
+    ...(ema21s.length ? ema21s : highs),
+  );
   if (
     typeof breakoutLevel === "number" &&
     Number.isFinite(breakoutLevel) &&
@@ -102,7 +114,7 @@ export function BbSparkline15mChart({
     PAD.top + ((yMax - price) / (yMax - yMin || 1)) * plotH;
   const xCenter = (i: number) => PAD.left + slot * i + slot / 2;
 
-  const bbLine = (key: "bbUpper" | "bbMid" | "bbLower") => {
+  const bbLine = (key: "bbUpper" | "bbMid" | "bbLower" | "ema10" | "ema21") => {
     const pts: string[] = [];
     bars.forEach((b, i) => {
       const v = b[key];
@@ -115,6 +127,9 @@ export function BbSparkline15mChart({
   const upperPts = bbLine("bbUpper");
   const midPts = bbLine("bbMid");
   const lowerPts = bbLine("bbLower");
+  const ema10Pts = bbLine("ema10");
+  const ema21Pts = bbLine("ema21");
+  const tf = data?.timeframe === "5m" ? "5m" : "15m";
   const envelope = bbEnvelopePath(bars, xCenter, yScale);
 
   const lastWithWidth = [...bars].reverse().find((b) => b.bbWidth != null);
@@ -128,7 +143,7 @@ export function BbSparkline15mChart({
         className="h-full w-full flex-1 text-ocean-foam"
         preserveAspectRatio="xMidYMid meet"
         role="img"
-        aria-label={`${data?.symbol ?? ""} 15m Bollinger disipadores`}
+        aria-label={`${data?.symbol ?? ""} ${tf} price, EMA 10, EMA 21, Bollinger`}
       >
         {envelope ? (
           <polygon
@@ -170,6 +185,24 @@ export function BbSparkline15mChart({
             strokeWidth={strokeBand}
             className="text-violet-400/90"
             points={lowerPts}
+          />
+        ) : null}
+        {ema21Pts ? (
+          <polyline
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={strokeBand}
+            className="text-rose-300"
+            points={ema21Pts}
+          />
+        ) : null}
+        {ema10Pts ? (
+          <polyline
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={strokeBand}
+            className="text-amber-300"
+            points={ema10Pts}
           />
         ) : null}
 
@@ -251,6 +284,18 @@ export function BbSparkline15mChart({
             <span className="inline-block h-0.5 w-2.5 rounded-sm bg-violet-400/90" />
             lower
           </span>
+          {ema10Pts ? (
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-0.5 w-2.5 rounded-sm bg-amber-300" />
+              EMA 10
+            </span>
+          ) : null}
+          {ema21Pts ? (
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-0.5 w-2.5 rounded-sm bg-rose-300" />
+              EMA 21
+            </span>
+          ) : null}
           {lastWidthExpanding ? (
             <span className="font-medium text-amber-400/95">vol expanding</span>
           ) : bbUps.length < 2 ? (

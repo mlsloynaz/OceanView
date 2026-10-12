@@ -89,6 +89,24 @@ export type MarketAlarmCheckResponse = {
   trend1h?: string;
   grade?: string;
   last?: number;
+  movementChart?: {
+    symbol: string;
+    timeframe: "5m" | "15m";
+    bbPeriod: number;
+    bars: Array<{
+      datetime: string;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+      bbUpper: number | null;
+      bbMid: number | null;
+      bbLower: number | null;
+      ema10?: number | null;
+      ema21?: number | null;
+      forming?: boolean;
+    }>;
+  } | null;
   bbSparkline15m?: {
     symbol: string;
     timeframe: "15m";

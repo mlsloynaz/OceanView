@@ -64,7 +64,7 @@ export function AlarmsPage() {
         lastHourScanBusy={alarms.lastHourScanBusy}
         onTimeModeChange={alarms.setTimeMode}
         onSimulateLocalChange={alarms.setSimulateLocal}
-        onScanLastHourRth={(symbol) => void alarms.scanLastHourRth(symbol)}
+        onScanLastHourRth={(target) => void alarms.scanLastHourRth(target)}
         onClearLastHourScan={alarms.clearLastHourScan}
         onClearBanner={alarms.clearMetBanner}
         onClearAlarmPopup={alarms.clearAlarmPopup}

@@ -117,15 +117,19 @@ export type BbSparkline15mBar = {
   lowerExpanding?: boolean | null;
   /** Band width opening vs prior bar. */
   widthExpanding?: boolean | null;
+  ema10?: number | null;
+  ema21?: number | null;
   forming?: boolean;
 };
 
 export type BbSparkline15m = {
   symbol: string;
-  timeframe: "15m";
+  timeframe: "15m" | "5m";
   bbPeriod: number;
   bars: BbSparkline15mBar[];
 };
+
+export type MovementChart = BbSparkline15m;
 
 export type MarketAlarmWatch = {
   id: string;
@@ -162,6 +166,8 @@ export type MarketAlarmWatch = {
   lastSetupType?: string | null;
   /** Last 15m BB sparkline from breakout alarm check (≤9 bars). */
   lastBbSparkline15m?: BbSparkline15m | null;
+  /** Price, EMA 10, EMA 21, and Bollinger for a 5m or 15m trend-change watch. */
+  lastMovementChart?: MovementChart | null;
   lastBreakoutLevel?: number | null;
   lastAboveVwap?: boolean | null;
   lastOverextended?: boolean | null;

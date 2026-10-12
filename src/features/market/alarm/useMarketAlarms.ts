@@ -535,6 +535,10 @@ export function useMarketAlarms() {
             result.bbSparkline15m && Array.isArray(result.bbSparkline15m.bars)
               ? result.bbSparkline15m
               : (watch.lastBbSparkline15m ?? null),
+          lastMovementChart:
+            result.movementChart && Array.isArray(result.movementChart.bars)
+              ? result.movementChart
+              : (watch.lastMovementChart ?? null),
           lastBreakoutLevel:
             typeof result.breakoutLevel === "number"
               ? result.breakoutLevel
@@ -1566,16 +1570,24 @@ export function useMarketAlarms() {
   }, []);
 
   const scanLastHourRth = useCallback(
-    async (symbolHint?: string) => {
-      const hint = (symbolHint || "").trim().toUpperCase();
-      const breakout = watchesRef.current.filter(watchHasBreakout);
-      const pool = breakout.length > 0 ? breakout : watchesRef.current;
-      const symbol =
-        hint ||
-        pool[0]?.symbol ||
-        "";
+    async (target?: {
+      symbol?: string;
+      ruleKeys?: AlarmEligibleRuleKey[];
+      trend?: AlarmTrend;
+      stepMinutes?: 1 | 5 | 15;
+      bandTimeframe?: "1m" | "15m" | "1h";
+    } | string) => {
+      const hinted = typeof target === "string" ? { symbol: target } : target;
+      const hint = (hinted?.symbol || "").trim().toUpperCase();
+      const requestedKeys = hinted?.ruleKeys?.filter(Boolean) ?? [];
+      const pool = watchesRef.current.filter((watch) => {
+        if (!requestedKeys.length) return true;
+        const keys = watch.ruleKeys?.length ? watch.ruleKeys : [watch.ruleKey];
+        return requestedKeys.every((key) => keys.includes(key));
+      });
+      const symbol = hint || pool[0]?.symbol || watchesRef.current[0]?.symbol || "";
       if (!symbol) {
-        setLastHourScanError("Add a breakout watch (or any watch) first, then scan.");
+        setLastHourScanError("Add a watch first, then scan.");
         setLastHourScan(null);
         return;
       }
@@ -1583,12 +1595,20 @@ export function useMarketAlarms() {
         pool.find((w) => w.symbol === symbol) ??
         watchesRef.current.find((w) => w.symbol === symbol) ??
         pool[0];
-      const ruleKeys = watch
-        ? watch.ruleKeys?.length
-          ? watch.ruleKeys
-          : [watch.ruleKey]
-        : (["breakout_quality"] as AlarmEligibleRuleKey[]);
-      const trend = watch?.trend ?? "auto";
+      const ruleKeys =
+        requestedKeys.length > 0
+          ? requestedKeys
+          : watch
+            ? watch.ruleKeys?.length
+              ? watch.ruleKeys
+              : [watch.ruleKey]
+            : (["breakout_quality"] as AlarmEligibleRuleKey[]);
+      const trend = hinted?.trend ?? watch?.trend ?? "auto";
+      const fiveMinute =
+        ruleKeys.length > 0 &&
+        ruleKeys.every((key) => key === "trend_change_5m" || key === "ema_cross_5m");
+      const stepMinutes = hinted?.stepMinutes ?? (fiveMinute ? 5 : 15);
+      const bandTimeframe = hinted?.bandTimeframe ?? watch?.bandTimeframe;
 
       setLastHourScanBusy(true);
       setLastHourScanError(null);
@@ -1597,9 +1617,9 @@ export function useMarketAlarms() {
           symbol,
           ruleKeys,
           trend,
-          stepMinutes: 15,
+          stepMinutes,
           refreshCandles: false,
-          ...(watch?.bandTimeframe ? { bandTimeframe: watch.bandTimeframe } : {}),
+          ...(bandTimeframe ? { bandTimeframe } : {}),
         });
         setLastHourScan(result);
         setTimeMode("simulate");

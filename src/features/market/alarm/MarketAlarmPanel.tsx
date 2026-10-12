@@ -8,7 +8,9 @@ import {
   LiveSimulateControl,
   type LiveSimulateMode,
 } from "@/shared/components/LiveSimulateControl";
+import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
 import { cn } from "@/shared/lib/cn";
+import { BbSparkline15mChart } from "./BbSparkline15mChart";
 import type { CatalogTicker } from "@/features/admin/tickers/types";
 import { formatEtDatetimeLocal } from "@/features/market/lib/assessment-time";
 import type { MarketAlarmScanLastHourResponse } from "./alarm-client";
@@ -87,7 +89,13 @@ type Props = {
   lastHourScanBusy: boolean;
   onTimeModeChange: (mode: LiveSimulateMode) => void;
   onSimulateLocalChange: (value: string) => void;
-  onScanLastHourRth: (symbol?: string) => void;
+  onScanLastHourRth: (target?: {
+    symbol?: string;
+    ruleKeys?: AlarmEligibleRuleKey[];
+    trend?: AlarmTrend;
+    stepMinutes?: 1 | 5 | 15;
+    bandTimeframe?: "1m" | "15m" | "1h";
+  }) => void;
   onClearLastHourScan: () => void;
   onClearBanner: () => void;
   onClearAlarmPopup: () => void;
@@ -304,6 +312,7 @@ export function MarketAlarmPanel({
     return watches;
   }, [section, watches]);
 
+  const [chartWatchId, setChartWatchId] = useState<string | null>(null);
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
   const [selectedRules, setSelectedRules] = useState<AlarmEligibleRuleKey[]>(() => [
     section === "movement" ? "breakout_quality" : "confirmation_change_trend_1h",
@@ -559,10 +568,21 @@ export function MarketAlarmPanel({
                 type="button"
                 className={cn(BTN, "border border-ocean-teal/40 text-ocean-teal-dim dark:text-ocean-teal")}
                 disabled={lastHourScanBusy || visibleWatches.length === 0}
-                title="Replay breakout at each 15m close in the last completed regular-session hour"
+                title="Replay the watches on this tab through the last completed regular-session hour"
                 onClick={() => {
-                  const breakout = visibleWatches.find(watchHasBreakout);
-                  onScanLastHourRth(breakout?.symbol ?? visibleWatches[0]?.symbol);
+                  const watch = boardWatches[0] ?? visibleWatches[0];
+                  if (!watch) return;
+                  const ruleKeys = watchRuleKeys(watch);
+                  const fiveMinute =
+                    ruleKeys.length > 0 &&
+                    ruleKeys.every((key) => key === "trend_change_5m" || key === "ema_cross_5m");
+                  onScanLastHourRth({
+                    symbol: watch.symbol,
+                    ruleKeys,
+                    trend: watch.trend,
+                    stepMinutes: fiveMinute ? 5 : 15,
+                    ...(watch.bandTimeframe ? { bandTimeframe: watch.bandTimeframe } : {}),
+                  });
                 }}
               >
                 {lastHourScanBusy ? "Scanning last RTH hour…" : "Test last regular market hour"}
@@ -609,7 +629,7 @@ export function MarketAlarmPanel({
                           ? "Entry"
                           : s.confirmed
                             ? "Confirmed"
-                            : s.lifecycle || "—"}
+                            : s.lifecycle || (s.evidence ? s.evidence.slice(0, 72) : "—")}
                         {s.suggestedDirection ? ` · ${s.suggestedDirection}` : ""}
                         {typeof s.breakoutScore === "number" ? ` · q${s.breakoutScore}` : ""}
                       </span>
@@ -1160,6 +1180,28 @@ export function MarketAlarmPanel({
                                     {w.lastError}
                                   </p>
                                 ) : null}
+                                {watchRuleKeys(w).some(
+                                  (key) => key === "trend_change_5m" || key === "trend_change_15m",
+                                ) ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setChartWatchId(w.id)}
+                                    className="mt-2 flex w-full max-w-md flex-col rounded-md border border-ocean-mid/30 bg-ocean-surface/40 px-1.5 py-1 text-left hover:border-ocean-teal/45"
+                                    title={`Enlarge ${w.symbol} price, EMA 10, EMA 21, and Bollinger`}
+                                  >
+                                    <span className="mb-0.5 text-[10px] text-ocean-sand/70">
+                                      {w.lastMovementChart?.timeframe ?? "chart"} · price · EMA 10 · EMA 21 · Bollinger · click to enlarge
+                                    </span>
+                                    <div className="aspect-[16/10] w-full">
+                                      <BbSparkline15mChart
+                                        data={w.lastMovementChart}
+                                        variant="thumb"
+                                        showLegend
+                                        className="h-full"
+                                      />
+                                    </div>
+                                  </button>
+                                ) : null}
                               </div>
                               <div className="flex flex-wrap gap-1.5">
                                 {w.status === "met" ? (
@@ -1247,6 +1289,23 @@ export function MarketAlarmPanel({
           )}
         </div>
       </section>
+
+      {chartWatchId ? (
+        <MarketDetailModal
+          open
+          onClose={() => setChartWatchId(null)}
+          title={`${watches.find((w) => w.id === chartWatchId)?.symbol ?? ""} · ${
+            watches.find((w) => w.id === chartWatchId)?.lastMovementChart?.timeframe ?? ""
+          }`}
+          subtitle="Price, EMA 10, EMA 21, and Bollinger"
+          className="max-w-3xl"
+        >
+          <BbSparkline15mChart
+            data={watches.find((w) => w.id === chartWatchId)?.lastMovementChart}
+            variant="full"
+          />
+        </MarketDetailModal>
+      ) : null}
 
       {alarmPopup ? (
         <AlarmTradeModal
