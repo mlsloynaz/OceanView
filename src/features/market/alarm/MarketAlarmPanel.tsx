@@ -22,7 +22,6 @@ import {
   formatAlarmTrend,
   isMovementAlarmWatch,
   needsBandTimeframe,
-  usesBreakoutAlarmTarget,
   type AlarmBandTimeframe,
   type AlarmBoardSection,
   type AlarmEligibleRuleKey,
@@ -123,6 +122,19 @@ type Props = {
   onCancelOrb5mAuto?: () => void;
 };
 
+function shownPoll(watch: MarketAlarmWatch, section: AlarmBoardSection): {
+  value: number;
+  unit: PollIntervalUnit;
+} {
+  const auto = Boolean(watch.orbAuto || watch.orb5mAuto);
+  if (section === "movement" && !auto && watch.frequencyUnit === "sec") {
+    return { value: 1, unit: "min" };
+  }
+  const unit: PollIntervalUnit =
+    watch.frequencyUnit === "hour" ? "hour" : watch.frequencyUnit === "sec" ? "sec" : "min";
+  return { value: watch.frequencyValue, unit };
+}
+
 function statusLabel(status: MarketAlarmWatch["status"]): string {
   switch (status) {
     case "running":
@@ -214,7 +226,7 @@ export function MarketAlarmPanel({
     section === "movement" ? "breakout_quality" : "confirmation_change_trend_1h",
   ]);
   const [bandTimeframe, setBandTimeframe] = useState<AlarmBandTimeframe>("1m");
-  const [frequencyValue, setFrequencyValue] = useState(5);
+  const [frequencyValue, setFrequencyValue] = useState(section === "movement" ? 1 : 5);
   const [frequencyUnit, setFrequencyUnit] = useState<PollIntervalUnit>("min");
   const showBandTf = needsBandTimeframe(selectedRules);
 
@@ -230,14 +242,9 @@ export function MarketAlarmPanel({
   }, [eligibleRules, section]);
 
   const toggleRule = (key: AlarmEligibleRuleKey) => {
-    setSelectedRules((prev) => {
-      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key];
-      if (next.length === 1 && usesBreakoutAlarmTarget(next)) {
-        setFrequencyUnit("sec");
-        setFrequencyValue(30);
-      }
-      return next;
-    });
+    setSelectedRules((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
   };
 
   const setIntervalValue = (raw: number) => {
@@ -661,7 +668,7 @@ export function MarketAlarmPanel({
               <span className="flex flex-wrap items-center gap-1.5">
                 <input
                   type="number"
-                  min={frequencyUnit === "sec" ? 5 : 1}
+                  min={section === "movement" ? 1 : frequencyUnit === "sec" ? 5 : 1}
                   max={frequencyUnit === "hour" ? 24 : frequencyUnit === "sec" ? 3600 : 60}
                   step={1}
                   value={frequencyValue}
@@ -673,7 +680,7 @@ export function MarketAlarmPanel({
                   aria-label="Check interval value"
                 />
                 <select
-                  value={frequencyUnit}
+                  value={section === "movement" && frequencyUnit === "sec" ? "min" : frequencyUnit}
                   onChange={(e) => {
                     const v = e.target.value;
                     if (v === "sec" || v === "min" || v === "hour") setIntervalUnit(v);
@@ -681,11 +688,17 @@ export function MarketAlarmPanel({
                   className="rounded-md border border-ocean-mid/40 bg-ocean-surface px-2 py-1.5 text-sm text-ocean-foam"
                   aria-label="Check interval unit"
                 >
-                  <option value="sec">sec</option>
+                  {section === "movement" ? null : <option value="sec">sec</option>}
                   <option value="min">min</option>
                   <option value="hour">hour</option>
                 </select>
               </span>
+              {section === "movement" ? (
+                <span className="text-[11px] leading-snug text-ocean-sand/90">
+                  1 minute or slower. ORB auto stops at 11:30 ET. These watches start any time
+                  the market is open and poll until 4:00 PM.
+                </span>
+              ) : null}
             </label>
 
             <div className="flex flex-wrap items-end gap-2 lg:col-span-6">
@@ -743,7 +756,7 @@ export function MarketAlarmPanel({
               {section === "strategy"
                 ? "No strategy confirm watches yet — use SemiFinal → Monitor, or add a confirmation rule below (then Start to poll)."
                 : section === "movement"
-                  ? "No movement / breakout watches yet — add Breakout quality or Disipador touch below."
+                  ? "No movement watches yet. Select one or more movements and tickers, then Add & start. Polling is every 1 minute. This works after ORB auto ends at 11:30 ET."
                   : "No watches yet — select tickers + one or more rules above."}
             </p>
           ) : (
@@ -1024,20 +1037,20 @@ export function MarketAlarmPanel({
                                   monitorActive={polling}
                                   canStop={polling}
                                   startPending={w.status === "checking"}
-                                  intervalValue={w.frequencyValue}
-                                  intervalUnit={
-                                    w.frequencyUnit === "hour"
-                                      ? "hour"
-                                      : w.frequencyUnit === "sec"
-                                        ? "sec"
-                                        : "min"
+                                  intervalValue={shownPoll(w, section).value}
+                                  intervalUnit={shownPoll(w, section).unit}
+                                  units={
+                                    w.orbAuto || w.orb5mAuto
+                                      ? ["sec"]
+                                      : section === "movement"
+                                        ? ["min", "hour"]
+                                        : ["min", "sec", "hour"]
                                   }
-                                  units={["min", "sec", "hour"]}
                                   onIntervalValueChange={(v) =>
-                                    onUpdateInterval(w.id, v, w.frequencyUnit)
+                                    onUpdateInterval(w.id, v, shownPoll(w, section).unit)
                                   }
                                   onIntervalUnitChange={(u) =>
-                                    onUpdateInterval(w.id, w.frequencyValue, u)
+                                    onUpdateInterval(w.id, shownPoll(w, section).value, u)
                                   }
                                   onStart={() => onStart(w.id)}
                                   onStop={() => onStop(w.id)}

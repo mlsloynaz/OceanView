@@ -93,6 +93,7 @@ const SIM_STORAGE_KEY = "oceanview.market.alarms.simulate";
 const LEGACY_ALARM_RULE_KEYS: Record<string, AlarmEligibleRuleKey> = {
   candle_confirm_1h: "confirmation_change_trend_1h",
   candle_confirm_15m: "confirmation_change_trend_15m",
+  malu_entry: "trend_change_15m",
 };
 
 function mapRuleKey(key: string): AlarmEligibleRuleKey {

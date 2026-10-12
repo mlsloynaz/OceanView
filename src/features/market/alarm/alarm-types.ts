@@ -27,6 +27,18 @@ export const ALARM_ELIGIBLE_RULES = [
     label: "ORB — Opening Range (5M)",
   },
   {
+    ruleKey: "trend_change_5m",
+    label: "5m trend change",
+  },
+  {
+    ruleKey: "trend_change_15m",
+    label: "15m trend change",
+  },
+  {
+    ruleKey: "ema_cross_5m",
+    label: "EMA cross 5m",
+  },
+  {
     ruleKey: "volume_stoch_1h",
     label: "Confirmación E03 (volumen HORA Stoch)",
   },
@@ -52,6 +64,9 @@ export const MOVEMENT_ALARM_RULE_KEYS: readonly AlarmEligibleRuleKey[] = [
   "orb_breakout",
   "orb_breakout_5m",
   "touch_disipador",
+  "trend_change_5m",
+  "trend_change_15m",
+  "ema_cross_5m",
 ];
 
 /** Rules that use the Movement / Breakout Kanban + entry_ready alarm target. */
