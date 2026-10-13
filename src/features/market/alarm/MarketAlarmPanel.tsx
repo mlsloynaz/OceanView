@@ -17,6 +17,7 @@ import type { MarketAlarmScanLastHourResponse } from "./alarm-client";
 import { AlarmTradeModal } from "./AlarmTradeModal";
 import { AlarmTriggerList } from "./AlarmTriggerList";
 import { BreakoutKanbanBoard, watchHasBreakout } from "./BreakoutKanbanBoard";
+import { MovementWatchGrid } from "./MovementWatchGrid";
 import {
   ALARM_ELIGIBLE_RULES,
   MOVEMENT_ALARM_RULE_KEYS,
@@ -138,6 +139,7 @@ type Props = {
   onStartOrbAuto?: (symbols: string[]) => void;
   onStartOrb5mAuto?: (symbols: string[]) => void;
   onCancelOrb5mAuto?: () => void;
+  onMovementWatchJobChange?: (job: MovementWatchJobStatus) => void;
 };
 
 function validClock(entryAt: string | null | undefined, evidence: string | null): string | null {
@@ -302,6 +304,7 @@ export function MarketAlarmPanel({
   orb5mAutoBusy: _orb5mAutoBusy,
   onStartOrbAuto: _onStartOrbAuto,
   onStartOrb5mAuto: _onStartOrb5mAuto,
+  onMovementWatchJobChange,
 }: Props) {
   const nowTick = useNowTick();
   const eligibleRules = useMemo(() => {
@@ -506,7 +509,14 @@ export function MarketAlarmPanel({
 
           <AlarmTriggerList />
 
-          {section === "movement" ? <MovementWatchPanel job={orb5mAutoJob ?? null} /> : null}
+          {section === "movement" ? (
+            <MovementWatchPanel
+              job={orb5mAutoJob ?? null}
+              tickers={tickers}
+              tickersLoading={tickersLoading}
+              onJobChange={(job) => onMovementWatchJobChange?.(job)}
+            />
+          ) : null}
 
           <p className="text-xs leading-relaxed text-ocean-sand">
             Eligible: confirmation candle 1h / 15m, Disipador touch (candle + BB on the
@@ -1036,11 +1046,41 @@ export function MarketAlarmPanel({
                 onClearMetStatus={onClearMetStatus}
               />
             ) : null}
-            <div className="space-y-4">
-              {watchesByTicker.length === 0 ? (
-                <p className="text-xs text-ocean-sand">No watches on this movement.</p>
+            {section === "movement" && !hasBreakoutWatches ? (
+              <MovementWatchGrid
+                watches={boardWatches}
+                tickerNameBySymbol={tickerNameBySymbol}
+                onCheckNow={onCheckNow}
+                onStart={onStart}
+                onStop={onStop}
+                onRemove={onRemove}
+                onConfirmEnter={onConfirmEnter}
+                onConfirmExit={onConfirmExit}
+                onClearMetStatus={onClearMetStatus}
+                onEnlargeChart={setChartWatchId}
+              />
+            ) : null}
+            {section !== "movement" || hasBreakoutWatches ? (
+            <div className={cn(hasBreakoutWatches ? "mt-3 space-y-4" : "space-y-4")}>
+              {watchesByTicker.length === 0 && section !== "movement" ? (
+                <p className="text-xs text-ocean-sand">No watches yet.</p>
               ) : null}
-              {watchesByTicker.map((group) => {
+              {section === "movement" && hasBreakoutWatches ? (
+                <MovementWatchGrid
+                  watches={boardWatches.filter((w) => !watchHasBreakout(w))}
+                  tickerNameBySymbol={tickerNameBySymbol}
+                  onCheckNow={onCheckNow}
+                  onStart={onStart}
+                  onStop={onStop}
+                  onRemove={onRemove}
+                  onConfirmEnter={onConfirmEnter}
+                  onConfirmExit={onConfirmExit}
+                  onClearMetStatus={onClearMetStatus}
+                  onEnlargeChart={setChartWatchId}
+                />
+              ) : null}
+              {section !== "movement"
+                ? watchesByTicker.map((group) => {
                 const tone = groupStatusTone(group.watches);
                 const name = tickerNameBySymbol.get(group.symbol);
                 const activeCount = group.watches.filter(
@@ -1190,28 +1230,6 @@ export function MarketAlarmPanel({
                                     {w.lastError}
                                   </p>
                                 ) : null}
-                                {watchRuleKeys(w).some(
-                                  (key) => key === "trend_change_5m" || key === "trend_change_15m",
-                                ) ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setChartWatchId(w.id)}
-                                    className="mt-2 flex w-full max-w-md flex-col rounded-md border border-ocean-mid/30 bg-ocean-surface/40 px-1.5 py-1 text-left hover:border-ocean-teal/45"
-                                    title={`Enlarge ${w.symbol} price, EMA 10, EMA 21, and Bollinger`}
-                                  >
-                                    <span className="mb-0.5 text-[10px] text-ocean-sand/70">
-                                      {w.lastMovementChart?.timeframe ?? "chart"} · price · EMA 10 · EMA 21 · Bollinger · click to enlarge
-                                    </span>
-                                    <div className="aspect-[16/10] w-full">
-                                      <BbSparkline15mChart
-                                        data={w.lastMovementChart}
-                                        variant="thumb"
-                                        showLegend
-                                        className="h-full"
-                                      />
-                                    </div>
-                                  </button>
-                                ) : null}
                               </div>
                               <div className="flex flex-wrap gap-1.5">
                                 {w.status === "met" ? (
@@ -1293,8 +1311,10 @@ export function MarketAlarmPanel({
                     </ul>
                   </section>
                 );
-              })}
+              })
+                : null}
             </div>
+            ) : null}
             </>
           )}
         </div>
@@ -1305,13 +1325,19 @@ export function MarketAlarmPanel({
           open
           onClose={() => setChartWatchId(null)}
           title={`${watches.find((w) => w.id === chartWatchId)?.symbol ?? ""} · ${
-            watches.find((w) => w.id === chartWatchId)?.lastMovementChart?.timeframe ?? ""
+            watches.find((w) => w.id === chartWatchId)?.lastMovementChart?.timeframe ??
+            watches.find((w) => w.id === chartWatchId)?.lastBbSparkline15m?.timeframe ??
+            ""
           }`}
           subtitle="Price, EMA 10, EMA 21, and Bollinger"
           className="max-w-3xl"
         >
           <BbSparkline15mChart
-            data={watches.find((w) => w.id === chartWatchId)?.lastMovementChart}
+            data={
+              watches.find((w) => w.id === chartWatchId)?.lastMovementChart ??
+              watches.find((w) => w.id === chartWatchId)?.lastBbSparkline15m
+            }
+            breakoutLevel={watches.find((w) => w.id === chartWatchId)?.lastBreakoutLevel}
             variant="full"
           />
         </MarketDetailModal>

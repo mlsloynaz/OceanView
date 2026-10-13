@@ -50,9 +50,11 @@ export function JobsStatusPane() {
       )}
 
       <p className="mb-3 text-[11px] leading-relaxed text-ocean-sand">
-        <span className="font-medium text-ocean-foam">Movement Watch</span> evaluates every
-        active ticker against active-movements (5m / 15m trend change, EMA cross 5m). Start
-        and stop only from this page — the 9:30 ORB schedule is off.
+        <span className="font-medium text-ocean-foam">Movement Watch</span> evaluates active
+        tickers × active-movements. Prefer{" "}
+        <span className="font-medium text-ocean-foam">Alarms → Movement</span> to pick
+        movements / tickers and Start. This page can still Start / Stop. The 9:30 ORB
+        schedule is off.
       </p>
 
       {error ? (

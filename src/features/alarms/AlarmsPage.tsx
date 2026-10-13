@@ -91,6 +91,7 @@ export function AlarmsPage() {
         onStartOrbAuto={(symbols) => void alarms.startOrbAutoJobManual(symbols)}
         onStartOrb5mAuto={alarms.startOrb5mAutoJob}
         onCancelOrb5mAuto={alarms.cancelOrb5mAutoJob}
+        onMovementWatchJobChange={alarms.applyMovementWatchJob}
       />
     </div>
   );

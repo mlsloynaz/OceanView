@@ -594,10 +594,31 @@ export async function fetchActiveMovements(): Promise<ActiveMovementsPayload> {
       jobType: "active_movements",
       ruleKeys: ["trend_change_5m", "trend_change_15m", "ema_cross_5m"],
       eligibleRuleKeys: ["trend_change_5m", "trend_change_15m", "ema_cross_5m"],
+      labels: {
+        trend_change_5m: "5m trend change",
+        trend_change_15m: "15m trend change",
+        ema_cross_5m: "EMA cross 5m",
+      },
     };
   }
   return fetchJson<ActiveMovementsPayload>("/market/alarm/active-movements", {
     method: "GET",
+  });
+}
+
+export async function putActiveMovements(
+  ruleKeys: string[],
+): Promise<ActiveMovementsPayload> {
+  if (USE_MOCK) {
+    return {
+      jobType: "active_movements",
+      ruleKeys,
+      eligibleRuleKeys: ["trend_change_5m", "trend_change_15m", "ema_cross_5m"],
+    };
+  }
+  return fetchJson<ActiveMovementsPayload>("/market/alarm/active-movements", {
+    method: "PUT",
+    body: JSON.stringify({ ruleKeys }),
   });
 }
 

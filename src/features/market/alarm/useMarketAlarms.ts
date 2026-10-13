@@ -1182,25 +1182,14 @@ export function useMarketAlarms() {
     [dropWatchFromQueues, startWatch],
   );
 
-  /** Start is Admin-only; kept as no-op stub for AlarmsPage props. */
+  /** @deprecated Start from Movement Watch panel. */
   const startOrb5mAutoJob = useCallback((_symbols: string[]) => {
-    setFormError("Start Movement Watch from Admin → Job Status.");
+    setFormError("Use the Movement Watch panel on this page to Start.");
   }, []);
 
-  const cancelOrb5mAutoJob = useCallback(() => {
-    removeMovementWatchAutoWatches();
-    removeOrb5mAutoWatches();
-    setBanner("Movement Watch watches cleared locally — stop the job from Admin if it is still running.");
-  }, [removeMovementWatchAutoWatches, removeOrb5mAutoWatches]);
-
-  const syncMovementWatchJob = useCallback(async () => {
-    if (timeModeRef.current !== "live") return;
-    if (movementWatchSyncBusyRef.current) return;
-    movementWatchSyncBusyRef.current = true;
-    try {
-      const job = await fetchMovementWatchJobStatus();
+  const applyMovementWatchJob = useCallback(
+    (job: MovementWatchJobStatus) => {
       setMovementWatchJob(job);
-      // Drop legacy 5m ORB auto watches — Movement Watch owns the auto list now.
       removeOrb5mAutoWatches();
       if (job.status === "running") {
         armDesktopAlarmAlerts();
@@ -1212,16 +1201,29 @@ export function useMarketAlarms() {
       } else {
         removeMovementWatchAutoWatches();
       }
+    },
+    [ensureMovementWatchAutoWatches, removeMovementWatchAutoWatches, removeOrb5mAutoWatches],
+  );
+
+  const cancelOrb5mAutoJob = useCallback(() => {
+    removeMovementWatchAutoWatches();
+    removeOrb5mAutoWatches();
+    setBanner("Movement Watch watches cleared locally — Stop the job from the Movement Watch panel if it is still running.");
+  }, [removeMovementWatchAutoWatches, removeOrb5mAutoWatches]);
+
+  const syncMovementWatchJob = useCallback(async () => {
+    if (timeModeRef.current !== "live") return;
+    if (movementWatchSyncBusyRef.current) return;
+    movementWatchSyncBusyRef.current = true;
+    try {
+      const job = await fetchMovementWatchJobStatus();
+      applyMovementWatchJob(job);
     } catch {
       /* keep last known status; next poll retries */
     } finally {
       movementWatchSyncBusyRef.current = false;
     }
-  }, [
-    ensureMovementWatchAutoWatches,
-    removeMovementWatchAutoWatches,
-    removeOrb5mAutoWatches,
-  ]);
+  }, [applyMovementWatchJob]);
 
   useEffect(() => {
     removeOrbAutoWatches();
@@ -2035,6 +2037,7 @@ export function useMarketAlarms() {
     orbAutoBusy,
     orb5mAutoJob: movementWatchJob,
     movementWatchJob,
+    applyMovementWatchJob,
     startOrb5mAutoJob,
     cancelOrb5mAutoJob,
     orb5mAutoBusy,
