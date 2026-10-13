@@ -39,7 +39,8 @@ import {
   useNowTick,
 } from "./e03-confirm-window";
 import type { OrbAutoJobStatus } from "./alarm-client";
-import type { Orb5mAutoJobStatus } from "./orb5m-auto-job";
+import type { MovementWatchJobStatus } from "./movement-watch-job";
+import { MovementWatchPanel } from "./MovementWatchPanel";
 import { charlesCallLabel } from "./schwab-refresh";
 
 const BTN =
@@ -131,7 +132,7 @@ type Props = {
   notifyPermission?: NotificationPermission | "unsupported";
   orbAutoJob?: OrbAutoJobStatus | null;
   onCancelOrbAuto?: () => void;
-  orb5mAutoJob?: Orb5mAutoJobStatus | null;
+  orb5mAutoJob?: MovementWatchJobStatus | null;
   orbAutoBusy?: boolean;
   orb5mAutoBusy?: boolean;
   onStartOrbAuto?: (symbols: string[]) => void;
@@ -296,7 +297,7 @@ export function MarketAlarmPanel({
   notifyPermission = "default",
   orbAutoJob,
   onCancelOrbAuto,
-  orb5mAutoJob: _orb5mAutoJob,
+  orb5mAutoJob,
   orbAutoBusy: _orbAutoBusy,
   orb5mAutoBusy: _orb5mAutoBusy,
   onStartOrbAuto: _onStartOrbAuto,
@@ -356,7 +357,7 @@ export function MarketAlarmPanel({
 
   useEffect(() => {
     for (const watch of visibleWatches) {
-      if (watch.orbAuto || watch.orb5mAuto) continue;
+      if (watch.orbAuto || watch.orb5mAuto || watch.movementWatch) continue;
       if (watch.frequencyValue === frequencyValue && watch.frequencyUnit === frequencyUnit) continue;
       onUpdateInterval(watch.id, frequencyValue, frequencyUnit);
     }
@@ -504,6 +505,8 @@ export function MarketAlarmPanel({
           ) : null}
 
           <AlarmTriggerList />
+
+          {section === "movement" ? <MovementWatchPanel job={orb5mAutoJob ?? null} /> : null}
 
           <p className="text-xs leading-relaxed text-ocean-sand">
             Eligible: confirmation candle 1h / 15m, Disipador touch (candle + BB on the
@@ -732,7 +735,7 @@ export function MarketAlarmPanel({
 
             <div className="flex flex-col gap-1.5 text-xs text-ocean-sand sm:col-span-2 lg:col-span-6">
               <span>
-                Rules (AND)
+                {section === "movement" ? "Movements" : "Rules (AND)"}
                 {selectedRules.length > 0 ? (
                   <span className="ml-1 text-ocean-foam">({selectedRules.length} selected)</span>
                 ) : null}
@@ -740,7 +743,7 @@ export function MarketAlarmPanel({
               <div
                 className="rounded-md border border-ocean-mid/40 bg-ocean-surface px-2 py-1.5"
                 role="group"
-                aria-label="Rules to combine"
+                aria-label={section === "movement" ? "Movements to watch" : "Rules to combine"}
               >
                 <ul className="space-y-1">
                   {eligibleRules.map((r) => {
@@ -819,8 +822,8 @@ export function MarketAlarmPanel({
               </span>
               {section === "movement" ? (
                 <span className="text-[11px] leading-snug text-ocean-sand/90">
-                  1 minute or slower. ORB auto stops at 11:30 ET. These watches start any time
-                  the market is open and poll until 4:00 PM.
+                  1 minute or slower. Combos already on Movement Watch are skipped; existing
+                  manual watches are updated on the next poll. Poll until 4:00 PM ET.
                 </span>
               ) : null}
             </label>
@@ -880,7 +883,7 @@ export function MarketAlarmPanel({
               {section === "strategy"
                 ? "No strategy confirm watches yet — use SemiFinal → Monitor, or add a confirmation rule below (then Start to poll)."
                 : section === "movement"
-                  ? "No movement watches yet. Select one or more movements and tickers, then Add & start. Polling is every 1 minute. This works after ORB auto ends at 11:30 ET."
+                  ? "No movement watches yet. Start Movement Watch from Admin for all actives, or pick tickers + movements here and Add & start."
                   : "No watches yet — select tickers + one or more rules above."}
             </p>
           ) : (

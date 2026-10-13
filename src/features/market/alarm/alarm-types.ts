@@ -187,6 +187,8 @@ export type MarketAlarmWatch = {
   orbAuto?: boolean;
   /** 5m ORB auto-monitor — client-side list on Movement. */
   orb5mAuto?: boolean;
+  /** Movement Watch auto row — Admin job polls active tickers × active-movements. */
+  movementWatch?: boolean;
   lastDetectedTrend?: AlarmTrend | null;
   /** Per-rule status from last combined check. */
   lastRuleResults?: { ruleKey: string; status: string; met?: boolean; evidence?: string | null }[] | null;

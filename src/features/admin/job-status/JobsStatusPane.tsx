@@ -10,7 +10,15 @@ const TOOLBAR_BTN =
 export function JobsStatusPane() {
   const usesMock = jobsStatusApiUsesMock();
   const apiBase = jobsStatusApiBaseUrl();
-  const { cards, loading, error, reload } = useJobsStatusPane(true);
+  const {
+    cards,
+    loading,
+    error,
+    reload,
+    busyJob,
+    startMovementWatch,
+    stopMovementWatch,
+  } = useJobsStatusPane(true);
 
   return (
     <AdminExpandedPane
@@ -19,7 +27,7 @@ export function JobsStatusPane() {
       subtitle={
         usesMock
           ? "Mock data (VITE_USE_MOCK_JOBS_STATUS=true)"
-          : `Latest job messages — scheduled candle refresh at 5 PM ET${apiBase ? ` · ${apiBase}` : ""}`
+          : `Latest job messages — Movement Watch start/stop here${apiBase ? ` · ${apiBase}` : ""}`
       }
       headerExtra={
         <button
@@ -41,6 +49,12 @@ export function JobsStatusPane() {
         </p>
       )}
 
+      <p className="mb-3 text-[11px] leading-relaxed text-ocean-sand">
+        <span className="font-medium text-ocean-foam">Movement Watch</span> evaluates every
+        active ticker against active-movements (5m / 15m trend change, EMA cross 5m). Start
+        and stop only from this page — the 9:30 ORB schedule is off.
+      </p>
+
       {error ? (
         <p className="mb-3 text-ocean-danger" role="alert">
           {error}
@@ -57,9 +71,18 @@ export function JobsStatusPane() {
 
       {cards.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          {cards.map((card) => (
-            <JobStatusCard key={card.jobType} card={card} />
-          ))}
+          {cards.map((card) => {
+            const isMw = card.jobType === "movement_watch";
+            return (
+              <JobStatusCard
+                key={card.jobType}
+                card={card}
+                busy={busyJob === card.jobType}
+                onStart={isMw ? () => void startMovementWatch() : undefined}
+                onStop={isMw ? () => void stopMovementWatch() : undefined}
+              />
+            );
+          })}
         </div>
       ) : null}
     </AdminExpandedPane>

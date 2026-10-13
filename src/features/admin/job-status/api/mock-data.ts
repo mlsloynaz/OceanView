@@ -57,6 +57,19 @@ export function buildMockJobsStatus(): JobsStatusResponse {
           summary: { total: 12, succeeded: 12, failed: 0, skipped: 0 },
         },
       },
+      {
+        jobType: "movement_watch",
+        lastRun: {
+          runId: "",
+          kind: "movement_watch",
+          status: "idle",
+          trigger: null,
+          message:
+            "Movement Watch — start from Admin to evaluate active tickers × active movements.",
+          startedAt: null,
+          finishedAt: null,
+        },
+      },
     ],
   };
 }

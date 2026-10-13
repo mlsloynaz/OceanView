@@ -14,6 +14,8 @@ const JOB_TITLES: Record<string, string> = {
   movement_profiles: "Movement profiles",
   gap_forecast: "Gap forecast 15:25",
   orb_auto_monitor: "ORB auto monitor",
+  orb5m_auto_monitor: "Movement Watch (legacy id)",
+  movement_watch: "Movement Watch",
 };
 
 export function jobTypeTitle(jobType: string): string {
@@ -132,7 +134,7 @@ export function cardFromJob(entry: JobStatusEntry): JobStatusCardModel {
 }
 
 export function cardsFromJobs(jobs: JobStatusEntry[]): JobStatusCardModel[] {
-  const order = ["candles", "market", "preselection", "premarket"];
+  const order = ["movement_watch", "candles", "market", "preselection", "premarket"];
   const rank = (jobType: string) => {
     const idx = order.indexOf(jobType);
     return idx === -1 ? order.length : idx;

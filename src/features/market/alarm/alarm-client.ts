@@ -489,35 +489,143 @@ export async function stopOrbAutoJob(
   });
 }
 
-export async function fetchOrb5mAutoJobStatus(): Promise<OrbAutoJobStatus> {
+export type MovementWatchJobStatus = {
+  jobType: "movement_watch" | string;
+  kind?: string;
+  title?: string;
+  status: "idle" | "running" | "cancelled" | "completed" | string;
+  symbols: string[];
+  ruleKeys: string[];
+  tradeDate?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  cancelledAt?: string | null;
+  message?: string | null;
+  jobActive?: boolean;
+  canStart?: boolean;
+  canStop?: boolean;
+  pollIntervalSeconds?: number;
+  activeTickerCount?: number;
+};
+
+export type ActiveMovementsPayload = {
+  jobType: "active_movements" | string;
+  ruleKeys: string[];
+  labels?: Record<string, string>;
+  eligibleRuleKeys?: string[];
+  updatedAt?: string | null;
+};
+
+export async function fetchMovementWatchJobStatus(): Promise<MovementWatchJobStatus> {
   if (USE_MOCK) {
     return {
-      jobType: "orb5m_auto_monitor",
-      kind: "orb5m_auto_monitor",
+      jobType: "movement_watch",
+      kind: "movement_watch",
+      title: "Movement Watch",
       status: "idle",
       symbols: [],
-      pollIntervalSeconds: 30,
-      message: "5m ORB auto idle (mock).",
+      ruleKeys: ["trend_change_5m", "trend_change_15m", "ema_cross_5m"],
+      pollIntervalSeconds: 60,
+      canStart: true,
+      canStop: false,
+      message: "Movement Watch idle (mock).",
     };
   }
-  return fetchJson<OrbAutoJobStatus>("/market/alarm/orb-5m-auto/status", { method: "GET" });
+  return fetchJson<MovementWatchJobStatus>("/market/alarm/movement-watch/status", {
+    method: "GET",
+  });
 }
 
-export async function stopOrb5mAutoJobAws(
-  reason: "cancelled" | "completed" = "cancelled",
-): Promise<OrbAutoJobStatus> {
+export async function startMovementWatchJob(body?: {
+  symbols?: string[];
+  ruleKeys?: string[];
+  trigger?: string;
+}): Promise<MovementWatchJobStatus> {
   if (USE_MOCK) {
     return {
-      jobType: "orb5m_auto_monitor",
-      kind: "orb5m_auto_monitor",
-      status: reason === "completed" ? "completed" : "cancelled",
-      symbols: [],
-      pollIntervalSeconds: 30,
-      message: "5m ORB auto cancelled.",
+      jobType: "movement_watch",
+      kind: "movement_watch",
+      title: "Movement Watch",
+      status: "running",
+      symbols: body?.symbols ?? ["AAPL"],
+      ruleKeys: body?.ruleKeys ?? ["trend_change_5m"],
+      pollIntervalSeconds: 60,
+      canStart: false,
+      canStop: true,
+      jobActive: true,
+      message: "Movement Watch running (mock).",
     };
   }
-  return fetchJson<OrbAutoJobStatus>("/market/alarm/orb-5m-auto/stop", {
+  return fetchJson<MovementWatchJobStatus>("/market/alarm/movement-watch/start", {
+    method: "POST",
+    body: JSON.stringify(body ?? { trigger: "manual" }),
+  });
+}
+
+export async function stopMovementWatchJob(
+  reason: "cancelled" | "completed" = "cancelled",
+): Promise<MovementWatchJobStatus> {
+  if (USE_MOCK) {
+    return {
+      jobType: "movement_watch",
+      kind: "movement_watch",
+      title: "Movement Watch",
+      status: reason === "completed" ? "completed" : "cancelled",
+      symbols: [],
+      ruleKeys: [],
+      pollIntervalSeconds: 60,
+      canStart: reason !== "cancelled",
+      canStop: false,
+      message:
+        reason === "completed"
+          ? "Movement Watch completed."
+          : "Movement Watch cancelled — start again from Admin.",
+    };
+  }
+  return fetchJson<MovementWatchJobStatus>("/market/alarm/movement-watch/stop", {
     method: "POST",
     body: JSON.stringify({ reason }),
   });
+}
+
+export async function fetchActiveMovements(): Promise<ActiveMovementsPayload> {
+  if (USE_MOCK) {
+    return {
+      jobType: "active_movements",
+      ruleKeys: ["trend_change_5m", "trend_change_15m", "ema_cross_5m"],
+      eligibleRuleKeys: ["trend_change_5m", "trend_change_15m", "ema_cross_5m"],
+    };
+  }
+  return fetchJson<ActiveMovementsPayload>("/market/alarm/active-movements", {
+    method: "GET",
+  });
+}
+
+/** @deprecated Use fetchMovementWatchJobStatus — orb-5m-auto aliases Movement Watch. */
+export async function fetchOrb5mAutoJobStatus(): Promise<OrbAutoJobStatus> {
+  const mw = await fetchMovementWatchJobStatus();
+  return {
+    jobType: mw.jobType,
+    kind: mw.kind ?? "movement_watch",
+    status: mw.status,
+    symbols: mw.symbols,
+    tradeDate: mw.tradeDate,
+    message: mw.message,
+    pollIntervalSeconds: mw.pollIntervalSeconds,
+  };
+}
+
+/** @deprecated Use stopMovementWatchJob */
+export async function stopOrb5mAutoJobAws(
+  reason: "cancelled" | "completed" = "cancelled",
+): Promise<OrbAutoJobStatus> {
+  const mw = await stopMovementWatchJob(reason);
+  return {
+    jobType: mw.jobType,
+    kind: mw.kind ?? "movement_watch",
+    status: mw.status,
+    symbols: mw.symbols,
+    message: mw.message,
+    pollIntervalSeconds: mw.pollIntervalSeconds,
+  };
 }

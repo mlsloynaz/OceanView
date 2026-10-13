@@ -12,10 +12,20 @@ import {
   type PollIntervalUnit,
 } from "@/shared/components/PollControls";
 import type { LiveSimulateMode } from "@/shared/components/LiveSimulateControl";
-import { MarketAlarmApiError, postMarketAlarmCheck, postMarketAlarmScanLastHour, startOrbAutoJob, stopOrbAutoJob, type OrbAutoJobStatus } from "./alarm-client";
+import {
+  MarketAlarmApiError,
+  fetchMovementWatchJobStatus,
+  postMarketAlarmCheck,
+  postMarketAlarmScanLastHour,
+  startOrbAutoJob,
+  stopOrbAutoJob,
+  type MovementWatchJobStatus,
+  type OrbAutoJobStatus,
+} from "./alarm-client";
 import type { MarketAlarmScanLastHourResponse } from "./alarm-client";
 import {
   ALARM_ELIGIBLE_RULES,
+  MOVEMENT_ALARM_RULE_KEYS,
   alarmRulesLabel,
   alarmWatchConflicts,
   watchRuleKeys,
@@ -49,8 +59,6 @@ import {
 import {
   ORB_WINDOW_CLOSED_MESSAGE,
   ORB5M_WINDOW_CLOSED_MESSAGE,
-  ORB5M_WINDOW_END_MINUTES_ET,
-  easternClockMinutes,
   isOrbBreakoutWatch,
   isOrb5mBreakoutWatch,
   isOrbAutoWatch,
@@ -68,13 +76,12 @@ import {
   releaseOrbAutoSymbol,
 } from "./orb-auto-hold";
 import {
-  diffOrb5mAutoWatches,
-  favoriteOrbSymbols,
-  loadOrb5mAutoJob,
-  saveOrb5mAutoJob,
-  tradeDateEt,
-  type Orb5mAutoJobStatus,
-} from "./orb5m-auto-job";
+  diffMovementWatchAutoWatches,
+  findManualMovementComboWatch,
+  isMovementWatchAutoWatch,
+  movementWatchAutoCovers,
+  movementWatchJobCovers,
+} from "./movement-watch-job";
 import { schwabRefreshCooldownMs } from "./schwab-refresh";
 import {
   armDesktopAlarmAlerts,
@@ -201,11 +208,9 @@ export function useMarketAlarms() {
     NotificationPermission | "unsupported"
   >(() => desktopNotifyPermission());
   const [orbAutoJob, setOrbAutoJob] = useState<OrbAutoJobStatus | null>(null);
-  const [orb5mAutoJob, setOrb5mAutoJob] = useState<Orb5mAutoJobStatus | null>(() =>
-    loadOrb5mAutoJob(),
-  );
+  const [movementWatchJob, setMovementWatchJob] = useState<MovementWatchJobStatus | null>(null);
   const [orbAutoBusy, setOrbAutoBusy] = useState(false);
-  const [orb5mAutoBusy, setOrb5mAutoBusy] = useState(false);
+  const orb5mAutoBusy = false;
 
   const timersRef = useRef<Map<string, number>>(new Map());
   /** Watch ids currently executing a check (HTTP in flight). */
@@ -225,7 +230,7 @@ export function useMarketAlarms() {
   timeModeRef.current = timeMode;
   const simulateLocalRef = useRef(simulateLocal);
   simulateLocalRef.current = simulateLocal;
-  const orb5mAutoSyncBusyRef = useRef(false);
+  const movementWatchSyncBusyRef = useRef(false);
 
   const assessmentClock = useCallback((): Date => {
     if (timeModeRef.current === "simulate") {
@@ -1128,18 +1133,25 @@ export function useMarketAlarms() {
     setWatches((prev) => prev.filter((w) => !isOrb5mAutoWatch(w)));
   }, [dropWatchFromQueues]);
 
-  const ensureOrb5mAutoWatches = useCallback(
-    (symbols: string[], pollIntervalSeconds: number) => {
-      const held = heldOrbAutoSymbols("orb5m");
-      const { toAdd, toRemoveIds } = diffOrb5mAutoWatches(
+  const removeMovementWatchAutoWatches = useCallback(() => {
+    const autoRows = watchesRef.current.filter(isMovementWatchAutoWatch);
+    if (autoRows.length === 0) return;
+    for (const watch of autoRows) {
+      dropWatchFromQueues(watch.id);
+    }
+    setWatches((prev) => prev.filter((w) => !isMovementWatchAutoWatch(w)));
+  }, [dropWatchFromQueues]);
+
+  const ensureMovementWatchAutoWatches = useCallback(
+    (symbols: string[], ruleKeys: string[], pollIntervalSeconds: number) => {
+      const { toAdd, toRemoveIds } = diffMovementWatchAutoWatches(
         watchesRef.current,
         symbols,
+        ruleKeys,
         pollIntervalSeconds,
-        held,
       );
       if (toRemoveIds.length === 0 && toAdd.length === 0) {
-        for (const watch of watchesRef.current.filter(isOrb5mAutoWatch)) {
-          if (held.has(watch.symbol)) continue;
+        for (const watch of watchesRef.current.filter(isMovementWatchAutoWatch)) {
           if (watch.status === "idle" || watch.status === "stopped" || watch.status === "error") {
             startWatch(watch.id);
           }
@@ -1158,8 +1170,7 @@ export function useMarketAlarms() {
       for (const watch of toAdd) {
         window.setTimeout(() => startWatch(watch.id), 0);
       }
-      for (const watch of next.filter(isOrb5mAutoWatch)) {
-        if (held.has(watch.symbol)) continue;
+      for (const watch of next.filter(isMovementWatchAutoWatch)) {
         if (
           !toAdd.some((row) => row.id === watch.id) &&
           (watch.status === "idle" || watch.status === "stopped" || watch.status === "error")
@@ -1171,109 +1182,46 @@ export function useMarketAlarms() {
     [dropWatchFromQueues, startWatch],
   );
 
-  const startOrb5mAutoJob = useCallback(
-    (_symbols: string[]) => {
-      armDesktopAlarmAlerts();
-      const now = assessmentClock();
-      if (!isOrb5mWindowOpen(now)) {
-        setFormError(orb5mWindowMessage(now) ?? ORB5M_WINDOW_CLOSED_MESSAGE);
-        return;
-      }
-      const existing = loadOrb5mAutoJob(now);
-      if (existing.status === "cancelled" && existing.tradeDate === tradeDateEt(now)) {
-        setFormError("5m ORB auto was cancelled for today — add a manual watch or wait until tomorrow.");
-        return;
-      }
-      setOrb5mAutoBusy(true);
-      try {
-        const favorites = favoriteOrbSymbols(tickersRef.current);
-        if (favorites.length === 0) {
-          setFormError("No favorite tickers. Mark tickers as favorites for 5m ORB auto.");
-          return;
-        }
-        const job = saveOrb5mAutoJob({
-          jobType: "orb5m_auto_monitor",
-          kind: "orb5m_auto_monitor",
-          status: "running",
-          symbols: favorites,
-          tradeDate: tradeDateEt(now),
-          message: `5m ORB auto running — ${favorites.join(", ")} (9:35–11:30 ET).`,
-          windowOpen: true,
-          pollIntervalSeconds: 30,
-        });
-        setOrb5mAutoJob(job);
-        ensureOrb5mAutoWatches(favorites, 30);
-      } finally {
-        setOrb5mAutoBusy(false);
-      }
-    },
-    [assessmentClock, ensureOrb5mAutoWatches],
-  );
+  /** Start is Admin-only; kept as no-op stub for AlarmsPage props. */
+  const startOrb5mAutoJob = useCallback((_symbols: string[]) => {
+    setFormError("Start Movement Watch from Admin → Job Status.");
+  }, []);
 
   const cancelOrb5mAutoJob = useCallback(() => {
+    removeMovementWatchAutoWatches();
     removeOrb5mAutoWatches();
-    const now = assessmentClock();
-    const prev = loadOrb5mAutoJob(now);
-    const job = saveOrb5mAutoJob({
-      ...prev,
-      status: "cancelled",
-      tradeDate: tradeDateEt(now),
-      message: "5m ORB auto cancelled — use manual ticker selection.",
-      windowOpen: isOrb5mWindowOpen(now),
-    });
-    setOrb5mAutoJob(job);
-    setBanner(job.message);
-  }, [assessmentClock, removeOrb5mAutoWatches]);
+    setBanner("Movement Watch watches cleared locally — stop the job from Admin if it is still running.");
+  }, [removeMovementWatchAutoWatches, removeOrb5mAutoWatches]);
 
-  const syncOrb5mAutoJob = useCallback(() => {
+  const syncMovementWatchJob = useCallback(async () => {
     if (timeModeRef.current !== "live") return;
-    if (orb5mAutoSyncBusyRef.current) return;
-    orb5mAutoSyncBusyRef.current = true;
+    if (movementWatchSyncBusyRef.current) return;
+    movementWatchSyncBusyRef.current = true;
     try {
-      const now = assessmentClock();
-      const mins = easternClockMinutes(now);
-      let job = loadOrb5mAutoJob(now);
-      if (mins > ORB5M_WINDOW_END_MINUTES_ET) {
-        if (job.status === "running") {
-          job = saveOrb5mAutoJob({
-            ...job,
-            status: "completed",
-            message: "5m ORB window ended — auto job completed.",
-            windowOpen: false,
-          });
-        }
-        setOrb5mAutoJob(job);
-        removeOrb5mAutoWatches();
-        return;
+      const job = await fetchMovementWatchJobStatus();
+      setMovementWatchJob(job);
+      // Drop legacy 5m ORB auto watches — Movement Watch owns the auto list now.
+      removeOrb5mAutoWatches();
+      if (job.status === "running") {
+        armDesktopAlarmAlerts();
+        ensureMovementWatchAutoWatches(
+          job.symbols ?? [],
+          job.ruleKeys ?? [],
+          job.pollIntervalSeconds ?? 60,
+        );
+      } else {
+        removeMovementWatchAutoWatches();
       }
-      if (!isOrb5mWindowOpen(now)) {
-        setOrb5mAutoJob(job);
-        return;
-      }
-      if (job.status === "cancelled") {
-        setOrb5mAutoJob(job);
-        removeOrb5mAutoWatches();
-        return;
-      }
-      const favorites = favoriteOrbSymbols(tickersRef.current);
-      if (favorites.length === 0) {
-        setOrb5mAutoJob(job);
-        return;
-      }
-      job = saveOrb5mAutoJob({
-        ...job,
-        status: "running",
-        symbols: favorites,
-        tradeDate: tradeDateEt(now),
-        message: `5m ORB auto running — ${favorites.join(", ")} (9:35–11:30 ET).`,
-        windowOpen: true,
-      });
-      setOrb5mAutoJob(job);
-      ensureOrb5mAutoWatches(favorites, job.pollIntervalSeconds);
+    } catch {
+      /* keep last known status; next poll retries */
     } finally {
-      orb5mAutoSyncBusyRef.current = false;
+      movementWatchSyncBusyRef.current = false;
     }
-  }, [assessmentClock, ensureOrb5mAutoWatches, removeOrb5mAutoWatches]);
+  }, [
+    ensureMovementWatchAutoWatches,
+    removeMovementWatchAutoWatches,
+    removeOrb5mAutoWatches,
+  ]);
 
   useEffect(() => {
     removeOrbAutoWatches();
@@ -1281,10 +1229,10 @@ export function useMarketAlarms() {
 
   useEffect(() => {
     if (timeMode !== "live") return;
-    syncOrb5mAutoJob();
-    const timer = window.setInterval(() => syncOrb5mAutoJob(), 30_000);
+    void syncMovementWatchJob();
+    const timer = window.setInterval(() => void syncMovementWatchJob(), 30_000);
     return () => window.clearInterval(timer);
-  }, [timeMode, syncOrb5mAutoJob]);
+  }, [timeMode, syncMovementWatchJob]);
 
   /** SemiFinal (and other tabs) can enqueue confirm watches into sessionStorage. */
   useEffect(() => {
@@ -1368,7 +1316,6 @@ export function useMarketAlarms() {
       const idSet = new Set(ids);
       const removing = watchesRef.current.filter((watch) => idSet.has(watch.id));
       if (removing.length === 0) return;
-      const cancel5m = removing.some((watch) => watch.orb5mAuto);
       for (const watch of removing) {
         clearTimer(watch.id);
         dropWatchFromQueues(watch.id);
@@ -1412,22 +1359,8 @@ export function useMarketAlarms() {
         setAlarmPopup(null);
       }
       setWatches((prev) => prev.filter((watch) => !idSet.has(watch.id)));
-      if (cancel5m) {
-        const now = assessmentClock();
-        const prev = loadOrb5mAutoJob(now);
-        setOrb5mAutoJob(
-          saveOrb5mAutoJob({
-            ...prev,
-            status: "cancelled",
-            tradeDate: tradeDateEt(now),
-            symbols: [],
-            message: "5m ORB auto cancelled — tickers removed.",
-            windowOpen: isOrb5mWindowOpen(now),
-          }),
-        );
-      }
     },
-    [assessmentClock, clearTimer, dropWatchFromQueues, showEnterPoolAlerts],
+    [clearTimer, dropWatchFromQueues, showEnterPoolAlerts],
   );
 
   const removeWatch = useCallback(
@@ -1435,11 +1368,6 @@ export function useMarketAlarms() {
       const watch = watchesRef.current.find((w) => w.id === id);
       const holdKind = watch ? holdKindForWatch(watch) : null;
       if (watch && holdKind) holdOrbAutoSymbol(holdKind, watch.symbol);
-      if (watch?.orb5mAuto) {
-        const job = loadOrb5mAutoJob();
-        const symbols = job.symbols.filter((s) => s !== watch.symbol);
-        setOrb5mAutoJob(saveOrb5mAutoJob({ ...job, symbols }));
-      }
       removeWatches([id]);
     },
     [removeWatches],
@@ -1679,15 +1607,159 @@ export function useMarketAlarms() {
         stopWatchesAtSessionEnd();
         return false;
       }
-      const primaryKey = ruleKeys[0]!;
       const trend: AlarmTrend = "auto";
       const frequencyUnit =
         input.frequencyUnit === "hour" || input.frequencyUnit === "sec"
           ? input.frequencyUnit
           : "min";
       const frequencyValue = clampPollInterval(input.frequencyValue, frequencyUnit);
-      const label = alarmRulesLabel(ruleKeys);
 
+      const movementOnly =
+        ruleKeys.length > 0 &&
+        ruleKeys.every((key) =>
+          MOVEMENT_ALARM_RULE_KEYS.includes(key as (typeof MOVEMENT_ALARM_RULE_KEYS)[number]),
+        );
+
+      // Movement page: one watch per (ticker, movement). Skip combos already on
+      // Movement Watch; otherwise create or update an existing manual watch.
+      if (movementOnly) {
+        const existing = watchesRef.current;
+        const job = movementWatchJob;
+        const toAdd: MarketAlarmWatch[] = [];
+        const toStartIds: string[] = [];
+        const skippedAuto: string[] = [];
+        const updated: string[] = [];
+
+        for (const symbol of symbols) {
+          for (const ruleKey of ruleKeys) {
+            const combo = `${symbol} · ${alarmRulesLabel([ruleKey])}`;
+            if (
+              movementWatchJobCovers(job, symbol, ruleKey) ||
+              movementWatchAutoCovers(existing, symbol, ruleKey) ||
+              toAdd.some(
+                (w) => w.symbol === symbol && watchRuleKeys(w).includes(ruleKey),
+              )
+            ) {
+              skippedAuto.push(combo);
+              continue;
+            }
+
+            const prior = findManualMovementComboWatch(existing, symbol, ruleKey);
+            if (prior) {
+              const nextUnit = frequencyUnit;
+              const nextValue = frequencyValue;
+              setWatches((prev) =>
+                prev.map((w) =>
+                  w.id === prior.id
+                    ? {
+                        ...w,
+                        frequencyValue: nextValue,
+                        frequencyUnit: nextUnit,
+                        ruleKey,
+                        ruleKeys: [ruleKey],
+                        ruleLabel: alarmRulesLabel([ruleKey]),
+                        ...(usesBreakoutAlarmTarget([ruleKey])
+                          ? { alarmTarget: "entry_ready" as const }
+                          : {}),
+                      }
+                    : w,
+                ),
+              );
+              updated.push(combo);
+              const running =
+                prior.status === "running" ||
+                prior.status === "checking" ||
+                prior.status === "paused" ||
+                prior.status === "in_trade";
+              if (running) {
+                // Re-arm poll: first check within the next minute, then normal interval.
+                clearTimer(prior.id);
+                const ms = pollIntervalToMs(nextValue, nextUnit);
+                window.setTimeout(() => {
+                  void runCheck(prior.id);
+                  if (!timersRef.current.has(prior.id)) {
+                    const timer = window.setInterval(() => void runCheck(prior.id), ms);
+                    timersRef.current.set(prior.id, timer);
+                  }
+                }, Math.min(ms, 60_000));
+              } else if (input.startAfterAdd) {
+                toStartIds.push(prior.id);
+              }
+              continue;
+            }
+
+            toAdd.push({
+              id: `alarm-${Date.now()}-${symbol}-${ruleKey}-${Math.random().toString(36).slice(2, 7)}`,
+              symbol,
+              ruleKey,
+              ruleKeys: [ruleKey],
+              ruleLabel: alarmRulesLabel([ruleKey]),
+              trend,
+              ...(usesBreakoutAlarmTarget([ruleKey])
+                ? { alarmTarget: "entry_ready" as const }
+                : {}),
+              frequencyValue,
+              frequencyUnit,
+              status: "idle",
+              lastRuleStatus: null,
+              lastEvidence: null,
+              lastCheckedAt: null,
+              lastError: null,
+              metAt: null,
+              lastDetectedTrend: null,
+              lastRuleResults: null,
+              lastLifecycle: null,
+              lastBreakoutScore: null,
+              lastContinuationScore: null,
+              lastContinuationMomentumScore: null,
+              lastContinuationEntryScore: null,
+              lastBreakoutType: null,
+              lastSetupType: null,
+              lastBbSparkline15m: null,
+              lastBreakoutLevel: null,
+              lastAboveVwap: null,
+              lastOverextended: null,
+              lastLateEntry: null,
+              lastEntryBlockers: null,
+              lastWarnings: null,
+            });
+          }
+        }
+
+        if (toAdd.length === 0 && updated.length === 0) {
+          setFormError(
+            skippedAuto.length
+              ? `Already on Movement Watch — skipped: ${skippedAuto.join(", ")}.`
+              : "Pick at least one ticker and movement.",
+          );
+          return false;
+        }
+
+        const parts: string[] = [];
+        if (toAdd.length) parts.push(`added ${toAdd.length}`);
+        if (updated.length) parts.push(`updated ${updated.length}`);
+        if (skippedAuto.length) {
+          parts.push(`skipped (Movement Watch): ${skippedAuto.join(", ")}`);
+        }
+        setFormError(parts.length ? parts.join(" · ") : null);
+
+        if (toAdd.length > 0) {
+          setWatches((prev) => [...toAdd, ...prev]);
+        }
+
+        if (input.startAfterAdd) {
+          armDesktopAlarmAlerts();
+          const ids = [...toAdd.map((w) => w.id), ...toStartIds];
+          window.setTimeout(() => {
+            for (const id of ids) startWatch(id);
+          }, 0);
+        }
+
+        return true;
+      }
+
+      const primaryKey = ruleKeys[0]!;
+      const label = alarmRulesLabel(ruleKeys);
       const existing = watchesRef.current;
       const toAdd: MarketAlarmWatch[] = [];
       const skipped: string[] = [];
@@ -1768,7 +1840,15 @@ export function useMarketAlarms() {
 
       return true;
     },
-    [assessmentClock, startWatch, stopWatchesAtSessionEnd, sweepExpiredE03Confirms, removeOrbAutoWatches],
+    [
+      assessmentClock,
+      clearTimer,
+      movementWatchJob,
+      runCheck,
+      startWatch,
+      stopWatchesAtSessionEnd,
+      sweepExpiredE03Confirms,
+    ],
   );
 
   const startAllIdle = useCallback(() => {
@@ -1953,7 +2033,8 @@ export function useMarketAlarms() {
     cancelOrbAutoJob,
     startOrbAutoJobManual,
     orbAutoBusy,
-    orb5mAutoJob,
+    orb5mAutoJob: movementWatchJob,
+    movementWatchJob,
     startOrb5mAutoJob,
     cancelOrb5mAutoJob,
     orb5mAutoBusy,
