@@ -6,6 +6,7 @@ import { patchTickersActive } from "./api/tickers-client";
 import { BEST_FIT_COLUMN_HELP } from "./best-fit-column-help";
 import { BestFitOrb5mSection } from "./BestFitOrb5mSection";
 import { BestFitTickerDetail } from "./BestFitTickerDetail";
+import { BestFitTrendChangeSection } from "./BestFitTrendChangeSection";
 import { useTickersPane } from "./hooks/useTickersPane";
 import {
   bestFitSubTabFromHash,
@@ -85,6 +86,18 @@ export function BestFitPane({ onBack }: Props) {
     bestFitOrb5mScanning,
     bestFitOrb5mError,
     resolveBestFitOrb5m,
+    bestFitTrendChange5m,
+    bestFitTrendChange5mLoading,
+    bestFitTrendChange5mEvaluating,
+    bestFitTrendChange5mError,
+    loadBestFitTrendChange5m,
+    evaluateBestFitTrendChange5m,
+    bestFitTrendChange15m,
+    bestFitTrendChange15mLoading,
+    bestFitTrendChange15mEvaluating,
+    bestFitTrendChange15mError,
+    loadBestFitTrendChange15m,
+    evaluateBestFitTrendChange15m,
     reload,
     message,
     tickers,
@@ -245,7 +258,11 @@ export function BestFitPane({ onBack }: Props) {
       subtitle={
         subTab === "orb-5m"
           ? "5-minute opening-range fitness from historical entries. Resolve scans Alpaca 5Min bars."
-          : "Movement-profile fitness (not strategy hit rate). Click a symbol for % and $. Check boxes to promote."
+          : subTab === "trend-change-5m"
+            ? "Hour-angle profile from live 5m trend-change alarms. Score pending after the close."
+            : subTab === "trend-change-15m"
+              ? "Angle profile from live 15m trend-change alarms. Score pending after the close."
+              : "Movement-profile fitness (not strategy hit rate). Click a symbol for % and $. Check boxes to promote."
       }
       headerExtra={
         subTab === "movement" ? (
@@ -283,34 +300,30 @@ export function BestFitPane({ onBack }: Props) {
       }
     >
       <div className="mb-4 flex flex-wrap gap-1 border-b border-ocean-mid/30 pb-2" role="tablist" aria-label="Best-fit ranking">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={subTab === "movement"}
-          onClick={() => openSubTab("movement")}
-          className={cn(
-            "rounded-md px-3 py-1.5 text-xs font-semibold",
-            subTab === "movement"
-              ? "bg-ocean-teal/20 text-ocean-foam"
-              : "text-ocean-sand hover:text-ocean-foam",
-          )}
-        >
-          Movement
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={subTab === "orb-5m"}
-          onClick={() => openSubTab("orb-5m")}
-          className={cn(
-            "rounded-md px-3 py-1.5 text-xs font-semibold",
-            subTab === "orb-5m"
-              ? "bg-ocean-teal/20 text-ocean-foam"
-              : "text-ocean-sand hover:text-ocean-foam",
-          )}
-        >
-          ORB 5m
-        </button>
+        {(
+          [
+            ["movement", "Movement"],
+            ["orb-5m", "ORB 5m"],
+            ["trend-change-5m", "5m trend change"],
+            ["trend-change-15m", "15m trend change"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={subTab === id}
+            onClick={() => openSubTab(id)}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-semibold",
+              subTab === id
+                ? "bg-ocean-teal/20 text-ocean-foam"
+                : "text-ocean-sand hover:text-ocean-foam",
+            )}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {subTab === "orb-5m" ? (
@@ -324,6 +337,26 @@ export function BestFitPane({ onBack }: Props) {
           priceBySymbol={priceBySymbol}
           onResolve={resolveBestFitOrb5m}
           onReload={reload}
+        />
+      ) : subTab === "trend-change-5m" ? (
+        <BestFitTrendChangeSection
+          variant="5m"
+          data={bestFitTrendChange5m}
+          loading={bestFitTrendChange5mLoading}
+          evaluating={bestFitTrendChange5mEvaluating}
+          error={bestFitTrendChange5mError}
+          onEvaluate={evaluateBestFitTrendChange5m}
+          onReload={loadBestFitTrendChange5m}
+        />
+      ) : subTab === "trend-change-15m" ? (
+        <BestFitTrendChangeSection
+          variant="15m"
+          data={bestFitTrendChange15m}
+          loading={bestFitTrendChange15mLoading}
+          evaluating={bestFitTrendChange15mEvaluating}
+          error={bestFitTrendChange15mError}
+          onEvaluate={evaluateBestFitTrendChange15m}
+          onReload={loadBestFitTrendChange15m}
         />
       ) : (
         <>

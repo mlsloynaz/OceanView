@@ -1,6 +1,16 @@
 /** Desktop ENTER/EXIT alerts when the OceanView tab is hidden. */
 
+import { formatEarningPctLabel, formatTopRatedLine } from "./alarm-enter-pool";
+
 export type DesktopAlarmKind = "enter" | "exit";
+
+export type DesktopAlarmPoolRow = {
+  symbol: string;
+  earningPct: number | null;
+  isTop: boolean;
+  ruleLabel: string;
+  sideLabel: string;
+};
 
 export type DesktopAlarmPayload = {
   kind: DesktopAlarmKind;
@@ -10,6 +20,11 @@ export type DesktopAlarmPayload = {
   tag: string;
   /** Market-alarm watch id. Present when this window can confirm or dismiss. */
   watchId?: string;
+  /** Non-top ENTER — who ranked highest in the same pool flush. */
+  topRatedSymbol?: string;
+  topRatedEarningPct?: number | null;
+  /** Multi-ENTER list (top first) when several signals share one overlay. */
+  poolEntries?: DesktopAlarmPoolRow[];
 };
 
 export type DesktopAlarmAction = "confirm" | "dismiss";
@@ -63,8 +78,38 @@ export function overlayHtmlForAlarm(payload: DesktopAlarmPayload | null): string
   }
   const tone = payload.kind === "enter" ? "enter" : "exit";
   const action = payload.kind === "enter" ? "ENTER" : "EXIT";
+  const multi = payload.kind === "enter" && (payload.poolEntries?.length ?? 0) > 1;
   const confirmLabel =
-    payload.kind === "enter" ? "Entered — watch for exit" : "Exited — arm again";
+    payload.kind === "enter"
+      ? multi
+        ? "Entered all — watch for exit"
+        : "Entered — watch for exit"
+      : "Exited — arm again";
+  const showTopRef =
+    payload.kind === "enter" &&
+    !multi &&
+    !!payload.topRatedSymbol &&
+    payload.topRatedSymbol.trim().toUpperCase() !== payload.symbol.trim().toUpperCase();
+  const topLine = showTopRef
+    ? `<p class="top-ref">${escapeHtml(
+        formatTopRatedLine(payload.topRatedSymbol!, payload.topRatedEarningPct),
+      )}</p>`
+    : "";
+  const poolList = multi
+    ? `<ul class="pool">${payload.poolEntries!
+        .map((row) => {
+          const label = row.isTop
+            ? formatTopRatedLine(row.symbol, row.earningPct)
+            : `${row.symbol} · ${formatEarningPctLabel(row.earningPct)}`;
+          return `<li class="${row.isTop ? "top" : "other"}"><span class="sym">${escapeHtml(
+            label,
+          )}</span><span class="meta">${escapeHtml(`${row.ruleLabel} · ${row.sideLabel}`)}</span></li>`;
+        })
+        .join("")}</ul>`
+    : "";
+  const heading = multi
+    ? `<h1>${payload.poolEntries!.length} ENTERs</h1>`
+    : `<h1>${escapeHtml(payload.symbol)}</h1>`;
   const actions = payload.watchId
     ? `
       <div class="actions">
@@ -77,7 +122,9 @@ export function overlayHtmlForAlarm(payload: DesktopAlarmPayload | null): string
   return `
     <div class="wrap ${tone}">
       <p class="kicker">${action} now</p>
-      <h1>${escapeHtml(payload.symbol)}</h1>
+      ${topLine}
+      ${heading}
+      ${poolList}
       <p class="sub">${escapeHtml(payload.body)}</p>
       ${actions}
     </div>
@@ -114,7 +161,50 @@ export function overlayStyles(): string {
     }
     .wrap.enter .kicker { color: #7ff0e4; }
     .wrap.exit .kicker { color: #ffd27a; }
+    .top-ref {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 750;
+      line-height: 1.2;
+      color: #7ff0e4;
+    }
     h1 { margin: 0; font-size: 34px; line-height: 1.1; }
+    .pool {
+      list-style: none;
+      margin: 4px 0 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .pool li {
+      margin: 0;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #2a6f82;
+      background: #0a2430;
+    }
+    .pool li.top {
+      border-color: #2ec4b6;
+      background: #0a3d38;
+    }
+    .pool .sym {
+      display: block;
+      font-size: 16px;
+      font-weight: 650;
+      color: #e8f1f4;
+    }
+    .pool li.top .sym {
+      font-size: 20px;
+      font-weight: 750;
+      color: #7ff0e4;
+    }
+    .pool .meta {
+      display: block;
+      margin-top: 2px;
+      font-size: 11px;
+      color: #9ec5cf;
+    }
     .sub { margin: 0; font-size: 14px; color: #d5e4e8; }
     .hint { margin: 8px 0 0; font-size: 11px; color: #8aa8b0; }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }

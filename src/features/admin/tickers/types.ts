@@ -182,6 +182,53 @@ export type BestFitOrb5mResponse = {
   message?: string | null;
 };
 
+export type BestFitAngleStats = {
+  sampleSize?: number;
+  mean?: number | null;
+  p25?: number | null;
+  p50?: number | null;
+  p75?: number | null;
+};
+
+export type BestFitAngleBucket = {
+  label: string;
+  sampleSize: number;
+  achievedCount: number;
+  achievedPct: number;
+  medianMfePct?: number | null;
+  meanMfePct?: number | null;
+};
+
+export type BestFitViaRow = {
+  label: string;
+  sampleSize: number;
+  achievedCount: number;
+  achievedPct: number;
+};
+
+export type BestFitTrendChangeProfileResponse = {
+  kind?: string;
+  evaluatedAt?: string | null;
+  scoredThisRun?: number;
+  pendingCount?: number;
+  sampleSize?: number;
+  achievedCount?: number;
+  achievedPct?: number | null;
+  angle?: {
+    all?: BestFitAngleStats;
+    achieved?: BestFitAngleStats;
+    missed?: BestFitAngleStats;
+  };
+  buckets?: BestFitAngleBucket[];
+  bestBucket?: BestFitAngleBucket | null;
+  via?: BestFitViaRow[];
+  /** 5m profile: p25 of winning 1h angles. */
+  suggestedMinHourAngleDeg?: number | null;
+  /** 15m profile: p25 of winning 15m angles. */
+  suggestedMinAngleDeg?: number | null;
+  message?: string | null;
+};
+
 export type TradableSideMetrics = {
   contractCount?: number | null;
   liquidRate?: number | null;

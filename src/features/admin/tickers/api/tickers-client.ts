@@ -1,5 +1,6 @@
 import type {
   BestFitOrb5mResponse,
+  BestFitTrendChangeProfileResponse,
   BestFitWatchlistResponse,
   CatalogTicker,
   CatalogTickersResponse,
@@ -50,6 +51,47 @@ let mockBestFitOrb5m: BestFitOrb5mResponse = {
   progress: { done: 0, total: 0 },
   pollIntervalSeconds: 5,
   message: "No ORB 5m ranking yet. Run Resolve on Best-fit → ORB 5m.",
+};
+
+let mockBestFitTrendChange5m: BestFitTrendChangeProfileResponse = {
+  kind: "best_fit_trend_change_5m",
+  evaluatedAt: null,
+  scoredThisRun: 0,
+  pendingCount: 0,
+  sampleSize: 0,
+  achievedCount: 0,
+  achievedPct: null,
+  angle: {
+    all: { sampleSize: 0, mean: null, p25: null, p50: null, p75: null },
+    achieved: { sampleSize: 0, mean: null, p25: null, p50: null, p75: null },
+    missed: { sampleSize: 0, mean: null, p25: null, p50: null, p75: null },
+  },
+  buckets: [],
+  bestBucket: null,
+  via: [],
+  suggestedMinHourAngleDeg: null,
+  message:
+    "No scored 5m trend-change entries yet. Live alarms are stored when they ring, and the after-close job scores the session.",
+};
+
+let mockBestFitTrendChange15m: BestFitTrendChangeProfileResponse = {
+  kind: "best_fit_trend_change_15m",
+  evaluatedAt: null,
+  scoredThisRun: 0,
+  pendingCount: 0,
+  sampleSize: 0,
+  achievedCount: 0,
+  achievedPct: null,
+  angle: {
+    all: { sampleSize: 0, mean: null, p25: null, p50: null, p75: null },
+    achieved: { sampleSize: 0, mean: null, p25: null, p50: null, p75: null },
+    missed: { sampleSize: 0, mean: null, p25: null, p50: null, p75: null },
+  },
+  buckets: [],
+  bestBucket: null,
+  suggestedMinAngleDeg: null,
+  message:
+    "No scored 15m trend-change entries yet. Live alarms are stored when they ring, and the after-close job scores the session.",
 };
 
 let mockTradable: TradableWatchlistResponse = {
@@ -527,6 +569,56 @@ export async function getBestFitOrb5m(): Promise<BestFitOrb5mResponse> {
     };
   }
   return fetchJson<BestFitOrb5mResponse>("/tickers/best-fit/orb-5m");
+}
+
+export async function getBestFitTrendChange5m(): Promise<BestFitTrendChangeProfileResponse> {
+  if (USE_MOCK) {
+    await delay();
+    return { ...mockBestFitTrendChange5m, buckets: [...(mockBestFitTrendChange5m.buckets ?? [])], via: [...(mockBestFitTrendChange5m.via ?? [])] };
+  }
+  return fetchJson<BestFitTrendChangeProfileResponse>("/tickers/best-fit/trend-change-5m");
+}
+
+export async function evaluateBestFitTrendChange5m(): Promise<BestFitTrendChangeProfileResponse> {
+  if (USE_MOCK) {
+    await delay(250);
+    mockBestFitTrendChange5m = {
+      ...mockBestFitTrendChange5m,
+      evaluatedAt: new Date().toISOString(),
+      scoredThisRun: 0,
+      message: "Mock: no pending 5m trend-change entries to score.",
+    };
+    return { ...mockBestFitTrendChange5m };
+  }
+  return fetchJson<BestFitTrendChangeProfileResponse>("/tickers/best-fit/trend-change-5m/evaluate", {
+    method: "POST",
+    body: "{}",
+  });
+}
+
+export async function getBestFitTrendChange15m(): Promise<BestFitTrendChangeProfileResponse> {
+  if (USE_MOCK) {
+    await delay();
+    return { ...mockBestFitTrendChange15m, buckets: [...(mockBestFitTrendChange15m.buckets ?? [])] };
+  }
+  return fetchJson<BestFitTrendChangeProfileResponse>("/tickers/best-fit/trend-change-15m");
+}
+
+export async function evaluateBestFitTrendChange15m(): Promise<BestFitTrendChangeProfileResponse> {
+  if (USE_MOCK) {
+    await delay(250);
+    mockBestFitTrendChange15m = {
+      ...mockBestFitTrendChange15m,
+      evaluatedAt: new Date().toISOString(),
+      scoredThisRun: 0,
+      message: "Mock: no pending 15m trend-change entries to score.",
+    };
+    return { ...mockBestFitTrendChange15m };
+  }
+  return fetchJson<BestFitTrendChangeProfileResponse>("/tickers/best-fit/trend-change-15m/evaluate", {
+    method: "POST",
+    body: "{}",
+  });
 }
 
 export async function resolveBestFitOrb5m(input?: {

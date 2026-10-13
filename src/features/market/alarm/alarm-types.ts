@@ -192,6 +192,29 @@ export type MarketAlarmWatch = {
   lastRuleResults?: { ruleKey: string; status: string; met?: boolean; evidence?: string | null }[] | null;
 };
 
+/** One ENTER candidate shown in a pooled popup (top first). */
+export type AlarmPopupPoolEntry = {
+  watchId: string;
+  symbol: string;
+  ruleLabel: string;
+  sideLabel: string;
+  earningPct: number | null;
+  isTop: boolean;
+  evidence?: string | null;
+  watch: MarketAlarmWatch;
+};
+
+/** Active ENTER/EXIT popup (ENTER may list multiple pool entries). */
+export type AlarmPopupState = {
+  kind: AlarmPopupKind;
+  /** Primary watch — top-ranked for multi-ENTER, or the single signal. */
+  watch: MarketAlarmWatch;
+  /** ENTER pool snapshot (top first). Length ≥ 2 when several ENTERs share the alert. */
+  poolEntries?: AlarmPopupPoolEntry[];
+  topRatedSymbol?: string;
+  topRatedEarningPct?: number | null;
+};
+
 export function alarmRuleLabel(ruleKey: string): string {
   return ALARM_ELIGIBLE_RULES.find((r) => r.ruleKey === ruleKey)?.label ?? ruleKey;
 }

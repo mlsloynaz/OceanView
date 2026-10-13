@@ -345,6 +345,9 @@ export type MarketAlarmTriggerEntry = {
   side: string;
   evidence: string | null;
   tradeDate?: string;
+  /** Non-top ENTER pool ref (optional; may be stored in way if API strips fields). */
+  topRatedSymbol?: string;
+  topRatedEarningPct?: number | null;
 };
 
 export type MarketAlarmTriggersListResponse = {
@@ -381,6 +384,12 @@ export async function postMarketAlarmTrigger(
       side: entry.side,
       evidence: entry.evidence,
       tradeDate: entry.tradeDate,
+      ...(entry.topRatedSymbol
+        ? {
+            topRatedSymbol: entry.topRatedSymbol,
+            topRatedEarningPct: entry.topRatedEarningPct ?? null,
+          }
+        : {}),
     };
     mockTriggerStore.unshift(row);
     if (mockTriggerStore.length > 120) mockTriggerStore.length = 120;

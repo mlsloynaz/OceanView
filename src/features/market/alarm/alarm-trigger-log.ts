@@ -7,6 +7,7 @@ import {
   postMarketAlarmTrigger,
   type MarketAlarmTriggerEntry,
 } from "./alarm-client";
+import { formatTopRatedLine } from "./alarm-enter-pool";
 import {
   formatAlarmTrend,
   watchRuleKeys,
@@ -21,6 +22,13 @@ export const ALARM_TRIGGER_LOG_CHANGED_EVENT = "oceanview.market.alarm.triggers.
 export type AlarmTriggerEntry = MarketAlarmTriggerEntry & {
   ruleKeys: AlarmEligibleRuleKey[] | string[];
   side: AlarmTrend | string;
+  topRatedSymbol?: string;
+  topRatedEarningPct?: number | null;
+};
+
+export type AppendAlarmTriggerOpts = {
+  topRatedSymbol?: string;
+  topRatedEarningPct?: number | null;
 };
 
 function sideOf(watch: MarketAlarmWatch): AlarmTrend {
@@ -34,6 +42,7 @@ export function buildTriggerWay(
   watch: MarketAlarmWatch,
   kind: AlarmPopupKind,
   evidence: string | null,
+  opts?: AppendAlarmTriggerOpts,
 ): string {
   const side = sideOf(watch);
   const sideLabel =
@@ -41,7 +50,16 @@ export function buildTriggerWay(
   const action = kind === "enter" ? "ENTER" : "EXIT";
   const base = `${action} · ${watch.ruleLabel} · ${sideLabel}`;
   const ev = (evidence || "").trim();
-  return ev ? `${base} — ${ev}` : base;
+  let way = ev ? `${base} — ${ev}` : base;
+  const topSym = opts?.topRatedSymbol?.trim();
+  if (
+    kind === "enter" &&
+    topSym &&
+    topSym.toUpperCase() !== watch.symbol.trim().toUpperCase()
+  ) {
+    way = `${way} · ${formatTopRatedLine(topSym, opts?.topRatedEarningPct)}`;
+  }
+  return way;
 }
 
 function notifyTriggerLogChanged(): void {
@@ -57,24 +75,40 @@ export async function loadAlarmTriggerLog(): Promise<AlarmTriggerEntry[]> {
 export async function appendAlarmTrigger(
   watch: MarketAlarmWatch,
   kind: AlarmPopupKind,
+  opts?: AppendAlarmTriggerOpts,
 ): Promise<AlarmTriggerEntry> {
   const evidence =
     kind === "enter" ? watch.lastEvidence : (watch.exitEvidence ?? watch.lastEvidence);
   const triggeredAt =
     (kind === "enter" ? watch.metAt : watch.exitedAt) || new Date().toISOString();
+  const topRatedSymbol =
+    kind === "enter" &&
+    opts?.topRatedSymbol &&
+    opts.topRatedSymbol.trim().toUpperCase() !== watch.symbol.trim().toUpperCase()
+      ? opts.topRatedSymbol.trim().toUpperCase()
+      : undefined;
+  const topRatedEarningPct = topRatedSymbol ? (opts?.topRatedEarningPct ?? null) : undefined;
   const result = await postMarketAlarmTrigger({
     watchId: watch.id,
     symbol: watch.symbol,
     kind,
     triggeredAt,
-    way: buildTriggerWay(watch, kind, evidence),
+    way: buildTriggerWay(watch, kind, evidence, opts),
     ruleLabel: watch.ruleLabel,
     ruleKeys: watchRuleKeys(watch),
     side: sideOf(watch),
     evidence: evidence ?? null,
+    ...(topRatedSymbol
+      ? { topRatedSymbol, topRatedEarningPct: topRatedEarningPct ?? null }
+      : {}),
   });
   notifyTriggerLogChanged();
-  return result.entry;
+  return {
+    ...result.entry,
+    ...(topRatedSymbol
+      ? { topRatedSymbol, topRatedEarningPct: topRatedEarningPct ?? null }
+      : {}),
+  };
 }
 
 export async function clearAlarmTriggerLog(): Promise<void> {

@@ -1,5 +1,6 @@
 import { cn } from "@/shared/lib/cn";
 import { useCallback, useEffect, useState } from "react";
+import { formatTopRatedLine } from "./alarm-enter-pool";
 import {
   ALARM_TRIGGER_LOG_CHANGED_EVENT,
   clearAlarmTriggerLog,
@@ -156,6 +157,14 @@ export function AlarmTriggerList() {
                         : ""}
                     </span>
                   </p>
+                  {row.kind === "enter" &&
+                  row.topRatedSymbol &&
+                  row.topRatedSymbol.trim().toUpperCase() !==
+                    row.symbol.trim().toUpperCase() ? (
+                    <p className="mt-0.5 text-sm font-bold text-ocean-teal-dim dark:text-ocean-teal">
+                      {formatTopRatedLine(row.topRatedSymbol, row.topRatedEarningPct)}
+                    </p>
+                  ) : null}
                   <p className="mt-0.5 text-ocean-sand">{row.way}</p>
                   <time
                     className="mt-0.5 block tabular-nums text-[10px] text-ocean-sand"

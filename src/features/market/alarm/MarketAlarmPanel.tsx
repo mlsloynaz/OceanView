@@ -29,6 +29,7 @@ import {
   type AlarmBoardSection,
   type AlarmEligibleRuleKey,
   type AlarmPopupKind,
+  type AlarmPopupPoolEntry,
   type AlarmTrend,
   type MarketAlarmWatch,
 } from "./alarm-types";
@@ -79,7 +80,13 @@ type Props = {
   tickersError: string | null;
   formError: string | null;
   banner: string | null;
-  alarmPopup: { kind: AlarmPopupKind; watch: MarketAlarmWatch } | null;
+  alarmPopup: {
+    kind: AlarmPopupKind;
+    watch: MarketAlarmWatch;
+    poolEntries?: AlarmPopupPoolEntry[];
+    topRatedSymbol?: string;
+    topRatedEarningPct?: number | null;
+  } | null;
   metCount: number;
   runningCount: number;
   timeMode: LiveSimulateMode;
@@ -1311,6 +1318,9 @@ export function MarketAlarmPanel({
         <AlarmTradeModal
           watch={alarmPopup.watch}
           kind={alarmPopup.kind}
+          poolEntries={alarmPopup.poolEntries}
+          topRatedSymbol={alarmPopup.topRatedSymbol}
+          topRatedEarningPct={alarmPopup.topRatedEarningPct}
           onClose={onClearAlarmPopup}
           onConfirm={() =>
             alarmPopup.kind === "enter"

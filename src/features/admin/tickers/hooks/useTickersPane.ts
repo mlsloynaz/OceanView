@@ -2,8 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import {
   createTicker,
   deleteTicker,
+  evaluateBestFitTrendChange15m,
+  evaluateBestFitTrendChange5m,
   fetchMovementProfilesForSymbols,
   getBestFitOrb5m,
+  getBestFitTrendChange15m,
+  getBestFitTrendChange5m,
   getBestFitWatchlist,
   getTickersCatalog,
   getTradableWatchlist,
@@ -28,6 +32,7 @@ import {
 import { filterTickersBySearch } from "../search";
 import type {
   BestFitOrb5mResponse,
+  BestFitTrendChangeProfileResponse,
   BestFitWatchlistResponse,
   CatalogTicker,
   TickerCatalogFilter,
@@ -65,6 +70,16 @@ export function useTickersPane(open: boolean) {
   const [bestFitOrb5mLoading, setBestFitOrb5mLoading] = useState(false);
   const [bestFitOrb5mResolving, setBestFitOrb5mResolving] = useState(false);
   const [bestFitOrb5mError, setBestFitOrb5mError] = useState<string | null>(null);
+  const [bestFitTrendChange5m, setBestFitTrendChange5m] =
+    useState<BestFitTrendChangeProfileResponse | null>(null);
+  const [bestFitTrendChange5mLoading, setBestFitTrendChange5mLoading] = useState(false);
+  const [bestFitTrendChange5mEvaluating, setBestFitTrendChange5mEvaluating] = useState(false);
+  const [bestFitTrendChange5mError, setBestFitTrendChange5mError] = useState<string | null>(null);
+  const [bestFitTrendChange15m, setBestFitTrendChange15m] =
+    useState<BestFitTrendChangeProfileResponse | null>(null);
+  const [bestFitTrendChange15mLoading, setBestFitTrendChange15mLoading] = useState(false);
+  const [bestFitTrendChange15mEvaluating, setBestFitTrendChange15mEvaluating] = useState(false);
+  const [bestFitTrendChange15mError, setBestFitTrendChange15mError] = useState<string | null>(null);
   const [tradable, setTradable] = useState<TradableWatchlistResponse | null>(null);
   const [tradableLoading, setTradableLoading] = useState(false);
   const [tradableRefining, setTradableRefining] = useState(false);
@@ -111,6 +126,68 @@ export function useTickersPane(open: boolean) {
       setBestFitOrb5mError(err instanceof Error ? err.message : "Failed to load ORB 5m ranking.");
     } finally {
       setBestFitOrb5mLoading(false);
+    }
+  }, []);
+
+  const loadBestFitTrendChange5m = useCallback(async () => {
+    setBestFitTrendChange5mError(null);
+    setBestFitTrendChange5mLoading(true);
+    try {
+      const payload = await getBestFitTrendChange5m();
+      setBestFitTrendChange5m(payload);
+    } catch (err) {
+      setBestFitTrendChange5mError(
+        err instanceof Error ? err.message : "Failed to load 5m trend-change profile.",
+      );
+    } finally {
+      setBestFitTrendChange5mLoading(false);
+    }
+  }, []);
+
+  const evaluateBestFitTrendChange5mProfile = useCallback(async () => {
+    setBestFitTrendChange5mError(null);
+    setBestFitTrendChange5mEvaluating(true);
+    try {
+      const payload = await evaluateBestFitTrendChange5m();
+      setBestFitTrendChange5m(payload);
+      setMessage(payload.message ?? "5m trend-change entries scored.");
+    } catch (err) {
+      setBestFitTrendChange5mError(
+        err instanceof Error ? err.message : "Failed to score 5m trend-change entries.",
+      );
+    } finally {
+      setBestFitTrendChange5mEvaluating(false);
+    }
+  }, []);
+
+  const loadBestFitTrendChange15m = useCallback(async () => {
+    setBestFitTrendChange15mError(null);
+    setBestFitTrendChange15mLoading(true);
+    try {
+      const payload = await getBestFitTrendChange15m();
+      setBestFitTrendChange15m(payload);
+    } catch (err) {
+      setBestFitTrendChange15mError(
+        err instanceof Error ? err.message : "Failed to load 15m trend-change profile.",
+      );
+    } finally {
+      setBestFitTrendChange15mLoading(false);
+    }
+  }, []);
+
+  const evaluateBestFitTrendChange15mProfile = useCallback(async () => {
+    setBestFitTrendChange15mError(null);
+    setBestFitTrendChange15mEvaluating(true);
+    try {
+      const payload = await evaluateBestFitTrendChange15m();
+      setBestFitTrendChange15m(payload);
+      setMessage(payload.message ?? "15m trend-change entries scored.");
+    } catch (err) {
+      setBestFitTrendChange15mError(
+        err instanceof Error ? err.message : "Failed to score 15m trend-change entries.",
+      );
+    } finally {
+      setBestFitTrendChange15mEvaluating(false);
     }
   }, []);
 
@@ -291,8 +368,17 @@ export function useTickersPane(open: boolean) {
     if (!open) return;
     void loadBestFit();
     void loadBestFitOrb5m();
+    void loadBestFitTrendChange5m();
+    void loadBestFitTrendChange15m();
     void loadTradable();
-  }, [open, loadBestFit, loadBestFitOrb5m, loadTradable]);
+  }, [
+    open,
+    loadBestFit,
+    loadBestFitOrb5m,
+    loadBestFitTrendChange5m,
+    loadBestFitTrendChange15m,
+    loadTradable,
+  ]);
 
   useEffect(() => {
     if (!open || !bestFitOrb5mScanning) return;
@@ -703,6 +789,18 @@ export function useTickersPane(open: boolean) {
     bestFitOrb5mScanning,
     bestFitOrb5mError,
     resolveBestFitOrb5m: resolveBestFitOrb5mRanking,
+    bestFitTrendChange5m,
+    bestFitTrendChange5mLoading,
+    bestFitTrendChange5mEvaluating,
+    bestFitTrendChange5mError,
+    loadBestFitTrendChange5m,
+    evaluateBestFitTrendChange5m: evaluateBestFitTrendChange5mProfile,
+    bestFitTrendChange15m,
+    bestFitTrendChange15mLoading,
+    bestFitTrendChange15mEvaluating,
+    bestFitTrendChange15mError,
+    loadBestFitTrendChange15m,
+    evaluateBestFitTrendChange15m: evaluateBestFitTrendChange15mProfile,
     tradable,
     tradableLoading,
     tradableRefining,

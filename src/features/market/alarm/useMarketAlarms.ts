@@ -21,10 +21,20 @@ import {
   watchRuleKeys,
   usesBreakoutAlarmTarget,
   type AlarmEligibleRuleKey,
-  type AlarmPopupKind,
+  type AlarmPopupPoolEntry,
+  type AlarmPopupState,
   type AlarmTrend,
   type MarketAlarmWatch,
 } from "./alarm-types";
+import {
+  createEnterAlarmPool,
+  formatEarningPctLabel,
+  formatTopRatedLine,
+  mergeAndRankEnterPool,
+  resolveEarningPct,
+  type AlarmPoolEntry,
+  type RankedEnter,
+} from "./alarm-enter-pool";
 import {
   E03_CONFIRM_EXPIRED_MESSAGE,
   E03_CONFIRM_RULE_KEY,
@@ -171,12 +181,11 @@ export function useMarketAlarms() {
   const [tickersError, setTickersError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
-  const [alarmPopup, setAlarmPopup] = useState<{
-    kind: AlarmPopupKind;
-    watch: MarketAlarmWatch;
-  } | null>(null);
+  const [alarmPopup, setAlarmPopup] = useState<AlarmPopupState | null>(null);
   const alarmPopupRef = useRef(alarmPopup);
   alarmPopupRef.current = alarmPopup;
+  const enterPoolRef = useRef(createEnterAlarmPool());
+  const enterAlertQueueRef = useRef<RankedEnter[]>([]);
   const [timeMode, setTimeMode] = useState<LiveSimulateMode>(() => {
     try {
       return sessionStorage.getItem(SIM_STORAGE_KEY) === "simulate" ? "simulate" : "live";
@@ -280,6 +289,169 @@ export function useMarketAlarms() {
     },
     [clearTimer],
   );
+
+  const toPopupPoolEntries = useCallback((ranked: RankedEnter[]): AlarmPopupPoolEntry[] => {
+    return ranked.map((row) => ({
+      watchId: row.watchId,
+      symbol: row.symbol,
+      ruleLabel: row.ruleLabel,
+      sideLabel: row.sideLabel,
+      earningPct: row.earningPct,
+      isTop: row.isTop,
+      evidence: row.evidence ?? null,
+      watch: row.watch,
+    }));
+  }, []);
+
+  const poolEntriesFromPopup = useCallback((popup: AlarmPopupState): AlarmPoolEntry[] => {
+    if (popup.kind !== "enter") return [];
+    if (popup.poolEntries && popup.poolEntries.length > 0) {
+      return popup.poolEntries.map((row) => ({
+        watchId: row.watchId,
+        symbol: row.symbol,
+        kind: "enter" as const,
+        earningPct: row.earningPct,
+        side: row.sideLabel,
+        ruleLabel: row.ruleLabel,
+        evidence: row.evidence,
+        enqueuedAt: Date.now(),
+        watch: row.watch,
+        sideLabel: row.sideLabel,
+        simSuffix: "",
+      }));
+    }
+    return [
+      {
+        watchId: popup.watch.id,
+        symbol: popup.watch.symbol,
+        kind: "enter",
+        earningPct: resolveEarningPct(popup.watch.lastOptionGainPct, popup.watch.lastEvidence),
+        side: String(popup.watch.lastDetectedTrend ?? popup.watch.trend),
+        ruleLabel: popup.watch.ruleLabel,
+        evidence: popup.watch.lastEvidence,
+        enqueuedAt: Date.now(),
+        watch: popup.watch,
+        sideLabel:
+          popup.watch.lastDetectedTrend === "alcista" ||
+          popup.watch.lastDetectedTrend === "bajista"
+            ? popup.watch.lastDetectedTrend
+            : String(popup.watch.trend),
+        simSuffix: "",
+      },
+    ];
+  }, []);
+
+  const showEnterPoolAlerts = useCallback(
+    (incoming: RankedEnter[]) => {
+      if (incoming.length === 0) return;
+      const popup = alarmPopupRef.current;
+
+      // EXIT is showing — hold ENTERs until it clears.
+      if (popup?.kind === "exit") {
+        enterAlertQueueRef.current.push(...incoming);
+        return;
+      }
+
+      const existing = popup?.kind === "enter" ? poolEntriesFromPopup(popup) : [];
+      const prevIds = new Set(existing.map((row) => row.watchId));
+      const merged = mergeAndRankEnterPool(existing, incoming);
+      if (merged.length === 0) return;
+
+      const toLog = existing.length === 0 ? merged : merged.filter((row) => !prevIds.has(row.watchId));
+      for (const ranked of toLog) {
+        const topOpts =
+          !ranked.isTop && ranked.topRatedSymbol
+            ? {
+                topRatedSymbol: ranked.topRatedSymbol,
+                topRatedEarningPct: ranked.topRatedEarningPct ?? null,
+              }
+            : undefined;
+        void appendAlarmTrigger(ranked.watch, "enter", topOpts).catch(() => {
+          /* list refresh is best-effort; popup/sound still fire */
+        });
+      }
+
+      const top = merged[0]!;
+      const poolEntries = toPopupPoolEntries(merged);
+      const multi = merged.length > 1;
+      const nextPopup: AlarmPopupState = {
+        kind: "enter",
+        watch: top.watch,
+        poolEntries,
+        topRatedSymbol: top.symbol,
+        topRatedEarningPct: top.earningPct,
+      };
+      alarmPopupRef.current = nextPopup;
+      setAlarmPopup(nextPopup);
+
+      const symbols = merged.map((row) => row.symbol).join(", ");
+      setBanner(
+        multi
+          ? `ENTER pool · top ${top.symbol} (${formatEarningPctLabel(top.earningPct)}) · ${symbols}${top.simSuffix}`
+          : `${top.watch.symbol} · ${top.ruleLabel} (${top.sideLabel}) ENTER — rule met.${top.simSuffix}`,
+      );
+      startAlarmRing();
+
+      const body = multi
+        ? merged
+            .map((row) =>
+              row.isTop
+                ? formatTopRatedLine(row.symbol, row.earningPct)
+                : `${row.symbol} · ${formatEarningPctLabel(row.earningPct)}`,
+            )
+            .join(" · ")
+        : `${top.ruleLabel} · ${top.sideLabel} — enter now`;
+
+      showDesktopAlarmAlert({
+        kind: "enter",
+        symbol: top.watch.symbol,
+        title: multi ? `Enter: ${merged.length} signals` : `Enter: ${top.watch.symbol}`,
+        body,
+        tag: multi
+          ? `ov-market-alarm-enter-pool-${merged.map((r) => r.watchId).sort().join("-")}`
+          : `ov-market-alarm-enter-${top.watchId}`,
+        watchId: top.watchId,
+        topRatedSymbol: top.symbol,
+        topRatedEarningPct: top.earningPct,
+        poolEntries: poolEntries.map((row) => ({
+          symbol: row.symbol,
+          earningPct: row.earningPct,
+          isTop: row.isTop,
+          ruleLabel: row.ruleLabel,
+          sideLabel: row.sideLabel,
+        })),
+      });
+    },
+    [poolEntriesFromPopup, toPopupPoolEntries],
+  );
+
+  const drainEnterAlertQueue = useCallback(() => {
+    if (alarmPopupRef.current != null) return;
+    if (enterAlertQueueRef.current.length === 0) return;
+    const batch = enterAlertQueueRef.current;
+    enterAlertQueueRef.current = [];
+    showEnterPoolAlerts(mergeAndRankEnterPool([], batch));
+  }, [showEnterPoolAlerts]);
+
+  const clearPopupThenDrain = useCallback(() => {
+    alarmPopupRef.current = null;
+    setAlarmPopup(null);
+    window.setTimeout(() => drainEnterAlertQueue(), 0);
+  }, [drainEnterAlertQueue]);
+
+  const flushEnterPool = useCallback(
+    (opts?: { force?: boolean }) => {
+      const ranked = enterPoolRef.current.flushDue(Date.now(), opts);
+      if (!ranked || ranked.length === 0) return;
+      showEnterPoolAlerts(ranked);
+    },
+    [showEnterPoolAlerts],
+  );
+
+  useEffect(() => {
+    const timer = window.setInterval(() => flushEnterPool(), 250);
+    return () => window.clearInterval(timer);
+  }, [flushEnterPool]);
 
   const sweepExpiredE03Confirms = useCallback(() => {
     const now = assessmentClock();
@@ -655,7 +827,8 @@ export function useMarketAlarms() {
           return;
         }
 
-        // Fresh enter signal
+        // Fresh enter signal — pool/rank. If an ENTER popup is still open (not
+        // dismissed / entered), flush immediately and show a ranked list.
         if (result.met) {
           clearTimer(id);
           const metWatch: MarketAlarmWatch = {
@@ -670,23 +843,23 @@ export function useMarketAlarms() {
             lastDetectedTrend: detectedTrend ?? watch.trend,
           };
           setWatches((prev) => prev.map((w) => (w.id === id ? metWatch : w)));
-          void appendAlarmTrigger(metWatch, "enter").catch(() => {
-            /* list refresh is best-effort; popup/sound still fire */
-          });
-          setBanner(
-            `${result.symbol} · ${watch.ruleLabel} (${sideLabel}) ENTER — rule met.${simSuffix}`,
-          );
-          setAlarmPopup({ kind: "enter", watch: metWatch });
-          // Entry alarm: ring until confirm / dismiss / clear.
-          startAlarmRing();
-          showDesktopAlarmAlert({
+          enterPoolRef.current.enqueue({
+            watchId: metWatch.id,
+            symbol: metWatch.symbol,
             kind: "enter",
-            symbol: watch.symbol,
-            title: `Enter: ${watch.symbol}`,
-            body: `${watch.ruleLabel} · ${sideLabel} — enter now`,
-            tag: `ov-market-alarm-enter-${watch.id}`,
-            watchId: watch.id,
+            earningPct: resolveEarningPct(metWatch.lastOptionGainPct, metWatch.lastEvidence),
+            side: String(metWatch.lastDetectedTrend ?? metWatch.trend),
+            ruleLabel: metWatch.ruleLabel,
+            evidence: metWatch.lastEvidence,
+            enqueuedAt: Date.now(),
+            watch: metWatch,
+            sideLabel,
+            simSuffix,
           });
+          // Visible ENTER still up → merge into the same alert as a list (top highlighted).
+          if (alarmPopupRef.current?.kind === "enter") {
+            flushEnterPool({ force: true });
+          }
           return;
         }
 
@@ -729,7 +902,15 @@ export function useMarketAlarms() {
         inFlightRef.current.delete(id);
       }
     },
-    [assessmentClock, clearTimer, releaseCandleRefresh, shouldRefreshCandles, stopWatchesAtSessionEnd, sweepExpiredE03Confirms],
+    [
+      assessmentClock,
+      clearTimer,
+      flushEnterPool,
+      releaseCandleRefresh,
+      shouldRefreshCandles,
+      stopWatchesAtSessionEnd,
+      sweepExpiredE03Confirms,
+    ],
   );
 
   const pumpCheckQueue = useCallback(() => {
@@ -752,9 +933,17 @@ export function useMarketAlarms() {
       void executeCheck(id).finally(() => {
         activeChecksRef.current = Math.max(0, activeChecksRef.current - 1);
         pumpCheckQueue();
+        // End of a parallel check wave — flush pool early if the debounce window already elapsed.
+        if (
+          activeChecksRef.current === 0 &&
+          checkQueueRef.current.length === 0 &&
+          enterPoolRef.current.hasPending()
+        ) {
+          flushEnterPool();
+        }
       });
     }
-  }, [executeCheck]);
+  }, [executeCheck, flushEnterPool]);
 
   /** Enqueue a check; at most MAX_PARALLEL_CHECKS run at once across all watches. */
   const runCheck = useCallback(
@@ -1184,14 +1373,44 @@ export function useMarketAlarms() {
         clearTimer(watch.id);
         dropWatchFromQueues(watch.id);
       }
-      setAlarmPopup((popup) => {
-        if (popup && idSet.has(popup.watch.id)) {
+      const popup = alarmPopupRef.current;
+      if (popup?.kind === "enter" && popup.poolEntries && popup.poolEntries.length > 0) {
+        const remaining = popup.poolEntries.filter((row) => !idSet.has(row.watchId));
+        if (remaining.length === 0) {
           stopAlarmRing();
           clearDesktopAlarmAlert();
-          return null;
+          alarmPopupRef.current = null;
+          setAlarmPopup(null);
+        } else if (remaining.length < popup.poolEntries.length) {
+          alarmPopupRef.current = null;
+          setAlarmPopup(null);
+          window.setTimeout(() => {
+            showEnterPoolAlerts(
+              mergeAndRankEnterPool(
+                [],
+                remaining.map((row) => ({
+                  watchId: row.watchId,
+                  symbol: row.symbol,
+                  kind: "enter" as const,
+                  earningPct: row.earningPct,
+                  side: row.sideLabel,
+                  ruleLabel: row.ruleLabel,
+                  evidence: row.evidence,
+                  enqueuedAt: Date.now(),
+                  watch: row.watch,
+                  sideLabel: row.sideLabel,
+                  simSuffix: "",
+                })),
+              ),
+            );
+          }, 0);
         }
-        return popup;
-      });
+      } else if (popup && idSet.has(popup.watch.id)) {
+        stopAlarmRing();
+        clearDesktopAlarmAlert();
+        alarmPopupRef.current = null;
+        setAlarmPopup(null);
+      }
       setWatches((prev) => prev.filter((watch) => !idSet.has(watch.id)));
       if (cancel5m) {
         const now = assessmentClock();
@@ -1208,13 +1427,12 @@ export function useMarketAlarms() {
         );
       }
     },
-    [assessmentClock, clearTimer, dropWatchFromQueues],
+    [assessmentClock, clearTimer, dropWatchFromQueues, showEnterPoolAlerts],
   );
 
   const removeWatch = useCallback(
     (id: string) => {
       const watch = watchesRef.current.find((w) => w.id === id);
-      clearTimer(id);
       const holdKind = watch ? holdKindForWatch(watch) : null;
       if (watch && holdKind) holdOrbAutoSymbol(holdKind, watch.symbol);
       if (watch?.orb5mAuto) {
@@ -1222,24 +1440,24 @@ export function useMarketAlarms() {
         const symbols = job.symbols.filter((s) => s !== watch.symbol);
         setOrb5mAutoJob(saveOrb5mAutoJob({ ...job, symbols }));
       }
-      setAlarmPopup((popup) => {
-        if (popup?.watch.id === id) {
-          stopAlarmRing();
-          clearDesktopAlarmAlert();
-          return null;
-        }
-        return popup;
-      });
-      setWatches((prev) => prev.filter((w) => w.id !== id));
+      removeWatches([id]);
     },
-    [clearTimer],
+    [removeWatches],
   );
 
   const clearMetBanner = useCallback(() => setBanner(null), []);
   const clearAlarmPopup = useCallback(() => {
     stopAlarmRing();
     clearDesktopAlarmAlert();
-    setAlarmPopup(null);
+    clearPopupThenDrain();
+  }, [clearPopupThenDrain]);
+
+  const enterPopupWatchIds = useCallback((popup: AlarmPopupState | null): string[] => {
+    if (!popup || popup.kind !== "enter") return popup ? [popup.watch.id] : [];
+    if (popup.poolEntries && popup.poolEntries.length > 0) {
+      return [...new Set(popup.poolEntries.map((row) => row.watchId))];
+    }
+    return [popup.watch.id];
   }, []);
 
   /** Dismiss = already notified. Stop sound/overlay and do not show this signal again. */
@@ -1247,14 +1465,15 @@ export function useMarketAlarms() {
     const popup = alarmPopupRef.current;
     stopAlarmRing();
     clearDesktopAlarmAlert();
-    setAlarmPopup(null);
     setBanner(null);
+    clearPopupThenDrain();
     if (!popup) return;
     if (popup.kind === "enter") {
+      const ids = new Set(enterPopupWatchIds(popup));
       const now = new Date().toISOString();
       setWatches((prev) =>
         prev.map((w) =>
-          w.id === popup.watch.id
+          ids.has(w.id)
             ? {
                 ...w,
                 status: "in_trade",
@@ -1267,7 +1486,9 @@ export function useMarketAlarms() {
             : w,
         ),
       );
-      window.setTimeout(() => startWatch(popup.watch.id, { mode: "in_trade" }), 0);
+      window.setTimeout(() => {
+        for (const id of ids) startWatch(id, { mode: "in_trade" });
+      }, 0);
       return;
     }
     setWatches((prev) =>
@@ -1287,19 +1508,24 @@ export function useMarketAlarms() {
       ),
     );
     window.setTimeout(() => startWatch(popup.watch.id, { mode: "hunt" }), 0);
-  }, [startWatch]);
+  }, [clearPopupThenDrain, enterPopupWatchIds, startWatch]);
 
-  /** User confirmed enter — keep polling until setup drops (exit). */
+  /** User confirmed enter — keep polling until setup drops (exit). Applies to all pooled ENTERs. */
   const confirmEnter = useCallback(
     (id: string) => {
+      const popup = alarmPopupRef.current;
+      const ids = new Set(
+        popup?.kind === "enter" ? enterPopupWatchIds(popup) : [id],
+      );
+      ids.add(id);
       const now = new Date().toISOString();
       stopAlarmRing();
       clearDesktopAlarmAlert();
-      setAlarmPopup(null);
       setBanner(null);
+      clearPopupThenDrain();
       setWatches((prev) =>
         prev.map((w) =>
-          w.id === id
+          ids.has(w.id)
             ? {
                 ...w,
                 status: "in_trade",
@@ -1311,9 +1537,11 @@ export function useMarketAlarms() {
             : w,
         ),
       );
-      window.setTimeout(() => startWatch(id, { mode: "in_trade" }), 0);
+      window.setTimeout(() => {
+        for (const watchId of ids) startWatch(watchId, { mode: "in_trade" });
+      }, 0);
     },
-    [startWatch],
+    [clearPopupThenDrain, enterPopupWatchIds, startWatch],
   );
 
   /** User confirmed exit — reset and arm for a new enter alarm. */
@@ -1321,8 +1549,8 @@ export function useMarketAlarms() {
     (id: string) => {
       stopAlarmRing();
       clearDesktopAlarmAlert();
-      setAlarmPopup(null);
       setBanner(null);
+      clearPopupThenDrain();
       setWatches((prev) =>
         prev.map((w) =>
           w.id === id
@@ -1340,7 +1568,7 @@ export function useMarketAlarms() {
       );
       window.setTimeout(() => startWatch(id, { mode: "hunt" }), 0);
     },
-    [startWatch],
+    [clearPopupThenDrain, startWatch],
   );
 
   /** Reset a fired (met/exit) watch so it can poll and alarm again. */
@@ -1384,6 +1612,8 @@ export function useMarketAlarms() {
       .filter((w) => w.status === "met" || w.status === "exit" || w.status === "in_trade")
       .map((w) => w.id);
     for (const id of ids) clearTimer(id);
+    enterPoolRef.current.clear();
+    enterAlertQueueRef.current = [];
     stopAlarmRing();
     clearDesktopAlarmAlert();
     setAlarmPopup(null);

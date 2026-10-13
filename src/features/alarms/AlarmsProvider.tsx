@@ -16,6 +16,9 @@ export function AlarmsProvider({ children }: { children: ReactNode }) {
         <AlarmTradeModal
           watch={alarms.alarmPopup.watch}
           kind={alarms.alarmPopup.kind}
+          poolEntries={alarms.alarmPopup.poolEntries}
+          topRatedSymbol={alarms.alarmPopup.topRatedSymbol}
+          topRatedEarningPct={alarms.alarmPopup.topRatedEarningPct}
           onClose={alarms.dismissAlarmPopup}
           onConfirm={() =>
             alarms.alarmPopup!.kind === "enter"
