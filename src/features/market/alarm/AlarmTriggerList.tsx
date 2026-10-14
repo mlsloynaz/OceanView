@@ -28,6 +28,8 @@ function formatWhen(iso: string): string {
 
 export function AlarmTriggerList() {
   const [entries, setEntries] = useState<AlarmTriggerEntry[]>([]);
+  const [scope, setScope] = useState<"week" | "recent">("week");
+  const [weekStart, setWeekStart] = useState<string | null>(null);
   const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,14 +39,15 @@ export function AlarmTriggerList() {
     setLoading(true);
     setError(null);
     try {
-      const rows = await loadAlarmTriggerLog();
-      setEntries(rows);
+      const loaded = await loadAlarmTriggerLog(scope === "week" ? "current" : undefined);
+      setEntries(loaded.entries);
+      setWeekStart(loaded.weekStart);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load Alarm list.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     void refresh();
@@ -77,11 +80,38 @@ export function AlarmTriggerList() {
             </span>
           </h3>
           <p className="mt-0.5 text-[10px] leading-snug text-ocean-sand">
-            Saved in Dynamo (JobsStatus · market_alarm_triggers) with way + time. Sound + popup
-            still fire on confirmation; this list keeps the history after you dismiss.
+            {scope === "week"
+              ? `This week${weekStart ? ` from ${weekStart}` : ""} stays saved after Clear list, so entries can be reviewed later.`
+              : "Recent list (latest 120). Clear list removes only this view. This week keeps the same alarms."}
           </p>
         </button>
         <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            className={cn(
+              BTN,
+              "border",
+              scope === "week"
+                ? "border-ocean-teal/60 text-ocean-foam"
+                : "border-ocean-mid/50 text-ocean-sand",
+            )}
+            onClick={() => setScope("week")}
+          >
+            This week
+          </button>
+          <button
+            type="button"
+            className={cn(
+              BTN,
+              "border",
+              scope === "recent"
+                ? "border-ocean-teal/60 text-ocean-foam"
+                : "border-ocean-mid/50 text-ocean-sand",
+            )}
+            onClick={() => setScope("recent")}
+          >
+            Recent
+          </button>
           <button
             type="button"
             className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam")}
@@ -90,7 +120,7 @@ export function AlarmTriggerList() {
           >
             {loading ? "Loading…" : "Refresh"}
           </button>
-          {entries.length > 0 ? (
+          {scope === "recent" && entries.length > 0 ? (
             <button
               type="button"
               className={cn(BTN, "border border-ocean-mid/50 text-ocean-sand")}

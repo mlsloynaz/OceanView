@@ -39,6 +39,31 @@ function cardTone(status: MarketAlarmWatch["status"]): string {
   return "border-ocean-mid/30 bg-ocean-deep/20";
 }
 
+function clockLabel(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function lastAlarmLine(watch: MarketAlarmWatch): string | null {
+  const label = watch.lastAlarmLabel;
+  const at = clockLabel(watch.lastAlarmAt);
+  if (label && at) return `${label} · ${at}`;
+  if (label) return label;
+  if (watch.status === "met") {
+    const fallback = clockLabel(watch.metAt);
+    const name = contractLabel("buy", watch.lastDetectedTrend);
+    return fallback ? `${name} · ${fallback}` : name;
+  }
+  if (watch.status === "exit") {
+    const fallback = clockLabel(watch.exitedAt ?? watch.metAt);
+    const name = contractLabel("exit", watch.lastDetectedTrend);
+    return fallback ? `${name} · ${fallback}` : name;
+  }
+  return null;
+}
+
 function contractLabel(
   kind: "buy" | "exit",
   trend: MarketAlarmWatch["lastDetectedTrend"],
@@ -113,6 +138,7 @@ function MovementWatchCard({
     watch.lastDetectedTrend === "alcista" || watch.lastDetectedTrend === "bajista"
       ? formatAlarmTrend(watch.lastDetectedTrend)
       : null;
+  const lastAlarm = lastAlarmLine(watch);
   const showChart =
     watchRuleKeys(watch).some(
       (key) =>
@@ -143,6 +169,11 @@ function MovementWatchCard({
             {watch.ruleLabel}
             {side ? ` · ${side}` : ""}
           </p>
+          {lastAlarm ? (
+            <p className="truncate text-[10px] font-semibold text-ocean-foam">
+              Last alarm · {lastAlarm}
+            </p>
+          ) : null}
         </div>
         <span className="shrink-0 rounded border border-ocean-mid/40 px-1 py-0.5 text-[9px] uppercase tracking-wide text-ocean-sand">
           {watch.status}

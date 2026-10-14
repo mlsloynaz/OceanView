@@ -781,17 +781,6 @@ export function useMarketAlarms() {
         // Entry was showing, or we are in the trade, and the setup is gone → EXIT.
         // The timer stays up so the next entry can still ring.
         if ((priorStatus === "in_trade" || priorStatus === "met") && !result.met) {
-          const exitWatch: MarketAlarmWatch = {
-            ...watch,
-            ...patchBase,
-            status: "exit",
-            exitedAt: result.checkedAt,
-            exitEvidence: result.evidence ?? "Setup no longer met — consider exit.",
-          };
-          setWatches((prev) => prev.map((w) => (w.id === id ? exitWatch : w)));
-          void appendAlarmTrigger(exitWatch, "exit").catch(() => {
-            /* list refresh is best-effort; popup/sound still fire */
-          });
           const exitSide =
             detectedTrend === "alcista" || watch.lastDetectedTrend === "alcista"
               ? "Call"
@@ -799,6 +788,19 @@ export function useMarketAlarms() {
                 ? "Put"
                 : "";
           const exitName = exitSide ? `Exit ${exitSide}` : "Exit";
+          const exitWatch: MarketAlarmWatch = {
+            ...watch,
+            ...patchBase,
+            status: "exit",
+            exitedAt: result.checkedAt,
+            exitEvidence: result.evidence ?? "Setup no longer met — consider exit.",
+            lastAlarmLabel: exitName,
+            lastAlarmAt: result.checkedAt,
+          };
+          setWatches((prev) => prev.map((w) => (w.id === id ? exitWatch : w)));
+          void appendAlarmTrigger(exitWatch, "exit").catch(() => {
+            /* list refresh is best-effort; popup/sound still fire */
+          });
           setBanner(
             `${result.symbol} · ${watch.ruleLabel} · ${exitName}.${simSuffix}`,
           );
@@ -887,6 +889,12 @@ export function useMarketAlarms() {
 
         // Fresh enter signal — pool/rank. Keep the timer so a later exit can ring.
         if (result.met) {
+          const buyName =
+            detectedTrend === "alcista"
+              ? "Buy Call"
+              : detectedTrend === "bajista"
+                ? "Buy Put"
+                : "Buy";
           const metWatch: MarketAlarmWatch = {
             ...watch,
             ...patchBase,
@@ -897,6 +905,8 @@ export function useMarketAlarms() {
             exitEvidence: null,
             lastError: null,
             lastDetectedTrend: detectedTrend ?? watch.trend,
+            lastAlarmLabel: buyName,
+            lastAlarmAt: result.checkedAt,
           };
           setWatches((prev) => prev.map((w) => (w.id === id ? metWatch : w)));
           enterPoolRef.current.enqueue({

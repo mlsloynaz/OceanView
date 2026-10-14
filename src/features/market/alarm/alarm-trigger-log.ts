@@ -66,9 +66,15 @@ function notifyTriggerLogChanged(): void {
   window.dispatchEvent(new CustomEvent(ALARM_TRIGGER_LOG_CHANGED_EVENT));
 }
 
-export async function loadAlarmTriggerLog(): Promise<AlarmTriggerEntry[]> {
-  const payload = await fetchMarketAlarmTriggers();
-  return Array.isArray(payload.entries) ? payload.entries : [];
+export async function loadAlarmTriggerLog(week?: string): Promise<{
+  entries: AlarmTriggerEntry[];
+  weekStart: string | null;
+}> {
+  const payload = await fetchMarketAlarmTriggers(week);
+  return {
+    entries: Array.isArray(payload.entries) ? payload.entries : [],
+    weekStart: payload.weekStart ?? null,
+  };
 }
 
 /** Persist ENTER/EXIT to Dynamo (OceanView-JobsStatus · market_alarm_triggers). */

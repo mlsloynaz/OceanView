@@ -190,6 +190,9 @@ export type MarketAlarmWatch = {
   /** Movement Watch auto row — Admin job polls active tickers × active-movements. */
   movementWatch?: boolean;
   lastDetectedTrend?: AlarmTrend | null;
+  /** Last Buy/Exit alarm that rang for this ticker, kept after later checks. */
+  lastAlarmLabel?: string | null;
+  lastAlarmAt?: string | null;
   /** Per-rule status from last combined check. */
   lastRuleResults?: { ruleKey: string; status: string; met?: boolean; evidence?: string | null }[] | null;
 };

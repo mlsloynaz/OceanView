@@ -355,15 +355,20 @@ export type MarketAlarmTriggersListResponse = {
   count: number;
   updatedAt?: string | null;
   tradeDate?: string | null;
+  weekStart?: string | null;
+  scope?: "week" | "recent";
 };
 
 const mockTriggerStore: MarketAlarmTriggerEntry[] = [];
 
-export async function fetchMarketAlarmTriggers(): Promise<MarketAlarmTriggersListResponse> {
+export async function fetchMarketAlarmTriggers(
+  week?: string,
+): Promise<MarketAlarmTriggersListResponse> {
   if (USE_MOCK) {
     return { entries: [...mockTriggerStore], count: mockTriggerStore.length };
   }
-  return fetchJson<MarketAlarmTriggersListResponse>("/market/alarm/triggers", {
+  const query = week ? `?week=${encodeURIComponent(week)}` : "";
+  return fetchJson<MarketAlarmTriggersListResponse>(`/market/alarm/triggers${query}`, {
     method: "GET",
   });
 }
