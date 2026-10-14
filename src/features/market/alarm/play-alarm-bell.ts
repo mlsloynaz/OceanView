@@ -77,13 +77,10 @@ export function playAlarmBell(): void {
   }
 }
 
-/** Keep chiming until stopAlarmRing (while Entry/Exit popup is open). */
-export function startAlarmRing(intervalMs = 2800): void {
+/** One chime when Entry/Exit opens. Does not repeat. */
+export function startAlarmRing(_intervalMs = 2800): void {
   stopAlarmRing();
   playAlarmBell();
-  ringTimer = window.setInterval(() => {
-    playAlarmBell();
-  }, intervalMs);
 }
 
 export function stopAlarmRing(): void {

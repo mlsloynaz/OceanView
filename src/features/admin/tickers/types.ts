@@ -222,6 +222,12 @@ export type BestFitTrendChangeProfileResponse = {
   buckets?: BestFitAngleBucket[];
   bestBucket?: BestFitAngleBucket | null;
   via?: BestFitViaRow[];
+  /** 5m only. Average degrees of the entry angle given back on a continuation. */
+  retroceso?: {
+    sampleSize?: number;
+    meanAngleDeg?: number | null;
+    meanPctOfTrend?: number | null;
+  };
   /** Older 5m jobs: same floor, when the study field was still the 1h angle. */
   suggestedMinHourAngleDeg?: number | null;
   /** p25 of winning trade-side angles (5m EMA 10, or 15m). */

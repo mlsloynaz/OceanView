@@ -30,7 +30,7 @@ describe("desktop alarm notify", () => {
     expect(html).toContain("MSFT");
     expect(html).toContain("Confirmation 1h");
     expect(html).toContain('data-action="show"');
-    expect(html).toContain("Click to open OceanView");
+    expect(html).toContain("Click to bring OceanView to the front");
     expect(html).not.toContain("data-action=\"confirm\"");
   });
 
@@ -115,6 +115,6 @@ describe("desktop alarm notify", () => {
     expect(html).toContain("Watching");
     expect(html).toContain("on top");
     expect(html).toContain('data-action="show"');
-    expect(html).toContain("Click to open OceanView");
+    expect(html).toContain("Click to bring OceanView to the front");
   });
 });

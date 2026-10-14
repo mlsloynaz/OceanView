@@ -114,6 +114,16 @@ export function BestFitTrendChangeSection({
         />
         <StatCard label="Pending" value={fmtNum(data?.pendingCount)} />
         <StatCard label={copy.floorLabel} value={fmtDeg(suggested)} highlight />
+        {variant === "5m" ? (
+          <StatCard
+            label="Retroceso"
+            value={
+              data?.retroceso?.meanAngleDeg != null
+                ? `${fmtDeg(data.retroceso.meanAngleDeg)} · ${fmtPct(data.retroceso.meanPctOfTrend)} of trend`
+                : "—"
+            }
+          />
+        ) : null}
       </div>
 
       {data?.evaluatedAt || data?.scoredThisRun != null ? (

@@ -34,16 +34,7 @@ type DesktopAlarmActionHandler = (
   payload: DesktopAlarmPayload,
 ) => void;
 
-type DocumentPictureInPicture = {
-  requestWindow: (opts?: { width?: number; height?: number }) => Promise<Window>;
-};
-
-const PIP_WIDTH = 400;
-const PIP_HEIGHT = 320;
-
 let pipWindow: Window | null = null;
-let activePayload: DesktopAlarmPayload | null = null;
-let onAlarmAction: DesktopAlarmActionHandler | null = null;
 let lastNotification: Notification | null = null;
 let titleFlashTimer: number | null = null;
 let titleBeforeFlash: string | null = null;
@@ -73,7 +64,7 @@ export function overlayHtmlForAlarm(payload: DesktopAlarmPayload | null): string
         <p class="kicker">OceanView alarms</p>
         <h1>Watching</h1>
         <p class="sub">This window stays on top. ENTER / EXIT will fill it when a rule hits.</p>
-        <p class="hint">Click to open OceanView</p>
+        <p class="hint">Click to bring OceanView to the front</p>
       </div>
     `;
   }
@@ -119,10 +110,9 @@ export function overlayHtmlForAlarm(payload: DesktopAlarmPayload | null): string
       </div>
       <p class="hint">Stops the bell here. You can stay on this window.</p>
     `
-    : `<p class="hint">Click to open OceanView</p>`;
-  const showAttr = payload.watchId ? "" : ` data-action="show"`;
+    : `<p class="hint">Click to bring OceanView to the front</p>`;
   return `
-    <div class="wrap ${tone}"${showAttr}>
+    <div class="wrap ${tone}" data-action="show">
       <p class="kicker">${action} now</p>
       ${topLine}
       ${heading}
@@ -230,9 +220,9 @@ export function overlayStyles(): string {
   `;
 }
 
-/** Call from a click (Enable notify / Start). Opens the always-on-top overlay. */
+/** Call from a click (Enable notify / Start). Chrome notification only — no Watching window. */
 export function armDesktopAlarmAlerts(): void {
-  void ensureAlarmOverlayWindow();
+  closeAlarmOverlayWindow();
   void requestDesktopNotifyPermission();
 }
 
@@ -250,20 +240,18 @@ export async function requestDesktopNotifyPermission(): Promise<
   }
 }
 
-/** Market alarms register this so the always-on-top window can confirm or dismiss. */
-export function setDesktopAlarmActionHandler(handler: DesktopAlarmActionHandler | null): void {
-  onAlarmAction = handler;
+/** Kept so callers can register. Alerts are the Chrome notification, not a second window. */
+export function setDesktopAlarmActionHandler(_handler: DesktopAlarmActionHandler | null): void {
+  /* no Watching window */
 }
 
 export function showDesktopAlarmAlert(payload: DesktopAlarmPayload): void {
-  activePayload = payload;
   showStickyNotification(payload);
   renderOverlay(payload);
   startTitleFlash(payload.title);
 }
 
 export function clearDesktopAlarmAlert(): void {
-  activePayload = null;
   stopTitleFlash();
   try {
     lastNotification?.close();
@@ -299,86 +287,14 @@ function showStickyNotification(payload: DesktopAlarmPayload): void {
   }
 }
 
-function getDocumentPiP(): DocumentPictureInPicture | null {
-  if (typeof window === "undefined") return null;
-  const api = (window as unknown as { documentPictureInPicture?: DocumentPictureInPicture })
-    .documentPictureInPicture;
-  return api && typeof api.requestWindow === "function" ? api : null;
-}
-
-async function ensureAlarmOverlayWindow(): Promise<void> {
-  ensureAppWindowName();
-  if (pipWindow && !pipWindow.closed) return;
-  const api = getDocumentPiP();
-  if (!api) return;
-  try {
-    pipWindow = await api.requestWindow({ width: PIP_WIDTH, height: PIP_HEIGHT });
-  } catch {
-    pipWindow = null;
-    return;
-  }
-  pipWindow.addEventListener("pagehide", () => {
-    const payload = activePayload;
-    pipWindow = null;
-    if (payload && onAlarmAction) {
-      onAlarmAction("dismiss", payload);
-    }
-  });
-  pipWindow.document.addEventListener("click", (event) => {
-    const raw = event.target;
-    const target =
-      raw instanceof Element ? raw : raw instanceof Node ? raw.parentElement : null;
-    const el = target?.closest("[data-action]") ?? null;
-    const action = el?.getAttribute("data-action");
-    if (action === "show") {
-      focusOpenerFromPipClick();
-      return;
-    }
-    if ((action === "confirm" || action === "dismiss") && activePayload && onAlarmAction) {
-      onAlarmAction(action, activePayload);
-    }
-  });
-  renderOverlay(null);
-}
-
-const APP_WINDOW_NAME = "oceanview-app";
-
-function ensureAppWindowName(): void {
-  if (typeof window === "undefined" || window.name) return;
-  window.name = APP_WINDOW_NAME;
-}
-
-/** Runs in the PiP window so the click counts as the gesture that may focus OceanView. */
-function focusOpenerFromPipClick(): void {
-  ensureAppWindowName();
+function closeAlarmOverlayWindow(): void {
   const pip = pipWindow;
-  if (!pip || pip.closed) {
-    try {
-      window.focus();
-    } catch {
-      /* ignore */
-    }
-    return;
-  }
-  type PipFunctionRealm = Window & {
-    Function: new (body: string) => () => void;
-  };
+  pipWindow = null;
+  if (!pip || pip.closed) return;
   try {
-    const focus = new (pip as PipFunctionRealm).Function(`
-      const opener = window.opener;
-      if (!opener || opener.closed) return;
-      const name = opener.name;
-      try { opener.focus(); } catch (e) {}
-      if (!name) return;
-      try { window.open("", name); } catch (e) {}
-    `);
-    focus();
+    pip.close();
   } catch {
-    try {
-      window.focus();
-    } catch {
-      /* ignore */
-    }
+    /* ignore */
   }
 }
 
