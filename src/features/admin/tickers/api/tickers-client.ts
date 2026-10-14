@@ -69,7 +69,7 @@ let mockBestFitTrendChange5m: BestFitTrendChangeProfileResponse = {
   buckets: [],
   bestBucket: null,
   via: [],
-  suggestedMinHourAngleDeg: null,
+  suggestedMinAngleDeg: null,
   message:
     "No scored 5m trend-change entries yet. Live alarms are stored when they ring, and the after-close job scores the session.",
 };

@@ -222,9 +222,9 @@ export type BestFitTrendChangeProfileResponse = {
   buckets?: BestFitAngleBucket[];
   bestBucket?: BestFitAngleBucket | null;
   via?: BestFitViaRow[];
-  /** 5m profile: p25 of winning 1h angles. */
+  /** Older 5m jobs: same floor, when the study field was still the 1h angle. */
   suggestedMinHourAngleDeg?: number | null;
-  /** 15m profile: p25 of winning 15m angles. */
+  /** p25 of winning trade-side angles (5m EMA 10, or 15m). */
   suggestedMinAngleDeg?: number | null;
   message?: string | null;
 };

@@ -1,9 +1,14 @@
 import { Outlet } from "react-router-dom";
 import { AlarmsProvider } from "@/features/alarms/AlarmsProvider";
+import { usePresenceHeartbeat } from "@/features/system/usePresenceHeartbeat";
+import { useAuth } from "@/shared/auth/AuthProvider";
 import { TopNav } from "./TopNav";
 import { ToolsPane } from "./ToolsPane";
 
 export function AppShell() {
+  const { authRequired, username } = useAuth();
+  usePresenceHeartbeat(authRequired && Boolean(username));
+
   return (
     <AlarmsProvider>
       <div className="flex h-screen flex-col">

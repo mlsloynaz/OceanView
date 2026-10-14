@@ -39,7 +39,23 @@ function cardTone(status: MarketAlarmWatch["status"]): string {
   return "border-ocean-mid/30 bg-ocean-deep/20";
 }
 
-function SignalOverlay({ kind }: { kind: "buy" | "exit" }) {
+function contractLabel(
+  kind: "buy" | "exit",
+  trend: MarketAlarmWatch["lastDetectedTrend"],
+): string {
+  const action = kind === "buy" ? "Buy" : "Exit";
+  if (trend === "alcista") return `${action} Call`;
+  if (trend === "bajista") return `${action} Put`;
+  return action;
+}
+
+function SignalOverlay({
+  kind,
+  trend,
+}: {
+  kind: "buy" | "exit";
+  trend?: MarketAlarmWatch["lastDetectedTrend"];
+}) {
   const buy = kind === "buy";
   return (
     <div
@@ -51,13 +67,13 @@ function SignalOverlay({ kind }: { kind: "buy" | "exit" }) {
     >
       <span
         className={cn(
-          "animate-ov-alarm-blink rounded-md px-3 py-1.5 font-display text-2xl font-bold tracking-[0.12em] uppercase shadow-sm sm:text-3xl",
+          "animate-ov-alarm-blink whitespace-nowrap rounded-md px-3 py-1.5 font-display text-xl font-bold tracking-[0.08em] uppercase shadow-sm sm:text-2xl",
           buy
             ? "bg-ocean-teal text-ocean-deep"
             : "bg-amber-400 text-ocean-deep",
         )}
       >
-        {buy ? "Buy" : "Exit"}
+        {contractLabel(kind, trend)}
       </span>
     </div>
   );
@@ -146,16 +162,24 @@ function MovementWatchCard({
             variant="thumb"
             className="h-full"
           />
-          {watch.status === "met" ? <SignalOverlay kind="buy" /> : null}
-          {watch.status === "exit" ? <SignalOverlay kind="exit" /> : null}
+          {watch.status === "met" ? (
+            <SignalOverlay kind="buy" trend={watch.lastDetectedTrend} />
+          ) : null}
+          {watch.status === "exit" ? (
+            <SignalOverlay kind="exit" trend={watch.lastDetectedTrend} />
+          ) : null}
         </button>
       ) : (
         <div className="relative mb-1.5 flex aspect-[16/10] w-full items-center justify-center rounded-md border border-dashed border-ocean-mid/30 bg-ocean-surface/20">
           <p className="px-2 text-center text-[10px] text-ocean-sand/70">
             Chart after next check
           </p>
-          {watch.status === "met" ? <SignalOverlay kind="buy" /> : null}
-          {watch.status === "exit" ? <SignalOverlay kind="exit" /> : null}
+          {watch.status === "met" ? (
+            <SignalOverlay kind="buy" trend={watch.lastDetectedTrend} />
+          ) : null}
+          {watch.status === "exit" ? (
+            <SignalOverlay kind="exit" trend={watch.lastDetectedTrend} />
+          ) : null}
         </div>
       )}
 

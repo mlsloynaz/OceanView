@@ -38,9 +38,9 @@ const COPY: Record<
   "5m": {
     title: "5m trend change",
     blurb:
-      "Live Movement alarms store each ring. After the close, the job scores whether the rest of the session moved with the trade (on stored 15m bars). Study field is the trade-side 1h EMA 10 angle at the fire.",
-    study: "1h angle",
-    floorLabel: "Suggested 1h floor",
+      "Live Movement alarms store each ring. After the close, the job scores whether the rest of the session moved with the trade (on stored 15m bars). Study field is the trade-side 5m EMA 10 angle at the fire.",
+    study: "5m angle",
+    floorLabel: "Suggested 5m floor",
     schedule: "Weekdays 5:12 PM ET",
   },
   "15m": {
@@ -64,7 +64,8 @@ export function BestFitTrendChangeSection({
 }: Props) {
   const copy = COPY[variant];
   const suggested =
-    variant === "5m" ? data?.suggestedMinHourAngleDeg : data?.suggestedMinAngleDeg;
+    data?.suggestedMinAngleDeg ??
+    (variant === "5m" ? data?.suggestedMinHourAngleDeg : null);
   const buckets = data?.buckets ?? [];
   const via = data?.via ?? [];
   const angle = data?.angle;

@@ -916,8 +916,9 @@ export function MarketAlarmPanel({
                         w.status === "idle" || w.status === "stopped" || w.status === "error",
                     )
                   }
+                  title="Start every stopped watch on this board"
                 >
-                  Start all idle
+                  Start all
                 </button>
                 <button
                   type="button"

@@ -22,6 +22,8 @@ export function isActivelyMonitoringWatch(
     watch.status === "running" ||
     watch.status === "checking" ||
     watch.status === "paused" ||
-    watch.status === "in_trade"
+    watch.status === "in_trade" ||
+    watch.status === "met" ||
+    watch.status === "exit"
   );
 }

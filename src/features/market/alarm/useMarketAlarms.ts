@@ -390,10 +390,16 @@ export function useMarketAlarms() {
       setAlarmPopup(nextPopup);
 
       const symbols = merged.map((row) => row.symbol).join(", ");
+      const buyName =
+        top.sideLabel === "alcista"
+          ? "Buy Call"
+          : top.sideLabel === "bajista"
+            ? "Buy Put"
+            : "Buy";
       setBanner(
         multi
           ? `ENTER pool · top ${top.symbol} (${formatEarningPctLabel(top.earningPct)}) · ${symbols}${top.simSuffix}`
-          : `${top.watch.symbol} · ${top.ruleLabel} (${top.sideLabel}) ENTER — rule met.${top.simSuffix}`,
+          : `${top.watch.symbol} · ${top.ruleLabel} · ${buyName}.${top.simSuffix}`,
       );
       startAlarmRing();
 
@@ -405,12 +411,12 @@ export function useMarketAlarms() {
                 : `${row.symbol} · ${formatEarningPctLabel(row.earningPct)}`,
             )
             .join(" · ")
-        : `${top.ruleLabel} · ${top.sideLabel} — enter now`;
+        : `${top.ruleLabel} · ${buyName}`;
 
       showDesktopAlarmAlert({
         kind: "enter",
         symbol: top.watch.symbol,
-        title: multi ? `Enter: ${merged.length} signals` : `Enter: ${top.watch.symbol}`,
+        title: multi ? `Enter: ${merged.length} signals` : `${buyName}: ${top.watch.symbol}`,
         body,
         tag: multi
           ? `ov-market-alarm-enter-pool-${merged.map((r) => r.watchId).sort().join("-")}`
@@ -530,6 +536,8 @@ export function useMarketAlarms() {
           (w.status === "running" ||
             w.status === "checking" ||
             w.status === "in_trade" ||
+            w.status === "met" ||
+            w.status === "exit" ||
             timersRef.current.has(w.id)),
       )
       .map((w) => pollIntervalToMs(w.frequencyValue, w.frequencyUnit));
@@ -546,8 +554,7 @@ export function useMarketAlarms() {
   const executeCheck = useCallback(
     async (id: string) => {
       const watch = watchesRef.current.find((w) => w.id === id);
-      // Waiting for user on enter/exit popup — do not poll.
-      if (!watch || watch.status === "met" || watch.status === "exit") return;
+      if (!watch) return;
       if (isE03ConfirmWatch(watch) && isE03ConfirmExpired(assessmentClock())) {
         sweepExpiredE03Confirms();
         return;
@@ -564,7 +571,14 @@ export function useMarketAlarms() {
           w.id === id
             ? {
                 ...w,
-                status: priorStatus === "in_trade" ? "in_trade" : "checking",
+                status:
+                  priorStatus === "in_trade"
+                    ? "in_trade"
+                    : priorStatus === "met"
+                      ? "met"
+                      : priorStatus === "exit"
+                        ? "exit"
+                        : "checking",
                 lastError: null,
               }
             : w,
@@ -764,9 +778,9 @@ export function useMarketAlarms() {
           lastDetectedTrend: detectedTrend ?? watch.lastDetectedTrend ?? null,
         };
 
-        // In trade: rule dropped → EXIT signal
-        if (priorStatus === "in_trade" && !result.met) {
-          clearTimer(id);
+        // Entry was showing, or we are in the trade, and the setup is gone → EXIT.
+        // The timer stays up so the next entry can still ring.
+        if ((priorStatus === "in_trade" || priorStatus === "met") && !result.met) {
           const exitWatch: MarketAlarmWatch = {
             ...watch,
             ...patchBase,
@@ -778,19 +792,42 @@ export function useMarketAlarms() {
           void appendAlarmTrigger(exitWatch, "exit").catch(() => {
             /* list refresh is best-effort; popup/sound still fire */
           });
+          const exitSide =
+            detectedTrend === "alcista" || watch.lastDetectedTrend === "alcista"
+              ? "Call"
+              : detectedTrend === "bajista" || watch.lastDetectedTrend === "bajista"
+                ? "Put"
+                : "";
+          const exitName = exitSide ? `Exit ${exitSide}` : "Exit";
           setBanner(
-            `${result.symbol} · ${watch.ruleLabel} (${sideLabel}) EXIT — setup gone.${simSuffix}`,
+            `${result.symbol} · ${watch.ruleLabel} · ${exitName}.${simSuffix}`,
           );
           setAlarmPopup({ kind: "exit", watch: exitWatch });
           startAlarmRing();
           showDesktopAlarmAlert({
             kind: "exit",
             symbol: watch.symbol,
-            title: `Exit: ${watch.symbol}`,
-            body: `${watch.ruleLabel} · ${sideLabel} — exit now`,
+            title: `${exitName}: ${watch.symbol}`,
+            body: `${watch.ruleLabel} · ${exitName}`,
             tag: `ov-market-alarm-exit-${watch.id}`,
             watchId: watch.id,
           });
+          return;
+        }
+
+        // Exit stamp is already up and the setup is still gone. Keep checking, do not ring again.
+        if (priorStatus === "exit" && !result.met) {
+          setWatches((prev) =>
+            prev.map((w) =>
+              w.id === id
+                ? {
+                    ...w,
+                    ...patchBase,
+                    status: "exit",
+                  }
+                : w,
+            ),
+          );
           return;
         }
 
@@ -832,10 +869,24 @@ export function useMarketAlarms() {
           return;
         }
 
-        // Fresh enter signal — pool/rank. If an ENTER popup is still open (not
-        // dismissed / entered), flush immediately and show a ranked list.
+        // Still the same entry. Keep the Buy stamp and do not ring again.
+        if (priorStatus === "met" && result.met) {
+          setWatches((prev) =>
+            prev.map((w) =>
+              w.id === id
+                ? {
+                    ...w,
+                    ...patchBase,
+                    status: "met",
+                  }
+                : w,
+            ),
+          );
+          return;
+        }
+
+        // Fresh enter signal — pool/rank. Keep the timer so a later exit can ring.
         if (result.met) {
-          clearTimer(id);
           const metWatch: MarketAlarmWatch = {
             ...watch,
             ...patchBase,
@@ -909,7 +960,6 @@ export function useMarketAlarms() {
     },
     [
       assessmentClock,
-      clearTimer,
       flushEnterPool,
       releaseCandleRefresh,
       shouldRefreshCandles,
@@ -926,12 +976,7 @@ export function useMarketAlarms() {
       const id = checkQueueRef.current.shift()!;
       queuedIdsRef.current.delete(id);
       const watch = watchesRef.current.find((w) => w.id === id);
-      if (
-        !watch ||
-        watch.status === "met" ||
-        watch.status === "exit" ||
-        inFlightRef.current.has(id)
-      ) {
+      if (!watch || inFlightRef.current.has(id)) {
         continue;
       }
       activeChecksRef.current += 1;
@@ -955,7 +1000,7 @@ export function useMarketAlarms() {
     (id: string) => {
       unlockAlarmAudio();
       const watch = watchesRef.current.find((w) => w.id === id);
-      if (!watch || watch.status === "met" || watch.status === "exit") return;
+      if (!watch) return;
       if (inFlightRef.current.has(id) || queuedIdsRef.current.has(id)) return;
       queuedIdsRef.current.add(id);
       checkQueueRef.current.push(id);
@@ -963,6 +1008,21 @@ export function useMarketAlarms() {
     },
     [pumpCheckQueue],
   );
+
+  // A reload drops the interval. Buy and Exit stamps keep their timer so the next signal can ring.
+  useEffect(() => {
+    for (const watch of watches) {
+      if (
+        (watch.status !== "met" && watch.status !== "exit") ||
+        timersRef.current.has(watch.id)
+      ) {
+        continue;
+      }
+      const ms = Math.max(15_000, watch.intervalSec * 1000);
+      const timer = window.setInterval(() => runCheck(watch.id), ms);
+      timersRef.current.set(watch.id, timer);
+    }
+  }, [watches, runCheck]);
 
   const startWatch = useCallback(
     (id: string, opts?: { mode?: "hunt" | "in_trade" }) => {
