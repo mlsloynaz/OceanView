@@ -164,6 +164,10 @@ export type MarketAlarmWatch = {
   lastLifecycle?: string | null;
   lastBreakoutType?: string | null;
   lastSetupType?: string | null;
+  /** WITH_TREND, TRANSITION, or COUNTERTREND from the live 1h regime. */
+  lastHourRelation?: string | null;
+  /** Detected 1h regime, such as strong_bearish. Shown so a wrong read is visible. */
+  lastHourRegime?: string | null;
   /** Last 15m BB sparkline from breakout alarm check (≤9 bars). */
   lastBbSparkline15m?: BbSparkline15m | null;
   /** Price, EMA 10, EMA 21, and Bollinger for a 5m or 15m trend-change watch. */

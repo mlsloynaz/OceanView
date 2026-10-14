@@ -52,6 +52,7 @@ export function MovementWatchPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [blockHour, setBlockHour] = useState(false);
 
   const activeTickers = useMemo(
     () =>
@@ -71,6 +72,7 @@ export function MovementWatchPanel({
       const allowed = fromApi.length > 0 ? fromApi : [...DEFAULT_ELIGIBLE];
       setEligible(allowed);
       setSelectedMovements(keys.filter((k) => allowed.includes(k)));
+      setBlockHour(Boolean(payload.hourRegimeBlock));
       setCatalogLoaded(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load active movements.");
@@ -176,6 +178,23 @@ export function MovementWatchPanel({
     }
   };
 
+  const handleBlockChange = async (checked: boolean) => {
+    setBlockHour(checked);
+    setBusy(true);
+    setError(null);
+    try {
+      const keys = selectedMovements.length > 0 ? selectedMovements : [...DEFAULT_ELIGIBLE];
+      const payload = await putActiveMovements(keys, checked);
+      setBlockHour(Boolean(payload.hourRegimeBlock));
+      setSelectedMovements(payload.ruleKeys);
+    } catch (err) {
+      setBlockHour(!checked);
+      setError(err instanceof Error ? err.message : "Failed to save the 1h block.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const canStart =
     !busy &&
     !running &&
@@ -195,6 +214,22 @@ export function MovementWatchPanel({
           tickers × the movements below. Keep OceanView open while running.
         </p>
       </div>
+
+      <label className="flex items-start gap-2 text-xs text-ocean-foam">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={blockHour}
+          disabled={busy || !catalogLoaded}
+          onChange={(event) => void handleBlockChange(event.target.checked)}
+        />
+        <span>
+          Block entries against the 1h trend
+          <span className="mt-0.5 block text-[11px] font-normal text-ocean-sand">
+            Off still shows the detected 1h trend and stores the entries that would have been blocked.
+          </span>
+        </span>
+      </label>
 
       <div className={cn("space-y-2 rounded-lg border px-3 py-2.5", statusTone(jobStatus))}>
         <div className="flex flex-wrap items-start justify-between gap-2">

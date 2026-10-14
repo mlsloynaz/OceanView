@@ -721,6 +721,14 @@ export function useMarketAlarms() {
             typeof result.setupType === "string"
               ? result.setupType
               : (watch.lastSetupType ?? null),
+          lastHourRelation:
+            typeof result.hourRelation === "string"
+              ? result.hourRelation
+              : (watch.lastHourRelation ?? null),
+          lastHourRegime:
+            typeof result.hourRegime === "string"
+              ? result.hourRegime
+              : (watch.lastHourRegime ?? null),
           lastBbSparkline15m:
             result.bbSparkline15m && Array.isArray(result.bbSparkline15m.bars)
               ? result.bbSparkline15m
@@ -1028,7 +1036,11 @@ export function useMarketAlarms() {
       ) {
         continue;
       }
-      const ms = Math.max(15_000, watch.intervalSec * 1000);
+      const unit =
+        watch.frequencyUnit === "hour" || watch.frequencyUnit === "sec"
+          ? watch.frequencyUnit
+          : "min";
+      const ms = pollIntervalToMs(clampPollInterval(watch.frequencyValue, unit), unit);
       const timer = window.setInterval(() => runCheck(watch.id), ms);
       timersRef.current.set(watch.id, timer);
     }

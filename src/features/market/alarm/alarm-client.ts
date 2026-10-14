@@ -71,6 +71,9 @@ export type MarketAlarmCheckResponse = {
   lifecycle?: string;
   breakoutType?: string;
   setupType?: string;
+  hourRegime?: string | null;
+  hourRelation?: string | null;
+  hourGateBlocked?: boolean;
   bandWalk1m?: boolean;
   overextended?: boolean;
   lateEntry?: boolean;
@@ -519,6 +522,8 @@ export type ActiveMovementsPayload = {
   labels?: Record<string, string>;
   eligibleRuleKeys?: string[];
   updatedAt?: string | null;
+  /** When true, a strong opposite 1h trend blocks the entry. Off only records it. */
+  hourRegimeBlock?: boolean;
 };
 
 export async function fetchMovementWatchJobStatus(): Promise<MovementWatchJobStatus> {
@@ -613,17 +618,21 @@ export async function fetchActiveMovements(): Promise<ActiveMovementsPayload> {
 
 export async function putActiveMovements(
   ruleKeys: string[],
+  hourRegimeBlock?: boolean,
 ): Promise<ActiveMovementsPayload> {
   if (USE_MOCK) {
     return {
       jobType: "active_movements",
       ruleKeys,
+      hourRegimeBlock: Boolean(hourRegimeBlock),
       eligibleRuleKeys: ["trend_change_5m", "trend_change_15m", "ema_cross_5m"],
     };
   }
+  const body: { ruleKeys: string[]; hourRegimeBlock?: boolean } = { ruleKeys };
+  if (hourRegimeBlock !== undefined) body.hourRegimeBlock = hourRegimeBlock;
   return fetchJson<ActiveMovementsPayload>("/market/alarm/active-movements", {
     method: "PUT",
-    body: JSON.stringify({ ruleKeys }),
+    body: JSON.stringify(body),
   });
 }
 

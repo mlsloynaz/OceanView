@@ -64,6 +64,12 @@ function lastAlarmLine(watch: MarketAlarmWatch): string | null {
   return null;
 }
 
+function relationTone(relation: string): string {
+  if (relation === "WITH_TREND") return "text-ocean-teal";
+  if (relation === "COUNTERTREND") return "text-ocean-danger";
+  return "text-amber-400";
+}
+
 function contractLabel(
   kind: "buy" | "exit",
   trend: MarketAlarmWatch["lastDetectedTrend"],
@@ -179,6 +185,22 @@ function MovementWatchCard({
           {watch.status}
         </span>
       </header>
+
+      {watch.lastHourRelation ? (
+        <p
+          className={cn(
+            "mb-0.5 text-center font-display text-2xl font-bold tracking-[0.14em] sm:text-3xl",
+            relationTone(watch.lastHourRelation),
+          )}
+        >
+          {watch.lastHourRelation}
+        </p>
+      ) : null}
+      {watch.lastHourRegime ? (
+        <p className="mb-1 text-center text-[11px] uppercase tracking-wide text-ocean-sand">
+          1h {watch.lastHourRegime.replaceAll("_", " ")}
+        </p>
+      ) : null}
 
       {showChart ? (
         <button
