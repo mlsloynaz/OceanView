@@ -760,6 +760,26 @@ export function useMarketAlarms() {
             typeof result.entryPath === "string"
               ? result.entryPath
               : (watch.lastEntryPath ?? null),
+          lastEntryEvent:
+            typeof result.entryEvent === "boolean"
+              ? result.entryEvent
+              : (watch.lastEntryEvent ?? null),
+          lastMovementState:
+            typeof result.movementState === "string"
+              ? result.movementState
+              : (watch.lastMovementState ?? null),
+          lastTriggerType:
+            typeof result.triggerType === "string"
+              ? result.triggerType
+              : (watch.lastTriggerType ?? null),
+          lastShadowEarly:
+            result.shadowEarly && typeof result.shadowEarly === "object"
+              ? result.shadowEarly
+              : (watch.lastShadowEarly ?? null),
+          lastRoomByPath:
+            result.roomByPath && typeof result.roomByPath === "object"
+              ? result.roomByPath
+              : (watch.lastRoomByPath ?? null),
           lastAcceptanceScore:
             typeof result.acceptanceScore === "number"
               ? result.acceptanceScore

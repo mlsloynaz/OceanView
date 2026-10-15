@@ -168,6 +168,25 @@ export type MarketAlarmWatch = {
   lastHourRelation?: string | null;
   /** Detected 1h regime, such as strong_bearish. Shown so a wrong read is visible. */
   lastHourRegime?: string | null;
+  /** Early or confirmed 5m path from the last check. */
+  lastEntryEvent?: boolean | null;
+  lastMovementState?: string | null;
+  lastTriggerType?: string | null;
+  lastShadowEarly?: {
+    entryPath?: string | null;
+    movementState?: string | null;
+    triggerType?: string | null;
+    entryEvent?: boolean | null;
+    qualifies?: boolean | null;
+    confirmedOptionGainPct?: number | null;
+    earlyOptionGainPct?: number | null;
+    confirmedRoomOk?: boolean | null;
+    earlyRoomOk?: boolean | null;
+  } | null;
+  lastRoomByPath?: {
+    confirmed_5m?: { optionGainPct?: number | null; roomOk?: boolean | null } | null;
+    early?: { optionGainPct?: number | null; roomOk?: boolean | null } | null;
+  } | null;
   /** Last 15m BB sparkline from breakout alarm check (≤9 bars). */
   lastBbSparkline15m?: BbSparkline15m | null;
   /** Price, EMA 10, EMA 21, and Bollinger for a 5m or 15m trend-change watch. */

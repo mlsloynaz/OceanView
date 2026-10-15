@@ -19,6 +19,9 @@ const DEFAULT_ELIGIBLE = [
   "ema_cross_5m",
 ] as const;
 
+const HOUR_BLOCK_NOTE =
+  "This switch applies to confirmed 5m trend change and 15m trend change. Off still records those entries and keeps the detected 1h trend. Early 5m continuation and reversal always block a strong opposite 1h trend.";
+
 function statusTone(status: string): string {
   if (status === "running") return "border-amber-500/40 bg-amber-500/10";
   if (status === "cancelled") return "border-ocean-danger/40 bg-ocean-danger/5";
@@ -53,6 +56,7 @@ export function MovementWatchPanel({
   const [error, setError] = useState<string | null>(null);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [blockHour, setBlockHour] = useState(false);
+  const [hourBlockNote, setHourBlockNote] = useState(HOUR_BLOCK_NOTE);
 
   const activeTickers = useMemo(
     () =>
@@ -73,6 +77,7 @@ export function MovementWatchPanel({
       setEligible(allowed);
       setSelectedMovements(keys.filter((k) => allowed.includes(k)));
       setBlockHour(Boolean(payload.hourRegimeBlock));
+      setHourBlockNote(payload.hourRegimeBlockNote || HOUR_BLOCK_NOTE);
       setCatalogLoaded(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load active movements.");
@@ -186,6 +191,7 @@ export function MovementWatchPanel({
       const keys = selectedMovements.length > 0 ? selectedMovements : [...DEFAULT_ELIGIBLE];
       const payload = await putActiveMovements(keys, checked);
       setBlockHour(Boolean(payload.hourRegimeBlock));
+      setHourBlockNote(payload.hourRegimeBlockNote || HOUR_BLOCK_NOTE);
       setSelectedMovements(payload.ruleKeys);
     } catch (err) {
       setBlockHour(!checked);
@@ -224,9 +230,9 @@ export function MovementWatchPanel({
           onChange={(event) => void handleBlockChange(event.target.checked)}
         />
         <span>
-          Block entries against the 1h trend
+          Block confirmed entries against the 1h trend
           <span className="mt-0.5 block text-[11px] font-normal text-ocean-sand">
-            Off still shows the detected 1h trend and stores the entries that would have been blocked.
+            {hourBlockNote}
           </span>
         </span>
       </label>

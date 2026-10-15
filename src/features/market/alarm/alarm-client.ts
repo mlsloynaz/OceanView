@@ -81,6 +81,24 @@ export type MarketAlarmCheckResponse = {
   continuationEntryScore?: number;
   entryBlockers?: string[];
   entryPath?: string | null;
+  entryEvent?: boolean | null;
+  movementState?: string | null;
+  triggerType?: string | null;
+  shadowEarly?: {
+    entryPath?: string | null;
+    movementState?: string | null;
+    triggerType?: string | null;
+    entryEvent?: boolean | null;
+    qualifies?: boolean | null;
+    confirmedOptionGainPct?: number | null;
+    earlyOptionGainPct?: number | null;
+    confirmedRoomOk?: boolean | null;
+    earlyRoomOk?: boolean | null;
+  } | null;
+  roomByPath?: {
+    confirmed_5m?: { optionGainPct?: number | null; roomOk?: boolean | null } | null;
+    early?: { optionGainPct?: number | null; roomOk?: boolean | null } | null;
+  } | null;
   acceptanceScore?: number;
   impulseScore?: number;
   holdScore?: number;
@@ -522,8 +540,11 @@ export type ActiveMovementsPayload = {
   labels?: Record<string, string>;
   eligibleRuleKeys?: string[];
   updatedAt?: string | null;
-  /** When true, a strong opposite 1h trend blocks the entry. Off only records it. */
+  /** Optional filter for confirmed 5m and 15m entries. Off records them instead of blocking. */
   hourRegimeBlock?: boolean;
+  /** Early 5m continuation and reversal always block a strong opposite 1h. */
+  earlyEntryStrongHourBlock?: boolean;
+  hourRegimeBlockNote?: string;
 };
 
 export async function fetchMovementWatchJobStatus(): Promise<MovementWatchJobStatus> {
