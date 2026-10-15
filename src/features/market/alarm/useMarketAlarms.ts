@@ -45,6 +45,7 @@ import {
   type AlarmPoolEntry,
   type RankedEnter,
 } from "./alarm-enter-pool";
+import { applyFiveMinuteEntryEvent } from "./five-minute-entry";
 import {
   E03_CONFIRM_EXPIRED_MESSAGE,
   E03_CONFIRM_RULE_KEY,
@@ -760,14 +761,13 @@ export function useMarketAlarms() {
             typeof result.entryPath === "string"
               ? result.entryPath
               : (watch.lastEntryPath ?? null),
-          lastEntryEvent:
-            typeof result.entryEvent === "boolean"
-              ? result.entryEvent
-              : (watch.lastEntryEvent ?? null),
-          lastEntryEventId:
-            typeof result.entryEventId === "string"
-              ? result.entryEventId
-              : (watch.lastEntryEventId ?? null),
+          ...(() => {
+            const entry = applyFiveMinuteEntryEvent(watch, result);
+            return {
+              lastEntryEvent: entry.lastEntryEvent,
+              lastEntryEventId: entry.lastEntryEventId,
+            };
+          })(),
           lastMovementState:
             typeof result.movementState === "string"
               ? result.movementState

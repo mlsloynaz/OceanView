@@ -5,6 +5,7 @@ import {
   watchRuleKeys,
   type MarketAlarmWatch,
 } from "./alarm-types";
+import { movementStateLabel, optionRoomLine, shadowComparisonVisible } from "./five-minute-entry";
 
 const BTN =
   "rounded px-2 py-1 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -92,16 +93,7 @@ function confirmationLabel(path: string | null | undefined): string | null {
 }
 
 function roomLine(watch: MarketAlarmWatch): string | null {
-  const room = watch.lastRoomByPath;
-  const shadow = watch.lastShadowEarly;
-  const confirmed =
-    room?.confirmed_5m?.optionGainPct ?? shadow?.confirmedOptionGainPct ?? null;
-  const early = room?.early?.optionGainPct ?? shadow?.earlyOptionGainPct ?? null;
-  const parts: string[] = [];
-  if (typeof confirmed === "number") parts.push(`confirmed ${confirmed}%`);
-  if (typeof early === "number") parts.push(`early ${early}%`);
-  if (parts.length === 0) return null;
-  return `Option room · ${parts.join(" · ")}`;
+  return optionRoomLine(watch);
 }
 
 function FactRows({
@@ -119,7 +111,7 @@ function FactRows({
 }) {
   const rows = [
     ["Entry path", entryPathLabel(path)],
-    ["Movement state", state || null],
+    ["Movement state", movementStateLabel(state)],
     ["1m trigger", triggerLabel(trigger)],
     ["5m confirmation", confirmationLabel(path)],
     ["Entry event", entryEvent ? "New" : null],
@@ -146,10 +138,7 @@ function FiveMinuteEntryFacts({ watch }: { watch: MarketAlarmWatch }) {
       watch.lastMovementState ||
       triggerLabel(watch.lastTriggerType),
   );
-  const showShadow =
-    typeof shadowPath === "string" &&
-    shadowPath.length > 0 &&
-    shadowPath !== watch.lastEntryPath;
+  const showShadow = shadowComparisonVisible(shadow);
   const room = roomLine(watch);
   if (!hasLive && !showShadow && !room) return null;
   return (
