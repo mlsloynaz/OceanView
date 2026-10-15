@@ -764,6 +764,10 @@ export function useMarketAlarms() {
             typeof result.entryEvent === "boolean"
               ? result.entryEvent
               : (watch.lastEntryEvent ?? null),
+          lastEntryEventId:
+            typeof result.entryEventId === "string"
+              ? result.entryEventId
+              : (watch.lastEntryEventId ?? null),
           lastMovementState:
             typeof result.movementState === "string"
               ? result.movementState

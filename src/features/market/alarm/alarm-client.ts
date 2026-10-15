@@ -82,6 +82,7 @@ export type MarketAlarmCheckResponse = {
   entryBlockers?: string[];
   entryPath?: string | null;
   entryEvent?: boolean | null;
+  entryEventId?: string | null;
   movementState?: string | null;
   triggerType?: string | null;
   shadowEarly?: {

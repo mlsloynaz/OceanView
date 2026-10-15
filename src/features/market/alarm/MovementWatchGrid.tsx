@@ -108,11 +108,13 @@ function FactRows({
   path,
   state,
   trigger,
+  entryEvent,
   muted,
 }: {
   path?: string | null;
   state?: string | null;
   trigger?: string | null;
+  entryEvent?: boolean | null;
   muted?: boolean;
 }) {
   const rows = [
@@ -120,6 +122,7 @@ function FactRows({
     ["Movement state", state || null],
     ["1m trigger", triggerLabel(trigger)],
     ["5m confirmation", confirmationLabel(path)],
+    ["Entry event", entryEvent ? "New" : null],
   ].filter((row): row is [string, string] => Boolean(row[1]));
   if (rows.length === 0) return null;
   return (
@@ -156,6 +159,7 @@ function FiveMinuteEntryFacts({ watch }: { watch: MarketAlarmWatch }) {
           path={watch.lastEntryPath}
           state={watch.lastMovementState}
           trigger={watch.lastTriggerType}
+          entryEvent={watch.lastEntryEvent}
         />
       ) : null}
       {showShadow ? (

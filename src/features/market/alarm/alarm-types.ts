@@ -170,6 +170,7 @@ export type MarketAlarmWatch = {
   lastHourRegime?: string | null;
   /** Early or confirmed 5m path from the last check. */
   lastEntryEvent?: boolean | null;
+  lastEntryEventId?: string | null;
   lastMovementState?: string | null;
   lastTriggerType?: string | null;
   lastShadowEarly?: {
