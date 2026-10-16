@@ -4,7 +4,6 @@ import { CandlesPane } from "@/features/admin/candles/CandlesPane";
 import { JobsStatusPane } from "@/features/admin/job-status/JobsStatusPane";
 import { ADMIN_PANE_ICONS, AdminPaneThumbnail } from "@/features/admin/components/AdminPaneThumbnail";
 import { cn } from "@/shared/lib/cn";
-import { ConnectedUsersCard } from "./ConnectedUsersCard";
 
 type SystemPaneId = "candles" | "job-status";
 
