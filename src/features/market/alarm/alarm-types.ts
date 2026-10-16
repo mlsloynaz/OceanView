@@ -213,6 +213,11 @@ export type MarketAlarmWatch = {
   orb5mAuto?: boolean;
   /** Movement Watch auto row — Admin job polls active tickers × active-movements. */
   movementWatch?: boolean;
+  /**
+   * First conclusive read after this watch was created for a job start.
+   * An alarm already met at that moment is listed and does not ring.
+   */
+  silenceInitialMet?: boolean;
   lastDetectedTrend?: AlarmTrend | null;
   /** Last Buy/Exit alarm that rang for this ticker, kept after later checks. */
   lastAlarmLabel?: string | null;

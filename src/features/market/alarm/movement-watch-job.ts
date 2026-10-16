@@ -47,6 +47,7 @@ export function buildMovementWatchAutoWatch(
     frequencyValue: pollIntervalSeconds,
     frequencyUnit: "sec",
     status: "idle",
+    silenceInitialMet: true,
     lastRuleStatus: null,
     lastEvidence: null,
     lastCheckedAt: null,

@@ -3,6 +3,7 @@ import { BbSparkline15mChart } from "./BbSparkline15mChart";
 import {
   formatAlarmTrend,
   watchRuleKeys,
+  type BbSparkline15m,
   type MarketAlarmWatch,
 } from "./alarm-types";
 import { movementStateLabel, optionRoomLine, shadowComparisonVisible } from "./five-minute-entry";
@@ -23,10 +24,22 @@ type Props = {
   onEnlargeChart: (id: string) => void;
 };
 
-function chartData(watch: MarketAlarmWatch) {
-  if (watch.lastMovementChart?.bars?.length) return watch.lastMovementChart;
+export function usesFiveMinuteChart(
+  watch: Pick<MarketAlarmWatch, "ruleKey" | "ruleKeys">,
+): boolean {
+  const keys = watchRuleKeys(watch);
+  return keys.includes("trend_change_5m") || keys.includes("ema_cross_5m");
+}
+
+/** 5m trend and EMA cross use the 5m chart only. Never the 15m ORB sparkline. */
+export function chartForWatch(watch: MarketAlarmWatch): BbSparkline15m | null {
+  const movement = watch.lastMovementChart ?? null;
+  if (usesFiveMinuteChart(watch)) {
+    return movement?.timeframe === "5m" ? movement : null;
+  }
+  if (movement?.bars?.length) return movement;
   if (watch.lastBbSparkline15m?.bars?.length) return watch.lastBbSparkline15m;
-  return watch.lastMovementChart ?? watch.lastBbSparkline15m ?? null;
+  return movement ?? watch.lastBbSparkline15m ?? null;
 }
 
 function cardTone(status: MarketAlarmWatch["status"]): string {
@@ -236,7 +249,8 @@ function MovementWatchCard({
     watch.status === "paused" ||
     watch.status === "in_trade";
   const awaitingUser = watch.status === "met" || watch.status === "exit";
-  const data = chartData(watch);
+  const fiveMinute = usesFiveMinuteChart(watch);
+  const data = chartForWatch(watch);
   const side =
     watch.lastDetectedTrend === "alcista" || watch.lastDetectedTrend === "bajista"
       ? formatAlarmTrend(watch.lastDetectedTrend)
@@ -309,8 +323,13 @@ function MovementWatchCard({
           title={`Enlarge ${watch.symbol} chart`}
         >
           <BbSparkline15mChart
-            data={data}
-            breakoutLevel={watch.lastBreakoutLevel}
+            data={
+              data ??
+              (fiveMinute
+                ? { symbol: watch.symbol, timeframe: "5m", bbPeriod: 20, bars: [] }
+                : null)
+            }
+            breakoutLevel={fiveMinute ? null : watch.lastBreakoutLevel}
             variant="thumb"
             className="h-full"
           />
@@ -321,7 +340,21 @@ function MovementWatchCard({
             <SignalOverlay kind="exit" trend={watch.lastDetectedTrend} />
           ) : null}
         </button>
-      ) : (
+      ) : null}
+      {fiveMinute && showChart ? (
+        <p className="mb-1.5 flex flex-wrap gap-x-2 text-[9px] text-ocean-sand">
+          <span>5m</span>
+          <span className="inline-flex items-center gap-1">
+            <span className="inline-block h-0.5 w-2.5 rounded-sm bg-amber-300" />
+            EMA 10
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="inline-block h-0.5 w-2.5 rounded-sm bg-rose-300" />
+            EMA 21
+          </span>
+        </p>
+      ) : null}
+      {!showChart ? (
         <div className="relative mb-1.5 flex aspect-[16/10] w-full items-center justify-center rounded-md border border-dashed border-ocean-mid/30 bg-ocean-surface/20">
           <p className="px-2 text-center text-[10px] text-ocean-sand/70">
             Chart after next check
@@ -333,7 +366,7 @@ function MovementWatchCard({
             <SignalOverlay kind="exit" trend={watch.lastDetectedTrend} />
           ) : null}
         </div>
-      )}
+      ) : null}
 
       <p className="mb-1.5 line-clamp-2 text-[10px] leading-snug text-ocean-sand">
         {watch.lastError

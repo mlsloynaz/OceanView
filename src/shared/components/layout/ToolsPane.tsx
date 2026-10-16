@@ -3,6 +3,16 @@ import { PriceCalc } from "@/features/tools/calc/PriceCalc";
 import { RangoOptimoLookup } from "@/features/tools/rango-optimo/RangoOptimoLookup";
 import { cn } from "@/shared/lib/cn";
 
+const COLLAPSED_KEY = "oceanview.tools-pane-collapsed";
+
+function readCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 function ToolsBody() {
   return (
     <>
@@ -35,7 +45,18 @@ function ToolsBody() {
  */
 export function ToolsPane() {
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(readCollapsed);
   const titleId = useId();
+  const panelId = useId();
+
+  const setCollapsedPersist = (next: boolean) => {
+    setCollapsed(next);
+    try {
+      localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0");
+    } catch {
+      /* ignore private-mode storage failures */
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -57,17 +78,47 @@ export function ToolsPane() {
 
   return (
     <>
-      {/* Desktop / large tablet: persistent column */}
+      {/* Desktop / large tablet: column, or a rail when collapsed */}
       <aside
-        className="hidden w-72 shrink-0 flex-col border-r border-ocean-mid/60 bg-ocean-surface/60 lg:flex"
+        id={panelId}
+        className={cn(
+          "hidden shrink-0 flex-col border-r border-ocean-mid/60 bg-ocean-surface/60 lg:flex",
+          collapsed ? "w-11" : "w-72",
+        )}
         aria-label="Tools panel"
       >
-        <div className="border-b border-ocean-mid/40 px-4 py-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-ocean-teal">Tools</p>
-        </div>
-        <div className="flex-1 overflow-y-auto px-4 py-4">
-          <ToolsBody />
-        </div>
+        {collapsed ? (
+          <button
+            type="button"
+            className="flex flex-1 flex-col items-center gap-3 px-1 py-3 text-ocean-teal hover:bg-ocean-mid/30"
+            aria-expanded={false}
+            aria-controls={panelId}
+            aria-label="Show tools"
+            onClick={() => setCollapsedPersist(false)}
+          >
+            <span aria-hidden className="text-[10px] font-bold uppercase tracking-widest [writing-mode:vertical-rl]">
+              Tools
+            </span>
+          </button>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-2 border-b border-ocean-mid/40 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-ocean-teal">Tools</p>
+              <button
+                type="button"
+                className="rounded-md px-2 py-1 text-xs font-semibold text-ocean-sand hover:bg-ocean-mid/40 hover:text-ocean-foam"
+                aria-expanded
+                aria-controls={panelId}
+                onClick={() => setCollapsedPersist(true)}
+              >
+                Hide
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <ToolsBody />
+            </div>
+          </>
+        )}
       </aside>
 
       {/* Compact: floating toggle + slide-over */}

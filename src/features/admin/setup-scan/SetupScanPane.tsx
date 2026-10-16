@@ -192,19 +192,19 @@ function GapForecastSection({
       className="mb-4 rounded-lg border border-ocean-mid/40 bg-ocean-deep/20 px-3 py-3"
       aria-labelledby="gap-forecast-title"
     >
-      <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <header className="mb-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h3 id="gap-forecast-title" className="text-sm font-semibold text-ocean-foam">
             Overnight gap forecast (15:25)
           </h3>
-          <p className="mt-0.5 text-[11px] text-ocean-sand">
+          <p className="mt-0.5 text-[11px] leading-relaxed text-ocean-sand">
             Active tickers only · 15:25 buckets · 15:55 auto rescores HIGH · or run now anytime
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid w-full grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
           <button
             type="button"
-            className={BTN_SECONDARY}
+            className={cn(BTN_SECONDARY, "w-full sm:w-auto")}
             disabled={disabled || pending}
             onClick={onRun}
           >
@@ -212,7 +212,7 @@ function GapForecastSection({
           </button>
           <button
             type="button"
-            className={BTN_SECONDARY}
+            className={cn(BTN_SECONDARY, "w-full sm:w-auto")}
             disabled={disabled || pending || !canReevaluate}
             onClick={onReevaluate}
             title={
@@ -249,7 +249,7 @@ function GapForecastSection({
             {forecast.usedLast15m ? " · last 15m of regular hours" : ""}
             {status === "running" ? " · running…" : ""}
           </p>
-          <div className="grid gap-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
             {GAP_BUCKETS.map((bucket) => {
               const rows = (forecast[bucket.key] as GapForecastTickerRow[] | undefined) ?? [];
               return (
@@ -264,8 +264,8 @@ function GapForecastSection({
                   ) : (
                     <ul className="max-h-40 space-y-1 overflow-y-auto text-[11px]">
                       {rows.map((row) => (
-                        <li key={row.symbol} className="flex justify-between gap-2 text-ocean-foam">
-                          <span className="font-semibold tabular-nums">{row.symbol}</span>
+                        <li key={row.symbol} className="flex flex-wrap justify-between gap-x-2 gap-y-0.5 text-ocean-foam">
+                          <span className="font-semibold">{row.symbol}</span>
                           <span className="tabular-nums text-ocean-sand">
                             {row.score > 0 ? `+${row.score}` : row.score}
                             {row.priorScore != null && row.priorScore !== row.score
@@ -442,7 +442,11 @@ function TickerGroupSection({
             />
           </svg>
           <h3 className="font-display text-lg text-ocean-foam">{group.symbol}</h3>
-          {group.name && <span className="text-sm text-ocean-sand">{group.name}</span>}
+          {group.name && (
+            <span className="min-w-0 max-w-full truncate text-sm text-ocean-sand sm:max-w-xs">
+              {group.name}
+            </span>
+          )}
           {group.directionBias ? (
             <span className="rounded bg-ocean-teal/15 px-2 py-0.5 text-xs font-medium text-ocean-teal-dim dark:text-ocean-teal">
               {group.directionBias}
@@ -460,7 +464,7 @@ function TickerGroupSection({
         <button
           type="button"
           disabled={pending}
-          className="rounded border border-ocean-mid/60 px-2 py-1 text-xs text-ocean-foam hover:border-ocean-teal/50 disabled:opacity-50"
+          className="shrink-0 rounded border border-ocean-mid/60 px-2 py-1 text-xs text-ocean-foam hover:border-ocean-teal/50 disabled:opacity-50"
           onClick={onToggleActive}
         >
           {pending ? "…" : group.currentlyActive ? "Deactivate" : "Activate"}
@@ -571,7 +575,7 @@ function StrategyGroupSection({
               clipRule="evenodd"
             />
           </svg>
-          <h3 className="font-display text-lg text-ocean-foam">{title}</h3>
+          <h3 className="min-w-0 break-words font-display text-lg text-ocean-foam">{title}</h3>
           {group.strategyId === "panorama-completo" ? (
             <span className="rounded bg-ocean-mid/40 px-1.5 py-0.5 text-[10px] font-medium text-ocean-sand">
               Soft scan
@@ -643,7 +647,9 @@ function StrategyGroupSection({
                   >
                     <span className="font-medium text-ocean-foam">{ticker.symbol}</span>
                     {ticker.name ? (
-                      <span className="truncate text-xs text-ocean-sand">{ticker.name}</span>
+                      <span className="min-w-0 max-w-full truncate text-xs text-ocean-sand sm:max-w-xs">
+                        {ticker.name}
+                      </span>
                     ) : null}
                     {ticker.directionBias ? (
                       <span className="rounded bg-ocean-teal/15 px-1.5 py-0.5 text-[10px] font-medium text-ocean-teal-dim dark:text-ocean-teal">
@@ -669,7 +675,7 @@ function StrategyGroupSection({
                       type="button"
                       disabled={already}
                       className={cn(
-                        "rounded px-2 py-1 text-xs font-medium disabled:opacity-50",
+                        "shrink-0 rounded px-2 py-1 text-xs font-medium disabled:opacity-50",
                         already
                           ? "border border-ocean-mid/50 text-ocean-sand"
                           : "bg-ocean-teal text-ocean-deep hover:brightness-110",
@@ -706,7 +712,7 @@ function StrategyGroupSection({
                   <button
                     type="button"
                     disabled={pending}
-                    className="rounded border border-ocean-mid/60 px-2 py-1 text-xs text-ocean-foam hover:border-ocean-teal/50 disabled:opacity-50"
+                    className="shrink-0 rounded border border-ocean-mid/60 px-2 py-1 text-xs text-ocean-foam hover:border-ocean-teal/50 disabled:opacity-50"
                     onClick={() => onToggleActive(ticker.symbol, ticker.currentlyActive)}
                   >
                     {pending ? "…" : ticker.currentlyActive ? "Deactivate" : "Activate"}
@@ -804,7 +810,7 @@ function DetailModal({
                     <span className="font-medium text-ocean-foam">
                       {row.label || row.ruleKey}
                     </span>
-                    <span className="font-mono text-[10px] text-ocean-sand/80">{row.ruleKey}</span>
+                    <span className="break-all font-mono text-[10px] text-ocean-sand/80">{row.ruleKey}</span>
                     <span className="text-[10px] uppercase text-ocean-sand">
                       {row.type ?? "required"}
                       {row.pathGroup && row.pathGroup !== "default"
@@ -826,7 +832,7 @@ function DetailModal({
                     </span>
                   </div>
                   {row.evidence ? (
-                    <p className="mt-1 text-ocean-sand/90">{row.evidence}</p>
+                    <p className="mt-1 break-words text-ocean-sand/90">{row.evidence}</p>
                   ) : null}
                 </li>
               ))}
@@ -893,6 +899,7 @@ export function SetupScanPane() {
       <AdminExpandedPane
         id="admin-setup-scan-pane"
         title="Tickers SemiFinal"
+        scrollBody="responsive"
         subtitle={
           usesMock
             ? "Mock data (VITE_USE_MOCK_SETUP_SCAN or VITE_USE_MOCK_CANDLES)"
@@ -902,91 +909,98 @@ export function SetupScanPane() {
         }
         className="min-w-0"
         headerExtra={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <SetupScanViewToggle
-              mode={ws.viewMode}
-              onChange={ws.setViewMode}
-              disabled={ws.runPending || ws.loading}
-            />
-            <div
-              className="inline-flex rounded-md border border-ocean-mid/50 p-0.5"
-              role="group"
-              aria-label="SemiFinal candidate mode"
-            >
+          <div className="flex w-full min-w-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <SetupScanViewToggle
+                mode={ws.viewMode}
+                onChange={ws.setViewMode}
+                disabled={ws.runPending || ws.loading}
+              />
+              <div
+                className="inline-flex max-w-full flex-wrap rounded-md border border-ocean-mid/50 p-0.5"
+                role="group"
+                aria-label="SemiFinal candidate mode"
+              >
+                <button
+                  type="button"
+                  className={cn(
+                    BTN,
+                    "px-2 py-1",
+                    ws.candidateMode === "eod"
+                      ? "bg-ocean-teal text-ocean-deep"
+                      : "text-ocean-sand hover:bg-ocean-mid/20",
+                  )}
+                  disabled={ws.runPending || ws.loading}
+                  onClick={() => ws.setCandidateMode("eod")}
+                >
+                  EOD (history)
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    BTN,
+                    "px-2 py-1",
+                    ws.candidateMode === "open"
+                      ? "bg-ocean-teal text-ocean-deep"
+                      : "text-ocean-sand hover:bg-ocean-mid/20",
+                  )}
+                  disabled={ws.runPending || ws.loading}
+                  onClick={() => ws.setCandidateMode("open")}
+                >
+                  9:25 (visual)
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <LiveSimulateControl
+                mode={ws.scanMode}
+                onModeChange={ws.setScanMode}
+                disabled={ws.runPending || ws.loading}
+                variant="compact"
+                simulateInput="date"
+                simulateValue={ws.simulationDate}
+                onSimulateChange={ws.setSimulationDate}
+                simulateInputId="setup-scan-session-date"
+                simulateLabel="Session"
+                simulateMax={maxSimulationSessionDate()}
+                showLiveClock={false}
+                ariaLabel="Tickers SemiFinal mode"
+                className="min-w-0 max-w-full"
+              />
+              <label className="flex shrink-0 items-center gap-1 text-[11px] text-ocean-sand">
+                Min score
+                <input
+                  type="number"
+                  min={0}
+                  max={30}
+                  value={ws.minScore}
+                  onChange={(e) => ws.setMinScore(Number(e.target.value) || 0)}
+                  className="w-14 rounded border border-ocean-mid/60 bg-ocean-deep px-1 py-1 text-base text-ocean-foam sm:w-12 sm:py-0.5 sm:text-xs"
+                />
+              </label>
+            </div>
+            <div className="grid w-full grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:flex sm:w-auto sm:justify-end">
               <button
                 type="button"
-                className={cn(
-                  BTN,
-                  "px-2 py-1",
-                  ws.candidateMode === "eod"
-                    ? "bg-ocean-teal text-ocean-deep"
-                    : "text-ocean-sand hover:bg-ocean-mid/20",
-                )}
+                className={cn(BTN_PRIMARY, "w-full sm:w-auto")}
                 disabled={ws.runPending || ws.loading}
-                onClick={() => ws.setCandidateMode("eod")}
+                onClick={() => ws.runScan()}
               >
-                EOD (history)
+                {ws.runPending
+                  ? "Scanning…"
+                  : ws.candidateMode === "open"
+                    ? "Run 9:25 visual"
+                    : "Run Tickers SemiFinal"}
               </button>
               <button
                 type="button"
-                className={cn(
-                  BTN,
-                  "px-2 py-1",
-                  ws.candidateMode === "open"
-                    ? "bg-ocean-teal text-ocean-deep"
-                    : "text-ocean-sand hover:bg-ocean-mid/20",
-                )}
-                disabled={ws.runPending || ws.loading}
-                onClick={() => ws.setCandidateMode("open")}
+                className={cn(BTN_SECONDARY, "w-full sm:w-auto")}
+                disabled={ws.loading || ws.runPending}
+                onClick={() => void ws.loadResult()}
               >
-                9:25 (visual)
+                {ws.loading ? "…" : "Reload EOD result"}
               </button>
             </div>
-            <LiveSimulateControl
-              mode={ws.scanMode}
-              onModeChange={ws.setScanMode}
-              disabled={ws.runPending || ws.loading}
-              variant="compact"
-              simulateInput="date"
-              simulateValue={ws.simulationDate}
-              onSimulateChange={ws.setSimulationDate}
-              simulateInputId="setup-scan-session-date"
-              simulateLabel="Session"
-              simulateMax={maxSimulationSessionDate()}
-              showLiveClock={false}
-              ariaLabel="Tickers SemiFinal mode"
-            />
-            <label className="flex items-center gap-1 text-[11px] text-ocean-sand">
-              Min score
-              <input
-                type="number"
-                min={0}
-                max={30}
-                value={ws.minScore}
-                onChange={(e) => ws.setMinScore(Number(e.target.value) || 0)}
-                className="w-12 rounded border border-ocean-mid/60 bg-ocean-deep px-1 py-0.5 text-ocean-foam"
-              />
-            </label>
-            <button
-              type="button"
-              className={BTN_PRIMARY}
-              disabled={ws.runPending || ws.loading}
-              onClick={() => ws.runScan()}
-            >
-              {ws.runPending
-                ? "Scanning…"
-                : ws.candidateMode === "open"
-                  ? "Run 9:25 visual"
-                  : "Run Tickers SemiFinal"}
-            </button>
-            <button
-              type="button"
-              className={BTN_SECONDARY}
-              disabled={ws.loading || ws.runPending}
-              onClick={() => void ws.loadResult()}
-            >
-              {ws.loading ? "…" : "Reload EOD result"}
-            </button>
           </div>
         }
       >
@@ -1075,7 +1089,7 @@ export function SetupScanPane() {
         />
 
         {ws.result && (
-          <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="mb-3 flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <SemiFinalTickerSearch
               value={ws.search}
               suggestions={ws.searchSuggestions}

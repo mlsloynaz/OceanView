@@ -1,4 +1,4 @@
-/** Breakout Alarm Kanban — Setup → Confirmed (graph + card) → Entry (alert only on Entry). */
+/** Breakout Alarm Kanban — Setup → Confirmed (one card) → Entry (alert only on Entry). */
 
 import { useState } from "react";
 import { cn } from "@/shared/lib/cn";
@@ -15,7 +15,7 @@ export const BREAKOUT_KANBAN_COLUMNS = [
   {
     id: "confirmed",
     title: "Confirmed",
-    hint: "Break happened — 15m BB graph + card · click graph to enlarge",
+    hint: "Break happened — chart, side, and score on one card · click the chart to enlarge",
   },
   {
     id: "entry",
@@ -111,9 +111,6 @@ function entryDebugLines(w: MarketAlarmWatch): string[] {
   if (w.lastEntryPath) {
     lines.push(`path ${w.lastEntryPath.replace(/_/g, " ")}`);
   }
-  if (typeof w.lastAboveVwap === "boolean") {
-    lines.push(w.lastAboveVwap ? "above VWAP" : "below VWAP");
-  }
   if (w.lastOverextended) lines.push("overextended");
   if (w.lastLateEntry) lines.push("late entry");
   if (w.lastEntryBlockers && w.lastEntryBlockers.length > 0) {
@@ -135,6 +132,24 @@ function lifecycleChip(watch: MarketAlarmWatch): string {
   return life.replace(/_/g, " ");
 }
 
+function summaryFacts(w: MarketAlarmWatch): string {
+  const bits: string[] = [];
+  bits.push(
+    typeof w.lastBreakoutScore === "number"
+      ? `score ${Math.round(w.lastBreakoutScore)}`
+      : "score —",
+  );
+  if (typeof w.lastAboveVwap === "boolean") {
+    bits.push(w.lastAboveVwap ? "above VWAP" : "below VWAP");
+  }
+  if (w.lastTrend1h) bits.push(`1H ${w.lastTrend1h}`);
+  if (w.lastGrade) bits.push(w.lastGrade);
+  if (w.lastBreakoutType && w.lastBreakoutType !== "none") {
+    bits.push(w.lastBreakoutType.replace(/_/g, " "));
+  }
+  return bits.join(" · ");
+}
+
 function WatchCard({
   watch: w,
   name,
@@ -143,6 +158,7 @@ function WatchCard({
   onStop,
   onRemove,
   onClearMetStatus,
+  onEnlarge,
   className,
 }: {
   watch: MarketAlarmWatch;
@@ -152,6 +168,7 @@ function WatchCard({
   onStop: (id: string) => void;
   onRemove: (id: string) => void;
   onClearMetStatus: (id: string, opts?: { restart?: boolean }) => void;
+  onEnlarge?: () => void;
   className?: string;
 }) {
   const polling =
@@ -202,19 +219,24 @@ function WatchCard({
         </span>
       </div>
 
-      <p className="mt-1 text-[10px] tabular-nums text-ocean-sand">
-        {typeof w.lastBreakoutScore === "number"
-          ? `score ${Math.round(w.lastBreakoutScore)}`
-          : "score —"}
-        {typeof w.lastContinuationScore === "number"
-          ? ` · cont ${Math.round(w.lastContinuationScore)}`
-          : ""}
-        {w.lastTrend1h ? ` · 1H ${w.lastTrend1h}` : ""}
-        {w.lastGrade ? ` · ${w.lastGrade}` : ""}
-        {w.lastBreakoutType && w.lastBreakoutType !== "none"
-          ? ` · ${w.lastBreakoutType.replace(/_/g, " ")}`
-          : ""}
-      </p>
+      {onEnlarge ? (
+        <button
+          type="button"
+          onClick={onEnlarge}
+          className="mt-1.5 block aspect-[16/10] w-full overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-deep/30 text-left hover:border-ocean-teal/45"
+          title={`Enlarge ${w.symbol} 15m BB`}
+          aria-label={`Enlarge ${w.symbol} 15m Bollinger chart`}
+        >
+          <BbSparkline15mChart
+            data={w.lastBbSparkline15m}
+            breakoutLevel={w.lastBreakoutLevel}
+            variant="thumb"
+            className="h-full"
+          />
+        </button>
+      ) : null}
+
+      <p className="mt-1 text-[10px] tabular-nums text-ocean-sand">{summaryFacts(w)}</p>
 
       {entryDebugLines(w).map((line) => (
         <p
@@ -259,6 +281,12 @@ function WatchCard({
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {w.lastEvidence ? (
+        <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-ocean-sand" title={w.lastEvidence}>
+          {w.lastEvidence}
+        </p>
       ) : null}
 
       {w.lastError ? <p className="mt-1 text-[10px] text-ocean-danger">{w.lastError}</p> : null}
@@ -314,37 +342,6 @@ function WatchCard({
         </button>
       </div>
     </div>
-  );
-}
-
-function ConfirmedChartThumb({
-  watch,
-  onEnlarge,
-}: {
-  watch: MarketAlarmWatch;
-  onEnlarge: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onEnlarge}
-      className="flex w-full max-w-[16rem] flex-col self-start rounded-md border border-ocean-mid/30 bg-ocean-surface/40 px-1.5 py-1 text-left transition-colors hover:border-ocean-teal/45 hover:bg-ocean-surface/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ocean-teal/60"
-      title={`Enlarge ${watch.symbol} 15m BB`}
-      aria-label={`Enlarge ${watch.symbol} 15m Bollinger chart`}
-    >
-      <div className="mb-0.5 flex items-baseline justify-between gap-1">
-        <p className="text-[10px] font-semibold tabular-nums text-ocean-foam">{watch.symbol}</p>
-        <span className="text-[9px] text-ocean-sand/70">click ↑</span>
-      </div>
-      <div className="aspect-[16/10] w-full min-h-0 text-ocean-foam">
-        <BbSparkline15mChart
-          data={watch.lastBbSparkline15m}
-          breakoutLevel={watch.lastBreakoutLevel}
-          variant="thumb"
-          className="h-full"
-        />
-      </div>
-    </button>
   );
 }
 
@@ -414,8 +411,7 @@ export function BreakoutKanbanBoard({
         </p>
       </div>
 
-      {/* Mobile: stacked columns · md: 2-col · xl: Setup | Confirmed×2 | Entry */}
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
         {BREAKOUT_KANBAN_COLUMNS.map((col) => {
           const rows = byColumn[col.id];
           const isEntry = col.id === "entry";
@@ -426,7 +422,6 @@ export function BreakoutKanbanBoard({
               key={col.id}
               className={cn(
                 "flex min-h-[12rem] min-w-0 flex-col rounded-lg border px-2.5 py-2",
-                isConfirmed && "md:col-span-2",
                 isEntry
                   ? "border-ocean-teal/45 bg-ocean-teal/5"
                   : "border-ocean-mid/35 bg-ocean-deep/20",
@@ -453,59 +448,28 @@ export function BreakoutKanbanBoard({
                 <p className="mt-0.5 text-[10px] leading-snug text-ocean-sand/80">{col.hint}</p>
               </header>
 
-              {isConfirmed ? (
-                <ul className="flex flex-1 flex-col gap-1.5">
-                  {rows.length === 0 ? (
-                    <li className="rounded-md border border-dashed border-ocean-mid/30 px-2 py-3 text-center text-[11px] text-ocean-sand/70">
-                      No tickers
+              <ul className="flex flex-1 flex-col gap-1.5">
+                {rows.length === 0 ? (
+                  <li className="rounded-md border border-dashed border-ocean-mid/30 px-2 py-3 text-center text-[11px] text-ocean-sand/70">
+                    No tickers
+                  </li>
+                ) : (
+                  rows.map((w) => (
+                    <li key={w.id}>
+                      <WatchCard
+                        watch={w}
+                        name={tickerNameBySymbol.get(w.symbol)}
+                        onCheckNow={onCheckNow}
+                        onStart={onStart}
+                        onStop={onStop}
+                        onRemove={onRemove}
+                        onClearMetStatus={onClearMetStatus}
+                        onEnlarge={isConfirmed ? () => setEnlargedId(w.id) : undefined}
+                      />
                     </li>
-                  ) : (
-                    rows.map((w) => (
-                      <li
-                        key={w.id}
-                        className="flex flex-col gap-1.5 sm:flex-row sm:items-start"
-                      >
-                        <ConfirmedChartThumb
-                          watch={w}
-                          onEnlarge={() => setEnlargedId(w.id)}
-                        />
-                        <WatchCard
-                          watch={w}
-                          name={tickerNameBySymbol.get(w.symbol)}
-                          onCheckNow={onCheckNow}
-                          onStart={onStart}
-                          onStop={onStop}
-                          onRemove={onRemove}
-                          onClearMetStatus={onClearMetStatus}
-                          className="min-w-0 flex-1"
-                        />
-                      </li>
-                    ))
-                  )}
-                </ul>
-              ) : (
-                <ul className="flex flex-1 flex-col gap-1.5">
-                  {rows.length === 0 ? (
-                    <li className="rounded-md border border-dashed border-ocean-mid/30 px-2 py-3 text-center text-[11px] text-ocean-sand/70">
-                      No tickers
-                    </li>
-                  ) : (
-                    rows.map((w) => (
-                      <li key={w.id}>
-                        <WatchCard
-                          watch={w}
-                          name={tickerNameBySymbol.get(w.symbol)}
-                          onCheckNow={onCheckNow}
-                          onStart={onStart}
-                          onStop={onStop}
-                          onRemove={onRemove}
-                          onClearMetStatus={onClearMetStatus}
-                        />
-                      </li>
-                    ))
-                  )}
-                </ul>
-              )}
+                  ))
+                )}
+              </ul>
             </section>
           );
         })}

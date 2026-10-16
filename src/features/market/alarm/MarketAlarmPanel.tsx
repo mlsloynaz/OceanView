@@ -17,7 +17,7 @@ import type { MarketAlarmScanLastHourResponse } from "./alarm-client";
 import { AlarmTradeModal } from "./AlarmTradeModal";
 import { AlarmTriggerList } from "./AlarmTriggerList";
 import { BreakoutKanbanBoard, watchHasBreakout } from "./BreakoutKanbanBoard";
-import { MovementWatchGrid } from "./MovementWatchGrid";
+import { MovementWatchGrid, chartForWatch, usesFiveMinuteChart } from "./MovementWatchGrid";
 import {
   ALARM_ELIGIBLE_RULES,
   MOVEMENT_ALARM_RULE_KEYS,
@@ -1321,28 +1321,42 @@ export function MarketAlarmPanel({
         </div>
       </section>
 
-      {chartWatchId ? (
-        <MarketDetailModal
-          open
-          onClose={() => setChartWatchId(null)}
-          title={`${watches.find((w) => w.id === chartWatchId)?.symbol ?? ""} · ${
-            watches.find((w) => w.id === chartWatchId)?.lastMovementChart?.timeframe ??
-            watches.find((w) => w.id === chartWatchId)?.lastBbSparkline15m?.timeframe ??
-            ""
-          }`}
-          subtitle="Price, EMA 10, EMA 21, and Bollinger"
-          className="max-w-3xl"
-        >
-          <BbSparkline15mChart
-            data={
-              watches.find((w) => w.id === chartWatchId)?.lastMovementChart ??
-              watches.find((w) => w.id === chartWatchId)?.lastBbSparkline15m
-            }
-            breakoutLevel={watches.find((w) => w.id === chartWatchId)?.lastBreakoutLevel}
-            variant="full"
-          />
-        </MarketDetailModal>
-      ) : null}
+      {chartWatchId
+        ? (() => {
+            const watch = watches.find((w) => w.id === chartWatchId) ?? null;
+            const fiveMinute = watch ? usesFiveMinuteChart(watch) : false;
+            const chart = watch ? chartForWatch(watch) : null;
+            return (
+              <MarketDetailModal
+                open
+                onClose={() => setChartWatchId(null)}
+                title={`${watch?.symbol ?? ""} · ${fiveMinute ? "5m" : (chart?.timeframe ?? "")}`}
+                subtitle={
+                  fiveMinute
+                    ? "5m price, EMA 10, and EMA 21"
+                    : "Price, EMA 10, EMA 21, and Bollinger"
+                }
+                className="max-w-3xl"
+              >
+                <BbSparkline15mChart
+                  data={
+                    chart ??
+                    (fiveMinute
+                      ? {
+                          symbol: watch?.symbol ?? "",
+                          timeframe: "5m",
+                          bbPeriod: 20,
+                          bars: [],
+                        }
+                      : null)
+                  }
+                  breakoutLevel={fiveMinute ? null : watch?.lastBreakoutLevel}
+                  variant="full"
+                />
+              </MarketDetailModal>
+            );
+          })()
+        : null}
 
       {alarmPopup ? (
         <AlarmTradeModal

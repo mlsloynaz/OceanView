@@ -45,6 +45,7 @@ import {
   type AlarmPoolEntry,
   type RankedEnter,
 } from "./alarm-enter-pool";
+import { alarmAlreadyPassed, enterAlreadyListed } from "./existing-alarm";
 import { applyFiveMinuteEntryEvent } from "./five-minute-entry";
 import {
   E03_CONFIRM_EXPIRED_MESSAGE,
@@ -97,7 +98,7 @@ import {
   stopAlarmRing,
   unlockAlarmAudio,
 } from "./play-alarm-bell";
-import { appendAlarmTrigger } from "./alarm-trigger-log";
+import { appendAlarmTrigger, loadAlarmTriggerLog } from "./alarm-trigger-log";
 import {
   loadMarketAlarmWatches,
   MARKET_ALARM_CHANGED_EVENT,
@@ -232,6 +233,10 @@ export function useMarketAlarms() {
   const simulateLocalRef = useRef(simulateLocal);
   simulateLocalRef.current = simulateLocal;
   const movementWatchSyncBusyRef = useRef(false);
+  const movementWatchStartedAtRef = useRef<string | null>(null);
+  const listedEntersRef = useRef<Promise<Awaited<ReturnType<typeof loadAlarmTriggerLog>>["entries"]> | null>(
+    null,
+  );
 
   const assessmentClock = useCallback((): Date => {
     if (timeModeRef.current === "simulate") {
@@ -919,6 +924,62 @@ export function useMarketAlarms() {
           return;
         }
 
+        // Already met when this job was turned on — list it, do not ring.
+        if (
+          alarmAlreadyPassed({
+            silenceInitialMet: watch.silenceInitialMet,
+            met: result.met,
+            ruleStatus: result.ruleStatus,
+            entryAt: result.entryAt ?? null,
+            jobStartedAt: movementWatchStartedAtRef.current,
+          })
+        ) {
+          const listedAt = result.entryAt || result.checkedAt;
+          const metWatch: MarketAlarmWatch = {
+            ...watch,
+            ...patchBase,
+            silenceInitialMet: false,
+            status: "met",
+            metAt: listedAt,
+            enteredAt: null,
+            exitedAt: null,
+            exitEvidence: null,
+            lastError: null,
+            lastDetectedTrend: detectedTrend ?? watch.trend,
+            lastAlarmLabel:
+              detectedTrend === "alcista"
+                ? "Buy Call"
+                : detectedTrend === "bajista"
+                  ? "Buy Put"
+                  : "Buy",
+            lastAlarmAt: listedAt,
+          };
+          setWatches((prev) => prev.map((w) => (w.id === id ? metWatch : w)));
+          void (async () => {
+            if (!listedEntersRef.current) {
+              listedEntersRef.current = loadAlarmTriggerLog()
+                .then((loaded) => loaded.entries)
+                .catch(() => []);
+            }
+            const listed = await listedEntersRef.current;
+            if (
+              enterAlreadyListed(listed, {
+                symbol: metWatch.symbol,
+                ruleKeys: watchRuleKeys(metWatch),
+                evidence: metWatch.lastEvidence,
+                entryAt: result.entryAt ?? null,
+              })
+            ) {
+              return;
+            }
+            const saved = await appendAlarmTrigger(metWatch, "enter");
+            listed.push(saved);
+          })().catch(() => {
+            /* list refresh is best-effort */
+          });
+          return;
+        }
+
         // Fresh enter signal — pool/rank. Keep the timer so a later exit can ring.
         if (result.met) {
           const buyName =
@@ -930,6 +991,7 @@ export function useMarketAlarms() {
           const metWatch: MarketAlarmWatch = {
             ...watch,
             ...patchBase,
+            silenceInitialMet: false,
             status: "met",
             metAt: result.checkedAt,
             enteredAt: null,
@@ -961,12 +1023,16 @@ export function useMarketAlarms() {
           return;
         }
 
+        const keepInitialSilence =
+          Boolean(watch.silenceInitialMet) &&
+          (result.ruleStatus === "pending" || result.ruleStatus === "error");
         setWatches((prev) =>
           prev.map((w) =>
             w.id === id
               ? {
                   ...w,
                   ...patchBase,
+                  silenceInitialMet: keepInitialSilence,
                   status: "running",
                 }
               : w,
@@ -1298,6 +1364,11 @@ export function useMarketAlarms() {
       setMovementWatchJob(job);
       removeOrb5mAutoWatches();
       if (job.status === "running") {
+        const startedAt = job.startedAt ?? null;
+        if (startedAt && startedAt !== movementWatchStartedAtRef.current) {
+          listedEntersRef.current = null;
+        }
+        movementWatchStartedAtRef.current = startedAt;
         armDesktopAlarmAlerts();
         ensureMovementWatchAutoWatches(
           job.symbols ?? [],

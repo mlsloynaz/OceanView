@@ -34,7 +34,7 @@ export function SemiFinalTickerSearch({
   const showList = open && value.trim().length > 0 && suggestions.length > 0;
 
   return (
-    <div ref={rootRef} className="relative min-w-0 max-w-sm flex-1">
+    <div ref={rootRef} className="relative w-full min-w-0 basis-full sm:max-w-sm sm:flex-1 sm:basis-auto">
       <span
         className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ocean-sand"
         aria-hidden
