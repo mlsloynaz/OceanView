@@ -47,6 +47,20 @@ import { charlesCallLabel } from "./schwab-refresh";
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
+type HourRelationFilter = "all" | "WITH_TREND" | "COUNTERTREND" | "TRANSITION";
+
+const HOUR_RELATION_OPTIONS: { value: HourRelationFilter; label: string }[] = [
+  { value: "all", label: "All relations" },
+  { value: "WITH_TREND", label: "With Trend" },
+  { value: "COUNTERTREND", label: "Counter" },
+  { value: "TRANSITION", label: "Transition" },
+];
+
+function matchesHourRelation(watch: MarketAlarmWatch, filter: HourRelationFilter): boolean {
+  if (filter === "all") return true;
+  return (watch.lastHourRelation ?? "").toUpperCase() === filter;
+}
+
 function groupWatchesBySymbol(
   watches: MarketAlarmWatch[],
 ): { symbol: string; watches: MarketAlarmWatch[] }[] {
@@ -396,6 +410,7 @@ export function MarketAlarmPanel({
     }));
   }, [section, visibleWatches]);
   const [movementFocus, setMovementFocus] = useState<AlarmEligibleRuleKey | "all">("all");
+  const [hourRelationFilter, setHourRelationFilter] = useState<HourRelationFilter>("all");
   useEffect(() => {
     if (movementFocus === "all") return;
     if (!movementTabs.some((tab) => tab.key === movementFocus)) setMovementFocus("all");
@@ -404,6 +419,10 @@ export function MarketAlarmPanel({
     if (section !== "movement" || movementFocus === "all") return visibleWatches;
     return visibleWatches.filter((watch) => watchRuleKeys(watch).includes(movementFocus));
   }, [movementFocus, section, visibleWatches]);
+  const relationWatches = useMemo(
+    () => boardWatches.filter((watch) => matchesHourRelation(watch, hourRelationFilter)),
+    [boardWatches, hourRelationFilter],
+  );
   const watchesByTicker = useMemo(
     () => groupWatchesBySymbol(boardWatches),
     [boardWatches],
@@ -996,60 +1015,86 @@ export function MarketAlarmPanel({
                 </button>
               </div>
             {section === "movement" && movementTabs.length > 0 ? (
-              <div
-                className="flex flex-wrap gap-0.5 rounded-md border border-ocean-mid/40 bg-ocean-deep/30 p-0.5"
-                role="tablist"
-                aria-label="Movement type"
-              >
-                {movementTabs.length > 1 ? (
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={movementFocus === "all"}
-                    className={cn(
-                      "rounded px-3 py-1.5 text-[11px] font-medium",
-                      movementFocus === "all"
-                        ? "bg-ocean-teal text-ocean-deep"
-                        : "text-ocean-sand hover:text-ocean-foam",
-                    )}
-                    onClick={() => setMovementFocus("all")}
+              <div className="flex flex-wrap items-center gap-2">
+                <div
+                  className="flex flex-wrap gap-0.5 rounded-md border border-ocean-mid/40 bg-ocean-deep/30 p-0.5"
+                  role="tablist"
+                  aria-label="Movement type"
+                >
+                  {movementTabs.length > 1 ? (
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={movementFocus === "all"}
+                      className={cn(
+                        "rounded px-3 py-1.5 text-[11px] font-medium",
+                        movementFocus === "all"
+                          ? "bg-ocean-teal text-ocean-deep"
+                          : "text-ocean-sand hover:text-ocean-foam",
+                      )}
+                      onClick={() => setMovementFocus("all")}
+                    >
+                      All ({visibleWatches.length})
+                    </button>
+                  ) : null}
+                  {movementTabs.map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={movementFocus === tab.key || movementTabs.length === 1}
+                      className={cn(
+                        "rounded px-3 py-1.5 text-[11px] font-medium",
+                        movementFocus === tab.key || movementTabs.length === 1
+                          ? "bg-ocean-teal text-ocean-deep"
+                          : "text-ocean-sand hover:text-ocean-foam",
+                      )}
+                      onClick={() => setMovementFocus(tab.key)}
+                    >
+                      {tab.label} ({tab.count})
+                    </button>
+                  ))}
+                </div>
+                <label className="flex items-center gap-1.5 text-[11px] text-ocean-sand">
+                  <span>Relation</span>
+                  <select
+                    value={hourRelationFilter}
+                    onChange={(event) =>
+                      setHourRelationFilter(event.target.value as HourRelationFilter)
+                    }
+                    className="rounded-md border border-ocean-mid/40 bg-ocean-deep px-2 py-1.5 text-[11px] font-medium text-ocean-foam"
+                    aria-label="Filter by 1h relation"
                   >
-                    All ({visibleWatches.length})
-                  </button>
-                ) : null}
-                {movementTabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={movementFocus === tab.key || movementTabs.length === 1}
-                    className={cn(
-                      "rounded px-3 py-1.5 text-[11px] font-medium",
-                      movementFocus === tab.key || movementTabs.length === 1
-                        ? "bg-ocean-teal text-ocean-deep"
-                        : "text-ocean-sand hover:text-ocean-foam",
-                    )}
-                    onClick={() => setMovementFocus(tab.key)}
-                  >
-                    {tab.label} ({tab.count})
-                  </button>
-                ))}
+                    {HOUR_RELATION_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             ) : null}
             {hasBreakoutWatches ? (
-              <BreakoutKanbanBoard
-                watches={boardWatches}
-                tickerNameBySymbol={tickerNameBySymbol}
-                onCheckNow={onCheckNow}
-                onStart={onStart}
-                onStop={onStop}
-                onRemove={onRemove}
-                onClearMetStatus={onClearMetStatus}
-              />
+              relationWatches.some(watchHasBreakout) ? (
+                <BreakoutKanbanBoard
+                  watches={relationWatches}
+                  tickerNameBySymbol={tickerNameBySymbol}
+                  onCheckNow={onCheckNow}
+                  onStart={onStart}
+                  onStop={onStop}
+                  onRemove={onRemove}
+                  onClearMetStatus={onClearMetStatus}
+                />
+              ) : (
+                <p className="text-xs text-ocean-sand">No cards for this relation.</p>
+              )
             ) : null}
             {section === "movement" && !hasBreakoutWatches ? (
+              relationWatches.length === 0 && boardWatches.length > 0 ? (
+                <p className="text-xs text-ocean-sand">No cards for this relation.</p>
+              ) : (
               <MovementWatchGrid
-                watches={boardWatches}
+                watches={relationWatches}
                 tickerNameBySymbol={tickerNameBySymbol}
                 onCheckNow={onCheckNow}
                 onStart={onStart}
@@ -1060,6 +1105,7 @@ export function MarketAlarmPanel({
                 onClearMetStatus={onClearMetStatus}
                 onEnlargeChart={setChartWatchId}
               />
+              )
             ) : null}
             {section !== "movement" || hasBreakoutWatches ? (
             <div className={cn(hasBreakoutWatches ? "mt-3 space-y-4" : "space-y-4")}>
@@ -1068,7 +1114,7 @@ export function MarketAlarmPanel({
               ) : null}
               {section === "movement" && hasBreakoutWatches ? (
                 <MovementWatchGrid
-                  watches={boardWatches.filter((w) => !watchHasBreakout(w))}
+                  watches={relationWatches.filter((w) => !watchHasBreakout(w))}
                   tickerNameBySymbol={tickerNameBySymbol}
                   onCheckNow={onCheckNow}
                   onStart={onStart}

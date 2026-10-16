@@ -44,7 +44,6 @@ export function MovementWatchPanel({
 }: Props) {
   const jobStatus = job?.status ?? "idle";
   const running = jobStatus === "running";
-  const cancelledToday = jobStatus === "cancelled";
 
   const [eligible, setEligible] = useState<string[]>([...DEFAULT_ELIGIBLE]);
   const [selectedMovements, setSelectedMovements] = useState<string[]>([
@@ -204,7 +203,6 @@ export function MovementWatchPanel({
   const canStart =
     !busy &&
     !running &&
-    !cancelledToday &&
     selectedMovements.length > 0 &&
     (useAllTickers ? activeTickers.length > 0 : selectedSymbols.length > 0);
 
@@ -246,7 +244,6 @@ export function MovementWatchPanel({
               : useAllTickers
                 ? ` · ${activeTickers.length} active tickers`
                 : ""}
-            {cancelledToday ? " (cancelled today)" : ""}
           </p>
           <div className="flex flex-wrap gap-1.5">
             <button

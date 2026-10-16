@@ -606,12 +606,12 @@ export async function stopMovementWatchJob(
       symbols: [],
       ruleKeys: [],
       pollIntervalSeconds: 60,
-      canStart: reason !== "cancelled",
+      canStart: true,
       canStop: false,
       message:
         reason === "completed"
           ? "Movement Watch completed."
-          : "Movement Watch cancelled — start again from Admin.",
+          : "Movement Watch cancelled.",
     };
   }
   return fetchJson<MovementWatchJobStatus>("/market/alarm/movement-watch/stop", {
