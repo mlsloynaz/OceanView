@@ -29,8 +29,14 @@ function stubWatch(partial: Partial<MarketAlarmWatch> & Pick<MarketAlarmWatch, "
 
 function entry(
   overrides: Partial<AlarmPoolEntry> & Pick<AlarmPoolEntry, "watchId" | "symbol" | "earningPct">,
+  triggeredAt = "2026-10-16T14:15:00.000Z",
 ): AlarmPoolEntry {
-  const watch = stubWatch({ id: overrides.watchId, symbol: overrides.symbol });
+  const watch = stubWatch({
+    id: overrides.watchId,
+    symbol: overrides.symbol,
+    metAt: triggeredAt,
+    lastAlarmAt: triggeredAt,
+  });
   return {
     kind: "enter",
     side: "alcista",
@@ -54,6 +60,24 @@ describe("resolveEarningPct", () => {
 });
 
 describe("rankEnterPool", () => {
+  it("puts the newer alarm above a higher earning from an earlier minute", () => {
+    const ranked = rankEnterPool([
+      entry({ watchId: "a", symbol: "AAPL", earningPct: 40 }, "2026-10-16T14:10:00.000Z"),
+      entry({ watchId: "b", symbol: "MSFT", earningPct: 12 }, "2026-10-16T14:15:00.000Z"),
+    ]);
+    expect(ranked[0]?.symbol).toBe("MSFT");
+    expect(ranked[1]?.symbol).toBe("AAPL");
+  });
+
+  it("inside the same minute, higher earning is on top", () => {
+    const ranked = rankEnterPool([
+      entry({ watchId: "a", symbol: "AAPL", earningPct: 12 }, "2026-10-16T14:15:40.000Z"),
+      entry({ watchId: "b", symbol: "MSFT", earningPct: 41 }, "2026-10-16T14:15:05.000Z"),
+    ]);
+    expect(ranked[0]?.symbol).toBe("MSFT");
+    expect(ranked[1]?.symbol).toBe("AAPL");
+  });
+
   it("ranks higher earning as top; other payload points at it", () => {
     const ranked = rankEnterPool([
       entry({ watchId: "a", symbol: "AAPL", earningPct: 22 }),

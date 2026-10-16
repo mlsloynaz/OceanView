@@ -1,5 +1,5 @@
 /**
- * In-memory ENTER alarm pool: bucket candidates, rank by est. earning, flush top-first.
+ * In-memory ENTER alarm pool: newest alarm first, then higher possible earning.
  * EXIT stays outside this pool.
  */
 import type { MarketAlarmWatch } from "./alarm-types";
@@ -56,10 +56,25 @@ function earningRank(value: number | null): number {
   return typeof value === "number" && Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
 }
 
-/** Higher earning wins; tie-break: symbol ascending. */
+/** When the alarm rang. Prefer the stored signal time over when it was queued. */
+export function enterTriggeredAtMs(entry: Pick<AlarmPoolEntry, "watch" | "enqueuedAt">): number {
+  const raw = entry.watch.lastAlarmAt || entry.watch.metAt;
+  const parsed = raw ? Date.parse(raw) : Number.NaN;
+  if (Number.isFinite(parsed)) return parsed;
+  return entry.enqueuedAt;
+}
+
+/** Clock minute, so 10:15:02 and 10:15:40 are the same time. */
+function triggerMinute(entry: AlarmPoolEntry): number {
+  return Math.floor(enterTriggeredAtMs(entry) / 60_000);
+}
+
+/** Newest minute first. Inside that minute, higher possible earning, then symbol. */
 export function rankEnterPool(entries: AlarmPoolEntry[]): RankedEnter[] {
   if (entries.length === 0) return [];
   const sorted = [...entries].sort((a, b) => {
+    const byTime = triggerMinute(b) - triggerMinute(a);
+    if (byTime !== 0) return byTime;
     const byEarn = earningRank(b.earningPct) - earningRank(a.earningPct);
     if (byEarn !== 0) return byEarn;
     return a.symbol.localeCompare(b.symbol);

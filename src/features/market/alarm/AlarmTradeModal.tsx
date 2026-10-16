@@ -20,6 +20,36 @@ type Props = {
   topRatedEarningPct?: number | null;
 };
 
+function alarmClock(watch: MarketAlarmWatch): string | null {
+  const iso = watch.lastAlarmAt || watch.metAt;
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function contractWord(side: string | null | undefined): "CALL" | "PUT" | null {
+  const value = String(side || "").trim().toLowerCase();
+  if (value === "alcista" || value === "call") return "CALL";
+  if (value === "bajista" || value === "put") return "PUT";
+  return null;
+}
+
+function ContractWord({ side }: { side: string | null | undefined }) {
+  const word = contractWord(side);
+  if (!word) return null;
+  return (
+    <span
+      className={cn(
+        "ml-2 font-bold tracking-wide",
+        word === "CALL" ? "text-[#D6FF4A]" : "text-red-500",
+      )}
+    >
+      {word}
+    </span>
+  );
+}
+
 function sideLabelOf(watch: MarketAlarmWatch): string {
   const side =
     watch.lastDetectedTrend === "alcista" || watch.lastDetectedTrend === "bajista"
@@ -50,11 +80,16 @@ export function AlarmTradeModal({
     !!topRatedSymbol &&
     topRatedSymbol.trim().toUpperCase() !== watch.symbol.trim().toUpperCase();
 
-  const title = !isEnter
-    ? `Exit: ${watch.symbol}`
-    : multi
-      ? `Enter: ${poolEntries!.length} signals`
-      : `Enter: ${watch.symbol}`;
+  const title = !isEnter ? (
+    `Exit: ${watch.symbol}`
+  ) : multi ? (
+    `Enter: ${poolEntries!.length} signals`
+  ) : (
+    <>
+      Enter: {watch.symbol}
+      <ContractWord side={watch.lastDetectedTrend ?? watch.trend} />
+    </>
+  );
   const subtitle = multi
     ? `Top ${topRatedSymbol ?? watch.symbol} · pooled ENTERs`
     : `${watch.ruleLabel} · ${sideLabel}`;
@@ -64,7 +99,9 @@ export function AlarmTradeModal({
       <div className="space-y-3 text-sm text-ocean-foam">
         {multi ? (
           <ul className="space-y-2">
-            {poolEntries!.map((row) => (
+            {poolEntries!.map((row) => {
+              const clock = alarmClock(row.watch);
+              return (
               <li
                 key={row.watchId}
                 className={cn(
@@ -74,25 +111,33 @@ export function AlarmTradeModal({
                     : "border-ocean-mid/30 bg-ocean-deep/20",
                 )}
               >
-                <p
-                  className={cn(
-                    "tabular-nums text-ocean-foam",
-                    row.isTop ? "text-lg font-bold" : "text-base font-semibold",
-                  )}
-                >
-                  {row.isTop ? (
-                    <span className="text-ocean-teal-dim dark:text-ocean-teal">
-                      {formatTopRatedLine(row.symbol, row.earningPct)}
-                    </span>
-                  ) : (
-                    <>
-                      {row.symbol}
-                      <span className="ml-2 font-medium text-ocean-sand">
-                        {formatEarningPctLabel(row.earningPct)}
+                <div className="flex items-start justify-between gap-2">
+                  <p
+                    className={cn(
+                      "tabular-nums text-ocean-foam",
+                      row.isTop ? "text-lg font-bold" : "text-base font-semibold",
+                    )}
+                  >
+                    {row.isTop ? (
+                      <span className="text-ocean-teal-dim dark:text-ocean-teal">
+                        {formatTopRatedLine(row.symbol, row.earningPct)}
                       </span>
-                    </>
-                  )}
-                </p>
+                    ) : (
+                      <>
+                        {row.symbol}
+                        <span className="ml-2 font-medium text-ocean-sand">
+                          {formatEarningPctLabel(row.earningPct)}
+                        </span>
+                      </>
+                    )}
+                    <ContractWord side={row.sideLabel} />
+                  </p>
+                  {clock ? (
+                    <p className="shrink-0 text-[11px] font-medium tabular-nums text-ocean-sand">
+                      {clock}
+                    </p>
+                  ) : null}
+                </div>
                 <p className={cn("mt-0.5 text-ocean-sand", row.isTop ? "text-sm" : "text-xs")}>
                   {row.ruleLabel} · {row.sideLabel}
                 </p>
@@ -100,7 +145,8 @@ export function AlarmTradeModal({
                   <p className="mt-0.5 text-[11px] text-ocean-sand/90">{row.evidence}</p>
                 ) : null}
               </li>
-            ))}
+              );
+            })}
           </ul>
         ) : (
           <>
