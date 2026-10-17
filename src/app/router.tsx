@@ -20,6 +20,7 @@ import { SystemPage } from "@/features/system/SystemPage";
 import { TodayPage } from "@/features/today/TodayPage";
 import { TodayRedirect } from "@/features/today/TodayRedirect";
 import { todayPath, defaultTodayMode } from "@/features/today/lib/today-routes";
+import { DocumentsPage } from "@/features/documents/DocumentsPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -92,6 +93,8 @@ export const router = createBrowserRouter([
         element: <Navigate to={alarmsPath(defaultAlarmsTab())} replace />,
       },
       { path: "market/:mode", element: <MarketPage /> },
+      { path: "documents", element: <DocumentsPage /> },
+      { path: "documents/:slug", element: <DocumentsPage /> },
       { path: "premarket", element: <PremarketPage /> },
       { path: "admin", element: <RequireAdmin><AdminPage /></RequireAdmin> },
       { path: "*", element: <RouteNotFound /> },

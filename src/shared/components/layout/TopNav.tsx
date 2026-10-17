@@ -9,6 +9,7 @@ import { cn } from "@/shared/lib/cn";
 const primaryNav = [
   { to: todayPath(defaultTodayMode()), label: "Today", match: "/today", adminOnly: false },
   { to: alarmsPath(defaultAlarmsTab()), label: "Alarms", match: "/alarms", adminOnly: false },
+  { to: "/documents", label: "Documents", match: "/documents", adminOnly: false },
   { to: "/research", label: "Research", match: "/research", adminOnly: true },
   { to: "/strategies", label: "Strategies", match: "/strategies", adminOnly: true },
   { to: "/universe", label: "Universe", match: "/universe", adminOnly: true },

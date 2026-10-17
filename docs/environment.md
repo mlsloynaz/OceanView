@@ -38,6 +38,7 @@ Current values are non-secret: `VITE_API_BASE_URL=/api`, `VITE_USE_MOCK_CANDLES=
 | `VITE_COGNITO_USER_POOL_ID` | Cognito user pool (from `oceanview-api` stack output) |
 | `VITE_COGNITO_CLIENT_ID` | Cognito app client id (public SPA) |
 | `VITE_AWS_REGION` | Cognito region (usually `us-east-1`) |
+| `STRATEGIES_MD_DIR` | Optional local folder (default `C:\dta\strategies`) for the Documents “upload from this computer” button. Saved notes live in DynamoDB `OceanView-Documents`. |
 
 ### Gitignored (personal / machine-specific)
 
