@@ -12,6 +12,7 @@ import {
 } from "./catalog";
 import { fetchDocument, fetchDocuments, uploadDocuments, type StoredDocument } from "./documents-client";
 import { MarkdownDocument } from "./MarkdownDocument";
+import { StrategyGraphGallery } from "./StrategyGraphGallery";
 
 async function loadLocalCatalog(): Promise<DocumentsCatalog | null> {
   try {
@@ -73,25 +74,19 @@ function DocNav({ docs, current }: { docs: StrategyDocSummary[]; current: Strate
   );
 }
 
-function Pics({ pics }: { pics: StrategyPic[] }) {
-  if (pics.length === 0) return null;
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {pics.map((pic) => (
-        <figure key={pic.filename} className="overflow-hidden rounded-lg border border-ocean-mid/70 bg-ocean-surface">
-          <img
-            src={`/strategy-docs/raw/${pic.file}`}
-            alt={pic.label}
-            className="h-auto w-full"
-          />
-          <figcaption className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-ocean-sand">
-            <span>{pic.label}</span>
-            <span className="font-semibold text-ocean-foam">{pic.timeframe}</span>
-          </figcaption>
-        </figure>
-      ))}
-    </div>
-  );
+function graphGroups(
+  docs: StoredDocument[] | null,
+  picsBySlug: Record<string, StrategyPic[]>,
+  current: StrategyDocSummary | null,
+): { title: string; pics: StrategyPic[] }[] {
+  if (current?.kind === "strategy") {
+    return [{ title: current.title, pics: picsBySlug[current.slug] ?? [] }];
+  }
+  const strategies = (docs ?? []).filter((doc) => doc.kind === "strategy");
+  if (strategies.length > 0) {
+    return strategies.map((doc) => ({ title: doc.title, pics: picsBySlug[doc.slug] ?? [] }));
+  }
+  return Object.entries(picsBySlug).map(([slug, pics]) => ({ title: slug, pics }));
 }
 
 function UploadBar({
@@ -255,11 +250,11 @@ export function DocumentsPage() {
     }
   }
 
-  const pics = current ? (picsBySlug[current.slug] ?? []) : [];
   const missingSlug = Boolean(docs && slug && !current);
+  const graphs = graphGroups(docs, picsBySlug, current);
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5">
+    <div className="mx-auto w-full max-w-6xl space-y-5">
       <header className="space-y-3">
         <h1 className="font-display text-3xl font-semibold text-ocean-foam sm:text-4xl">Documents</h1>
         <p className="max-w-3xl text-sm leading-relaxed text-ocean-sand">
@@ -294,7 +289,7 @@ export function DocumentsPage() {
         </p>
       ) : null}
 
-      <Pics pics={pics} />
+      <StrategyGraphGallery groups={graphs} />
 
       {markdown != null ? <MarkdownDocument source={rewriteAssetUrls(markdown)} /> : null}
       {current && markdown == null && !error ? (
