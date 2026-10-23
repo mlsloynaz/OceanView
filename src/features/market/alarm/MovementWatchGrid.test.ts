@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { fitThumbnailGrid } from "./fit-thumbnail-grid";
 import { chartForWatch } from "./MovementWatchGrid";
 import type { MarketAlarmWatch } from "./alarm-types";
 
@@ -33,6 +34,20 @@ const bars = [
     ema21: 1.1,
   },
 ];
+
+describe("fitThumbnailGrid", () => {
+  it("keeps a 16:10 thumbnail inside the pane for every chart", () => {
+    const fit = fitThumbnailGrid(6, 1600, 900);
+    const cellWidth = (1600 - 8 * (fit.columns - 1)) / fit.columns;
+    const cellHeight = (900 - 8 * (fit.rows - 1)) / fit.rows;
+    const thumbWidth = Math.min(cellWidth, cellHeight * (16 / 10));
+    const thumbHeight = thumbWidth / (16 / 10);
+    expect(fit.columns * fit.rows).toBeGreaterThanOrEqual(6);
+    expect(thumbWidth / thumbHeight).toBeCloseTo(1.6, 5);
+    expect(fit.rows * thumbHeight + (fit.rows - 1) * 8).toBeLessThanOrEqual(900);
+    expect(fit.columns * thumbWidth + (fit.columns - 1) * 8).toBeLessThanOrEqual(1600);
+  });
+});
 
 describe("chartForWatch", () => {
   it("uses the 5m chart with both EMAs for 5m trend", () => {

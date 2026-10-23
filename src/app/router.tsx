@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AlarmsPage } from "@/features/alarms/AlarmsPage";
+import { MovementGridWindow } from "@/features/alarms/MovementGridWindow";
 import { AlarmsRedirect } from "@/features/alarms/AlarmsRedirect";
 import { alarmsPath, defaultAlarmsTab } from "@/features/alarms/lib/alarm-routes";
 import { AppShell } from "@/shared/components/layout/AppShell";
@@ -24,6 +25,15 @@ import { DocumentsPage } from "@/features/documents/DocumentsPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
+  {
+    path: "/alarms/grid",
+    element: (
+      <RequireAuth>
+        <MovementGridWindow />
+      </RequireAuth>
+    ),
+    errorElement: <RouteErrorFallback />,
+  },
   {
     path: "/",
     element: (

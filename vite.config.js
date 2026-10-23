@@ -1,0 +1,80 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { defineConfig, loadEnv } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { strategyDocsPlugin } from "./vite/strategy-docs-plugin.ts";
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
+const dataDir = path.resolve(rootDir, "data");
+const DEPLOYED_API_GATEWAY = "https://7bko9drijd.execute-api.us-east-1.amazonaws.com/prod";
+function dataDirPlugin() {
+    return {
+        name: "oceanview-data-dir",
+        configureServer(server) {
+            server.middlewares.use("/data", (req, res, next) => {
+                const rel = decodeURIComponent((req.url ?? "/").split("?")[0]);
+                const filePath = path.resolve(dataDir, `.${rel}`);
+                if (!filePath.startsWith(dataDir)) {
+                    res.statusCode = 403;
+                    res.end("Forbidden");
+                    return;
+                }
+                if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+                    next();
+                    return;
+                }
+                res.setHeader("Content-Type", "application/json; charset=utf-8");
+                fs.createReadStream(filePath).pipe(res);
+            });
+        },
+        writeBundle() {
+            const outDir = path.resolve(rootDir, "dist/data");
+            if (!fs.existsSync(dataDir))
+                return;
+            fs.mkdirSync(outDir, { recursive: true });
+            for (const name of fs.readdirSync(dataDir)) {
+                const src = path.join(dataDir, name);
+                if (fs.statSync(src).isFile()) {
+                    fs.copyFileSync(src, path.join(outDir, name));
+                }
+            }
+        },
+    };
+}
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, rootDir, "");
+    const apiProxyTarget = env.VITE_DEV_API_PROXY_TARGET ||
+        process.env.VITE_DEV_API_PROXY_TARGET ||
+        DEPLOYED_API_GATEWAY;
+    return {
+        plugins: [
+            react(),
+            tailwindcss(),
+            dataDirPlugin(),
+            strategyDocsPlugin({
+                dir: env.STRATEGIES_MD_DIR || process.env.STRATEGIES_MD_DIR,
+                rootDir,
+            }),
+        ],
+        resolve: {
+            alias: {
+                "@": path.resolve(rootDir, "./src"),
+            },
+        },
+        test: {
+            environment: "node",
+            include: ["src/**/*.test.ts"],
+        },
+        server: {
+            proxy: {
+                "/api": {
+                    target: apiProxyTarget,
+                    changeOrigin: true,
+                    secure: true,
+                    rewrite: (path) => path.replace(/^\/api/, "") || "/",
+                },
+            },
+        },
+    };
+});

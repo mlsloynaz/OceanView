@@ -14,6 +14,18 @@ export function calc10(value: number): number {
   return round2(value * 1.1 + 0.02);
 }
 
+export function calc50(value: number): number {
+  return round2(value * 1.5 + 0.02);
+}
+
+export function calc75(value: number): number {
+  return round2(value * 1.75 + 0.02);
+}
+
+export function calc100(value: number): number {
+  return round2(value * 2 + 0.02);
+}
+
 export function calcRisk(value: number): number {
   return round2(value * 0.8);
 }

@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { BbSparkline15mChart } from "./BbSparkline15mChart";
 import {
@@ -7,6 +8,7 @@ import {
   type MarketAlarmWatch,
 } from "./alarm-types";
 import { movementStateLabel, optionRoomLine, shadowComparisonVisible } from "./five-minute-entry";
+import { THUMB_GAP_PX, fitThumbnailGrid } from "./fit-thumbnail-grid";
 
 const BTN =
   "rounded px-2 py-1 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -22,6 +24,10 @@ type Props = {
   onConfirmExit: (id: string) => void;
   onClearMetStatus: (id: string, opts?: { restart?: boolean }) => void;
   onEnlargeChart: (id: string) => void;
+  /** Wider layouts for the popped-out grid window. */
+  layoutClassName?: string;
+  /** Size every graph thumbnail so the set fits the pane, keeping 16:10. */
+  fitViewport?: boolean;
 };
 
 export function usesFiveMinuteChart(
@@ -443,6 +449,80 @@ function MovementWatchCard({
   );
 }
 
+function FitGraphThumb({
+  watch,
+  name,
+  onEnlargeChart,
+}: {
+  watch: MarketAlarmWatch;
+  name?: string;
+  onEnlargeChart: (id: string) => void;
+}) {
+  const fiveMinute = usesFiveMinuteChart(watch);
+  const data = chartForWatch(watch);
+  const showChart =
+    watchRuleKeys(watch).some(
+      (key) =>
+        key === "trend_change_5m" ||
+        key === "trend_change_15m" ||
+        key === "ema_cross_5m" ||
+        key === "breakout_quality" ||
+        key === "orb_breakout_5m",
+    ) || Boolean(data?.bars?.length);
+
+  return (
+    <div
+      className="flex h-full w-full min-h-0 min-w-0 items-center justify-center"
+      style={{ containerType: "size" }}
+      role="listitem"
+    >
+      <button
+        type="button"
+        onClick={() => onEnlargeChart(watch.id)}
+        className={cn(
+          "relative overflow-hidden rounded-md border bg-ocean-surface/40 text-left hover:border-ocean-teal/45",
+          cardTone(watch.status),
+        )}
+        style={{
+          aspectRatio: "16 / 10",
+          width: "min(100cqw, calc(100cqh * 16 / 10))",
+          height: "min(100cqh, calc(100cqw * 10 / 16))",
+        }}
+        title={`Enlarge ${watch.symbol} chart`}
+        aria-label={`${watch.symbol} ${watch.ruleLabel}`}
+      >
+        {showChart ? (
+          <BbSparkline15mChart
+            data={
+              data ??
+              (fiveMinute
+                ? { symbol: watch.symbol, timeframe: "5m", bbPeriod: 20, bars: [] }
+                : null)
+            }
+            breakoutLevel={fiveMinute ? null : watch.lastBreakoutLevel}
+            variant="thumb"
+            className="absolute inset-0 h-full"
+          />
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center px-2 text-center text-[10px] text-ocean-sand/70">
+            Chart after next check
+          </span>
+        )}
+        <span className="pointer-events-none absolute top-1 left-1 z-20 max-w-[80%] truncate rounded bg-ocean-deep/80 px-1 py-0.5 font-display text-[10px] font-semibold text-ocean-foam">
+          {watch.symbol}
+          {name ? <span className="ml-1 font-normal text-ocean-sand">{name}</span> : null}
+        </span>
+        {watch.status === "met" ? (
+          <SignalOverlay kind="buy" trend={watch.lastDetectedTrend} />
+        ) : null}
+        {watch.status === "exit" ? (
+          <SignalOverlay kind="exit" trend={watch.lastDetectedTrend} />
+        ) : null}
+      </button>
+    </div>
+  );
+}
+
 export function MovementWatchGrid({
   watches,
   tickerNameBySymbol,
@@ -454,27 +534,83 @@ export function MovementWatchGrid({
   onConfirmExit,
   onClearMetStatus,
   onEnlargeChart,
+  layoutClassName,
+  fitViewport = false,
 }: Props) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [pane, setPane] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    if (!fitViewport) return;
+    const node = frameRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (!rect) return;
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      setPane((prev) =>
+        prev.width === width && prev.height === height ? prev : { width, height },
+      );
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [fitViewport, watches.length]);
+
+  const sorted = useMemo(() => {
+    return [...watches].sort((a, b) => {
+      const rank = (s: MarketAlarmWatch["status"]) => {
+        if (s === "met") return 0;
+        if (s === "exit") return 1;
+        if (s === "in_trade") return 2;
+        if (s === "running" || s === "checking") return 3;
+        return 4;
+      };
+      const delta = rank(a.status) - rank(b.status);
+      if (delta !== 0) return delta;
+      return a.symbol.localeCompare(b.symbol) || a.ruleLabel.localeCompare(b.ruleLabel);
+    });
+  }, [watches]);
+
+  const fit = useMemo(
+    () => fitThumbnailGrid(sorted.length, pane.width, pane.height),
+    [pane.height, pane.width, sorted.length],
+  );
+
   if (watches.length === 0) {
     return <p className="text-xs text-ocean-sand">No watches on this movement.</p>;
   }
 
-  const sorted = [...watches].sort((a, b) => {
-    const rank = (s: MarketAlarmWatch["status"]) => {
-      if (s === "met") return 0;
-      if (s === "exit") return 1;
-      if (s === "in_trade") return 2;
-      if (s === "running" || s === "checking") return 3;
-      return 4;
-    };
-    const d = rank(a.status) - rank(b.status);
-    if (d !== 0) return d;
-    return a.symbol.localeCompare(b.symbol) || a.ruleLabel.localeCompare(b.ruleLabel);
-  });
+  if (fitViewport) {
+    return (
+      <div ref={frameRef} className="h-full min-h-0" role="list" aria-label="Movement watches grid">
+        <div
+          className="grid h-full min-h-0"
+          style={{
+            gap: THUMB_GAP_PX,
+            gridTemplateColumns: `repeat(${fit.columns}, minmax(0, 1fr))`,
+            gridTemplateRows: `repeat(${fit.rows}, minmax(0, 1fr))`,
+          }}
+        >
+          {sorted.map((watch) => (
+            <FitGraphThumb
+              key={watch.id}
+              watch={watch}
+              name={tickerNameBySymbol.get(watch.symbol.toUpperCase())}
+              onEnlargeChart={onEnlargeChart}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
-      className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+      className={
+        layoutClassName ??
+        "grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+      }
       role="list"
       aria-label="Movement watches grid"
     >

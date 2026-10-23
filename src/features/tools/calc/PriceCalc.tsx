@@ -3,10 +3,22 @@ import {
   calc10,
   calc20,
   calc35,
+  calc50,
+  calc75,
+  calc100,
   calcRisk,
   formatCalcResult,
 } from "@/shared/lib/price-calc";
 import { cn } from "@/shared/lib/cn";
+
+const PERCENTS = [
+  { label: "35%", title: "× 1.35 + 0.02", calc: calc35, primary: true },
+  { label: "20%", title: "× 1.2 + 0.02", calc: calc20, primary: false },
+  { label: "10%", title: "× 1.1 + 0.02", calc: calc10, primary: false },
+  { label: "50%", title: "× 1.5 + 0.02", calc: calc50, primary: false },
+  { label: "75%", title: "× 1.75 + 0.02", calc: calc75, primary: false },
+  { label: "100%", title: "× 2 + 0.02", calc: calc100, primary: false },
+] as const;
 
 export function PriceCalc() {
   const [input, setInput] = useState("");
@@ -14,113 +26,63 @@ export function PriceCalc() {
 
   const value = parseFloat(input);
   const valid = Number.isFinite(value);
-  const r35 = valid ? calc35(value) : null;
-  const r20 = valid ? calc20(value) : null;
-  const r10 = valid ? calc10(value) : null;
   const rRisk = valid ? calcRisk(value) : null;
-  const lastIs35 = lastLabel === "35%";
-  const lastIs20 = lastLabel === "20%";
-  const lastIs10 = lastLabel === "10%";
 
-  function run35() {
+  function select(label: string) {
     if (!valid) return;
-    setLastLabel("35%");
-  }
-
-  function run20() {
-    if (!valid) return;
-    setLastLabel("20%");
-  }
-
-  function run10() {
-    if (!valid) return;
-    setLastLabel("10%");
+    setLastLabel(label);
   }
 
   return (
     <div className="space-y-3">
       <input
-        type="number"
-        step="any"
+        type="text"
         inputMode="decimal"
+        enterKeyHint="done"
+        autoComplete="off"
         value={input}
         onChange={(e) => setInput(e.target.value)}
         placeholder="0.00"
         aria-label="Amount to calculate"
-        className="w-full rounded-lg border border-ocean-mid/60 bg-ocean-deep px-3 py-2.5 text-base font-medium text-ocean-foam placeholder:text-ocean-sand/50 focus:border-ocean-teal focus:outline-none focus:ring-2 focus:ring-ocean-teal/30"
+        className="min-h-12 w-full rounded-lg border border-ocean-mid/60 bg-ocean-deep px-3 py-2.5 text-base font-medium text-ocean-foam placeholder:text-ocean-sand/50 focus:border-ocean-teal focus:outline-none focus:ring-2 focus:ring-ocean-teal/30"
       />
 
-      <div className="grid grid-cols-3 gap-2">
-        <button
-          type="button"
-          onClick={run35}
-          disabled={!valid}
-          className="rounded-lg bg-ocean-teal px-2 py-2 text-sm font-bold text-ocean-deep transition-all hover:brightness-105 disabled:opacity-40"
-          title="× 1.35 + 0.02"
-        >
-          35%
-        </button>
-        <button
-          type="button"
-          onClick={run20}
-          disabled={!valid}
-          className="rounded-lg border border-ocean-mid/80 bg-ocean-surface px-2 py-2 text-sm font-bold text-ocean-foam transition-all hover:bg-ocean-mid/40 disabled:opacity-40"
-          title="× 1.2 + 0.02"
-        >
-          20%
-        </button>
-        <button
-          type="button"
-          onClick={run10}
-          disabled={!valid}
-          className="rounded-lg border border-ocean-mid/80 bg-ocean-surface px-2 py-2 text-sm font-bold text-ocean-foam transition-all hover:bg-ocean-mid/40 disabled:opacity-40"
-          title="× 1.1 + 0.02"
-        >
-          10%
-        </button>
+      <div className="grid grid-cols-1 gap-2">
+        {PERCENTS.map((percent) => {
+          const result = valid ? percent.calc(value) : null;
+          const selected = lastLabel === percent.label;
+          return (
+            <button
+              key={percent.label}
+              type="button"
+              onClick={() => select(percent.label)}
+              disabled={!valid}
+              title={percent.title}
+              className={cn(
+                "flex min-h-12 touch-manipulation items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition-all disabled:opacity-40",
+                percent.primary
+                  ? "bg-ocean-teal text-ocean-deep hover:brightness-105"
+                  : "border border-ocean-mid/80 bg-ocean-surface text-ocean-foam hover:bg-ocean-mid/40",
+                selected && "ring-2 ring-ocean-teal",
+              )}
+            >
+              <span className="text-sm font-bold">{percent.label}</span>
+              <span
+                className={cn(
+                  "text-lg font-bold tabular-nums leading-none",
+                  percent.primary ? "text-ocean-deep" : "text-ocean-teal",
+                )}
+              >
+                {result != null ? formatCalcResult(result) : "—"}
+              </span>
+            </button>
+          );
+        })}
       </div>
-
-      {valid && r35 != null && r20 != null && r10 != null && (
-        <div className="grid grid-cols-3 gap-2">
-          <div
-            className={cn(
-              "rounded-lg px-2 py-2.5 text-center",
-              lastIs35 ? "bg-ocean-teal/20 ring-2 ring-ocean-teal" : "bg-ocean-surface/80",
-            )}
-          >
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">35%</p>
-            <p className="mt-0.5 text-xl font-bold tabular-nums leading-tight text-ocean-teal">
-              {formatCalcResult(r35)}
-            </p>
-          </div>
-          <div
-            className={cn(
-              "rounded-lg px-2 py-2.5 text-center",
-              lastIs20 ? "bg-ocean-teal/20 ring-2 ring-ocean-teal" : "bg-ocean-surface/80",
-            )}
-          >
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">20%</p>
-            <p className="mt-0.5 text-xl font-bold tabular-nums leading-tight text-ocean-teal">
-              {formatCalcResult(r20)}
-            </p>
-          </div>
-          <div
-            className={cn(
-              "rounded-lg px-2 py-2.5 text-center",
-              lastIs10 ? "bg-ocean-teal/20 ring-2 ring-ocean-teal" : "bg-ocean-surface/80",
-            )}
-          >
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">10%</p>
-            <p className="mt-0.5 text-xl font-bold tabular-nums leading-tight text-ocean-teal">
-              {formatCalcResult(r10)}
-            </p>
-          </div>
-        </div>
-      )}
 
       <div
         className={cn(
-          "rounded-lg border-2 px-2 py-3 text-center",
+          "rounded-lg border-2 px-3 py-3 text-center",
           valid
             ? "border-ocean-danger-border bg-ocean-danger-muted"
             : "border-ocean-danger-border/30 bg-ocean-danger-muted/50 opacity-70",

@@ -17,6 +17,7 @@ import type { MarketAlarmScanLastHourResponse } from "./alarm-client";
 import { AlarmTradeModal } from "./AlarmTradeModal";
 import { AlarmTriggerList } from "./AlarmTriggerList";
 import { BreakoutKanbanBoard, watchHasBreakout } from "./BreakoutKanbanBoard";
+import { openMovementGridWindow } from "@/features/alarms/movement-grid-channel";
 import { MovementWatchGrid, chartForWatch, usesFiveMinuteChart } from "./MovementWatchGrid";
 import {
   ALARM_ELIGIBLE_RULES,
@@ -338,6 +339,7 @@ export function MarketAlarmPanel({
   }, [section, watches]);
 
   const [chartWatchId, setChartWatchId] = useState<string | null>(null);
+  const [gridWindowBlocked, setGridWindowBlocked] = useState(false);
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
   const [selectedRules, setSelectedRules] = useState<AlarmEligibleRuleKey[]>(() => [
     section === "movement" ? "breakout_quality" : "confirmation_change_trend_1h",
@@ -1014,8 +1016,10 @@ export function MarketAlarmPanel({
                     : ""}
                 </button>
               </div>
-            {section === "movement" && movementTabs.length > 0 ? (
+            {section === "movement" ? (
               <div className="flex flex-wrap items-center gap-2">
+                {movementTabs.length > 0 ? (
+                <>
                 <div
                   className="flex flex-wrap gap-0.5 rounded-md border border-ocean-mid/40 bg-ocean-deep/30 p-0.5"
                   role="tablist"
@@ -1072,6 +1076,27 @@ export function MarketAlarmPanel({
                     ))}
                   </select>
                 </label>
+                </>
+                ) : null}
+                <button
+                  type="button"
+                  className={cn(
+                    BTN,
+                    "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20",
+                  )}
+                  title="Open the graph grid in a separate window"
+                  onClick={() => {
+                    const opened = openMovementGridWindow();
+                    setGridWindowBlocked(!opened);
+                  }}
+                >
+                  Open grid window
+                </button>
+                {gridWindowBlocked ? (
+                  <span className="text-[11px] text-ocean-sand">
+                    Allow pop-ups for OceanView to open the grid window.
+                  </span>
+                ) : null}
               </div>
             ) : null}
             {hasBreakoutWatches ? (

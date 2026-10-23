@@ -126,8 +126,9 @@ export function ToolsPane() {
         <button
           type="button"
           className={cn(
-            "fixed bottom-4 left-4 z-40 rounded-full border border-ocean-mid/50 bg-ocean-surface px-3.5 py-2",
-            "text-xs font-semibold text-ocean-foam shadow-lg shadow-black/20",
+            "fixed z-40 min-h-11 touch-manipulation rounded-full border border-ocean-mid/50 bg-ocean-surface px-4 py-2",
+            "bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))]",
+            "text-sm font-semibold text-ocean-foam shadow-lg shadow-black/20",
             "hover:border-ocean-teal/50 hover:text-ocean-teal",
           )}
           aria-expanded={open}
@@ -150,7 +151,7 @@ export function ToolsPane() {
               role="dialog"
               aria-modal="true"
               aria-labelledby={titleId}
-              className="relative z-10 flex h-full w-[min(20rem,92vw)] flex-col border-r border-ocean-mid/60 bg-ocean-surface shadow-xl"
+              className="relative z-10 flex h-full w-full max-w-md flex-col border-r border-ocean-mid/60 bg-ocean-surface shadow-xl sm:w-[min(20rem,92vw)]"
             >
               <div className="flex items-center justify-between border-b border-ocean-mid/40 px-4 py-3">
                 <p
@@ -161,13 +162,13 @@ export function ToolsPane() {
                 </p>
                 <button
                   type="button"
-                  className="rounded-md px-2 py-1 text-xs font-semibold text-ocean-sand hover:bg-ocean-mid/40 hover:text-ocean-foam"
+                  className="min-h-11 touch-manipulation rounded-md px-3 py-1 text-sm font-semibold text-ocean-sand hover:bg-ocean-mid/40 hover:text-ocean-foam"
                   onClick={() => setOpen(false)}
                 >
                   Close
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto px-4 py-4">
+              <div className="flex-1 overflow-y-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 <ToolsBody />
               </div>
             </aside>
