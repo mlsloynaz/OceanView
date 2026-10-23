@@ -1,16 +1,61 @@
 import { cn } from "@/shared/lib/cn";
 import { useCallback, useEffect, useState } from "react";
-import { formatTopRatedLine } from "./alarm-enter-pool";
 import {
   ALARM_TRIGGER_LOG_CHANGED_EVENT,
-  clearAlarmTriggerLog,
   loadAlarmTriggerLog,
   type AlarmTriggerEntry,
 } from "./alarm-trigger-log";
-import { formatAlarmTrend } from "./alarm-types";
 
 const BTN =
   "rounded-md px-2.5 py-1 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
+
+type AlarmListScope = "week" | "today" | "hour";
+
+const HOUR_MS = 60 * 60 * 1000;
+
+function isTodayEntry(entry: AlarmTriggerEntry, tradeDate: string | null): boolean {
+  if (!tradeDate) return false;
+  return (entry.tradeDate ?? "").slice(0, 10) === tradeDate;
+}
+
+function isLastHourEntry(entry: AlarmTriggerEntry, nowMs: number): boolean {
+  const at = Date.parse(entry.triggeredAt);
+  if (Number.isNaN(at)) return false;
+  return at <= nowMs && nowMs - at <= HOUR_MS;
+}
+
+function contractSide(row: AlarmTriggerEntry): { label: "CALL" | "PUT"; up: boolean } | null {
+  const side = String(row.side || "").toLowerCase();
+  if (side === "alcista") return { label: "CALL", up: true };
+  if (side === "bajista") return { label: "PUT", up: false };
+  return null;
+}
+
+function optionGainPct(row: AlarmTriggerEntry): number | null {
+  const blob = `${row.way ?? ""} ${row.evidence ?? ""}`;
+  const match =
+    blob.match(/estimated option gain\s+([0-9]+(?:\.[0-9]+)?)%/i) ??
+    blob.match(/est\. earning\s+([0-9]+(?:\.[0-9]+)?)%/i);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
+}
+
+function DirectionArrow({ up }: { up: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      aria-hidden
+      className={cn("inline-block h-4 w-4", up ? "text-ocean-teal" : "text-amber-500")}
+    >
+      {up ? (
+        <path d="M8 2.5 13 9H3L8 2.5Z" fill="currentColor" />
+      ) : (
+        <path d="M8 13.5 3 7h10L8 13.5Z" fill="currentColor" />
+      )}
+    </svg>
+  );
+}
 
 function formatWhen(iso: string): string {
   try {
@@ -28,26 +73,29 @@ function formatWhen(iso: string): string {
 
 export function AlarmTriggerList() {
   const [entries, setEntries] = useState<AlarmTriggerEntry[]>([]);
-  const [scope, setScope] = useState<"week" | "recent">("week");
+  const [scope, setScope] = useState<AlarmListScope>("week");
   const [weekStart, setWeekStart] = useState<string | null>(null);
+  const [tradeDate, setTradeDate] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const loaded = await loadAlarmTriggerLog(scope === "week" ? "current" : undefined);
+      const loaded = await loadAlarmTriggerLog("current");
       setEntries(loaded.entries);
       setWeekStart(loaded.weekStart);
+      setTradeDate(loaded.tradeDate);
+      setNowMs(Date.now());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load Alarm list.");
     } finally {
       setLoading(false);
     }
-  }, [scope]);
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -60,6 +108,25 @@ export function AlarmTriggerList() {
     window.addEventListener(ALARM_TRIGGER_LOG_CHANGED_EVENT, sync);
     return () => window.removeEventListener(ALARM_TRIGGER_LOG_CHANGED_EVENT, sync);
   }, [refresh]);
+
+  useEffect(() => {
+    if (scope !== "hour") return;
+    const timer = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, [scope]);
+
+  const visible = entries.filter((entry) => {
+    if (scope === "today") return isTodayEntry(entry, tradeDate);
+    if (scope === "hour") return isLastHourEntry(entry, nowMs);
+    return true;
+  });
+
+  const scopeNote =
+    scope === "week"
+      ? `This week${weekStart ? ` from ${weekStart}` : ""} stays saved after you leave, so entries can be reviewed later.`
+      : scope === "today"
+        ? `Today${tradeDate ? ` (${tradeDate})` : ""}. This week keeps the full list.`
+        : "Last hour — alarms from the past 60 minutes.";
 
   return (
     <section
@@ -76,13 +143,11 @@ export function AlarmTriggerList() {
           <h3 id="alarm-trigger-list-title" className="text-xs font-semibold text-ocean-foam">
             Alarm list
             <span className="ml-1.5 font-normal text-ocean-sand">
-              ({entries.length} trigger{entries.length === 1 ? "" : "s"})
+              ({visible.length} trigger{visible.length === 1 ? "" : "s"})
             </span>
           </h3>
           <p className="mt-0.5 text-[10px] leading-snug text-ocean-sand">
-            {scope === "week"
-              ? `This week${weekStart ? ` from ${weekStart}` : ""} stays saved after Clear list, so entries can be reviewed later.`
-              : "Recent list (latest 120). Clear list removes only this view. This week keeps the same alarms."}
+            {scopeNote}
           </p>
         </button>
         <div className="flex flex-wrap gap-1.5">
@@ -104,40 +169,38 @@ export function AlarmTriggerList() {
             className={cn(
               BTN,
               "border",
-              scope === "recent"
+              scope === "today"
                 ? "border-ocean-teal/60 text-ocean-foam"
                 : "border-ocean-mid/50 text-ocean-sand",
             )}
-            onClick={() => setScope("recent")}
+            onClick={() => setScope("today")}
           >
-            Recent
+            Today
+          </button>
+          <button
+            type="button"
+            className={cn(
+              BTN,
+              "border",
+              scope === "hour"
+                ? "border-ocean-teal/60 text-ocean-foam"
+                : "border-ocean-mid/50 text-ocean-sand",
+            )}
+            onClick={() => {
+              setNowMs(Date.now());
+              setScope("hour");
+            }}
+          >
+            Last hour
           </button>
           <button
             type="button"
             className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam")}
-            disabled={loading || busy}
+            disabled={loading}
             onClick={() => void refresh()}
           >
             {loading ? "Loading…" : "Refresh"}
           </button>
-          {scope === "recent" && entries.length > 0 ? (
-            <button
-              type="button"
-              className={cn(BTN, "border border-ocean-mid/50 text-ocean-sand")}
-              disabled={busy}
-              onClick={() => {
-                setBusy(true);
-                void clearAlarmTriggerLog()
-                  .then(() => setEntries([]))
-                  .catch((err) =>
-                    setError(err instanceof Error ? err.message : "Clear failed."),
-                  )
-                  .finally(() => setBusy(false));
-              }}
-            >
-              Clear list
-            </button>
-          ) : null}
           <button
             type="button"
             className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam")}
@@ -155,56 +218,65 @@ export function AlarmTriggerList() {
       ) : null}
 
       {open ? (
-        loading && entries.length === 0 ? (
+        loading && visible.length === 0 ? (
           <p className="mt-2 text-[11px] text-ocean-sand">Loading Alarm list…</p>
-        ) : entries.length === 0 ? (
+        ) : visible.length === 0 ? (
           <p className="mt-2 text-[11px] text-ocean-sand">
-            No triggers yet. When a confirmation (or exit) fires, it lands here with time and way.
+            {scope === "today"
+              ? "No triggers today."
+              : scope === "hour"
+                ? "No triggers in the last hour."
+                : "No triggers yet. When a confirmation (or exit) fires, it lands here with time and way."}
           </p>
         ) : (
           <ul className="mt-2 max-h-56 space-y-1.5 overflow-y-auto">
-            {entries.map((row) => (
+            {visible.map((row) => {
+              const contract = contractSide(row);
+              const gain = optionGainPct(row);
+              const enter = row.kind === "enter";
+              return (
               <li
                 key={row.id}
-                className="rounded border border-ocean-mid/25 bg-ocean-deep/25 px-2.5 py-1.5 text-[11px] leading-snug"
+                title={row.way}
+                className="rounded border border-ocean-mid/25 bg-ocean-deep/25 px-2.5 py-1.5"
               >
-                <div className="min-w-0">
-                  <p className="font-semibold tabular-nums text-ocean-foam">
-                    {row.symbol}
-                    <span
-                      className={cn(
-                        "ml-1.5 rounded px-1 py-0.5 text-[10px] font-medium",
-                        row.kind === "enter"
-                          ? "bg-ocean-teal/20 text-ocean-teal-dim dark:text-ocean-teal"
-                          : "bg-amber-500/20 text-amber-900 dark:text-amber-100",
-                      )}
-                    >
-                      {row.kind === "enter" ? "ENTER" : "EXIT"}
-                    </span>
-                    <span className="ml-1.5 font-normal text-ocean-sand">
-                      {row.side === "alcista" || row.side === "bajista"
-                        ? formatAlarmTrend(row.side)
-                        : ""}
-                    </span>
-                  </p>
-                  {row.kind === "enter" &&
-                  row.topRatedSymbol &&
-                  row.topRatedSymbol.trim().toUpperCase() !==
-                    row.symbol.trim().toUpperCase() ? (
-                    <p className="mt-0.5 text-sm font-bold text-ocean-teal-dim dark:text-ocean-teal">
-                      {formatTopRatedLine(row.topRatedSymbol, row.topRatedEarningPct)}
-                    </p>
-                  ) : null}
-                  <p className="mt-0.5 text-ocean-sand">{row.way}</p>
-                  <time
-                    className="mt-0.5 block tabular-nums text-[10px] text-ocean-sand"
-                    dateTime={row.triggeredAt}
+                <p className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-[11px] leading-snug">
+                  <span className="font-semibold tabular-nums text-ocean-foam">{row.symbol}</span>
+                  <span
+                    className={cn(
+                      "rounded px-1 py-0.5 text-[10px] font-semibold",
+                      enter
+                        ? "bg-ocean-teal/20 text-ocean-teal-dim dark:text-ocean-teal"
+                        : "bg-amber-500/20 text-amber-900 dark:text-amber-100",
+                    )}
                   >
-                    {formatWhen(row.triggeredAt)}
-                  </time>
-                </div>
+                    {enter ? "ENTER" : "EXIT"}
+                  </span>
+                  {contract ? (
+                    <span className="inline-flex items-center gap-1 font-semibold text-ocean-foam">
+                      <span aria-hidden>·</span>
+                      {contract.label}
+                      <DirectionArrow up={contract.up} />
+                    </span>
+                  ) : null}
+                  {gain != null ? (
+                    <span className="text-ocean-sand">
+                      estimated option gain{" "}
+                      <span className="text-xl font-bold tabular-nums leading-none text-ocean-teal">
+                        {gain.toFixed(2)}%
+                      </span>
+                    </span>
+                  ) : null}
+                </p>
+                <time
+                  className="mt-0.5 block tabular-nums text-[10px] text-ocean-sand"
+                  dateTime={row.triggeredAt}
+                >
+                  {formatWhen(row.triggeredAt)}
+                </time>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )
       ) : null}

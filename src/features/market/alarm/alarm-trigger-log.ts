@@ -69,11 +69,13 @@ function notifyTriggerLogChanged(): void {
 export async function loadAlarmTriggerLog(week?: string): Promise<{
   entries: AlarmTriggerEntry[];
   weekStart: string | null;
+  tradeDate: string | null;
 }> {
   const payload = await fetchMarketAlarmTriggers(week);
   return {
     entries: Array.isArray(payload.entries) ? payload.entries : [],
     weekStart: payload.weekStart ?? null,
+    tradeDate: payload.tradeDate ?? null,
   };
 }
 
