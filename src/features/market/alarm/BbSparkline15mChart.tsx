@@ -8,9 +8,9 @@ type Variant = "thumb" | "full";
 type Props = {
   data: BbSparkline15m | null | undefined;
   breakoutLevel?: number | null;
-  /** Detected entry time. An arrow sits on that candle's close. Exits are not marked. */
+  /** Detected entry time. An asterisk sits beside that candle's close. Exits are not marked. */
   entryAt?: string | null;
-  /** CALL draws a green arrow up. PUT draws a red arrow down. */
+  /** CALL is green. PUT is red. */
   entrySide?: "CALL" | "PUT" | null;
   className?: string;
   /** thumb = compact board pane; full = popup enlarge. */
@@ -165,14 +165,14 @@ export function BbSparkline15mChart({
 
   const entryIndex = entryCandleIndex(bars, entryAt, data?.timeframe);
   const entryBar = entryIndex >= 0 ? bars[entryIndex] : null;
-  const entryRadius = variant === "full" ? 6 : 3.5;
-  const entryMark = entryBar
-    ? {
-        cx: Math.min(W - entryRadius - 1, xCenter(entryIndex) + bodyW / 2 + entryRadius * 0.2),
-        cy: yScale(entryBar.close),
-        r: entryRadius,
-      }
-    : null;
+  const entryFont = variant === "full" ? 10 : 7;
+  const entryMark =
+    entryBar && (entrySide === "CALL" || entrySide === "PUT")
+      ? {
+          x: Math.min(W - 2, xCenter(entryIndex) + bodyW / 2 + 2),
+          y: yScale(entryBar.close),
+        }
+      : null;
   const lastWithWidth = [...bars].reverse().find((b) => b.bbWidth != null);
   const widthExpanding = bars.some((b) => b.widthExpanding === true);
   const lastWidthExpanding = lastWithWidth?.widthExpanding === true;
@@ -310,19 +310,19 @@ export function BbSparkline15mChart({
             </g>
           );
         })}
-        {entryMark && (entrySide === "CALL" || entrySide === "PUT") ? (
-          <polygon
-            points={
-              entrySide === "CALL"
-                ? `${entryMark.cx.toFixed(1)},${(entryMark.cy - entryMark.r).toFixed(1)} ${(entryMark.cx + entryMark.r * 0.75).toFixed(1)},${(entryMark.cy + entryMark.r * 0.65).toFixed(1)} ${(entryMark.cx - entryMark.r * 0.75).toFixed(1)},${(entryMark.cy + entryMark.r * 0.65).toFixed(1)}`
-                : `${entryMark.cx.toFixed(1)},${(entryMark.cy + entryMark.r).toFixed(1)} ${(entryMark.cx + entryMark.r * 0.75).toFixed(1)},${(entryMark.cy - entryMark.r * 0.65).toFixed(1)} ${(entryMark.cx - entryMark.r * 0.75).toFixed(1)},${(entryMark.cy - entryMark.r * 0.65).toFixed(1)}`
-            }
+        {entryMark ? (
+          <text
+            x={entryMark.x.toFixed(1)}
+            y={entryMark.y.toFixed(1)}
+            textAnchor="start"
+            dominantBaseline="central"
             fill={entrySide === "CALL" ? "#22c55e" : "#ef4444"}
-            stroke="#0b1220"
-            strokeWidth={variant === "full" ? 1 : 0.75}
+            fontSize={entryFont}
+            fontWeight={700}
           >
+            *
             <title>{entrySide === "CALL" ? "Call entry" : "Put entry"}</title>
-          </polygon>
+          </text>
         ) : null}
       </svg>
       {legend ? (
