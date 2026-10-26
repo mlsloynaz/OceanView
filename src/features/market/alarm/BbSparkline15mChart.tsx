@@ -8,6 +8,10 @@ type Variant = "thumb" | "full";
 type Props = {
   data: BbSparkline15m | null | undefined;
   breakoutLevel?: number | null;
+  /** Detected entry time. An arrow sits on that candle's close. Exits are not marked. */
+  entryAt?: string | null;
+  /** CALL draws a green arrow up. PUT draws a red arrow down. */
+  entrySide?: "CALL" | "PUT" | null;
   className?: string;
   /** thumb = compact board pane; full = popup enlarge. */
   variant?: Variant;
@@ -20,6 +24,31 @@ const SIZE: Record<Variant, { pad: { top: number; right: number; bottom: number;
     thumb: { pad: { top: 6, right: 6, bottom: 14, left: 6 }, w: 240, h: 150 },
     full: { pad: { top: 12, right: 10, bottom: 22, left: 10 }, w: 640, h: 360 },
   };
+
+function epochMs(value: string): number | null {
+  const text = value.trim();
+  if (!text) return null;
+  const parsed = Date.parse(text.includes("T") ? text : text.replace(" ", "T"));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function entryCandleIndex(
+  bars: BbSparkline15m["bars"],
+  entryAt: string | null | undefined,
+  timeframe: string | undefined,
+): number {
+  if (!entryAt) return -1;
+  const entry = epochMs(entryAt);
+  if (entry == null) return -1;
+  const width = (timeframe === "5m" ? 5 : 15) * 60_000;
+  let match = -1;
+  for (let i = 0; i < bars.length; i++) {
+    const open = epochMs(bars[i]?.datetime ?? "");
+    if (open == null) continue;
+    if (entry >= open && entry < open + width) match = i;
+  }
+  return match;
+}
 
 function timeLabel(iso: string): string {
   const m = /T(\d{2}):(\d{2})/.exec(iso);
@@ -51,6 +80,8 @@ function bbEnvelopePath(
 export function BbSparkline15mChart({
   data,
   breakoutLevel,
+  entryAt,
+  entrySide,
   className,
   variant = "thumb",
   showLegend,
@@ -132,6 +163,16 @@ export function BbSparkline15mChart({
   const tf = data?.timeframe === "5m" ? "5m" : "15m";
   const envelope = bbEnvelopePath(bars, xCenter, yScale);
 
+  const entryIndex = entryCandleIndex(bars, entryAt, data?.timeframe);
+  const entryBar = entryIndex >= 0 ? bars[entryIndex] : null;
+  const entryRadius = variant === "full" ? 6 : 3.5;
+  const entryMark = entryBar
+    ? {
+        cx: Math.min(W - entryRadius - 1, xCenter(entryIndex) + bodyW / 2 + entryRadius * 0.2),
+        cy: yScale(entryBar.close),
+        r: entryRadius,
+      }
+    : null;
   const lastWithWidth = [...bars].reverse().find((b) => b.bbWidth != null);
   const widthExpanding = bars.some((b) => b.widthExpanding === true);
   const lastWidthExpanding = lastWithWidth?.widthExpanding === true;
@@ -234,7 +275,7 @@ export function BbSparkline15mChart({
               ? i === 0 || i === bars.length - 1 || i === Math.floor(bars.length / 2)
               : i === 0 || i === bars.length - 1;
           return (
-            <g key={b.datetime || i} opacity={forming ? 0.75 : 1}>
+            <g key={b.datetime || i}>
               <line
                 x1={xc}
                 x2={xc}
@@ -263,12 +304,26 @@ export function BbSparkline15mChart({
                   className="fill-ocean-sand/80"
                   style={{ fontSize: labelSize }}
                 >
-                  {timeLabel(b.datetime)}
+                  {forming ? "now" : timeLabel(b.datetime)}
                 </text>
               ) : null}
             </g>
           );
         })}
+        {entryMark && (entrySide === "CALL" || entrySide === "PUT") ? (
+          <polygon
+            points={
+              entrySide === "CALL"
+                ? `${entryMark.cx.toFixed(1)},${(entryMark.cy - entryMark.r).toFixed(1)} ${(entryMark.cx + entryMark.r * 0.75).toFixed(1)},${(entryMark.cy + entryMark.r * 0.65).toFixed(1)} ${(entryMark.cx - entryMark.r * 0.75).toFixed(1)},${(entryMark.cy + entryMark.r * 0.65).toFixed(1)}`
+                : `${entryMark.cx.toFixed(1)},${(entryMark.cy + entryMark.r).toFixed(1)} ${(entryMark.cx + entryMark.r * 0.75).toFixed(1)},${(entryMark.cy - entryMark.r * 0.65).toFixed(1)} ${(entryMark.cx - entryMark.r * 0.75).toFixed(1)},${(entryMark.cy - entryMark.r * 0.65).toFixed(1)}`
+            }
+            fill={entrySide === "CALL" ? "#22c55e" : "#ef4444"}
+            stroke="#0b1220"
+            strokeWidth={variant === "full" ? 1 : 0.75}
+          >
+            <title>{entrySide === "CALL" ? "Call entry" : "Put entry"}</title>
+          </polygon>
+        ) : null}
       </svg>
       {legend ? (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-0.5 text-[9px] leading-tight text-ocean-sand/85">

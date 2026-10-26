@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fitThumbnailGrid } from "./fit-thumbnail-grid";
+import { detectedEntryAt, lastEntryTitle } from "./five-minute-entry";
 import { chartForWatch } from "./MovementWatchGrid";
 import type { MarketAlarmWatch } from "./alarm-types";
 
@@ -82,5 +83,45 @@ describe("chartForWatch", () => {
       },
     });
     expect(chart).toBeNull();
+  });
+});
+
+describe("detectedEntryAt", () => {
+  it("keeps the entry time and ignores an exit stamp", () => {
+    expect(
+      detectedEntryAt({
+        status: "exit",
+        lastEntryAt: "2026-10-26T09:36:00-04:00",
+        metAt: "2026-10-26T09:36:00-04:00",
+      }),
+    ).toBe("2026-10-26T09:36:00-04:00");
+    expect(
+      detectedEntryAt({
+        status: "running",
+        lastEntryAt: "2026-10-26T09:36:00-04:00",
+        metAt: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("titles the last entry as time, operation, and estimate", () => {
+    expect(
+      lastEntryTitle({
+        status: "in_trade",
+        lastEntryAt: "2026-10-26T10:36:00-04:00",
+        metAt: null,
+        lastDetectedTrend: "alcista",
+        lastOptionGainPct: 42.09,
+      }),
+    ).toBe("10:36 : - CALL 42.09%");
+    expect(
+      lastEntryTitle({
+        status: "exit",
+        lastEntryAt: "2026-10-26T11:05:00-04:00",
+        metAt: null,
+        lastDetectedTrend: "bajista",
+        lastOptionGainPct: 12,
+      }),
+    ).toBe("11:05 : - PUT 12.00%");
   });
 });

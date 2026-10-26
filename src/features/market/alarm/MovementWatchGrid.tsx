@@ -7,7 +7,8 @@ import {
   type BbSparkline15m,
   type MarketAlarmWatch,
 } from "./alarm-types";
-import { movementStateLabel, optionRoomLine, shadowComparisonVisible } from "./five-minute-entry";
+import { detectedEntryAt, detectedEntrySide, lastEntryTitle } from "./five-minute-entry";
+import { TickerEntriesModal } from "./TickerEntriesModal";
 import { THUMB_GAP_PX, fitThumbnailGrid } from "./fit-thumbnail-grid";
 
 const BTN =
@@ -90,102 +91,6 @@ function relationTone(relation: string): string {
   return "text-amber-400";
 }
 
-function entryPathLabel(path: string | null | undefined): string | null {
-  if (path === "early_continuation") return "Early continuation";
-  if (path === "early_reversal") return "Early reversal";
-  if (path === "confirmed_5m") return "Confirmed 5m";
-  return null;
-}
-
-function triggerLabel(trigger: string | null | undefined): string | null {
-  if (trigger === "pullback_recovery") return "EMA reclaim";
-  if (trigger === "ema_crossover") return "EMA cross";
-  if (trigger === "momentum_turn") return "Momentum turn";
-  if (trigger === "ema_hold") return "EMA hold";
-  return null;
-}
-
-function confirmationLabel(path: string | null | undefined): string | null {
-  if (path === "early_continuation" || path === "early_reversal") return "Provisional";
-  if (path === "confirmed_5m") return "Completed";
-  return null;
-}
-
-function roomLine(watch: MarketAlarmWatch): string | null {
-  return optionRoomLine(watch);
-}
-
-function FactRows({
-  path,
-  state,
-  trigger,
-  entryEvent,
-  muted,
-}: {
-  path?: string | null;
-  state?: string | null;
-  trigger?: string | null;
-  entryEvent?: boolean | null;
-  muted?: boolean;
-}) {
-  const rows = [
-    ["Entry path", entryPathLabel(path)],
-    ["Movement state", movementStateLabel(state)],
-    ["1m trigger", triggerLabel(trigger)],
-    ["5m confirmation", confirmationLabel(path)],
-    ["Entry event", entryEvent ? "New" : null],
-  ].filter((row): row is [string, string] => Boolean(row[1]));
-  if (rows.length === 0) return null;
-  return (
-    <dl className={cn("grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5", muted && "opacity-80")}>
-      {rows.map(([label, value]) => (
-        <div key={label} className="contents">
-          <dt className="text-ocean-sand">{label}</dt>
-          <dd className="text-right font-medium text-ocean-foam">{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function FiveMinuteEntryFacts({ watch }: { watch: MarketAlarmWatch }) {
-  if (!watchRuleKeys(watch).includes("trend_change_5m")) return null;
-  const shadow = watch.lastShadowEarly;
-  const shadowPath = shadow?.entryPath;
-  const hasLive = Boolean(
-    entryPathLabel(watch.lastEntryPath) ||
-      watch.lastMovementState ||
-      triggerLabel(watch.lastTriggerType),
-  );
-  const showShadow = shadowComparisonVisible(shadow);
-  const room = roomLine(watch);
-  if (!hasLive && !showShadow && !room) return null;
-  return (
-    <div className="mb-1 space-y-1 text-[10px] leading-tight">
-      {hasLive ? (
-        <FactRows
-          path={watch.lastEntryPath}
-          state={watch.lastMovementState}
-          trigger={watch.lastTriggerType}
-          entryEvent={watch.lastEntryEvent}
-        />
-      ) : null}
-      {showShadow ? (
-        <div>
-          <p className="text-[9px] uppercase tracking-wide text-ocean-sand">Shadow</p>
-          <FactRows
-            path={shadowPath}
-            state={shadow?.movementState}
-            trigger={shadow?.triggerType}
-            muted
-          />
-        </div>
-      ) : null}
-      {room ? <p className="text-ocean-sand">{room}</p> : null}
-    </div>
-  );
-}
-
 function contractLabel(
   kind: "buy" | "exit",
   trend: MarketAlarmWatch["lastDetectedTrend"],
@@ -262,6 +167,8 @@ function MovementWatchCard({
       ? formatAlarmTrend(watch.lastDetectedTrend)
       : null;
   const lastAlarm = lastAlarmLine(watch);
+  const entryTitle = lastEntryTitle(watch);
+  const [entriesOpen, setEntriesOpen] = useState(false);
   const showChart =
     watchRuleKeys(watch).some(
       (key) =>
@@ -319,7 +226,11 @@ function MovementWatchCard({
         </p>
       ) : null}
 
-      <FiveMinuteEntryFacts watch={watch} />
+      {entryTitle ? (
+        <p className="mb-1 truncate text-[11px] font-semibold tabular-nums text-ocean-foam">
+          {entryTitle}
+        </p>
+      ) : null}
 
       {showChart ? (
         <button
@@ -336,6 +247,8 @@ function MovementWatchCard({
                 : null)
             }
             breakoutLevel={fiveMinute ? null : watch.lastBreakoutLevel}
+            entryAt={detectedEntryAt(watch)}
+            entrySide={detectedEntrySide(watch)}
             variant="thumb"
             className="h-full"
           />
@@ -373,14 +286,6 @@ function MovementWatchCard({
           ) : null}
         </div>
       ) : null}
-
-      <p className="mb-1.5 line-clamp-2 text-[10px] leading-snug text-ocean-sand">
-        {watch.lastError
-          ? watch.lastError
-          : watch.status === "exit" && watch.exitEvidence
-            ? watch.exitEvidence
-            : watch.lastEvidence || "Waiting for signal…"}
-      </p>
 
       <div className="mt-auto flex flex-wrap gap-1">
         {watch.status === "met" ? (
@@ -439,12 +344,22 @@ function MovementWatchCard({
         ) : null}
         <button
           type="button"
+          className={cn(BTN, "border border-ocean-mid/40 text-ocean-foam")}
+          onClick={() => setEntriesOpen(true)}
+        >
+          Entries
+        </button>
+        <button
+          type="button"
           className={cn(BTN, "border border-ocean-danger/50 text-ocean-danger")}
           onClick={() => onRemove(watch.id)}
         >
           Remove
         </button>
       </div>
+      {entriesOpen ? (
+        <TickerEntriesModal symbol={watch.symbol} onClose={() => setEntriesOpen(false)} />
+      ) : null}
     </article>
   );
 }
@@ -500,6 +415,8 @@ function FitGraphThumb({
                 : null)
             }
             breakoutLevel={fiveMinute ? null : watch.lastBreakoutLevel}
+            entryAt={detectedEntryAt(watch)}
+            entrySide={detectedEntrySide(watch)}
             variant="thumb"
             className="absolute inset-0 h-full"
           />

@@ -18,6 +18,7 @@ import { AlarmTradeModal } from "./AlarmTradeModal";
 import { AlarmTriggerList } from "./AlarmTriggerList";
 import { BreakoutKanbanBoard, watchHasBreakout } from "./BreakoutKanbanBoard";
 import { openMovementGridWindow } from "@/features/alarms/movement-grid-channel";
+import { detectedEntryAt, detectedEntrySide } from "./five-minute-entry";
 import { MovementWatchGrid, chartForWatch, usesFiveMinuteChart } from "./MovementWatchGrid";
 import {
   ALARM_ELIGIBLE_RULES,
@@ -1422,6 +1423,8 @@ export function MarketAlarmPanel({
                       : null)
                   }
                   breakoutLevel={fiveMinute ? null : watch?.lastBreakoutLevel}
+                  entryAt={watch ? detectedEntryAt(watch) : null}
+                  entrySide={watch ? detectedEntrySide(watch) : null}
                   variant="full"
                 />
               </MarketDetailModal>
