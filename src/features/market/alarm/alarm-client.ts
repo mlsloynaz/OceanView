@@ -73,6 +73,9 @@ export type MarketAlarmCheckResponse = {
   setupType?: string;
   hourRegime?: string | null;
   hourRelation?: string | null;
+  notifyKind?: string | null;
+  alarmWarning?: string | null;
+  levelWarningDetail?: string | null;
   hourGateBlocked?: boolean;
   bandWalk1m?: boolean;
   overextended?: boolean;

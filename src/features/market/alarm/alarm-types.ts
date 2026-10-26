@@ -168,6 +168,10 @@ export type MarketAlarmWatch = {
   lastHourRelation?: string | null;
   /** Detected 1h regime, such as strong_bearish. Shown so a wrong read is visible. */
   lastHourRegime?: string | null;
+  /** Warning entry or Warning exit when a 5m trend change is on an hourly or daily line. */
+  lastAlarmWarning?: string | null;
+  /** The line that triggered lastAlarmWarning, such as "1h resistance 510". */
+  lastLevelWarningDetail?: string | null;
   /** Early or confirmed 5m path from the last check. */
   lastEntryEvent?: boolean | null;
   lastEntryEventId?: string | null;

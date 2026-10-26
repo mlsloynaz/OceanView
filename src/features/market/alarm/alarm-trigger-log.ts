@@ -51,6 +51,12 @@ export function buildTriggerWay(
   const base = `${action} · ${watch.ruleLabel} · ${sideLabel}`;
   const ev = (evidence || "").trim();
   let way = ev ? `${base} — ${ev}` : base;
+  const warning =
+    (kind === "enter" && watch.lastAlarmWarning === "Warning entry") ||
+    (kind === "exit" && watch.lastAlarmWarning === "Warning exit")
+      ? [watch.lastAlarmWarning, watch.lastLevelWarningDetail].filter(Boolean).join(" · ")
+      : "";
+  if (warning) way = `${way} · ${warning}`;
   const topSym = opts?.topRatedSymbol?.trim();
   if (
     kind === "enter" &&

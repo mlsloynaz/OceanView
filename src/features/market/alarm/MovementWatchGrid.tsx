@@ -91,6 +91,13 @@ function relationTone(relation: string): string {
   return "text-amber-400";
 }
 
+function levelWarningLine(watch: MarketAlarmWatch): string | null {
+  const warning = watch.lastAlarmWarning;
+  if (warning !== "Warning entry" && warning !== "Warning exit") return null;
+  const detail = watch.lastLevelWarningDetail?.trim();
+  return detail ? `${warning} · ${detail}` : warning;
+}
+
 function contractLabel(
   kind: "buy" | "exit",
   trend: MarketAlarmWatch["lastDetectedTrend"],
@@ -168,6 +175,7 @@ function MovementWatchCard({
       : null;
   const lastAlarm = lastAlarmLine(watch);
   const entryTitle = lastEntryTitle(watch);
+  const levelWarning = levelWarningLine(watch);
   const [entriesOpen, setEntriesOpen] = useState(false);
   const showChart =
     watchRuleKeys(watch).some(
@@ -229,6 +237,11 @@ function MovementWatchCard({
       {entryTitle ? (
         <p className="mb-1 truncate text-[11px] font-semibold tabular-nums text-ocean-foam">
           {entryTitle}
+        </p>
+      ) : null}
+      {levelWarning ? (
+        <p className="mb-1 truncate text-[11px] font-semibold text-amber-400" title={levelWarning}>
+          {levelWarning}
         </p>
       ) : null}
 
@@ -434,6 +447,11 @@ function FitGraphThumb({
         ) : null}
         {watch.status === "exit" ? (
           <SignalOverlay kind="exit" trend={watch.lastDetectedTrend} />
+        ) : null}
+        {levelWarningLine(watch) ? (
+          <span className="pointer-events-none absolute bottom-1 left-1 z-20 max-w-[90%] truncate rounded bg-ocean-deep/80 px-1 py-0.5 text-[10px] font-semibold text-amber-400">
+            {levelWarningLine(watch)}
+          </span>
         ) : null}
       </button>
     </div>

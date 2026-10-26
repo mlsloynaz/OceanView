@@ -735,6 +735,18 @@ export function useMarketAlarms() {
             typeof result.hourRegime === "string"
               ? result.hourRegime
               : (watch.lastHourRegime ?? null),
+          lastAlarmWarning:
+            result.alarmWarning === "Warning entry" || result.alarmWarning === "Warning exit"
+              ? result.alarmWarning
+              : result.notifyKind === "enter" || result.notifyKind === "exit"
+                ? null
+                : (watch.lastAlarmWarning ?? null),
+          lastLevelWarningDetail:
+            result.alarmWarning === "Warning entry" || result.alarmWarning === "Warning exit"
+              ? (result.levelWarningDetail ?? null)
+              : result.notifyKind === "enter" || result.notifyKind === "exit"
+                ? null
+                : (watch.lastLevelWarningDetail ?? null),
           lastBbSparkline15m:
             result.bbSparkline15m && Array.isArray(result.bbSparkline15m.bars)
               ? result.bbSparkline15m
