@@ -1,5 +1,6 @@
 /** Compact SVG candlestick + Bollinger disipadores for Breakout board (≤9 × 15m bars). */
 
+import { useEffect, useRef } from "react";
 import { cn } from "@/shared/lib/cn";
 import type { BbSparkline15m } from "./alarm-types";
 
@@ -17,6 +18,9 @@ type Props = {
   variant?: Variant;
   showLegend?: boolean;
 };
+
+const THUMB_5M_BARS = 24;
+const FULL_5M_SLOT = 22;
 
 const SIZE: Record<Variant, { pad: { top: number; right: number; bottom: number; left: number }; w: number; h: number }> =
   {
@@ -51,7 +55,7 @@ function entryCandleIndex(
 }
 
 function timeLabel(iso: string): string {
-  const m = /T(\d{2}):(\d{2})/.exec(iso);
+  const m = /[T ](\d{2}):(\d{2})/.exec(iso);
   if (!m) return "";
   return `${m[1]}:${m[2]}`;
 }
@@ -86,12 +90,46 @@ export function BbSparkline15mChart({
   variant = "thumb",
   showLegend,
 }: Props) {
-  const bars = data?.bars ?? [];
-  const { pad: PAD, w: W, h: H } = SIZE[variant];
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const positionedRef = useRef<string | null>(null);
+  const allBars = data?.bars ?? [];
+  const bars =
+    variant === "thumb" && data?.timeframe === "5m" ? allBars.slice(-THUMB_5M_BARS) : allBars;
+  const base = SIZE[variant];
+  const scrollable =
+    variant === "full" &&
+    data?.timeframe === "5m" &&
+    base.pad.left + base.pad.right + bars.length * FULL_5M_SLOT > base.w;
+  const W = scrollable ? base.pad.left + base.pad.right + bars.length * FULL_5M_SLOT : base.w;
+  const H = base.h;
+  const PAD = base.pad;
   const legend = showLegend ?? variant === "full";
   const strokeBand = variant === "full" ? 2 : 1.25;
   const strokeMid = variant === "full" ? 1.5 : 1;
   const labelSize = variant === "full" ? 11 : 7;
+
+  useEffect(() => {
+    if (!scrollable || bars.length === 0) return;
+    const key = `${entryAt ?? ""}|${bars[0]?.datetime ?? ""}`;
+    if (positionedRef.current === key) return;
+    const place = () => {
+      const node = scrollerRef.current;
+      if (!node || node.clientWidth <= 0) return false;
+      const index = entryCandleIndex(bars, entryAt, data?.timeframe);
+      const focus = index >= 0 ? index : bars.length - 1;
+      const center = PAD.left + FULL_5M_SLOT * focus + FULL_5M_SLOT / 2;
+      node.scrollLeft = Math.max(0, center - node.clientWidth / 2);
+      return true;
+    };
+    if (place()) {
+      positionedRef.current = key;
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      if (place()) positionedRef.current = key;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [scrollable, bars, entryAt, data?.timeframe, PAD.left]);
 
   if (bars.length === 0) {
     return (
@@ -138,7 +176,7 @@ export function BbSparkline15mChart({
 
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
-  const slot = plotW / bars.length;
+  const slot = scrollable ? FULL_5M_SLOT : plotW / bars.length;
   const bodyW = Math.max(variant === "full" ? 5 : 2.5, slot * 0.55);
 
   const yScale = (price: number) =>
@@ -179,9 +217,18 @@ export function BbSparkline15mChart({
 
   return (
     <div className={cn("flex min-h-0 flex-col gap-0.5", className)}>
+      <div
+        ref={scrollerRef}
+        className={cn(
+          "w-full min-w-0",
+          scrollable ? "overflow-x-auto" : "flex h-full min-h-0 flex-1 flex-col",
+        )}
+      >
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="h-full w-full flex-1 text-ocean-foam"
+        width={scrollable ? W : undefined}
+        height={scrollable ? H : undefined}
+        className={cn("text-ocean-foam", scrollable ? "max-w-none" : "h-full w-full flex-1")}
         preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label={`${data?.symbol ?? ""} ${tf} price, EMA 10, EMA 21, Bollinger`}
@@ -270,8 +317,9 @@ export function BbSparkline15mChart({
           const bodyTop = Math.min(yO, yC);
           const bodyH = Math.max(1.5, Math.abs(yC - yO));
           const forming = Boolean(b.forming);
-          const showTime =
-            variant === "full"
+          const showTime = scrollable
+            ? i === bars.length - 1 || i % 6 === 0
+            : variant === "full"
               ? i === 0 || i === bars.length - 1 || i === Math.floor(bars.length / 2)
               : i === 0 || i === bars.length - 1;
           return (
@@ -325,6 +373,7 @@ export function BbSparkline15mChart({
           </text>
         ) : null}
       </svg>
+      </div>
       {legend ? (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-0.5 text-[9px] leading-tight text-ocean-sand/85">
           <span className="inline-flex items-center gap-1">

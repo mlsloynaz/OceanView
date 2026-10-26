@@ -1405,7 +1405,7 @@ export function MarketAlarmPanel({
                 title={`${watch?.symbol ?? ""} · ${fiveMinute ? "5m" : (chart?.timeframe ?? "")}`}
                 subtitle={
                   fiveMinute
-                    ? "5m price, EMA 10, and EMA 21"
+                    ? "Full session · scroll sideways · EMA 10 and EMA 21"
                     : "Price, EMA 10, EMA 21, and Bollinger"
                 }
                 className="max-w-3xl"
