@@ -126,7 +126,10 @@ export type BbSparkline15m = {
   symbol: string;
   timeframe: "15m" | "5m";
   bbPeriod: number;
+  /** Last candles for the card. A 5m card keeps about two hours. */
   bars: BbSparkline15mBar[];
+  /** Every 5m candle of the trade date. The enlarged chart scrolls these. */
+  sessionBars?: BbSparkline15mBar[];
 };
 
 export type MovementChart = BbSparkline15m;

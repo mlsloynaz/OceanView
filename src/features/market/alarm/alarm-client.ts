@@ -131,6 +131,19 @@ export type MarketAlarmCheckResponse = {
       ema21?: number | null;
       forming?: boolean;
     }>;
+    sessionBars?: Array<{
+      datetime: string;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+      bbUpper: number | null;
+      bbMid: number | null;
+      bbLower: number | null;
+      ema10?: number | null;
+      ema21?: number | null;
+      forming?: boolean;
+    }>;
   } | null;
   bbSparkline15m?: {
     symbol: string;

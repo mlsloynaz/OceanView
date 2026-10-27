@@ -92,7 +92,10 @@ export function BbSparkline15mChart({
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const positionedRef = useRef<string | null>(null);
-  const allBars = data?.bars ?? [];
+  const allBars =
+    variant === "full" && data?.timeframe === "5m" && data.sessionBars?.length
+      ? data.sessionBars
+      : (data?.bars ?? []);
   const bars =
     variant === "thumb" && data?.timeframe === "5m" ? allBars.slice(-THUMB_5M_BARS) : allBars;
   const base = SIZE[variant];
