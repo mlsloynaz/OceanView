@@ -20,7 +20,7 @@ type Props = {
 };
 
 const THUMB_5M_BARS = 24;
-const FULL_5M_SLOT = 22;
+const FULL_5M_SLOT = 40;
 
 const SIZE: Record<Variant, { pad: { top: number; right: number; bottom: number; left: number }; w: number; h: number }> =
   {
@@ -36,22 +36,57 @@ function epochMs(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/** ET wall-clock minute, so a UTC stamp and an offset stamp land on the same candle. */
+function etMinute(value: string): number | null {
+  const ms = epochMs(value);
+  if (ms == null) return null;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(ms));
+  const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  const year = Number(pick("year"));
+  const month = Number(pick("month"));
+  const day = Number(pick("day"));
+  const hour = Number(pick("hour"));
+  const minute = Number(pick("minute"));
+  if (![year, month, day, hour, minute].every(Number.isFinite)) return null;
+  return Date.UTC(year, month - 1, day, hour, minute);
+}
+
 function entryCandleIndex(
   bars: BbSparkline15m["bars"],
   entryAt: string | null | undefined,
   timeframe: string | undefined,
 ): number {
   if (!entryAt) return -1;
-  const entry = epochMs(entryAt);
+  const entry = etMinute(entryAt);
   if (entry == null) return -1;
   const width = (timeframe === "5m" ? 5 : 15) * 60_000;
   let match = -1;
   for (let i = 0; i < bars.length; i++) {
-    const open = epochMs(bars[i]?.datetime ?? "");
+    const open = etMinute(bars[i]?.datetime ?? "");
     if (open == null) continue;
-    if (entry >= open && entry < open + width) match = i;
+    if (entry >= open && entry <= open + width) match = i;
   }
-  return match;
+  if (match >= 0) return match;
+  let nearest = -1;
+  let gap = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < bars.length; i++) {
+    const open = etMinute(bars[i]?.datetime ?? "");
+    if (open == null) continue;
+    const distance = Math.abs(entry - open);
+    if (distance < gap) {
+      gap = distance;
+      nearest = i;
+    }
+  }
+  return gap <= width ? nearest : -1;
 }
 
 function timeLabel(iso: string): string {
@@ -99,10 +134,8 @@ export function BbSparkline15mChart({
   const bars =
     variant === "thumb" && data?.timeframe === "5m" ? allBars.slice(-THUMB_5M_BARS) : allBars;
   const base = SIZE[variant];
-  const scrollable =
-    variant === "full" &&
-    data?.timeframe === "5m" &&
-    base.pad.left + base.pad.right + bars.length * FULL_5M_SLOT > base.w;
+  const naturalW = base.pad.left + base.pad.right + bars.length * FULL_5M_SLOT;
+  const scrollable = variant === "full" && data?.timeframe === "5m" && naturalW > 520;
   const W = scrollable ? base.pad.left + base.pad.right + bars.length * FULL_5M_SLOT : base.w;
   const H = base.h;
   const PAD = base.pad;
@@ -206,11 +239,11 @@ export function BbSparkline15mChart({
 
   const entryIndex = entryCandleIndex(bars, entryAt, data?.timeframe);
   const entryBar = entryIndex >= 0 ? bars[entryIndex] : null;
-  const entryFont = variant === "full" ? 10 : 7;
+  const entryFont = variant === "full" ? 22 : 14;
   const entryMark =
     entryBar && (entrySide === "CALL" || entrySide === "PUT")
       ? {
-          x: Math.min(W - 2, xCenter(entryIndex) + bodyW / 2 + 2),
+          x: Math.min(W - 8, xCenter(entryIndex) + bodyW / 2 + 3),
           y: yScale(entryBar.close),
         }
       : null;
@@ -219,19 +252,19 @@ export function BbSparkline15mChart({
   const lastWidthExpanding = lastWithWidth?.widthExpanding === true;
 
   return (
-    <div className={cn("flex min-h-0 flex-col gap-0.5", className)}>
+    <div className={cn("flex min-h-0 w-full min-w-0 max-w-full flex-col gap-0.5", className)}>
       <div
         ref={scrollerRef}
         className={cn(
-          "w-full min-w-0",
-          scrollable ? "overflow-x-auto" : "flex h-full min-h-0 flex-1 flex-col",
+          "w-full min-w-0 max-w-full",
+          scrollable ? "overflow-x-scroll" : "flex h-full min-h-0 flex-1 flex-col",
         )}
       >
       <svg
         viewBox={`0 0 ${W} ${H}`}
         width={scrollable ? W : undefined}
         height={scrollable ? H : undefined}
-        className={cn("text-ocean-foam", scrollable ? "max-w-none" : "h-full w-full flex-1")}
+        className={cn("text-ocean-foam", scrollable ? "block max-w-none shrink-0" : "h-full w-full flex-1")}
         preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label={`${data?.symbol ?? ""} ${tf} price, EMA 10, EMA 21, Bollinger`}
@@ -368,6 +401,9 @@ export function BbSparkline15mChart({
             textAnchor="start"
             dominantBaseline="central"
             fill={entrySide === "CALL" ? "#22c55e" : "#ef4444"}
+            stroke="#071018"
+            strokeWidth={variant === "full" ? 4 : 2.5}
+            paintOrder="stroke"
             fontSize={entryFont}
             fontWeight={700}
           >

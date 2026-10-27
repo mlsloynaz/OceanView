@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
 import { loadAlarmTriggerLog, type AlarmTriggerEntry } from "./alarm-trigger-log";
+import { entryClock } from "./five-minute-entry";
 
 type Props = {
   symbol: string;
@@ -24,16 +25,10 @@ function estimateOf(row: AlarmTriggerEntry): string | null {
   return Number.isFinite(value) ? `${value.toFixed(2)}%` : null;
 }
 
-function clockOf(iso: string): string {
-  const match = /T(\d{2}):(\d{2})/.exec(iso) ?? / (\d{2}):(\d{2})/.exec(iso);
-  if (match) return `${match[1]}:${match[2]}`;
-  return iso;
-}
-
 function entryLine(row: AlarmTriggerEntry): string {
   const operation = operationOf(row);
   const estimate = estimateOf(row);
-  const time = clockOf(row.triggeredAt);
+  const time = entryClock(row.triggeredAt) ?? row.triggeredAt;
   if (!operation) return time;
   return estimate ? `${time} : - ${operation} ${estimate}` : `${time} : - ${operation}`;
 }

@@ -82,7 +82,7 @@ export function MarketDetailModal({
             </svg>
           </button>
         </div>
-        <div className="overflow-y-auto px-4 py-4">{children}</div>
+        <div className="min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4">{children}</div>
       </div>
     </div>
   );

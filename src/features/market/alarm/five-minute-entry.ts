@@ -24,12 +24,22 @@ export function detectedEntrySide(
   return null;
 }
 
-function entryClock(iso: string): string | null {
-  const match = /T(\d{2}):(\d{2})/.exec(iso) ?? / (\d{2}):(\d{2})/.exec(iso);
-  if (match) return `${match[1]}:${match[2]}`;
+/** Clock in Eastern time. Stored stamps are often UTC, so the raw hour is not the session hour. */
+export function entryClock(iso: string): string | null {
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  if (!Number.isNaN(date.getTime())) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(date);
+    const hour = parts.find((part) => part.type === "hour")?.value;
+    const minute = parts.find((part) => part.type === "minute")?.value;
+    if (hour && minute) return `${hour}:${minute}`;
+  }
+  const match = /T(\d{2}):(\d{2})/.exec(iso) ?? / (\d{2}):(\d{2})/.exec(iso);
+  return match ? `${match[1]}:${match[2]}` : null;
 }
 
 /** Thumbnail line: `10:36 : - CALL 42.09%`. */

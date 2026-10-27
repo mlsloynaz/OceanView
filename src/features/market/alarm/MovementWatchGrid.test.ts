@@ -123,5 +123,14 @@ describe("detectedEntryAt", () => {
         lastOptionGainPct: 12,
       }),
     ).toBe("11:05 : - PUT 12.00%");
+    expect(
+      lastEntryTitle({
+        status: "in_trade",
+        lastEntryAt: "2026-10-26T14:46:00.000Z",
+        metAt: null,
+        lastDetectedTrend: "alcista",
+        lastOptionGainPct: 54.93,
+      }),
+    ).toBe("10:46 : - CALL 54.93%");
   });
 });
