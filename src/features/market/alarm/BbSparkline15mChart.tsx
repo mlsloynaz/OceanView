@@ -365,11 +365,12 @@ export function BbSparkline15mChart({
     yMin = Math.min(yMin, breakoutLevel);
     yMax = Math.max(yMax, breakoutLevel);
   }
-  // A quiet tape is a thin band. Stretching that high–low to the frame makes
-  // the move look large. Keep at least 1.5% of price on the axis.
+  // Fitting the axis to the band makes every Bollinger look wide, and this
+  // card is tall, so a tight band fills the frame. Keep at least 5% of price
+  // on the axis. A wider move still expands past that.
   const mid = (yMin + yMax) / 2;
   const span = Math.max(yMax - yMin, 0);
-  const window = Math.max(span * 1.12, Math.abs(mid) * 0.015, 0.5);
+  const window = Math.max(span * 1.12, Math.abs(mid) * 0.05, 0.5);
   yMin = mid - window / 2;
   yMax = mid + window / 2;
 
