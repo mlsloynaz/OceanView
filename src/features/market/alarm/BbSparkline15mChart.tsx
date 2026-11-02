@@ -168,6 +168,10 @@ function isHourOpen(iso: string): boolean {
   return /[T ]\d{2}:00/.test(iso);
 }
 
+function formatPrice(value: number): string {
+  return value.toFixed(2);
+}
+
 /** Closed polygon between upper and lower disipadores (skip gaps where BB is null). */
 type OpenMinutePoint = {
   datetime: string;
@@ -176,66 +180,34 @@ type OpenMinutePoint = {
   ema21?: number | null;
 };
 
-function OpenMinuteInset({
-  points,
-  x,
-  y,
-  width,
-  height,
-  labelSize,
-}: {
-  points: OpenMinutePoint[];
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  labelSize: number;
-}) {
+function OpenMinutePanel({ points }: { points: OpenMinutePoint[] }) {
   const prices: number[] = [];
   for (const point of points) {
-    prices.push(point.close);
+    const close = Number(point.close);
+    if (Number.isFinite(close)) prices.push(close);
     if (typeof point.ema10 === "number") prices.push(point.ema10);
     if (typeof point.ema21 === "number") prices.push(point.ema21);
   }
-  if (prices.length < 2 || width < 24 || height < 18) return null;
+  if (prices.length < 2) return null;
   const low = Math.min(...prices);
   const high = Math.max(...prices);
   const pad = (high - low) * 0.08 || 0.05;
   const yMin = low - pad;
   const yMax = high + pad;
-  const plotTop = y + 12;
-  const plotH = Math.max(8, height - 16);
-  const yAt = (price: number) => plotTop + ((yMax - price) / (yMax - yMin || 1)) * plotH;
-  const xAt = (index: number) => x + 4 + (index / Math.max(points.length - 1, 1)) * (width - 8);
+  const yAt = (price: number) => 14 + ((yMax - price) / (yMax - yMin || 1)) * 72;
+  const xAt = (index: number) => 4 + (index / Math.max(points.length - 1, 1)) * 152;
   const closeLine = lineThrough(points, "close", xAt, yAt);
   const ema10Line = lineThrough(points, "ema10", xAt, yAt);
   const ema21Line = lineThrough(points, "ema21", xAt, yAt);
   return (
-    <g>
-      <rect
-        x={x}
-        y={y}
-        width={width}
-        height={height}
-        rx={3}
-        fill="#071018"
-        fillOpacity={0.9}
-        stroke="#94a3b8"
-        strokeOpacity={0.55}
-      />
-      <text x={x + 4} y={y + 9} fill="#cbd5e1" style={{ fontSize: labelSize }}>
-        1m
+    <svg viewBox="0 0 160 90" className="h-full w-full" aria-label="1 minute open, EMA 10 and EMA 21">
+      <text x="4" y="10" fill="#cbd5e1" style={{ fontSize: 10 }}>
+        1m 9:30–11
       </text>
-      {ema21Line ? (
-        <polyline fill="none" points={ema21Line} stroke="#fda4af" strokeWidth={1} />
-      ) : null}
-      {ema10Line ? (
-        <polyline fill="none" points={ema10Line} stroke="#fcd34d" strokeWidth={1} />
-      ) : null}
-      {closeLine ? (
-        <polyline fill="none" points={closeLine} stroke="#e2e8f0" strokeWidth={1.15} />
-      ) : null}
-    </g>
+      {ema21Line ? <polyline fill="none" points={ema21Line} stroke="#fda4af" strokeWidth={1.4} /> : null}
+      {ema10Line ? <polyline fill="none" points={ema10Line} stroke="#fcd34d" strokeWidth={1.4} /> : null}
+      {closeLine ? <polyline fill="none" points={closeLine} stroke="#e2e8f0" strokeWidth={1.6} /> : null}
+    </svg>
   );
 }
 
@@ -382,6 +354,8 @@ export function BbSparkline15mChart({
 
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
+  const showAxis = shape === "portrait" || variant === "full";
+  const priceTicks = Array.from({ length: 5 }, (_, index) => yMax - ((yMax - yMin) * index) / 4);
   const slot = scrollable ? FULL_5M_SLOT : plotW / bars.length;
   const bodyW = Math.max(variant === "full" ? 5 : 2.5, slot * 0.55);
 
@@ -407,7 +381,7 @@ export function BbSparkline15mChart({
   const tf = data?.timeframe === "5m" ? "5m" : "15m";
   const envelope = bbEnvelopePath(bars, xCenter, yScale);
 
-  const entryRadius = variant === "full" ? 11 : 7;
+  const entryRadius = Math.max(1.8, Math.min(slot * 0.2, variant === "full" ? 4.5 : 2.6));
   const entryByCandle = new Map<number, EntryMark>();
   for (const mark of entryMarks) {
     const index = entryCandleIndex(bars, mark.at, data?.timeframe);
@@ -423,13 +397,20 @@ export function BbSparkline15mChart({
   const widthExpanding = bars.some((b) => b.widthExpanding === true);
   const lastWidthExpanding = lastWithWidth?.widthExpanding === true;
 
+  const openPoints = (data?.timeframe === "5m" ? data.open1m : undefined)?.filter(
+    (point) => Number.isFinite(Number(point.close)),
+  );
+  const lastBar = bars[bars.length - 1];
+  const lastClose = lastBar?.close;
+  const lastUp = typeof lastClose === "number" && typeof lastBar?.open === "number" ? lastClose >= lastBar.open : true;
   return (
-    <div className={cn("flex min-h-0 w-full min-w-0 max-w-full flex-col gap-0.5", className)}>
+    <div className={cn("relative flex min-h-0 w-full min-w-0 max-w-full flex-col gap-0.5", className)}>
+      <div className="relative flex min-h-0 w-full min-w-0 flex-1">
       <div
         ref={scrollerRef}
         className={cn(
-          "w-full min-w-0 max-w-full",
-          scrollable ? "overflow-x-scroll" : "flex h-full min-h-0 flex-1 flex-col",
+          "min-w-0 max-w-full flex-1",
+          scrollable ? "overflow-x-scroll" : "flex h-full min-h-0 flex-col",
         )}
       >
       <svg
@@ -441,6 +422,32 @@ export function BbSparkline15mChart({
         role="img"
         aria-label={`${data?.symbol ?? ""} ${tf} price, EMA 10, EMA 21, Bollinger`}
       >
+        {showAxis
+          ? priceTicks.map((price) => (
+              <line
+                key={price}
+                x1={PAD.left}
+                x2={W - PAD.right}
+                y1={yScale(price)}
+                y2={yScale(price)}
+                stroke="#94a3b8"
+                strokeOpacity={0.28}
+                strokeWidth={0.7}
+              />
+            ))
+          : null}
+        {showAxis && typeof lastClose === "number" ? (
+          <line
+            x1={PAD.left}
+            x2={W - PAD.right}
+            y1={yScale(lastClose)}
+            y2={yScale(lastClose)}
+            stroke={lastUp ? "#2dd4bf" : "#fb7185"}
+            strokeOpacity={0.9}
+            strokeDasharray="4 3"
+            strokeWidth={variant === "full" ? 1.1 : 0.8}
+          />
+        ) : null}
         {envelope ? (
           <polygon
             points={envelope}
@@ -585,19 +592,9 @@ export function BbSparkline15mChart({
             </g>
           );
         })}
-        {data?.timeframe === "5m" && (data.open1m?.length ?? 0) >= 2 ? (
-          <OpenMinuteInset
-            points={data.open1m ?? []}
-            x={PAD.left + 2}
-            y={PAD.top + 2}
-            width={Math.min(plotW * (variant === "full" ? 0.36 : 0.5), variant === "full" ? 300 : 112)}
-            height={Math.min(plotH * 0.38, variant === "full" ? 180 : 62)}
-            labelSize={variant === "full" ? 11 : 7}
-          />
-        ) : null}
         {placedEntries.map((mark) => {
           const color = mark.side === "CALL" ? "#22c55e" : "#ef4444";
-          const width = variant === "full" ? 2.4 : 1.6;
+          const width = variant === "full" ? 1.25 : 0.9;
           return (
             <g key={`${mark.side}-${mark.at}`}>
               {[0, 45, 90, 135].map((deg) => {
@@ -612,7 +609,7 @@ export function BbSparkline15mChart({
                       x2={mark.x + dx}
                       y2={mark.y + dy}
                       stroke="#071018"
-                      strokeWidth={width + 1.8}
+                      strokeWidth={width + 0.7}
                       strokeLinecap="round"
                     />
                     <line
@@ -633,6 +630,44 @@ export function BbSparkline15mChart({
         })}
       </svg>
       </div>
+      {showAxis ? (
+        <div className={cn("relative shrink-0", variant === "full" ? "w-14" : "w-9")}>
+          <div
+            className="absolute inset-x-0 flex flex-col justify-between text-right"
+            style={{ top: `${(PAD.top / H) * 100}%`, bottom: `${(PAD.bottom / H) * 100}%` }}
+          >
+            {priceTicks.map((price) => (
+              <span
+                key={price}
+                className={cn(
+                  "tabular-nums text-ocean-sand/80",
+                  variant === "full" ? "text-[11px]" : "text-[8px] leading-none",
+                )}
+              >
+                {formatPrice(price)}
+              </span>
+            ))}
+          </div>
+          {typeof lastClose === "number" ? (
+            <span
+              className={cn(
+                "absolute right-0 -translate-y-1/2 rounded px-0.5 font-semibold tabular-nums",
+                variant === "full" ? "text-[11px]" : "text-[8px] leading-none",
+                lastUp ? "bg-teal-400 text-ocean-deep" : "bg-rose-400 text-ocean-deep",
+              )}
+              style={{ top: `${(yScale(lastClose) / H) * 100}%` }}
+            >
+              {formatPrice(lastClose)}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      </div>
+      {openPoints && openPoints.length >= 2 ? (
+        <div className="pointer-events-none absolute top-1 left-1 z-20 h-[42%] w-[48%] min-h-16 min-w-28 overflow-hidden rounded border border-slate-400/80 bg-[#071018]/95">
+          <OpenMinutePanel points={openPoints} />
+        </div>
+      ) : null}
       {legend ? (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-0.5 text-[9px] leading-tight text-ocean-sand/85">
           <span className="inline-flex items-center gap-1">
