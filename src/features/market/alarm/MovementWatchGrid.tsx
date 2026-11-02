@@ -440,7 +440,7 @@ function FitGraphThumb({
             Chart after next check
           </span>
         )}
-        <span className="pointer-events-none absolute top-1 left-1 z-20 max-w-[80%] truncate rounded bg-ocean-deep/80 px-1 py-0.5 font-display text-[10px] font-semibold text-ocean-foam">
+        <span className="pointer-events-none absolute top-1 right-1 z-20 max-w-[80%] truncate rounded bg-ocean-deep/80 px-1 py-0.5 font-display text-[10px] font-semibold text-ocean-foam">
           {watch.symbol}
           {name ? <span className="ml-1 font-normal text-ocean-sand">{name}</span> : null}
         </span>

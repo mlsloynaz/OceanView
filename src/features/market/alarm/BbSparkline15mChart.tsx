@@ -228,6 +228,57 @@ function OpenMinutePanel({ points }: { points: OpenMinutePoint[] }) {
   );
 }
 
+const cornerCache = new Map<string, OpenMinutePoint[]>();
+const cornerLoads = new Map<string, Promise<OpenMinutePoint[]>>();
+
+function loadCorner(symbol: string): Promise<OpenMinutePoint[]> {
+  return fetch(`/dev/minute-line?symbol=${encodeURIComponent(symbol)}`)
+    .then((response) => (response.ok ? response.json() : []))
+    .then((body: unknown) => {
+      const points = Array.isArray(body)
+        ? body.filter(
+            (point): point is OpenMinutePoint =>
+              !!point && typeof point === "object" && Number.isFinite(Number((point as OpenMinutePoint).close)),
+          )
+        : [];
+      cornerCache.set(symbol, points);
+      return points;
+    })
+    .catch(() => []);
+}
+
+function useCornerMinutes(
+  symbol: string | undefined,
+  timeframe: string | undefined,
+  supplied: OpenMinutePoint[] | undefined,
+): OpenMinutePoint[] {
+  const fromChart =
+    timeframe === "5m"
+      ? (supplied ?? []).filter((point) => Number.isFinite(Number(point.close)))
+      : [];
+  const [loaded, setLoaded] = useState<OpenMinutePoint[]>([]);
+  useEffect(() => {
+    if (timeframe !== "5m" || fromChart.length >= 2) return;
+    const key = (symbol ?? "").trim().toUpperCase();
+    if (!key) return;
+    const cached = cornerCache.get(key);
+    if (cached) {
+      setLoaded(cached);
+      return;
+    }
+    let cancel = false;
+    const pending = cornerLoads.get(key) ?? loadCorner(key);
+    cornerLoads.set(key, pending);
+    void pending.then((points) => {
+      if (!cancel) setLoaded(points);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [symbol, timeframe, fromChart.length]);
+  return fromChart.length >= 2 ? fromChart : loaded;
+}
+
 function lineThrough(
   points: OpenMinutePoint[],
   key: "close" | "ema10" | "ema21",
@@ -294,6 +345,7 @@ export function BbSparkline15mChart({
   const strokeMid = variant === "full" ? 1.5 : 1;
   const labelSize = variant === "full" ? 11 : 7;
   const loggedMarks = useTodayEntryMarks(data?.symbol);
+  const openPoints = useCornerMinutes(data?.symbol, data?.timeframe, data?.open1m);
   const entryMarks = useMemo(() => {
     const marks = [...loggedMarks];
     if (entryAt && (entrySide === "CALL" || entrySide === "PUT")) {
@@ -419,9 +471,6 @@ export function BbSparkline15mChart({
   const widthExpanding = bars.some((b) => b.widthExpanding === true);
   const lastWidthExpanding = lastWithWidth?.widthExpanding === true;
 
-  const openPoints = (data?.timeframe === "5m" ? data.open1m : undefined)?.filter(
-    (point) => Number.isFinite(Number(point.close)),
-  );
   const lastBar = bars[bars.length - 1];
   const lastClose = lastBar?.close;
   const lastUp = typeof lastClose === "number" && typeof lastBar?.open === "number" ? lastClose >= lastBar.open : true;

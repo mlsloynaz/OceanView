@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { minuteLinePlugin } from "./vite/minute-line-plugin.ts";
 import { strategyDocsPlugin } from "./vite/strategy-docs-plugin.ts";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
@@ -62,6 +63,7 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       dataDirPlugin(),
+      minuteLinePlugin(),
       strategyDocsPlugin({
         dir: env.STRATEGIES_MD_DIR || process.env.STRATEGIES_MD_DIR,
         rootDir,
