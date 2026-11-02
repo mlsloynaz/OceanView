@@ -24,6 +24,21 @@ export function detectedEntrySide(
   return null;
 }
 
+/** Candle mark. A running watch still keeps the last entry on the chart. */
+export function chartEntryMark(
+  watch: Pick<
+    MarketAlarmWatch,
+    "status" | "lastEntryAt" | "metAt" | "lastDetectedTrend" | "trend"
+  >,
+): { at: string; side: "CALL" | "PUT" } | null {
+  const at = (watch.lastEntryAt || detectedEntryAt(watch) || "").trim();
+  if (!at) return null;
+  const trend = watch.lastDetectedTrend || watch.trend;
+  if (trend === "alcista") return { at, side: "CALL" };
+  if (trend === "bajista") return { at, side: "PUT" };
+  return null;
+}
+
 /** Clock in Eastern time. Stored stamps are often UTC, so the raw hour is not the session hour. */
 export function entryClock(iso: string): string | null {
   const date = new Date(iso);
@@ -40,6 +55,56 @@ export function entryClock(iso: string): string | null {
   }
   const match = /T(\d{2}):(\d{2})/.exec(iso) ?? / (\d{2}):(\d{2})/.exec(iso);
   return match ? `${match[1]}:${match[2]}` : null;
+}
+
+export type EntryExitRow = {
+  id: string;
+  kind: string;
+  triggeredAt: string;
+  watchId?: string;
+  side?: string;
+};
+
+export type EntryExitPair<T extends EntryExitRow = EntryExitRow> = {
+  entry: T;
+  exit: T | null;
+};
+
+function triggerMs(value: string): number {
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/** Each entry takes the next unused exit for the same watch. An open entry has no exit. */
+export function pairEntryExits<T extends EntryExitRow>(rows: T[]): EntryExitPair<T>[] {
+  const ordered = [...rows].sort((a, b) => triggerMs(a.triggeredAt) - triggerMs(b.triggeredAt));
+  const used = new Set<string>();
+  const pairs: EntryExitPair<T>[] = [];
+  for (const entry of ordered) {
+    if (String(entry.kind).toLowerCase() !== "enter") continue;
+    const exit =
+      ordered.find((row) => {
+        if (String(row.kind).toLowerCase() !== "exit") return false;
+        if (used.has(row.id)) return false;
+        if (triggerMs(row.triggeredAt) < triggerMs(entry.triggeredAt)) return false;
+        if (entry.watchId && row.watchId && entry.watchId !== row.watchId) return false;
+        const entrySide = String(entry.side || "").toLowerCase();
+        const exitSide = String(row.side || "").toLowerCase();
+        if (
+          entrySide &&
+          exitSide &&
+          entrySide !== "auto" &&
+          exitSide !== "auto" &&
+          entrySide !== exitSide
+        ) {
+          return false;
+        }
+        return true;
+      }) ?? null;
+    if (exit) used.add(exit.id);
+    pairs.push({ entry, exit });
+  }
+  return pairs;
 }
 
 /** Thumbnail line: `10:36 : - CALL 42.09%`. */

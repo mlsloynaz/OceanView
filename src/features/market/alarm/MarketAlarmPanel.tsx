@@ -18,7 +18,7 @@ import { AlarmTradeModal } from "./AlarmTradeModal";
 import { AlarmTriggerList } from "./AlarmTriggerList";
 import { BreakoutKanbanBoard, watchHasBreakout } from "./BreakoutKanbanBoard";
 import { openMovementGridWindow } from "@/features/alarms/movement-grid-channel";
-import { detectedEntryAt, detectedEntrySide } from "./five-minute-entry";
+import { chartEntryMark } from "./five-minute-entry";
 import { MovementWatchGrid, chartForWatch, usesFiveMinuteChart } from "./MovementWatchGrid";
 import {
   ALARM_ELIGIBLE_RULES,
@@ -1405,10 +1405,10 @@ export function MarketAlarmPanel({
                 title={`${watch?.symbol ?? ""} · ${fiveMinute ? "5m" : (chart?.timeframe ?? "")}`}
                 subtitle={
                   fiveMinute
-                    ? "Full session · scroll sideways · EMA 10 and EMA 21"
+                    ? "3:00 PM yesterday through now · scroll sideways · EMA 10 and EMA 21"
                     : "Price, EMA 10, EMA 21, and Bollinger"
                 }
-                className="max-w-3xl"
+                className="max-h-[94vh] max-w-[min(96vw,80rem)]"
               >
                 <BbSparkline15mChart
                   data={
@@ -1423,9 +1423,11 @@ export function MarketAlarmPanel({
                       : null)
                   }
                   breakoutLevel={fiveMinute ? null : watch?.lastBreakoutLevel}
-                  entryAt={watch ? detectedEntryAt(watch) : null}
-                  entrySide={watch ? detectedEntrySide(watch) : null}
+                  entryAt={watch ? chartEntryMark(watch)?.at : null}
+                  entrySide={watch ? chartEntryMark(watch)?.side : null}
                   variant="full"
+                  shape="portrait"
+                  className="h-[min(74vh,680px)]"
                 />
               </MarketDetailModal>
             );

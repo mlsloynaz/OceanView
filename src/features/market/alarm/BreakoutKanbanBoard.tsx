@@ -5,7 +5,7 @@ import { cn } from "@/shared/lib/cn";
 import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
 import { BbSparkline15mChart } from "./BbSparkline15mChart";
 import { formatAlarmTrend, type MarketAlarmWatch, isBreakoutKanbanWatch } from "./alarm-types";
-import { detectedEntryAt, detectedEntrySide } from "./five-minute-entry";
+import { chartEntryMark } from "./five-minute-entry";
 
 export const BREAKOUT_KANBAN_COLUMNS = [
   {
@@ -231,8 +231,8 @@ function WatchCard({
           <BbSparkline15mChart
             data={w.lastBbSparkline15m}
             breakoutLevel={w.lastBreakoutLevel}
-            entryAt={detectedEntryAt(w)}
-            entrySide={detectedEntrySide(w)}
+            entryAt={chartEntryMark(w)?.at}
+            entrySide={chartEntryMark(w)?.side}
             variant="thumb"
             className="h-full"
           />
@@ -489,8 +489,8 @@ export function BreakoutKanbanBoard({
           <BbSparkline15mChart
             data={enlarged.lastBbSparkline15m}
             breakoutLevel={enlarged.lastBreakoutLevel}
-            entryAt={detectedEntryAt(enlarged)}
-            entrySide={detectedEntrySide(enlarged)}
+            entryAt={chartEntryMark(enlarged)?.at}
+            entrySide={chartEntryMark(enlarged)?.side}
             variant="full"
           />
         </MarketDetailModal>

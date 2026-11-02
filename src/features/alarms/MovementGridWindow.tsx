@@ -249,9 +249,11 @@ export function MovementGridWindow() {
           onClose={() => setChartWatchId(null)}
           title={`${chartWatch.symbol} · ${fiveMinute ? "5m" : (chart?.timeframe ?? "")}`}
           subtitle={
-            fiveMinute ? "5m price, EMA 10, and EMA 21" : "Price, EMA 10, EMA 21, and Bollinger"
+            fiveMinute
+              ? "3:00 PM yesterday through now · scroll sideways · EMA 10 and EMA 21"
+              : "Price, EMA 10, EMA 21, and Bollinger"
           }
-          className="max-w-3xl"
+          className="max-h-[94vh] max-w-[min(96vw,80rem)]"
         >
           <BbSparkline15mChart
             data={
@@ -266,8 +268,10 @@ export function MovementGridWindow() {
                 : null)
             }
             breakoutLevel={fiveMinute ? null : chartWatch.lastBreakoutLevel}
-            variant="full"
-          />
+          variant="full"
+          shape="portrait"
+          className="h-[min(74vh,680px)]"
+        />
         </MarketDetailModal>
       ) : null}
     </div>

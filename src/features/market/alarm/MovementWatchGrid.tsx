@@ -7,9 +7,9 @@ import {
   type BbSparkline15m,
   type MarketAlarmWatch,
 } from "./alarm-types";
-import { detectedEntryAt, detectedEntrySide, lastEntryTitle } from "./five-minute-entry";
+import { chartEntryMark, lastEntryTitle } from "./five-minute-entry";
 import { TickerEntriesModal } from "./TickerEntriesModal";
-import { THUMB_GAP_PX, fitThumbnailGrid } from "./fit-thumbnail-grid";
+import { THUMB_ASPECT, THUMB_GAP_PX, THUMB_RATIO, fitThumbnailGrid } from "./fit-thumbnail-grid";
 
 const BTN =
   "rounded px-2 py-1 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -27,7 +27,7 @@ type Props = {
   onEnlargeChart: (id: string) => void;
   /** Wider layouts for the popped-out grid window. */
   layoutClassName?: string;
-  /** Size every graph thumbnail so the set fits the pane, keeping 16:10. */
+  /** Size every graph thumbnail so the set fits the pane, keeping the chart shape. */
   fitViewport?: boolean;
 };
 
@@ -249,7 +249,7 @@ function MovementWatchCard({
         <button
           type="button"
           onClick={() => onEnlargeChart(watch.id)}
-          className="relative mb-1.5 aspect-[16/10] w-full overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 text-left hover:border-ocean-teal/45"
+          className="relative mb-1.5 aspect-[7/8] w-full overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 text-left hover:border-ocean-teal/45"
           title={`Enlarge ${watch.symbol} chart`}
         >
           <BbSparkline15mChart
@@ -260,9 +260,10 @@ function MovementWatchCard({
                 : null)
             }
             breakoutLevel={fiveMinute ? null : watch.lastBreakoutLevel}
-            entryAt={detectedEntryAt(watch)}
-            entrySide={detectedEntrySide(watch)}
+            entryAt={chartEntryMark(watch)?.at}
+            entrySide={chartEntryMark(watch)?.side}
             variant="thumb"
+            shape="portrait"
             className="h-full"
           />
           {watch.status === "met" ? (
@@ -287,7 +288,7 @@ function MovementWatchCard({
         </p>
       ) : null}
       {!showChart ? (
-        <div className="relative mb-1.5 flex aspect-[16/10] w-full items-center justify-center rounded-md border border-dashed border-ocean-mid/30 bg-ocean-surface/20">
+        <div className="relative mb-1.5 flex aspect-[7/8] w-full items-center justify-center rounded-md border border-dashed border-ocean-mid/30 bg-ocean-surface/20">
           <p className="px-2 text-center text-[10px] text-ocean-sand/70">
             Chart after next check
           </p>
@@ -412,9 +413,9 @@ function FitGraphThumb({
           cardTone(watch.status),
         )}
         style={{
-          aspectRatio: "16 / 10",
-          width: "min(100cqw, calc(100cqh * 16 / 10))",
-          height: "min(100cqh, calc(100cqw * 10 / 16))",
+          aspectRatio: THUMB_ASPECT,
+          width: `min(100cqw, calc(100cqh * ${THUMB_RATIO}))`,
+          height: `min(100cqh, calc(100cqw / ${THUMB_RATIO}))`,
         }}
         title={`Enlarge ${watch.symbol} chart`}
         aria-label={`${watch.symbol} ${watch.ruleLabel}`}
@@ -428,9 +429,10 @@ function FitGraphThumb({
                 : null)
             }
             breakoutLevel={fiveMinute ? null : watch.lastBreakoutLevel}
-            entryAt={detectedEntryAt(watch)}
-            entrySide={detectedEntrySide(watch)}
+            entryAt={chartEntryMark(watch)?.at}
+            entrySide={chartEntryMark(watch)?.side}
             variant="thumb"
+            shape="portrait"
             className="absolute inset-0 h-full"
           />
         ) : (

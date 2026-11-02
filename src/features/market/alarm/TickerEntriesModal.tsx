@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { MarketDetailModal } from "@/features/market/components/MarketDetailModal";
 import { loadAlarmTriggerLog, type AlarmTriggerEntry } from "./alarm-trigger-log";
-import { entryClock } from "./five-minute-entry";
+import { entryClock, pairEntryExits } from "./five-minute-entry";
 
 type Props = {
   symbol: string;
@@ -33,6 +33,13 @@ function entryLine(row: AlarmTriggerEntry): string {
   return estimate ? `${time} : - ${operation} ${estimate}` : `${time} : - ${operation}`;
 }
 
+function pairLine(entry: AlarmTriggerEntry, exit: AlarmTriggerEntry | null): string {
+  const opened = entryLine(entry);
+  if (!exit) return opened;
+  const time = entryClock(exit.triggeredAt) ?? exit.triggeredAt;
+  return `${opened} ----- ${time} : - EXIT`;
+}
+
 export function TickerEntriesModal({ symbol, onClose }: Props) {
   const [rows, setRows] = useState<AlarmTriggerEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,13 +51,14 @@ export function TickerEntriesModal({ symbol, onClose }: Props) {
         if (cancelled) return;
         const upper = symbol.trim().toUpperCase();
         const today = (loaded.tradeDate ?? "").slice(0, 10);
-        const entries = loaded.entries.filter((row) => {
-          if (row.kind !== "enter") return false;
+        const todayRows = loaded.entries.filter((row) => {
+          const kind = String(row.kind || "").toLowerCase();
+          if (kind !== "enter" && kind !== "exit") return false;
           if (String(row.symbol || "").trim().toUpperCase() !== upper) return false;
           if (!today) return true;
           return (row.tradeDate ?? "").slice(0, 10) === today;
         });
-        setRows(entries);
+        setRows(todayRows);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -68,22 +76,22 @@ export function TickerEntriesModal({ symbol, onClose }: Props) {
       onClose={onClose}
       title={`${symbol} entries`}
       subtitle="Today"
-      className="max-w-md"
+      className="max-w-xl"
     >
       {error ? <p className="text-sm text-rose-300">{error}</p> : null}
       {rows == null ? (
         <p className="text-sm text-ocean-sand">Loading entries…</p>
-      ) : rows.length === 0 ? (
+      ) : rows.filter((row) => String(row.kind).toLowerCase() === "enter").length === 0 ? (
         <p className="text-sm text-ocean-sand">No entries today.</p>
       ) : (
         <ul className="max-h-80 space-y-1.5 overflow-y-auto">
-          {rows.map((row) => (
+          {pairEntryExits(rows).map((pair) => (
             <li
-              key={row.id}
+              key={pair.entry.id}
               className="rounded border border-ocean-mid/30 bg-ocean-deep/25 px-2.5 py-1.5 text-sm tabular-nums text-ocean-foam"
-              title={row.way}
+              title={[pair.entry.way, pair.exit?.way].filter(Boolean).join(" · ")}
             >
-              {entryLine(row)}
+              {pairLine(pair.entry, pair.exit)}
             </li>
           ))}
         </ul>

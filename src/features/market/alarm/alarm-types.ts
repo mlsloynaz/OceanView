@@ -128,8 +128,15 @@ export type BbSparkline15m = {
   bbPeriod: number;
   /** Last candles for the card. A 5m card keeps about two hours. */
   bars: BbSparkline15mBar[];
-  /** Every 5m candle of the trade date. The enlarged chart scrolls these. */
+  /** 3:00 PM previous session through now, ending at 4:00 PM. The enlarged chart scrolls these. */
   sessionBars?: BbSparkline15mBar[];
+  /** 1-minute close and EMAs from 9:30 until 11:00, drawn in the corner of the 5m chart. */
+  open1m?: Array<{
+    datetime: string;
+    close: number;
+    ema10?: number | null;
+    ema21?: number | null;
+  }>;
 };
 
 export type MovementChart = BbSparkline15m;

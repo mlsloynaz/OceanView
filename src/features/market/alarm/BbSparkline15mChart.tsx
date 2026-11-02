@@ -1,8 +1,13 @@
 /** Compact SVG candlestick + Bollinger disipadores for Breakout board (≤9 × 15m bars). */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import type { BbSparkline15m } from "./alarm-types";
+import {
+  ALARM_TRIGGER_LOG_CHANGED_EVENT,
+  loadAlarmTriggerLog,
+  type AlarmTriggerEntry,
+} from "./alarm-trigger-log";
 
 type Variant = "thumb" | "full";
 
@@ -16,17 +21,81 @@ type Props = {
   className?: string;
   /** thumb = compact board pane; full = popup enlarge. */
   variant?: Variant;
+  /** portrait matches the movement grid. wide stays on the breakout board. */
+  shape?: "wide" | "portrait";
   showLegend?: boolean;
 };
 
 const THUMB_5M_BARS = 24;
 const FULL_5M_SLOT = 40;
 
+type EntryMark = { at: string; side: "CALL" | "PUT" };
+
+type LogSnap = { tradeDate: string; entries: AlarmTriggerEntry[] };
+
+const emptyLog: LogSnap = { tradeDate: "", entries: [] };
+let logSnap: LogSnap = emptyLog;
+let logStarted = false;
+const logListeners = new Set<(snap: LogSnap) => void>();
+
+function sideOfTrigger(row: AlarmTriggerEntry): "CALL" | "PUT" | null {
+  const side = String(row.side || "").toLowerCase();
+  if (side === "alcista") return "CALL";
+  if (side === "bajista") return "PUT";
+  const blob = `${row.way ?? ""} ${row.evidence ?? ""}`.toUpperCase();
+  if (/\bCALL\b/.test(blob)) return "CALL";
+  if (/\bPUT\b/.test(blob)) return "PUT";
+  return null;
+}
+
+function refreshEntryLog(): void {
+  void loadAlarmTriggerLog("current")
+    .then((loaded) => {
+      logSnap = {
+        tradeDate: (loaded.tradeDate ?? "").slice(0, 10),
+        entries: loaded.entries ?? [],
+      };
+      logListeners.forEach((listener) => listener(logSnap));
+    })
+    .catch(() => {});
+}
+
+function useTodayEntryMarks(symbol: string | undefined): EntryMark[] {
+  const [snap, setSnap] = useState(logSnap);
+  useEffect(() => {
+    logListeners.add(setSnap);
+    if (!logStarted) {
+      logStarted = true;
+      refreshEntryLog();
+      window.addEventListener(ALARM_TRIGGER_LOG_CHANGED_EVENT, refreshEntryLog);
+      window.setInterval(refreshEntryLog, 20000);
+    } else {
+      setSnap(logSnap);
+    }
+    return () => {
+      logListeners.delete(setSnap);
+    };
+  }, []);
+  const upper = (symbol ?? "").trim().toUpperCase();
+  return useMemo(() => {
+    if (!upper) return [];
+    const marks: EntryMark[] = [];
+    for (const row of snap.entries) {
+      if (row.kind !== "enter") continue;
+      if (String(row.symbol || "").trim().toUpperCase() !== upper) continue;
+      if (snap.tradeDate && (row.tradeDate ?? "").slice(0, 10) !== snap.tradeDate) continue;
+      const side = sideOfTrigger(row);
+      if (!side || !row.triggeredAt) continue;
+      marks.push({ at: row.triggeredAt, side });
+    }
+    return marks;
+  }, [snap, upper]);
+}
+
 const SIZE: Record<Variant, { pad: { top: number; right: number; bottom: number; left: number }; w: number; h: number }> =
   {
-    // ~16:10 — readable candles without the ultra-wide strip look
     thumb: { pad: { top: 6, right: 6, bottom: 14, left: 6 }, w: 240, h: 150 },
-    full: { pad: { top: 12, right: 10, bottom: 22, left: 10 }, w: 640, h: 360 },
+    full: { pad: { top: 12, right: 10, bottom: 22, left: 10 }, w: 720, h: 640 },
   };
 
 function epochMs(value: string): number | null {
@@ -95,7 +164,96 @@ function timeLabel(iso: string): string {
   return `${m[1]}:${m[2]}`;
 }
 
+function isHourOpen(iso: string): boolean {
+  return /[T ]\d{2}:00/.test(iso);
+}
+
 /** Closed polygon between upper and lower disipadores (skip gaps where BB is null). */
+type OpenMinutePoint = {
+  datetime: string;
+  close: number;
+  ema10?: number | null;
+  ema21?: number | null;
+};
+
+function OpenMinuteInset({
+  points,
+  x,
+  y,
+  width,
+  height,
+  labelSize,
+}: {
+  points: OpenMinutePoint[];
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  labelSize: number;
+}) {
+  const prices: number[] = [];
+  for (const point of points) {
+    prices.push(point.close);
+    if (typeof point.ema10 === "number") prices.push(point.ema10);
+    if (typeof point.ema21 === "number") prices.push(point.ema21);
+  }
+  if (prices.length < 2 || width < 24 || height < 18) return null;
+  const low = Math.min(...prices);
+  const high = Math.max(...prices);
+  const pad = (high - low) * 0.08 || 0.05;
+  const yMin = low - pad;
+  const yMax = high + pad;
+  const plotTop = y + 12;
+  const plotH = Math.max(8, height - 16);
+  const yAt = (price: number) => plotTop + ((yMax - price) / (yMax - yMin || 1)) * plotH;
+  const xAt = (index: number) => x + 4 + (index / Math.max(points.length - 1, 1)) * (width - 8);
+  const closeLine = lineThrough(points, "close", xAt, yAt);
+  const ema10Line = lineThrough(points, "ema10", xAt, yAt);
+  const ema21Line = lineThrough(points, "ema21", xAt, yAt);
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        rx={3}
+        fill="#071018"
+        fillOpacity={0.9}
+        stroke="#94a3b8"
+        strokeOpacity={0.55}
+      />
+      <text x={x + 4} y={y + 9} fill="#cbd5e1" style={{ fontSize: labelSize }}>
+        1m
+      </text>
+      {ema21Line ? (
+        <polyline fill="none" points={ema21Line} stroke="#fda4af" strokeWidth={1} />
+      ) : null}
+      {ema10Line ? (
+        <polyline fill="none" points={ema10Line} stroke="#fcd34d" strokeWidth={1} />
+      ) : null}
+      {closeLine ? (
+        <polyline fill="none" points={closeLine} stroke="#e2e8f0" strokeWidth={1.15} />
+      ) : null}
+    </g>
+  );
+}
+
+function lineThrough(
+  points: OpenMinutePoint[],
+  key: "close" | "ema10" | "ema21",
+  xAt: (index: number) => number,
+  yAt: (price: number) => number,
+): string | null {
+  const drawn: string[] = [];
+  points.forEach((point, index) => {
+    const value = point[key];
+    if (typeof value !== "number") return;
+    drawn.push(`${xAt(index).toFixed(1)},${yAt(value).toFixed(1)}`);
+  });
+  return drawn.length >= 2 ? drawn.join(" ") : null;
+}
+
 function bbEnvelopePath(
   bars: BbSparkline15m["bars"],
   xCenter: (i: number) => number,
@@ -123,6 +281,7 @@ export function BbSparkline15mChart({
   entrySide,
   className,
   variant = "thumb",
+  shape = "wide",
   showLegend,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -134,24 +293,35 @@ export function BbSparkline15mChart({
   const bars =
     variant === "thumb" && data?.timeframe === "5m" ? allBars.slice(-THUMB_5M_BARS) : allBars;
   const base = SIZE[variant];
+  const frameH =
+    variant === "thumb" && shape === "portrait" ? Math.round((base.w * 8) / 7) : base.h;
   const naturalW = base.pad.left + base.pad.right + bars.length * FULL_5M_SLOT;
   const scrollable = variant === "full" && data?.timeframe === "5m" && naturalW > 520;
   const W = scrollable ? base.pad.left + base.pad.right + bars.length * FULL_5M_SLOT : base.w;
-  const H = base.h;
+  const H = frameH;
   const PAD = base.pad;
   const legend = showLegend ?? variant === "full";
   const strokeBand = variant === "full" ? 2 : 1.25;
   const strokeMid = variant === "full" ? 1.5 : 1;
   const labelSize = variant === "full" ? 11 : 7;
+  const loggedMarks = useTodayEntryMarks(data?.symbol);
+  const entryMarks = useMemo(() => {
+    const marks = [...loggedMarks];
+    if (entryAt && (entrySide === "CALL" || entrySide === "PUT")) {
+      marks.push({ at: entryAt, side: entrySide });
+    }
+    return marks;
+  }, [loggedMarks, entryAt, entrySide]);
+  const focusAt = entryMarks.length > 0 ? entryMarks[entryMarks.length - 1]?.at ?? entryAt : entryAt;
 
   useEffect(() => {
     if (!scrollable || bars.length === 0) return;
-    const key = `${entryAt ?? ""}|${bars[0]?.datetime ?? ""}`;
+    const key = `${focusAt ?? ""}|${bars[0]?.datetime ?? ""}|${entryMarks.length}`;
     if (positionedRef.current === key) return;
     const place = () => {
       const node = scrollerRef.current;
       if (!node || node.clientWidth <= 0) return false;
-      const index = entryCandleIndex(bars, entryAt, data?.timeframe);
+      const index = entryCandleIndex(bars, focusAt, data?.timeframe);
       const focus = index >= 0 ? index : bars.length - 1;
       const center = PAD.left + FULL_5M_SLOT * focus + FULL_5M_SLOT / 2;
       node.scrollLeft = Math.max(0, center - node.clientWidth / 2);
@@ -165,7 +335,7 @@ export function BbSparkline15mChart({
       if (place()) positionedRef.current = key;
     });
     return () => cancelAnimationFrame(frame);
-  }, [scrollable, bars, entryAt, data?.timeframe, PAD.left]);
+  }, [scrollable, bars, focusAt, entryMarks.length, data?.timeframe, PAD.left]);
 
   if (bars.length === 0) {
     return (
@@ -237,16 +407,18 @@ export function BbSparkline15mChart({
   const tf = data?.timeframe === "5m" ? "5m" : "15m";
   const envelope = bbEnvelopePath(bars, xCenter, yScale);
 
-  const entryIndex = entryCandleIndex(bars, entryAt, data?.timeframe);
-  const entryBar = entryIndex >= 0 ? bars[entryIndex] : null;
-  const entryFont = variant === "full" ? 22 : 14;
-  const entryMark =
-    entryBar && (entrySide === "CALL" || entrySide === "PUT")
-      ? {
-          x: Math.min(W - 8, xCenter(entryIndex) + bodyW / 2 + 3),
-          y: yScale(entryBar.close),
-        }
-      : null;
+  const entryRadius = variant === "full" ? 11 : 7;
+  const entryByCandle = new Map<number, EntryMark>();
+  for (const mark of entryMarks) {
+    const index = entryCandleIndex(bars, mark.at, data?.timeframe);
+    if (index >= 0) entryByCandle.set(index, mark);
+  }
+  const placedEntries = [...entryByCandle.entries()].map(([index, mark]) => {
+    const bar = bars[index];
+    let x = xCenter(index) + bodyW / 2 + entryRadius + 3;
+    if (x + entryRadius > W - 2) x = xCenter(index) - bodyW / 2 - entryRadius - 3;
+    return { ...mark, index, x, y: yScale(bar?.close ?? bar?.high ?? 0) };
+  });
   const lastWithWidth = [...bars].reverse().find((b) => b.bbWidth != null);
   const widthExpanding = bars.some((b) => b.widthExpanding === true);
   const lastWidthExpanding = lastWithWidth?.widthExpanding === true;
@@ -330,6 +502,22 @@ export function BbSparkline15mChart({
           />
         ) : null}
 
+        {bars.map((b, i) =>
+          isHourOpen(b.datetime) ? (
+            <line
+              key={`hour-${b.datetime || i}`}
+              x1={xCenter(i)}
+              x2={xCenter(i)}
+              y1={PAD.top}
+              y2={H - PAD.bottom}
+              stroke="#94a3b8"
+              strokeOpacity={0.7}
+              strokeWidth={variant === "full" ? 1.25 : 0.9}
+              strokeDasharray={variant === "full" ? "5 4" : "3 2"}
+            />
+          ) : null,
+        )}
+
         {typeof breakoutLevel === "number" && Number.isFinite(breakoutLevel) ? (
           <line
             x1={PAD.left}
@@ -353,11 +541,14 @@ export function BbSparkline15mChart({
           const bodyTop = Math.min(yO, yC);
           const bodyH = Math.max(1.5, Math.abs(yC - yO));
           const forming = Boolean(b.forming);
-          const showTime = scrollable
-            ? i === bars.length - 1 || i % 6 === 0
-            : variant === "full"
-              ? i === 0 || i === bars.length - 1 || i === Math.floor(bars.length / 2)
-              : i === 0 || i === bars.length - 1;
+          const onHour = isHourOpen(b.datetime);
+          const showTime = onHour
+            ? true
+            : scrollable
+              ? i === bars.length - 1 || i % 6 === 0
+              : variant === "full"
+                ? i === 0 || i === bars.length - 1 || i === Math.floor(bars.length / 2)
+                : i === 0 || i === bars.length - 1;
           return (
             <g key={b.datetime || i}>
               <line
@@ -385,8 +576,8 @@ export function BbSparkline15mChart({
                   x={xc}
                   y={H - 2}
                   textAnchor="middle"
-                  className="fill-ocean-sand/80"
-                  style={{ fontSize: labelSize }}
+                  className={onHour ? "fill-slate-400" : "fill-ocean-sand/80"}
+                  style={{ fontSize: onHour ? labelSize + 1 : labelSize, fontWeight: onHour ? 700 : 400 }}
                 >
                   {forming ? "now" : timeLabel(b.datetime)}
                 </text>
@@ -394,23 +585,52 @@ export function BbSparkline15mChart({
             </g>
           );
         })}
-        {entryMark ? (
-          <text
-            x={entryMark.x.toFixed(1)}
-            y={entryMark.y.toFixed(1)}
-            textAnchor="start"
-            dominantBaseline="central"
-            fill={entrySide === "CALL" ? "#22c55e" : "#ef4444"}
-            stroke="#071018"
-            strokeWidth={variant === "full" ? 4 : 2.5}
-            paintOrder="stroke"
-            fontSize={entryFont}
-            fontWeight={700}
-          >
-            *
-            <title>{entrySide === "CALL" ? "Call entry" : "Put entry"}</title>
-          </text>
+        {data?.timeframe === "5m" && (data.open1m?.length ?? 0) >= 2 ? (
+          <OpenMinuteInset
+            points={data.open1m ?? []}
+            x={PAD.left + 2}
+            y={PAD.top + 2}
+            width={Math.min(plotW * (variant === "full" ? 0.36 : 0.5), variant === "full" ? 300 : 112)}
+            height={Math.min(plotH * 0.38, variant === "full" ? 180 : 62)}
+            labelSize={variant === "full" ? 11 : 7}
+          />
         ) : null}
+        {placedEntries.map((mark) => {
+          const color = mark.side === "CALL" ? "#22c55e" : "#ef4444";
+          const width = variant === "full" ? 2.4 : 1.6;
+          return (
+            <g key={`${mark.side}-${mark.at}`}>
+              {[0, 45, 90, 135].map((deg) => {
+                const rad = (deg * Math.PI) / 180;
+                const dx = Math.cos(rad) * entryRadius;
+                const dy = Math.sin(rad) * entryRadius;
+                return (
+                  <g key={deg}>
+                    <line
+                      x1={mark.x - dx}
+                      y1={mark.y - dy}
+                      x2={mark.x + dx}
+                      y2={mark.y + dy}
+                      stroke="#071018"
+                      strokeWidth={width + 1.8}
+                      strokeLinecap="round"
+                    />
+                    <line
+                      x1={mark.x - dx}
+                      y1={mark.y - dy}
+                      x2={mark.x + dx}
+                      y2={mark.y + dy}
+                      stroke={color}
+                      strokeWidth={width}
+                      strokeLinecap="round"
+                    />
+                  </g>
+                );
+              })}
+              <title>{mark.side === "CALL" ? "Call entry" : "Put entry"}</title>
+            </g>
+          );
+        })}
       </svg>
       </div>
       {legend ? (

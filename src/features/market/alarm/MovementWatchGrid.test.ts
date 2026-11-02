@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { fitThumbnailGrid } from "./fit-thumbnail-grid";
-import { detectedEntryAt, lastEntryTitle } from "./five-minute-entry";
+import { THUMB_RATIO, fitThumbnailGrid } from "./fit-thumbnail-grid";
+import { chartEntryMark, detectedEntryAt, lastEntryTitle, pairEntryExits } from "./five-minute-entry";
 import { chartForWatch } from "./MovementWatchGrid";
 import type { MarketAlarmWatch } from "./alarm-types";
 
@@ -37,14 +37,14 @@ const bars = [
 ];
 
 describe("fitThumbnailGrid", () => {
-  it("keeps a 16:10 thumbnail inside the pane for every chart", () => {
+  it("keeps a portrait thumbnail inside the pane for every chart", () => {
     const fit = fitThumbnailGrid(6, 1600, 900);
     const cellWidth = (1600 - 8 * (fit.columns - 1)) / fit.columns;
     const cellHeight = (900 - 8 * (fit.rows - 1)) / fit.rows;
-    const thumbWidth = Math.min(cellWidth, cellHeight * (16 / 10));
-    const thumbHeight = thumbWidth / (16 / 10);
+    const thumbWidth = Math.min(cellWidth, cellHeight * THUMB_RATIO);
+    const thumbHeight = thumbWidth / THUMB_RATIO;
     expect(fit.columns * fit.rows).toBeGreaterThanOrEqual(6);
-    expect(thumbWidth / thumbHeight).toBeCloseTo(1.6, 5);
+    expect(thumbWidth / thumbHeight).toBeCloseTo(THUMB_RATIO, 5);
     expect(fit.rows * thumbHeight + (fit.rows - 1) * 8).toBeLessThanOrEqual(900);
     expect(fit.columns * thumbWidth + (fit.columns - 1) * 8).toBeLessThanOrEqual(1600);
   });
@@ -104,6 +104,18 @@ describe("detectedEntryAt", () => {
     ).toBeNull();
   });
 
+  it("keeps a running watch entry on the chart", () => {
+    expect(
+      chartEntryMark({
+        status: "running",
+        lastEntryAt: "2026-10-26T14:46:00.000Z",
+        metAt: null,
+        lastDetectedTrend: "alcista",
+        trend: "auto",
+      }),
+    ).toEqual({ at: "2026-10-26T14:46:00.000Z", side: "CALL" });
+  });
+
   it("titles the last entry as time, operation, and estimate", () => {
     expect(
       lastEntryTitle({
@@ -132,5 +144,37 @@ describe("detectedEntryAt", () => {
         lastOptionGainPct: 54.93,
       }),
     ).toBe("10:46 : - CALL 54.93%");
+  });
+});
+
+describe("pairEntryExits", () => {
+  it("pairs each entry with the following exit and leaves an open entry alone", () => {
+    const pairs = pairEntryExits([
+      {
+        id: "exit-1",
+        kind: "exit",
+        triggeredAt: "2026-10-27T11:05:00-04:00",
+        watchId: "w1",
+        side: "alcista",
+      },
+      {
+        id: "enter-1",
+        kind: "enter",
+        triggeredAt: "2026-10-27T10:36:00-04:00",
+        watchId: "w1",
+        side: "alcista",
+      },
+      {
+        id: "enter-2",
+        kind: "enter",
+        triggeredAt: "2026-10-27T13:10:00-04:00",
+        watchId: "w1",
+        side: "bajista",
+      },
+    ]);
+    expect(pairs.map((pair) => [pair.entry.id, pair.exit?.id ?? null])).toEqual([
+      ["enter-1", "exit-1"],
+      ["enter-2", null],
+    ]);
   });
 });

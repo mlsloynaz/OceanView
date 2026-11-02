@@ -1,7 +1,9 @@
-export const THUMB_RATIO = 16 / 10;
+/** Width / height. Matches the trading chart: slightly taller than wide. */
+export const THUMB_RATIO = 7 / 8;
+export const THUMB_ASPECT = "7 / 8";
 export const THUMB_GAP_PX = 8;
 
-/** Column count that makes each 16:10 thumbnail as large as possible inside the pane. */
+/** Column count that makes each thumbnail as large as possible inside the pane. */
 export function fitThumbnailGrid(
   count: number,
   width: number,
