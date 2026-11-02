@@ -8,7 +8,7 @@ import {
   stopMovementWatchJob,
   type MovementWatchJobStatus,
 } from "./alarm-client";
-import { alarmRuleLabel } from "./alarm-types";
+import { ActiveTickerBoard } from "./ActiveTickerBoard";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -34,6 +34,10 @@ type Props = {
   tickersLoading?: boolean;
   /** After start/stop/catalog change — parent refreshes watches. */
   onJobChange: (job: MovementWatchJobStatus) => void;
+  /** Start breakout alarms for the active tickers. */
+  onTrackBreakout?: (symbols: string[]) => void;
+  onStopBreakout?: () => void;
+  breakoutRunning?: boolean;
 };
 
 export function MovementWatchPanel({
@@ -41,21 +45,20 @@ export function MovementWatchPanel({
   tickers,
   tickersLoading,
   onJobChange,
+  onTrackBreakout,
+  onStopBreakout,
+  breakoutRunning = false,
 }: Props) {
   const jobStatus = job?.status ?? "idle";
   const running = jobStatus === "running";
 
-  const [eligible, setEligible] = useState<string[]>([...DEFAULT_ELIGIBLE]);
-  const [selectedMovements, setSelectedMovements] = useState<string[]>([
-    ...DEFAULT_ELIGIBLE,
-  ]);
-  const [useAllTickers, setUseAllTickers] = useState(true);
-  const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [blockHour, setBlockHour] = useState(false);
   const [hourBlockNote, setHourBlockNote] = useState(HOUR_BLOCK_NOTE);
+  const [live, setLive] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const activeTickers = useMemo(
     () =>
@@ -69,12 +72,6 @@ export function MovementWatchPanel({
   const loadCatalog = useCallback(async () => {
     try {
       const payload = await fetchActiveMovements();
-      const keys =
-        payload.ruleKeys.length > 0 ? payload.ruleKeys : [...DEFAULT_ELIGIBLE];
-      const fromApi = payload.eligibleRuleKeys ?? [];
-      const allowed = fromApi.length > 0 ? fromApi : [...DEFAULT_ELIGIBLE];
-      setEligible(allowed);
-      setSelectedMovements(keys.filter((k) => allowed.includes(k)));
       setBlockHour(Boolean(payload.hourRegimeBlock));
       setHourBlockNote(payload.hourRegimeBlockNote || HOUR_BLOCK_NOTE);
       setCatalogLoaded(true);
@@ -88,95 +85,63 @@ export function MovementWatchPanel({
     void loadCatalog();
   }, [loadCatalog]);
 
-  // When job is running, mirror its ruleKeys so the UI matches the live run.
   useEffect(() => {
-    if (!running || !job?.ruleKeys?.length) return;
-    setSelectedMovements([...job.ruleKeys]);
-  }, [running, job?.ruleKeys]);
+    if (!live) return;
+    setRefreshKey((value) => value + 1);
+    const timer = window.setInterval(() => setRefreshKey((value) => value + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, [live]);
 
-  const toggleMovement = (key: string) => {
-    setSelectedMovements((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
-  };
-
-  const toggleSymbol = (symbol: string) => {
-    const upper = symbol.toUpperCase();
-    setSelectedSymbols((prev) =>
-      prev.includes(upper) ? prev.filter((s) => s !== upper) : [...prev, upper],
-    );
-  };
+  const runningKeys = running ? [...(job?.ruleKeys ?? [])] : [];
+  const tracking5m = runningKeys.includes("trend_change_5m");
 
   const saveMovements = async (keys: string[]) => {
     const payload = await putActiveMovements(keys);
-    setSelectedMovements(payload.ruleKeys);
     return payload.ruleKeys;
   };
 
-  const handleStart = async () => {
+  const startRule = async (key: string) => {
     setBusy(true);
     setError(null);
     try {
-      if (selectedMovements.length === 0) {
-        setError("Select at least one movement.");
+      if (key === "breakout_quality") {
+        if (activeTickers.length === 0) {
+          setError("No active tickers.");
+          return;
+        }
+        onTrackBreakout?.(activeTickers);
         return;
       }
-      if (!useAllTickers && selectedSymbols.length === 0) {
-        setError("Select at least one ticker, or use all active tickers.");
-        return;
-      }
-      const keys = await saveMovements(selectedMovements);
-      const body: {
-        trigger: string;
-        ruleKeys: string[];
-        symbols?: string[];
-      } = {
-        trigger: "manual",
-        ruleKeys: keys,
-      };
-      if (!useAllTickers) body.symbols = selectedSymbols;
-      const next = await startMovementWatchJob(body);
+      const keys = [...new Set([...runningKeys, key])];
+      await saveMovements(keys);
+      const next = await startMovementWatchJob({ trigger: "manual", ruleKeys: keys });
       onJobChange(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start Movement Watch.");
+      setError(err instanceof Error ? err.message : "Failed to start tracking.");
     } finally {
       setBusy(false);
     }
   };
 
-  const handleStop = async () => {
+  const stopRule = async (key: string) => {
     setBusy(true);
     setError(null);
     try {
-      const next = await stopMovementWatchJob("cancelled");
-      onJobChange(next);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to stop Movement Watch.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleSaveCatalogOnly = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      if (selectedMovements.length === 0) {
-        setError("Select at least one movement.");
+      if (key === "breakout_quality") {
+        onStopBreakout?.();
         return;
       }
-      const keys = await saveMovements(selectedMovements);
-      // If already running, refresh the job watchlist with the new movements.
-      if (running) {
-        const next = await startMovementWatchJob({
-          trigger: "manual",
-          ruleKeys: keys,
-          ...(useAllTickers ? {} : { symbols: selectedSymbols }),
-        });
+      const keys = runningKeys.filter((item) => item !== key);
+      if (keys.length === 0) {
+        const next = await stopMovementWatchJob("cancelled");
         onJobChange(next);
+        return;
       }
+      await saveMovements(keys);
+      const next = await startMovementWatchJob({ trigger: "manual", ruleKeys: keys });
+      onJobChange(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save movements.");
+      setError(err instanceof Error ? err.message : "Failed to stop tracking.");
     } finally {
       setBusy(false);
     }
@@ -187,11 +152,10 @@ export function MovementWatchPanel({
     setBusy(true);
     setError(null);
     try {
-      const keys = selectedMovements.length > 0 ? selectedMovements : [...DEFAULT_ELIGIBLE];
+      const keys = runningKeys.length > 0 ? runningKeys : [...DEFAULT_ELIGIBLE];
       const payload = await putActiveMovements(keys, checked);
       setBlockHour(Boolean(payload.hourRegimeBlock));
       setHourBlockNote(payload.hourRegimeBlockNote || HOUR_BLOCK_NOTE);
-      setSelectedMovements(payload.ruleKeys);
     } catch (err) {
       setBlockHour(!checked);
       setError(err instanceof Error ? err.message : "Failed to save the 1h block.");
@@ -200,11 +164,18 @@ export function MovementWatchPanel({
     }
   };
 
-  const canStart =
-    !busy &&
-    !running &&
-    selectedMovements.length > 0 &&
-    (useAllTickers ? activeTickers.length > 0 : selectedSymbols.length > 0);
+  const boardTickers = tickers
+    .filter((ticker) => ticker.active !== false)
+    .map((ticker) => ({
+      symbol: ticker.symbol.trim().toUpperCase(),
+      name: ticker.name ?? undefined,
+    }))
+    .filter((ticker) => ticker.symbol);
+
+  const trackRows = [
+    { key: "trend_change_5m", label: "5m trend change", on: tracking5m },
+    { key: "breakout_quality", label: "Breakout", on: breakoutRunning },
+  ];
 
   return (
     <section
@@ -214,8 +185,9 @@ export function MovementWatchPanel({
       <div>
         <h3 className="text-sm font-semibold text-ocean-foam">Movement Watch</h3>
         <p className="mt-0.5 text-[11px] text-ocean-sand">
-          Pick movements (and optionally tickers), then Start. Default is all active
-          tickers × the movements below. Keep OceanView open while running.
+          Charts stay on the active tickers with no alarm running. Start on a row to
+          track that alarm and send notifications. Live refreshes the candles every minute.
+          When the market is closed, the charts show the previous session.
         </p>
       </div>
 
@@ -241,117 +213,61 @@ export function MovementWatchPanel({
             Status: <span className="capitalize text-ocean-foam">{jobStatus}</span>
             {typeof job?.activeTickerCount === "number"
               ? ` · ${job.activeTickerCount} tickers`
-              : useAllTickers
-                ? ` · ${activeTickers.length} active tickers`
-                : ""}
+              : ` · ${activeTickers.length} active tickers`}
           </p>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              className={cn(BTN, "bg-ocean-teal text-ocean-deep")}
-              disabled={!canStart}
-              onClick={() => void handleStart()}
-            >
-              {busy && !running ? "…" : "Start"}
-            </button>
-            <button
-              type="button"
-              className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
-              disabled={busy || !running}
-              onClick={() => void handleStop()}
-            >
-              {busy && running ? "…" : "Stop"}
-            </button>
-          </div>
+          <button
+            type="button"
+            className={cn(
+              BTN,
+              live ? "bg-rose-500 text-white" : "border border-ocean-mid/40 text-ocean-foam",
+            )}
+            onClick={() => setLive((value) => !value)}
+          >
+            {live ? "LIVE" : "Live"}
+          </button>
         </div>
         {job?.message ? (
           <p className="text-[11px] leading-snug text-ocean-sand">{job.message}</p>
         ) : null}
       </div>
 
-      <div className="space-y-1.5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] font-medium text-ocean-foam">Active movements</p>
-          <button
-            type="button"
-            className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
-            disabled={busy || selectedMovements.length === 0 || !catalogLoaded}
-            onClick={() => void handleSaveCatalogOnly()}
-          >
-            Save movements
-          </button>
-        </div>
-        <ul className="space-y-1 rounded-md border border-ocean-mid/40 bg-ocean-surface/40 px-2 py-1.5">
-          {eligible.map((key) => {
-            const checked = selectedMovements.includes(key);
-            return (
-              <li key={key}>
-                <label className="flex cursor-pointer items-start gap-1.5 text-sm text-ocean-foam hover:text-ocean-teal">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 rounded border-ocean-mid accent-ocean-teal"
-                    checked={checked}
-                    disabled={busy}
-                    onChange={() => toggleMovement(key)}
-                  />
-                  <span>
-                    <span className="font-medium">{alarmRuleLabel(key)}</span>
-                    <span className="mt-0.5 block font-mono text-[10px] text-ocean-sand/80">
-                      {key}
-                    </span>
-                  </span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+      <ul className="space-y-1 rounded-md border border-ocean-mid/40 bg-ocean-surface/40 px-2 py-1.5">
+        {trackRows.map((row) => (
+          <li key={row.key} className="flex items-center justify-between gap-2 py-1">
+            <span className="text-sm font-medium text-ocean-foam">{row.label}</span>
+            {row.on ? (
+              <button
+                type="button"
+                className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
+                disabled={busy}
+                onClick={() => void stopRule(row.key)}
+              >
+                Stop
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={cn(BTN, "bg-ocean-teal text-ocean-deep")}
+                disabled={busy || activeTickers.length === 0}
+                onClick={() => void startRule(row.key)}
+              >
+                Start
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
 
       <div className="space-y-1.5">
-        <p className="text-[11px] font-medium text-ocean-foam">Tickers</p>
-        <label className="flex cursor-pointer items-center gap-1.5 text-sm text-ocean-foam">
-          <input
-            type="checkbox"
-            className="rounded border-ocean-mid accent-ocean-teal"
-            checked={useAllTickers}
-            disabled={busy || running}
-            onChange={(e) => setUseAllTickers(e.target.checked)}
-          />
-          All active tickers ({activeTickers.length})
-        </label>
-        {!useAllTickers ? (
-          <div
-            className="max-h-36 overflow-y-auto rounded-md border border-ocean-mid/40 bg-ocean-surface/40 px-2 py-1.5"
-            role="group"
-            aria-label="Tickers for Movement Watch"
-          >
-            {tickersLoading ? (
-              <p className="py-1 text-[11px] text-ocean-sand">Loading tickers…</p>
-            ) : activeTickers.length === 0 ? (
-              <p className="py-1 text-[11px] text-ocean-sand">No active tickers.</p>
-            ) : (
-              <ul className="columns-2 gap-x-3 sm:columns-3">
-                {activeTickers.map((sym) => {
-                  const checked = selectedSymbols.includes(sym);
-                  return (
-                    <li key={sym} className="break-inside-avoid py-0.5">
-                      <label className="flex cursor-pointer items-center gap-1.5 text-sm text-ocean-foam hover:text-ocean-teal">
-                        <input
-                          type="checkbox"
-                          className="rounded border-ocean-mid accent-ocean-teal"
-                          checked={checked}
-                          disabled={busy || running}
-                          onChange={() => toggleSymbol(sym)}
-                        />
-                        <span className="font-semibold tabular-nums">{sym}</span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        ) : null}
+        <p className="text-[11px] font-medium text-ocean-foam">
+          Active tickers ({boardTickers.length})
+          {live ? " · updating every minute" : ""}
+        </p>
+        {tickersLoading ? (
+          <p className="text-[11px] text-ocean-sand">Loading tickers…</p>
+        ) : (
+          <ActiveTickerBoard tickers={boardTickers} refreshKey={refreshKey} />
+        )}
       </div>
 
       {error ? (

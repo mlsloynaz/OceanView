@@ -441,6 +441,15 @@ export function MarketAlarmPanel({
     }
     return map;
   }, [tickers]);
+  const movementSymbols = useMemo(
+    () =>
+      tickers
+        .filter((ticker) => ticker.active !== false)
+        .map((ticker) => ticker.symbol.trim().toUpperCase())
+        .filter(Boolean),
+    [tickers],
+  );
+  const formSymbols = section === "movement" ? movementSymbols : selectedSymbols;
 
   const toggleSymbol = (symbol: string) => {
     const upper = symbol.toUpperCase();
@@ -537,18 +546,37 @@ export function MarketAlarmPanel({
               tickers={tickers}
               tickersLoading={tickersLoading}
               onJobChange={(job) => onMovementWatchJobChange?.(job)}
+              breakoutRunning={watches.some(
+                (watch) =>
+                  watchRuleKeys(watch).includes("breakout_quality") &&
+                  (watch.status === "running" ||
+                    watch.status === "checking" ||
+                    watch.status === "in_trade" ||
+                    watch.status === "paused"),
+              )}
+              onTrackBreakout={(symbols) => {
+                onAdd({
+                  symbols,
+                  ruleKeys: ["breakout_quality"],
+                  trend: "auto",
+                  frequencyValue: 1,
+                  frequencyUnit: "min",
+                  startAfterAdd: true,
+                });
+              }}
+              onStopBreakout={() => {
+                for (const watch of watches) {
+                  if (watchRuleKeys(watch).includes("breakout_quality")) onStop(watch.id);
+                }
+              }}
             />
           ) : null}
 
           <p className="text-xs leading-relaxed text-ocean-sand">
             Eligible: confirmation candle 1h / 15m, Disipador touch (candle + BB on the
-            Timeframe you pick: 1m / 15m / 1h), breakout quality. Select multiple criteria to
-            require all at once. Alarm fires on the{" "}
-            <strong className="font-medium text-ocean-foam">first</strong> combined met only.
-            Select tickers (or{" "}
-            <strong className="font-medium text-ocean-foam">Select all</strong>), rules, and
-            check interval. Trend is always <strong className="font-medium text-ocean-foam">auto</strong>
-            — the rule sets alcista/bajista. Add creates one watch per ticker; Start polls until met.
+            Timeframe you pick: 1m / 15m / 1h), breakout quality. On Movement, the charts use
+            the active tickers. Start on 5m trend or Breakout turns notifications on. Check
+            runs the alarm rules once for that card. Live refreshes the graphs every minute.
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -690,7 +718,7 @@ export function MarketAlarmPanel({
               e.preventDefault();
               if (selectedRules.length === 0) return;
               const ok = onAdd({
-                symbols: selectedSymbols,
+                symbols: formSymbols,
                 ruleKeys: selectedRules,
                 trend: "auto",
                 ...(showBandTf ? { bandTimeframe } : {}),
@@ -701,6 +729,10 @@ export function MarketAlarmPanel({
             }}
           >
             <div className="flex flex-col gap-1.5 text-xs text-ocean-sand sm:col-span-2 lg:col-span-6">
+              {section === "movement" ? (
+                <p>Active tickers ({movementSymbols.length}). No ticker selection.</p>
+              ) : (
+              <>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span>
                   Tickers
@@ -763,6 +795,8 @@ export function MarketAlarmPanel({
                   </ul>
                 )}
               </div>
+              </>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5 text-xs text-ocean-sand sm:col-span-2 lg:col-span-6">
@@ -866,12 +900,12 @@ export function MarketAlarmPanel({
                 className={cn(BTN, "border border-ocean-mid/50 text-ocean-foam hover:bg-ocean-mid/20")}
                 disabled={
                   tickers.length === 0 ||
-                  selectedSymbols.length === 0 ||
+                  formSymbols.length === 0 ||
                   selectedRules.length === 0
                 }
               >
-                {selectedSymbols.length > 1
-                  ? `Add ${selectedSymbols.length} watches`
+                {formSymbols.length > 1
+                  ? `Add ${formSymbols.length} watches`
                   : "Add watch"}
               </button>
               {section !== "strategy" ? (
@@ -880,12 +914,12 @@ export function MarketAlarmPanel({
                   className={cn(BTN, "bg-ocean-teal text-ocean-deep hover:brightness-110")}
                   disabled={
                     tickers.length === 0 ||
-                    selectedSymbols.length === 0 ||
+                    formSymbols.length === 0 ||
                     selectedRules.length === 0
                   }
                   onClick={() => {
                     const ok = onAdd({
-                      symbols: selectedSymbols,
+                      symbols: formSymbols,
                       ruleKeys: selectedRules,
                       trend: "auto",
                       ...(showBandTf ? { bandTimeframe } : {}),
@@ -896,8 +930,8 @@ export function MarketAlarmPanel({
                     if (ok) setSelectedSymbols([]);
                   }}
                 >
-                  {selectedSymbols.length > 1
-                    ? `Add & start ${selectedSymbols.length}`
+                  {formSymbols.length > 1
+                    ? `Add & start ${formSymbols.length}`
                     : "Add & start"}
                 </button>
               ) : null}
@@ -915,7 +949,7 @@ export function MarketAlarmPanel({
               {section === "strategy"
                 ? "No strategy confirm watches yet — use SemiFinal → Monitor, or add a confirmation rule below (then Start to poll)."
                 : section === "movement"
-                  ? "No movement watches yet. Start Movement Watch from Admin for all actives, or pick tickers + movements here and Add & start."
+                  ? "No movement watches yet. The charts above stay on the active tickers. Start 5m trend or Breakout to turn notifications on."
                   : "No watches yet — select tickers + one or more rules above."}
             </p>
           ) : (

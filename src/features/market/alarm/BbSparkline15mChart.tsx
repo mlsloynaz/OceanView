@@ -24,6 +24,12 @@ type Props = {
   /** portrait matches the movement grid. wide stays on the breakout board. */
   shape?: "wide" | "portrait";
   showLegend?: boolean;
+  /** Right-hand price scale. Portrait and the enlarged chart already show it. */
+  axis?: boolean;
+  /** Narrower price scale for the small side panes. */
+  miniScale?: boolean;
+  /** Small 1-minute drawing over the top-left. The thumbnail uses its own 1m pane. */
+  showMinuteCorner?: boolean;
 };
 
 const THUMB_5M_BARS = 24;
@@ -323,6 +329,9 @@ export function BbSparkline15mChart({
   variant = "thumb",
   shape = "wide",
   showLegend,
+  axis = false,
+  miniScale = false,
+  showMinuteCorner = false,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const positionedRef = useRef<string | null>(null);
@@ -345,7 +354,11 @@ export function BbSparkline15mChart({
   const strokeMid = variant === "full" ? 1.5 : 1;
   const labelSize = variant === "full" ? 11 : 7;
   const loggedMarks = useTodayEntryMarks(data?.symbol);
-  const openPoints = useCornerMinutes(data?.symbol, data?.timeframe, data?.open1m);
+  const openPoints = useCornerMinutes(
+    showMinuteCorner ? data?.symbol : undefined,
+    showMinuteCorner ? data?.timeframe : undefined,
+    data?.open1m,
+  );
   const entryMarks = useMemo(() => {
     const marks = [...loggedMarks];
     if (entryAt && (entrySide === "CALL" || entrySide === "PUT")) {
@@ -428,7 +441,7 @@ export function BbSparkline15mChart({
 
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
-  const showAxis = shape === "portrait" || variant === "full";
+  const showAxis = axis || shape === "portrait" || variant === "full";
   const priceTicks = Array.from({ length: 5 }, (_, index) => yMax - ((yMax - yMin) * index) / 4);
   const slot = scrollable ? FULL_5M_SLOT : plotW / bars.length;
   const bodyW = Math.max(variant === "full" ? 5 : 2.5, slot * 0.55);
@@ -702,7 +715,7 @@ export function BbSparkline15mChart({
       </svg>
       </div>
       {showAxis ? (
-        <div className={cn("relative shrink-0", variant === "full" ? "w-14" : "w-9")}>
+        <div className={cn("relative shrink-0", variant === "full" ? "w-14" : miniScale ? "w-7" : "w-9")}>
           <div
             className="absolute inset-x-0 flex flex-col justify-between text-right"
             style={{ top: `${(PAD.top / H) * 100}%`, bottom: `${(PAD.bottom / H) * 100}%` }}
@@ -712,7 +725,7 @@ export function BbSparkline15mChart({
                 key={price}
                 className={cn(
                   "tabular-nums text-ocean-sand/80",
-                  variant === "full" ? "text-[11px]" : "text-[8px] leading-none",
+                  variant === "full" ? "text-[11px]" : miniScale ? "text-[7px] leading-none" : "text-[8px] leading-none",
                 )}
               >
                 {formatPrice(price)}

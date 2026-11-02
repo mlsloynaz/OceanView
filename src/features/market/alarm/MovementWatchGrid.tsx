@@ -334,6 +334,7 @@ function MovementWatchCard({
             type="button"
             className={cn(BTN, "border border-ocean-mid/40 text-ocean-foam")}
             disabled={watch.status === "checking"}
+            title="Run the alarm rules once for this ticker. This does not refresh the chart."
             onClick={() => onCheckNow(watch.id)}
           >
             {watch.status === "checking" ? "…" : "Check"}
