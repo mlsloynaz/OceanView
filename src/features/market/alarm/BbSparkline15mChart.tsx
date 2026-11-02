@@ -207,7 +207,7 @@ function OpenMinutePanel({ points }: { points: OpenMinutePoint[] }) {
       height="100%"
       preserveAspectRatio="none"
       className="block h-full w-full"
-      aria-label="1 minute from 9:30 to 11, close and both EMAs"
+      aria-label="1 minute close, EMA 10 and EMA 21"
     >
       {grid.map((y) => (
         <line key={y} x1="0" x2="100" y1={y} y2={y} stroke="#94a3b8" strokeOpacity="0.35" strokeWidth="0.4" />
@@ -365,9 +365,13 @@ export function BbSparkline15mChart({
     yMin = Math.min(yMin, breakoutLevel);
     yMax = Math.max(yMax, breakoutLevel);
   }
-  const padY = (yMax - yMin) * 0.08 || 0.5;
-  yMin -= padY;
-  yMax += padY;
+  // A quiet tape is a thin band. Stretching that high–low to the frame makes
+  // the move look large. Keep at least 1.5% of price on the axis.
+  const mid = (yMin + yMax) / 2;
+  const span = Math.max(yMax - yMin, 0);
+  const window = Math.max(span * 1.12, Math.abs(mid) * 0.015, 0.5);
+  yMin = mid - window / 2;
+  yMax = mid + window / 2;
 
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
@@ -681,7 +685,12 @@ export function BbSparkline15mChart({
       ) : null}
       </div>
       {openPoints && openPoints.length >= 2 ? (
-        <div className="pointer-events-none absolute top-1 left-1 z-20 h-[34%] w-[38%] overflow-hidden rounded border border-slate-500/80 bg-[#1c1c1c]">
+        <div
+          className={cn(
+            "pointer-events-none absolute top-1 left-1 z-20 overflow-hidden rounded border border-slate-500/80 bg-[#1c1c1c]",
+            variant === "full" ? "h-32 w-52" : "h-16 w-28",
+          )}
+        >
           <OpenMinutePanel points={openPoints} />
         </div>
       ) : null}
