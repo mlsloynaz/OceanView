@@ -183,10 +183,10 @@ type OpenMinutePoint = {
 function OpenMinutePanel({ points }: { points: OpenMinutePoint[] }) {
   const prices: number[] = [];
   for (const point of points) {
-    const close = Number(point.close);
-    if (Number.isFinite(close)) prices.push(close);
-    if (typeof point.ema10 === "number") prices.push(point.ema10);
-    if (typeof point.ema21 === "number") prices.push(point.ema21);
+    for (const key of ["close", "ema10", "ema21"] as const) {
+      const value = Number(point[key]);
+      if (Number.isFinite(value)) prices.push(value);
+    }
   }
   if (prices.length < 2) return null;
   const low = Math.min(...prices);
@@ -194,19 +194,36 @@ function OpenMinutePanel({ points }: { points: OpenMinutePoint[] }) {
   const pad = (high - low) * 0.08 || 0.05;
   const yMin = low - pad;
   const yMax = high + pad;
-  const yAt = (price: number) => 14 + ((yMax - price) / (yMax - yMin || 1)) * 72;
-  const xAt = (index: number) => 4 + (index / Math.max(points.length - 1, 1)) * 152;
+  const yAt = (price: number) => 8 + ((yMax - price) / (yMax - yMin || 1)) * 48;
+  const xAt = (index: number) => 2 + (index / Math.max(points.length - 1, 1)) * 96;
   const closeLine = lineThrough(points, "close", xAt, yAt);
   const ema10Line = lineThrough(points, "ema10", xAt, yAt);
   const ema21Line = lineThrough(points, "ema21", xAt, yAt);
+  const grid = [0, 1, 2, 3].map((step) => 8 + (48 * step) / 3);
   return (
-    <svg viewBox="0 0 160 90" className="h-full w-full" aria-label="1 minute open, EMA 10 and EMA 21">
-      <text x="4" y="10" fill="#cbd5e1" style={{ fontSize: 10 }}>
-        1m 9:30–11
+    <svg
+      viewBox="0 0 100 60"
+      width="100%"
+      height="100%"
+      preserveAspectRatio="none"
+      className="block h-full w-full"
+      aria-label="1 minute from 9:30 to 11, close and both EMAs"
+    >
+      {grid.map((y) => (
+        <line key={y} x1="0" x2="100" y1={y} y2={y} stroke="#94a3b8" strokeOpacity="0.35" strokeWidth="0.4" />
+      ))}
+      <text x="2" y="6" fill="#cbd5e1" fontSize="4.5">
+        1m
       </text>
-      {ema21Line ? <polyline fill="none" points={ema21Line} stroke="#fda4af" strokeWidth={1.4} /> : null}
-      {ema10Line ? <polyline fill="none" points={ema10Line} stroke="#fcd34d" strokeWidth={1.4} /> : null}
-      {closeLine ? <polyline fill="none" points={closeLine} stroke="#e2e8f0" strokeWidth={1.6} /> : null}
+      {ema21Line ? (
+        <polyline fill="none" points={ema21Line} stroke="#fb923c" strokeWidth="1.1" vectorEffect="non-scaling-stroke" />
+      ) : null}
+      {ema10Line ? (
+        <polyline fill="none" points={ema10Line} stroke="#fbbf24" strokeWidth="1.1" vectorEffect="non-scaling-stroke" />
+      ) : null}
+      {closeLine ? (
+        <polyline fill="none" points={closeLine} stroke="#f8fafc" strokeWidth="1.25" vectorEffect="non-scaling-stroke" />
+      ) : null}
     </svg>
   );
 }
@@ -219,8 +236,8 @@ function lineThrough(
 ): string | null {
   const drawn: string[] = [];
   points.forEach((point, index) => {
-    const value = point[key];
-    if (typeof value !== "number") return;
+    const value = Number(point[key]);
+    if (!Number.isFinite(value)) return;
     drawn.push(`${xAt(index).toFixed(1)},${yAt(value).toFixed(1)}`);
   });
   return drawn.length >= 2 ? drawn.join(" ") : null;
@@ -381,7 +398,7 @@ export function BbSparkline15mChart({
   const tf = data?.timeframe === "5m" ? "5m" : "15m";
   const envelope = bbEnvelopePath(bars, xCenter, yScale);
 
-  const entryRadius = Math.max(1.8, Math.min(slot * 0.2, variant === "full" ? 4.5 : 2.6));
+  const entryRadius = variant === "full" ? 5.5 : 4;
   const entryByCandle = new Map<number, EntryMark>();
   for (const mark of entryMarks) {
     const index = entryCandleIndex(bars, mark.at, data?.timeframe);
@@ -594,7 +611,7 @@ export function BbSparkline15mChart({
         })}
         {placedEntries.map((mark) => {
           const color = mark.side === "CALL" ? "#22c55e" : "#ef4444";
-          const width = variant === "full" ? 1.25 : 0.9;
+          const width = variant === "full" ? 1.5 : 1.25;
           return (
             <g key={`${mark.side}-${mark.at}`}>
               {[0, 45, 90, 135].map((deg) => {
@@ -664,7 +681,7 @@ export function BbSparkline15mChart({
       ) : null}
       </div>
       {openPoints && openPoints.length >= 2 ? (
-        <div className="pointer-events-none absolute top-1 left-1 z-20 h-[42%] w-[48%] min-h-16 min-w-28 overflow-hidden rounded border border-slate-400/80 bg-[#071018]/95">
+        <div className="pointer-events-none absolute top-1 left-1 z-20 h-[34%] w-[38%] overflow-hidden rounded border border-slate-500/80 bg-[#1c1c1c]">
           <OpenMinutePanel points={openPoints} />
         </div>
       ) : null}
