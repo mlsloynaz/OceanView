@@ -176,7 +176,7 @@ export function TickerThumb({
           </p>
         ) : null}
       </div>
-      <div className="grid h-[252px] grid-rows-[minmax(0,1fr)_112px] gap-1 overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-1">
+      <div className="grid h-[252px] grid-rows-2 gap-1 overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-1">
         <div className="relative min-h-0 min-w-0">
           <PaneLabel>5m · 2h</PaneLabel>
           <BbSparkline15mChart
