@@ -36,6 +36,8 @@ type Props = {
   frame?: { w: number; h: number };
   /** Fill the pane and scale price to the bars on screen, whatever the candle count. */
   fillPane?: boolean;
+  /** Entry asterisks. Off on the 15m pane while it shares the thumbnail. */
+  showAlarmMarks?: boolean;
 };
 
 const THUMB_5M_BARS = 24;
@@ -335,6 +337,7 @@ export function BbSparkline15mChart({
   showEmaEvents = false,
   frame,
   fillPane = false,
+  showAlarmMarks = true,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const positionedRef = useRef<string | null>(null);
@@ -361,15 +364,16 @@ export function BbSparkline15mChart({
   const strokeBand = variant === "full" ? 2 : 1.25;
   const strokeMid = variant === "full" ? 1.5 : 1;
   const labelSize = variant === "full" ? 11 : 7;
-  const loggedMarks = useTodayEntryMarks(data?.symbol);
+  const loggedMarks = useTodayEntryMarks(showAlarmMarks ? data?.symbol : undefined);
   const openPoints = showMinuteCorner ? suppliedCorner(data?.open1m, data?.timeframe) : [];
   const entryMarks = useMemo(() => {
+    if (!showAlarmMarks) return [];
     const marks = [...loggedMarks];
     if (entryAt && (entrySide === "CALL" || entrySide === "PUT")) {
       marks.push({ at: entryAt, side: entrySide });
     }
     return marks;
-  }, [loggedMarks, entryAt, entrySide]);
+  }, [showAlarmMarks, loggedMarks, entryAt, entrySide]);
   const focusAt = entryMarks.length > 0 ? entryMarks[entryMarks.length - 1]?.at ?? entryAt : entryAt;
 
   useLayoutEffect(() => {
@@ -424,25 +428,27 @@ export function BbSparkline15mChart({
     );
   }
 
-  const highs = bars.map((b) => b.high);
-  const lows = bars.map((b) => b.low);
-  const bbUps = bars.map((b) => b.bbUpper).filter((v): v is number => v != null);
-  const bbLows = bars.map((b) => b.bbLower).filter((v): v is number => v != null);
-  const ema10s = bars.map((b) => b.ema10).filter((v): v is number => v != null);
-  const ema21s = bars.map((b) => b.ema21).filter((v): v is number => v != null);
-  let yMin = Math.min(
-    ...lows,
-    ...(bbLows.length ? bbLows : lows),
-    ...(ema10s.length ? ema10s : lows),
-    ...(ema21s.length ? ema21s : lows),
-  );
-  let yMax = Math.max(
-    ...highs,
-    ...(bbUps.length ? bbUps : highs),
-    ...(ema10s.length ? ema10s : highs),
-    ...(ema21s.length ? ema21s : highs),
-  );
+  const closes = bars.map((b) => b.close).filter((value) => Number.isFinite(value) && value > 0);
+  const anchor = closes.length ? closes[Math.floor(closes.length / 2)] : 0;
+  const onScale = (value: number | null | undefined): value is number =>
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value > 0 &&
+    (!fillPane || anchor <= 0 || Math.abs(value - anchor) / anchor <= 0.4);
+  const highs = bars.map((b) => b.high).filter(onScale);
+  const lows = bars.map((b) => b.low).filter(onScale);
+  const bbUps = bars.map((b) => b.bbUpper).filter(onScale);
+  const bbLows = bars.map((b) => b.bbLower).filter(onScale);
+  const ema10s = bars.map((b) => b.ema10).filter(onScale);
+  const ema21s = bars.map((b) => b.ema21).filter(onScale);
+  const scaleLows = lows.length ? lows : closes;
+  const scaleHighs = highs.length ? highs : closes;
+  const paneLows = fillPane ? [...scaleLows, ...ema10s, ...ema21s] : [...scaleLows, ...(bbLows.length ? bbLows : scaleLows), ...(ema10s.length ? ema10s : scaleLows), ...(ema21s.length ? ema21s : scaleLows)];
+  const paneHighs = fillPane ? [...scaleHighs, ...ema10s, ...ema21s] : [...scaleHighs, ...(bbUps.length ? bbUps : scaleHighs), ...(ema10s.length ? ema10s : scaleHighs), ...(ema21s.length ? ema21s : scaleHighs)];
+  let yMin = Math.min(...paneLows);
+  let yMax = Math.max(...paneHighs);
   if (
+    !fillPane &&
     typeof breakoutLevel === "number" &&
     Number.isFinite(breakoutLevel) &&
     breakoutLevel > 0
@@ -454,7 +460,7 @@ export function BbSparkline15mChart({
   // The thumbnail scales to the bars on screen, the way a chart pane does.
   const mid = (yMin + yMax) / 2;
   const span = Math.max(yMax - yMin, 0);
-  const window = fillPane ? Math.max(span * 1.08, 0.05) : Math.max(span * 1.12, Math.abs(mid) * 0.05, 0.5);
+  const window = fillPane ? Math.max(span * 1.04, 0.05) : Math.max(span * 1.12, Math.abs(mid) * 0.05, 0.5);
   yMin = mid - window / 2;
   yMax = mid + window / 2;
 

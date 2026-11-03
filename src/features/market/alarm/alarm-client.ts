@@ -713,7 +713,7 @@ export async function setMovementWatchLive(on: boolean): Promise<MovementWatchJo
   });
 }
 
-export async function fetchBoardSnapshot(refresh = false, live = false): Promise<{
+export async function fetchBoardSnapshot(refresh = false, live = false, minute = false): Promise<{
   source: string;
   feed: string;
   label: string;
@@ -755,7 +755,7 @@ export async function fetchBoardSnapshot(refresh = false, live = false): Promise
       symbols: {},
     };
   }
-  const query = [refresh ? "refresh=1" : "", live ? "live=1" : ""].filter(Boolean).join("&");
+  const query = [refresh ? "refresh=1" : "", live ? "live=1" : "", minute ? "minute=1" : ""].filter(Boolean).join("&");
   return fetchJson(`/market/board/snapshot${query ? `?${query}` : ""}`, { method: "GET" });
 }
 

@@ -140,6 +140,7 @@ function ThumbPane({
   entrySide,
   breakoutLevel,
   axis,
+  showAlarmMarks = true,
 }: {
   symbol: string;
   which: Frame;
@@ -148,6 +149,7 @@ function ThumbPane({
   entrySide?: "CALL" | "PUT" | null;
   breakoutLevel?: number | null;
   axis?: boolean;
+  showAlarmMarks?: boolean;
 }) {
   const label = which === "5m" ? "5m · 2h" : which === "1m" ? "1m · 15m" : "15m · 1d";
   return (
@@ -161,6 +163,7 @@ function ThumbPane({
         variant="thumb"
         axis={axis}
         showEmaEvents
+        showAlarmMarks={showAlarmMarks}
         fillPane
         className="h-full"
       />
@@ -224,6 +227,32 @@ function useSnapshot(
       cancel = true;
     };
   }, [refreshKey, live, enabled]);
+  useEffect(() => {
+    if (!enabled || !live) return;
+    let cancel = false;
+    const timer = window.setTimeout(() => {
+      void fetchBoardSnapshot(false, true, true)
+        .then((body) => {
+          if (cancel) return;
+          setSnapshot((current) => {
+            if (!current) return current;
+            const bySymbol = { ...current.bySymbol };
+            for (const [symbol, row] of Object.entries(body.symbols ?? {})) {
+              const bars = asBars(row.panes?.["1m"]);
+              const prior = bySymbol[symbol];
+              if (!prior || bars.length === 0) continue;
+              bySymbol[symbol] = { ...prior, panes: { ...prior.panes, "1m": bars } };
+            }
+            return { ...current, bySymbol };
+          });
+        })
+        .catch(() => {});
+    }, 30_000);
+    return () => {
+      cancel = true;
+      window.clearTimeout(timer);
+    };
+  }, [refreshKey, live, enabled]);
   return { snapshot, error };
 }
 
@@ -278,9 +307,10 @@ export function TickerThumb({
             ? panes["1m"].slice(-FIFTEEN_MINUTES_1M)
             : panes["15m"].slice(-SESSION_15M_BARS)
       }
-      entryAt={which === "5m" ? entryAt : null}
-      entrySide={which === "5m" ? entrySide : null}
-      breakoutLevel={which === "15m" ? breakoutLevel : null}
+      entryAt={which === "5m" || (which === "15m" && frame !== "all") ? entryAt : null}
+      entrySide={which === "5m" || (which === "15m" && frame !== "all") ? entrySide : null}
+      breakoutLevel={which === "15m" && frame !== "all" ? breakoutLevel : null}
+      showAlarmMarks={which !== "15m" || frame !== "all"}
       axis={which === "5m"}
     />
   );
@@ -335,7 +365,7 @@ export function TickerThumb({
           </div>
         </div>
       ) : (
-        <div className="h-[188px] overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-0.5">
+        <div className="aspect-[2/1] min-h-[240px] w-full overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-0.5">
           {pane(frame)}
         </div>
       )}

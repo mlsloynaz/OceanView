@@ -315,7 +315,7 @@ export function MovementWatchPanel({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[11px] font-medium text-ocean-foam">
             Active tickers ({boardTickers.length})
-            {live ? " · updating every minute" : ""}
+            {live ? " · 1m updates every 30s" : ""}
           </p>
           <button
             type="button"
