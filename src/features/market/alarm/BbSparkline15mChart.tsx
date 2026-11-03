@@ -282,7 +282,7 @@ function bbEnvelopePath(
 
 type EmaMark = {
   index: number;
-  kind: "cross-up" | "cross-down" | "touch-10" | "touch-21";
+  kind: "cross-up" | "cross-down" | "touch";
   price: number;
 };
 
@@ -310,11 +310,11 @@ function emaEventMarks(bars: BbSparkline15m["bars"]): EmaMark[] {
       }
     }
     if (crossed || !bar) continue;
-    if (covers(bar.low, bar.high, ema10) && !covers(prev.low, prev.high, prev?.ema10)) {
-      marks.push({ index, kind: "touch-10", price: ema10 as number });
-    }
-    if (covers(bar.low, bar.high, ema21) && !covers(prev.low, prev.high, prev?.ema21)) {
-      marks.push({ index, kind: "touch-21", price: ema21 as number });
+    const touched10 = covers(bar.low, bar.high, ema10) && !covers(prev.low, prev.high, prev?.ema10);
+    const touched21 = covers(bar.low, bar.high, ema21) && !covers(prev.low, prev.high, prev?.ema21);
+    if (touched10 || touched21) {
+      const price = touched10 && touched21 ? ((ema10 as number) + (ema21 as number)) / 2 : touched10 ? (ema10 as number) : (ema21 as number);
+      marks.push({ index, kind: "touch", price });
     }
   }
   return marks;
@@ -702,19 +702,18 @@ export function BbSparkline15mChart({
           const x = xCenter(mark.index);
           const bar = bars[mark.index];
           if (!bar) return null;
-          if (mark.kind === "touch-10" || mark.kind === "touch-21") {
-            const color = mark.kind === "touch-10" ? "#38BDF8" : "#FB923C";
+          if (mark.kind === "touch") {
             return (
               <circle
                 key={`${mark.kind}-${mark.index}`}
                 cx={x}
                 cy={yScale(mark.price)}
                 r={2.4}
-                fill={color}
+                fill="#E2E8F0"
                 stroke="#071018"
                 strokeWidth={0.7}
               >
-                <title>{mark.kind === "touch-10" ? "Price touched EMA 10" : "Price touched EMA 21"}</title>
+                <title>Price touched an EMA</title>
               </circle>
             );
           }

@@ -14,6 +14,46 @@ const PANE_FILTERS: Array<{ id: PaneFilter; label: string }> = [
   { id: "all", label: "All" },
 ];
 
+const THUMB_ORDER_KEY = "oceanview.thumbnailOrder";
+const THUMB_ORDER_EVENT = "oceanview-thumbnail-order";
+
+function readThumbOrder(): string[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(THUMB_ORDER_KEY) || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((symbol) => String(symbol || "").trim().toUpperCase()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function writeThumbOrder(symbols: string[]): void {
+  try {
+    localStorage.setItem(THUMB_ORDER_KEY, JSON.stringify(symbols));
+    globalThis.dispatchEvent(new Event(THUMB_ORDER_EVENT));
+  } catch {
+    /* the grid still moves for this page */
+  }
+}
+
+function arrangeTickers<T extends { symbol: string }>(tickers: T[], order: string[]): T[] {
+  const bySymbol = new Map(tickers.map((ticker) => [ticker.symbol.toUpperCase(), ticker]));
+  const seen = new Set<string>();
+  const arranged: T[] = [];
+  for (const symbol of order) {
+    const ticker = bySymbol.get(symbol);
+    if (!ticker || seen.has(symbol)) continue;
+    seen.add(symbol);
+    arranged.push(ticker);
+  }
+  for (const ticker of tickers) {
+    const symbol = ticker.symbol.toUpperCase();
+    if (seen.has(symbol)) continue;
+    arranged.push(ticker);
+  }
+  return arranged;
+}
+
 type Panes = Record<Frame, BbSparkline15mBar[]>;
 
 export type BoardSnapshotView = Snapshot;
@@ -202,6 +242,9 @@ export function TickerThumb({
   pauseAction = null,
   note,
   frame = "all",
+  canMoveEarlier = false,
+  canMoveLater = false,
+  onMove,
 }: {
   symbol: string;
   name?: string;
@@ -217,6 +260,9 @@ export function TickerThumb({
   pauseAction?: string | null;
   note?: string | null;
   frame?: PaneFilter;
+  canMoveEarlier?: boolean;
+  canMoveLater?: boolean;
+  onMove?: (direction: -1 | 1) => void;
 }) {
   const five = panes["5m"].slice(-TWO_HOURS_5M_BARS);
   const relation = textOrNull(hourRelation);
@@ -241,9 +287,33 @@ export function TickerThumb({
   return (
     <article className="rounded-md border border-ocean-mid/40 bg-ocean-deep/30 p-1">
       <div className="mb-0.5 flex items-start justify-between gap-1">
-        <p className="min-w-0 truncate font-display text-xs font-semibold text-ocean-foam">
-          {symbol}
-          {name ? <span className="ml-1 text-[9px] font-normal text-ocean-sand">{name}</span> : null}
+        <p className="flex min-w-0 items-center gap-0.5 font-display text-xs font-semibold text-ocean-foam">
+          {onMove ? (
+            <button
+              type="button"
+              aria-label={`Move ${symbol} to the previous cell`}
+              disabled={!canMoveEarlier}
+              className="shrink-0 px-0.5 text-[11px] leading-none text-ocean-sand disabled:opacity-30"
+              onClick={() => onMove(-1)}
+            >
+              ‹
+            </button>
+          ) : null}
+          <span className="min-w-0 truncate">
+            {symbol}
+            {name ? <span className="ml-1 text-[9px] font-normal text-ocean-sand">{name}</span> : null}
+          </span>
+          {onMove ? (
+            <button
+              type="button"
+              aria-label={`Move ${symbol} to the next cell`}
+              disabled={!canMoveLater}
+              className="shrink-0 px-0.5 text-[11px] leading-none text-ocean-sand disabled:opacity-30"
+              onClick={() => onMove(1)}
+            >
+              ›
+            </button>
+          ) : null}
         </p>
         {relation || regime ? (
           <div className="min-w-0 text-right">
@@ -305,7 +375,7 @@ export function TickerThumb({
           EMA 21
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-400" />
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-200" />
           touch
         </span>
         <span className="inline-flex items-center gap-1">
@@ -391,10 +461,35 @@ export function ActiveTickerBoard({
   review?: Snapshot | null;
 }) {
   const [frame, setFrame] = useState<PaneFilter>("all");
+  const [order, setOrder] = useState<string[]>(() => readThumbOrder());
   const showingReview = review != null;
   const { snapshot: loaded, error } = useSnapshot(refreshKey, live, !showingReview);
   const snapshot = review ?? loaded;
   const hourBySymbol = useHourContext(refreshKey, !showingReview);
+  useEffect(() => {
+    const sync = () => setOrder(readThumbOrder());
+    globalThis.addEventListener("storage", sync);
+    globalThis.addEventListener(THUMB_ORDER_EVENT, sync);
+    return () => {
+      globalThis.removeEventListener("storage", sync);
+      globalThis.removeEventListener(THUMB_ORDER_EVENT, sync);
+    };
+  }, []);
+  const arranged = arrangeTickers(tickers, order);
+  const moveTicker = (symbol: string, direction: -1 | 1) => {
+    const symbols = arranged.map((ticker) => ticker.symbol.toUpperCase());
+    const index = symbols.indexOf(symbol.toUpperCase());
+    const next = index + direction;
+    if (index < 0 || next < 0 || next >= symbols.length) return;
+    const swapped = [...symbols];
+    const current = swapped[index];
+    const neighbor = swapped[next];
+    if (!current || !neighbor) return;
+    swapped[next] = current;
+    swapped[index] = neighbor;
+    setOrder(swapped);
+    writeThumbOrder(swapped);
+  };
   if (tickers.length === 0) {
     return <p className="text-[11px] text-ocean-sand">No active tickers.</p>;
   }
@@ -410,6 +505,19 @@ export function ActiveTickerBoard({
           {window ? ` · ${window}` : ""}
           {snapshot ? "" : " · loading"}
         </p>
+        <div className="flex items-center gap-2">
+          {order.length > 0 ? (
+            <button
+              type="button"
+              className="text-[10px] font-semibold text-ocean-sand"
+              onClick={() => {
+                setOrder([]);
+                writeThumbOrder([]);
+              }}
+            >
+              Reset order
+            </button>
+          ) : null}
         <div className="flex gap-1" role="group" aria-label="Thumbnail timeframe">
           {PANE_FILTERS.map((option) => (
             <button
@@ -428,6 +536,7 @@ export function ActiveTickerBoard({
             </button>
           ))}
         </div>
+        </div>
       </div>
       {error ? (
         <p className="text-[11px] text-ocean-danger" role="alert">
@@ -435,11 +544,14 @@ export function ActiveTickerBoard({
         </p>
       ) : null}
       <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-4">
-        {tickers.map((ticker) => (
+        {arranged.map((ticker, index) => (
           <TickerThumb
             key={ticker.symbol}
             symbol={ticker.symbol}
             name={ticker.name}
+            canMoveEarlier={index > 0}
+            canMoveLater={index < arranged.length - 1}
+            onMove={(direction) => moveTicker(ticker.symbol, direction)}
             panes={snapshot?.bySymbol[ticker.symbol]?.panes ?? emptyPanes}
             error={snapshot?.bySymbol[ticker.symbol]?.error}
             entryAt={snapshot?.bySymbol[ticker.symbol]?.entryAt}
