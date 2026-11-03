@@ -1,26 +1,38 @@
 import { useEffect, useState } from "react";
 import { BbSparkline15mChart } from "./BbSparkline15mChart";
+import { fetchBoardSnapshot } from "./alarm-client";
 import type { BbSparkline15m, BbSparkline15mBar } from "./alarm-types";
 
 type Frame = "5m" | "15m" | "1m";
 
-type Candle = {
-  datetime: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  ema10?: number | null;
-  ema21?: number | null;
+type Panes = Record<Frame, BbSparkline15mBar[]>;
+
+export type BoardSnapshotView = Snapshot;
+
+type Snapshot = {
+  label: string;
+  windowStartEt: string;
+  windowEndEt: string;
+  bySymbol: Record<
+    string,
+    {
+      panes: Panes;
+      error?: string | null;
+      entryAt?: string | null;
+      entrySide?: "CALL" | "PUT" | null;
+      breakoutLevel?: number | null;
+      note?: string | null;
+    }
+  >;
 };
 
-const cache = new Map<string, BbSparkline15mBar[]>();
+const emptyPanes: Panes = { "5m": [], "15m": [], "1m": [] };
 
-function toBars(body: unknown, limit: number): BbSparkline15mBar[] {
+function asBars(body: unknown): BbSparkline15mBar[] {
   if (!Array.isArray(body)) return [];
-  const bars = body.flatMap((point) => {
+  return body.flatMap((point) => {
     if (!point || typeof point !== "object") return [];
-    const row = point as Partial<Candle>;
+    const row = point as Partial<BbSparkline15mBar>;
     const close = Number(row.close);
     if (!Number.isFinite(close) || !row.datetime) return [];
     const open = Number(row.open);
@@ -33,44 +45,14 @@ function toBars(body: unknown, limit: number): BbSparkline15mBar[] {
         high: Number.isFinite(high) ? high : close,
         low: Number.isFinite(low) ? low : close,
         close,
-        bbUpper: null,
-        bbMid: null,
-        bbLower: null,
+        bbUpper: row.bbUpper ?? null,
+        bbMid: row.bbMid ?? null,
+        bbLower: row.bbLower ?? null,
         ema10: row.ema10 ?? null,
         ema21: row.ema21 ?? null,
       },
     ];
   });
-  return bars.slice(-limit);
-}
-
-function loadFrame(symbol: string, frame: Frame, fresh: boolean): Promise<BbSparkline15mBar[]> {
-  const key = `${symbol}|${frame}`;
-  const limit = frame === "1m" ? 36 : frame === "15m" ? 26 : 48;
-  const url = `/dev/minute-line?symbol=${encodeURIComponent(symbol)}&interval=${frame}${fresh ? "&fresh=1" : ""}`;
-  return fetch(url)
-    .then((response) => (response.ok ? response.json() : []))
-    .then((body: unknown) => {
-      const bars = toBars(body, limit);
-      cache.set(key, bars);
-      return bars;
-    })
-    .catch(() => cache.get(key) ?? []);
-}
-
-function useFrame(symbol: string, frame: Frame, refreshKey: number): BbSparkline15mBar[] {
-  const key = `${symbol}|${frame}`;
-  const [bars, setBars] = useState<BbSparkline15mBar[]>(() => cache.get(key) ?? []);
-  useEffect(() => {
-    let cancel = false;
-    void loadFrame(symbol, frame, refreshKey > 0).then((next) => {
-      if (!cancel) setBars(next);
-    });
-    return () => {
-      cancel = true;
-    };
-  }, [symbol, frame, refreshKey]);
-  return bars;
 }
 
 function chart(symbol: string, bars: BbSparkline15mBar[]): BbSparkline15m {
@@ -85,20 +67,70 @@ function PaneLabel({ children }: { children: string }) {
   );
 }
 
+function useSnapshot(
+  refreshKey: number,
+  live: boolean,
+  enabled: boolean,
+): { snapshot: Snapshot | null; error: string | null } {
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    let cancel = false;
+    void fetchBoardSnapshot(refreshKey > 0 && !live, live)
+      .then((body) => {
+        if (cancel) return;
+        const bySymbol: Snapshot["bySymbol"] = {};
+        for (const [symbol, row] of Object.entries(body.symbols ?? {})) {
+          bySymbol[symbol] = {
+            error: row.error,
+            entryAt: row.entryAt,
+            entrySide: row.entrySide,
+            breakoutLevel: row.breakoutLevel,
+            panes: {
+              "5m": asBars(row.panes?.["5m"]),
+              "15m": asBars(row.panes?.["15m"]),
+              "1m": asBars(row.panes?.["1m"]),
+            },
+          };
+        }
+        setSnapshot({
+          label: body.label,
+          windowStartEt: body.windowStartEt,
+          windowEndEt: body.windowEndEt,
+          bySymbol,
+        });
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (!cancel) setError(err instanceof Error ? err.message : "Snapshot failed.");
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [refreshKey, live, enabled]);
+  return { snapshot, error };
+}
+
 export function TickerThumb({
   symbol,
   name,
-  refreshKey,
+  panes,
+  error,
+  entryAt,
+  entrySide,
+  breakoutLevel,
+  note,
 }: {
   symbol: string;
   name?: string;
-  refreshKey: number;
+  panes: Panes;
+  error?: string | null;
+  entryAt?: string | null;
+  entrySide?: "CALL" | "PUT" | null;
+  breakoutLevel?: number | null;
+  note?: string | null;
 }) {
-  const five = useFrame(symbol, "5m", refreshKey);
-  const fifteen = useFrame(symbol, "15m", refreshKey);
-  const one = useFrame(symbol, "1m", refreshKey);
-  const panes: Record<Frame, BbSparkline15mBar[]> = { "5m": five, "15m": fifteen, "1m": one };
-
   return (
     <article className="rounded-lg border border-ocean-mid/40 bg-ocean-deep/30 p-2">
       <p className="mb-1 truncate font-display text-sm font-semibold text-ocean-foam">
@@ -108,17 +140,33 @@ export function TickerThumb({
       <div className="grid aspect-[16/10] grid-cols-[1.7fr_1fr] grid-rows-2 gap-1 overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-1">
         <div className="relative row-span-2 min-h-0 min-w-0">
           <PaneLabel>5m</PaneLabel>
-          <BbSparkline15mChart data={chart(symbol, panes["5m"])} variant="thumb" axis className="h-full" />
+          <BbSparkline15mChart
+            data={chart(symbol, panes["5m"])}
+            entryAt={entryAt}
+            entrySide={entrySide}
+            variant="thumb"
+            axis
+            className="h-full"
+          />
         </div>
         <div className="relative min-h-0 min-w-0">
           <PaneLabel>15m</PaneLabel>
-          <BbSparkline15mChart data={chart(symbol, panes["15m"])} variant="thumb" axis miniScale className="h-full" />
+          <BbSparkline15mChart
+            data={chart(symbol, panes["15m"])}
+            breakoutLevel={breakoutLevel}
+            variant="thumb"
+            axis
+            miniScale
+            className="h-full"
+          />
         </div>
         <div className="relative min-h-0 min-w-0">
           <PaneLabel>1m</PaneLabel>
           <BbSparkline15mChart data={chart(symbol, panes["1m"])} variant="thumb" axis miniScale className="h-full" />
         </div>
       </div>
+      {note ? <p className="mt-1 text-[10px] text-ocean-foam">{note}</p> : null}
+      {error ? <p className="mt-1 text-[10px] text-ocean-danger">{error}</p> : null}
       <p className="mt-1 flex flex-wrap gap-x-2 text-[9px] text-ocean-sand">
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-0.5 w-2.5 rounded-sm bg-amber-300" />
@@ -136,23 +184,50 @@ export function TickerThumb({
 export function ActiveTickerBoard({
   tickers,
   refreshKey,
+  live = false,
+  review = null,
 }: {
   tickers: Array<{ symbol: string; name?: string }>;
   refreshKey: number;
+  live?: boolean;
+  review?: Snapshot | null;
 }) {
+  const { snapshot: loaded, error } = useSnapshot(refreshKey, live, review == null);
+  const snapshot = review ?? loaded;
   if (tickers.length === 0) {
     return <p className="text-[11px] text-ocean-sand">No active tickers.</p>;
   }
+  const window =
+    snapshot?.windowStartEt && snapshot.windowEndEt
+      ? `${snapshot.windowStartEt.slice(11, 16)}–${snapshot.windowEndEt.slice(11, 16)} ET`
+      : "";
   return (
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-      {tickers.map((ticker) => (
-        <TickerThumb
-          key={ticker.symbol}
-          symbol={ticker.symbol}
-          name={ticker.name}
-          refreshKey={refreshKey}
-        />
-      ))}
+    <div className="space-y-2">
+      <p className="text-[10px] text-ocean-sand">
+        {snapshot?.label ?? "Alpaca IEX"}
+        {window ? ` · ${window}` : ""}
+        {snapshot ? "" : " · loading"}
+      </p>
+      {error ? (
+        <p className="text-[11px] text-ocean-danger" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {tickers.map((ticker) => (
+          <TickerThumb
+            key={ticker.symbol}
+            symbol={ticker.symbol}
+            name={ticker.name}
+            panes={snapshot?.bySymbol[ticker.symbol]?.panes ?? emptyPanes}
+            error={snapshot?.bySymbol[ticker.symbol]?.error}
+            entryAt={snapshot?.bySymbol[ticker.symbol]?.entryAt}
+            entrySide={snapshot?.bySymbol[ticker.symbol]?.entrySide}
+            breakoutLevel={snapshot?.bySymbol[ticker.symbol]?.breakoutLevel}
+            note={snapshot?.bySymbol[ticker.symbol]?.note}
+          />
+        ))}
+      </div>
     </div>
   );
 }

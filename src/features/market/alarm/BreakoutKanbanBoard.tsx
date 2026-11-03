@@ -356,6 +356,7 @@ type Props = {
   onStop: (id: string) => void;
   onRemove: (id: string) => void;
   onClearMetStatus: (id: string, opts?: { restart?: boolean }) => void;
+  hideCharts?: boolean;
 };
 
 export function BreakoutKanbanBoard({
@@ -366,6 +367,7 @@ export function BreakoutKanbanBoard({
   onStop,
   onRemove,
   onClearMetStatus,
+  hideCharts = false,
 }: Props) {
   const [enlargedId, setEnlargedId] = useState<string | null>(null);
   const breakoutWatches = watches.filter(watchHasBreakout);
@@ -467,7 +469,9 @@ export function BreakoutKanbanBoard({
                         onStop={onStop}
                         onRemove={onRemove}
                         onClearMetStatus={onClearMetStatus}
-                        onEnlarge={isConfirmed ? () => setEnlargedId(w.id) : undefined}
+                        onEnlarge={
+                          hideCharts || !isConfirmed ? undefined : () => setEnlargedId(w.id)
+                        }
                       />
                     </li>
                   ))

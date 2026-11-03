@@ -549,6 +549,10 @@ export type MovementWatchJobStatus = {
   canStop?: boolean;
   pollIntervalSeconds?: number;
   activeTickerCount?: number;
+  live?: boolean;
+  marketOpen?: boolean;
+  cycleBusy?: boolean;
+  serverPolled?: boolean;
 };
 
 export type ActiveMovementsPayload = {
@@ -674,7 +678,95 @@ export async function putActiveMovements(
   });
 }
 
-/** @deprecated Use fetchMovementWatchJobStatus — orb-5m-auto aliases Movement Watch. */
+export async function setMovementWatchLive(on: boolean): Promise<MovementWatchJobStatus> {
+  if (USE_MOCK) {
+    return {
+      jobType: "movement_watch",
+      status: on ? "running" : "cancelled",
+      symbols: [],
+      ruleKeys: on ? ["trend_change_5m", "breakout_quality"] : [],
+      live: on,
+      cycleBusy: false,
+      canStart: !on,
+      canStop: on,
+      pollIntervalSeconds: 60,
+      message: on ? "Live is on (mock)." : "Live is off.",
+    };
+  }
+  return fetchJson<MovementWatchJobStatus>("/market/alarm/movement-watch/live", {
+    method: "POST",
+    body: JSON.stringify({ on }),
+  });
+}
+
+export async function fetchBoardSnapshot(refresh = false, live = false): Promise<{
+  source: string;
+  feed: string;
+  label: string;
+  windowStartEt: string;
+  windowEndEt: string;
+  cached: boolean;
+  batchSize: number;
+  symbols: Record<
+    string,
+    {
+      error?: string | null;
+      entryAt?: string | null;
+      entrySide?: "CALL" | "PUT" | null;
+      breakoutLevel?: number | null;
+      panes?: {
+        "1m"?: Array<Record<string, unknown>>;
+        "5m"?: Array<Record<string, unknown>>;
+        "15m"?: Array<Record<string, unknown>>;
+      };
+    }
+  >;
+}> {
+  if (USE_MOCK) {
+    return {
+      source: "alpaca",
+      feed: "iex",
+      label: "Alpaca IEX",
+      windowStartEt: "",
+      windowEndEt: "",
+      cached: false,
+      batchSize: 4,
+      symbols: {},
+    };
+  }
+  const query = [refresh ? "refresh=1" : "", live ? "live=1" : ""].filter(Boolean).join("&");
+  return fetchJson(`/market/board/snapshot${query ? `?${query}` : ""}`, { method: "GET" });
+}
+
+export type BoardHistoryMatch = {
+  ruleKey?: string;
+  met?: boolean;
+  evidence?: string | null;
+  label?: string;
+  simulationOnly?: boolean;
+};
+
+export async function evaluateBoardHistory(throughEt: string): Promise<{
+  label: string;
+  simulationOnly: boolean;
+  windowStartEt: string;
+  windowEndEt: string;
+  feed: string;
+  symbols: Record<
+    string,
+    {
+      error?: string | null;
+      matches?: BoardHistoryMatch[];
+      panes?: { "1m"?: unknown; "5m"?: unknown; "15m"?: unknown };
+    }
+  >;
+}> {
+  return fetchJson("/market/board/history", {
+    method: "POST",
+    body: JSON.stringify({ throughEt }),
+  });
+}
+
 export async function fetchOrb5mAutoJobStatus(): Promise<OrbAutoJobStatus> {
   const mw = await fetchMovementWatchJobStatus();
   return {

@@ -574,9 +574,10 @@ export function MarketAlarmPanel({
 
           <p className="text-xs leading-relaxed text-ocean-sand">
             Eligible: confirmation candle 1h / 15m, Disipador touch (candle + BB on the
-            Timeframe you pick: 1m / 15m / 1h), breakout quality. On Movement, the charts use
-            the active tickers. Start on 5m trend or Breakout turns notifications on. Check
-            runs the alarm rules once for that card. Live refreshes the graphs every minute.
+            Timeframe you pick: 1m / 15m / 1h), breakout quality. Movement is one thumbnail
+            grid. Live, during regular hours, checks 5-minute Trend Change and Breakout and
+            rings those alarms. After the close, Simulate evaluates a picked time from Alpaca
+            on that same grid and does not mix with live alerts.
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -1051,7 +1052,7 @@ export function MarketAlarmPanel({
                     : ""}
                 </button>
               </div>
-            {section === "movement" ? (
+            {section === "movement" && false ? (
               <div className="flex flex-wrap items-center gap-2">
                 {movementTabs.length > 0 ? (
                 <>
@@ -1134,7 +1135,7 @@ export function MarketAlarmPanel({
                 ) : null}
               </div>
             ) : null}
-            {hasBreakoutWatches ? (
+            {hasBreakoutWatches && section !== "movement" ? (
               relationWatches.some(watchHasBreakout) ? (
                 <BreakoutKanbanBoard
                   watches={relationWatches}
@@ -1144,12 +1145,13 @@ export function MarketAlarmPanel({
                   onStop={onStop}
                   onRemove={onRemove}
                   onClearMetStatus={onClearMetStatus}
+                  hideCharts={orb5mAutoJob?.status === "running"}
                 />
               ) : (
                 <p className="text-xs text-ocean-sand">No cards for this relation.</p>
               )
             ) : null}
-            {section === "movement" && !hasBreakoutWatches ? (
+            {false && section === "movement" && !hasBreakoutWatches ? (
               relationWatches.length === 0 && boardWatches.length > 0 ? (
                 <p className="text-xs text-ocean-sand">No cards for this relation.</p>
               ) : (
@@ -1164,30 +1166,16 @@ export function MarketAlarmPanel({
                 onConfirmExit={onConfirmExit}
                 onClearMetStatus={onClearMetStatus}
                 onEnlargeChart={setChartWatchId}
+                hideCharts={orb5mAutoJob?.status === "running"}
               />
               )
             ) : null}
-            {section !== "movement" || hasBreakoutWatches ? (
+            {section !== "movement" ? (
             <div className={cn(hasBreakoutWatches ? "mt-3 space-y-4" : "space-y-4")}>
-              {watchesByTicker.length === 0 && section !== "movement" ? (
+              {watchesByTicker.length === 0 ? (
                 <p className="text-xs text-ocean-sand">No watches yet.</p>
               ) : null}
-              {section === "movement" && hasBreakoutWatches ? (
-                <MovementWatchGrid
-                  watches={relationWatches.filter((w) => !watchHasBreakout(w))}
-                  tickerNameBySymbol={tickerNameBySymbol}
-                  onCheckNow={onCheckNow}
-                  onStart={onStart}
-                  onStop={onStop}
-                  onRemove={onRemove}
-                  onConfirmEnter={onConfirmEnter}
-                  onConfirmExit={onConfirmExit}
-                  onClearMetStatus={onClearMetStatus}
-                  onEnlargeChart={setChartWatchId}
-                />
-              ) : null}
-              {section !== "movement"
-                ? watchesByTicker.map((group) => {
+              {watchesByTicker.map((group) => {
                 const tone = groupStatusTone(group.watches);
                 const name = tickerNameBySymbol.get(group.symbol);
                 const activeCount = group.watches.filter(
@@ -1418,8 +1406,7 @@ export function MarketAlarmPanel({
                     </ul>
                   </section>
                 );
-              })
-                : null}
+              })}
             </div>
             ) : null}
             </>

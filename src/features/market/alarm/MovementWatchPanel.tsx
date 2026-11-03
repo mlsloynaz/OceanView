@@ -1,14 +1,30 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import type { CatalogTicker } from "@/features/admin/tickers/types";
 import {
+  evaluateBoardHistory,
   fetchActiveMovements,
   putActiveMovements,
-  startMovementWatchJob,
-  stopMovementWatchJob,
+  setMovementWatchLive,
+  type BoardHistoryMatch,
   type MovementWatchJobStatus,
 } from "./alarm-client";
-import { ActiveTickerBoard } from "./ActiveTickerBoard";
+import { ActiveTickerBoard, type BoardSnapshotView } from "./ActiveTickerBoard";
+
+function regularHoursNow(now = new Date()): boolean {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  const weekday = value("weekday");
+  if (weekday === "Sat" || weekday === "Sun") return false;
+  const minutes = Number(value("hour")) * 60 + Number(value("minute"));
+  return minutes >= 9 * 60 + 30 && minutes < 16 * 60;
+}
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -21,6 +37,38 @@ const DEFAULT_ELIGIBLE = [
 
 const HOUR_BLOCK_NOTE =
   "This switch applies to confirmed 5m trend change and 15m trend change. Off still records those entries and keeps the detected 1h trend. Early 5m continuation and reversal always block a strong opposite 1h trend.";
+
+function simulationNote(matches: BoardHistoryMatch[]): string {
+  if (matches.length === 0) return "Simulation only · no movement";
+  return `Simulation only · ${matches.map((match) => match.ruleKey || "movement").join(", ")}`;
+}
+
+function asReviewBars(body: unknown): BoardSnapshotView["bySymbol"][string]["panes"]["5m"] {
+  if (!Array.isArray(body)) return [];
+  return body.flatMap((point) => {
+    if (!point || typeof point !== "object") return [];
+    const row = point as { datetime?: string; open?: number; high?: number; low?: number; close?: number; bbUpper?: number | null; bbMid?: number | null; bbLower?: number | null; ema10?: number | null; ema21?: number | null };
+    const close = Number(row.close);
+    if (!Number.isFinite(close) || !row.datetime) return [];
+    const open = Number(row.open);
+    const high = Number(row.high);
+    const low = Number(row.low);
+    return [
+      {
+        datetime: row.datetime,
+        open: Number.isFinite(open) ? open : close,
+        high: Number.isFinite(high) ? high : close,
+        low: Number.isFinite(low) ? low : close,
+        close,
+        bbUpper: row.bbUpper ?? null,
+        bbMid: row.bbMid ?? null,
+        bbLower: row.bbLower ?? null,
+        ema10: row.ema10 ?? null,
+        ema21: row.ema21 ?? null,
+      },
+    ];
+  });
+}
 
 function statusTone(status: string): string {
   if (status === "running") return "border-amber-500/40 bg-amber-500/10";
@@ -49,25 +97,22 @@ export function MovementWatchPanel({
   onStopBreakout,
   breakoutRunning = false,
 }: Props) {
+  void onTrackBreakout;
+  void onStopBreakout;
+  void breakoutRunning;
   const jobStatus = job?.status ?? "idle";
-  const running = jobStatus === "running";
+  const sessionOpen = typeof job?.marketOpen === "boolean" ? job.marketOpen : regularHoursNow();
+  const live = sessionOpen && (Boolean(job?.live) || jobStatus === "running");
+  const finishing = Boolean(job?.cycleBusy) && jobStatus !== "running";
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [blockHour, setBlockHour] = useState(false);
   const [hourBlockNote, setHourBlockNote] = useState(HOUR_BLOCK_NOTE);
-  const [live, setLive] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-
-  const activeTickers = useMemo(
-    () =>
-      tickers
-        .filter((t) => t.active !== false)
-        .map((t) => t.symbol.trim().toUpperCase())
-        .filter(Boolean),
-    [tickers],
-  );
+  const [throughEt, setThroughEt] = useState("");
+  const [review, setReview] = useState<BoardSnapshotView | null>(null);
 
   const loadCatalog = useCallback(async () => {
     try {
@@ -86,62 +131,60 @@ export function MovementWatchPanel({
   }, [loadCatalog]);
 
   useEffect(() => {
+    if (sessionOpen) setReview(null);
+  }, [sessionOpen]);
+
+  useEffect(() => {
     if (!live) return;
+    setReview(null);
     setRefreshKey((value) => value + 1);
     const timer = window.setInterval(() => setRefreshKey((value) => value + 1), 60_000);
     return () => window.clearInterval(timer);
   }, [live]);
 
-  const runningKeys = running ? [...(job?.ruleKeys ?? [])] : [];
-  const tracking5m = runningKeys.includes("trend_change_5m");
-
-  const saveMovements = async (keys: string[]) => {
-    const payload = await putActiveMovements(keys);
-    return payload.ruleKeys;
-  };
-
-  const startRule = async (key: string) => {
+  const toggleLive = async () => {
     setBusy(true);
     setError(null);
     try {
-      if (key === "breakout_quality") {
-        if (activeTickers.length === 0) {
-          setError("No active tickers.");
-          return;
-        }
-        onTrackBreakout?.(activeTickers);
-        return;
-      }
-      const keys = [...new Set([...runningKeys, key])];
-      await saveMovements(keys);
-      const next = await startMovementWatchJob({ trigger: "manual", ruleKeys: keys });
+      const next = await setMovementWatchLive(!live);
       onJobChange(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start tracking.");
+      setError(err instanceof Error ? err.message : "Failed to change Live.");
     } finally {
       setBusy(false);
     }
   };
 
-  const stopRule = async (key: string) => {
+  const runHistory = async () => {
+    if (!throughEt) {
+      setError("Pick the end of the four-hour window.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      if (key === "breakout_quality") {
-        onStopBreakout?.();
-        return;
+      const payload = await evaluateBoardHistory(new Date(throughEt).toISOString());
+      const bySymbol: BoardSnapshotView["bySymbol"] = {};
+      for (const [symbol, row] of Object.entries(payload.symbols ?? {})) {
+        const met = (row.matches ?? []).filter((match) => match.met);
+        bySymbol[symbol] = {
+          error: row.error,
+          panes: {
+            "5m": asReviewBars(row.panes?.["5m"]),
+            "15m": asReviewBars(row.panes?.["15m"]),
+            "1m": asReviewBars(row.panes?.["1m"]),
+          },
+          note: simulationNote(met),
+        };
       }
-      const keys = runningKeys.filter((item) => item !== key);
-      if (keys.length === 0) {
-        const next = await stopMovementWatchJob("cancelled");
-        onJobChange(next);
-        return;
-      }
-      await saveMovements(keys);
-      const next = await startMovementWatchJob({ trigger: "manual", ruleKeys: keys });
-      onJobChange(next);
+      setReview({
+        label: "Simulation only · Alpaca IEX",
+        windowStartEt: payload.windowStartEt,
+        windowEndEt: payload.windowEndEt,
+        bySymbol,
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to stop tracking.");
+      setError(err instanceof Error ? err.message : "Historical check failed.");
     } finally {
       setBusy(false);
     }
@@ -152,7 +195,7 @@ export function MovementWatchPanel({
     setBusy(true);
     setError(null);
     try {
-      const keys = runningKeys.length > 0 ? runningKeys : [...DEFAULT_ELIGIBLE];
+      const keys = job?.ruleKeys?.length ? job.ruleKeys : [...DEFAULT_ELIGIBLE];
       const payload = await putActiveMovements(keys, checked);
       setBlockHour(Boolean(payload.hourRegimeBlock));
       setHourBlockNote(payload.hourRegimeBlockNote || HOUR_BLOCK_NOTE);
@@ -172,11 +215,6 @@ export function MovementWatchPanel({
     }))
     .filter((ticker) => ticker.symbol);
 
-  const trackRows = [
-    { key: "trend_change_5m", label: "5m trend change", on: tracking5m },
-    { key: "breakout_quality", label: "Breakout", on: breakoutRunning },
-  ];
-
   return (
     <section
       className="space-y-3 rounded-xl border border-ocean-mid/50 bg-ocean-deep/30 p-3"
@@ -185,9 +223,10 @@ export function MovementWatchPanel({
       <div>
         <h3 className="text-sm font-semibold text-ocean-foam">Movement Watch</h3>
         <p className="mt-0.5 text-[11px] text-ocean-sand">
-          Charts stay on the active tickers with no alarm running. Start on a row to
-          track that alarm and send notifications. Live refreshes the candles every minute.
-          When the market is closed, the charts show the previous session.
+          One grid, graphs on all the time. During regular hours, Live collects Schwab
+          chart data and both movement checks, paints these thumbnails, and rings alarms.
+          Live turns off at the close. After that, pick a date and time to evaluate that
+          window from Alpaca. Those results stay on this grid and are not live alerts.
         </p>
       </div>
 
@@ -213,7 +252,7 @@ export function MovementWatchPanel({
             Status: <span className="capitalize text-ocean-foam">{jobStatus}</span>
             {typeof job?.activeTickerCount === "number"
               ? ` · ${job.activeTickerCount} tickers`
-              : ` · ${activeTickers.length} active tickers`}
+              : ` · ${boardTickers.length} active tickers`}
           </p>
           <button
             type="button"
@@ -221,42 +260,53 @@ export function MovementWatchPanel({
               BTN,
               live ? "bg-rose-500 text-white" : "border border-ocean-mid/40 text-ocean-foam",
             )}
-            onClick={() => setLive((value) => !value)}
+            onClick={() => void toggleLive()}
+            disabled={busy || !sessionOpen}
+            title={sessionOpen ? "Collect Schwab charts and alarms" : "Live is available during regular hours"}
           >
             {live ? "LIVE" : "Live"}
           </button>
         </div>
+        {finishing ? (
+          <p className="text-[11px] leading-snug text-ocean-sand">
+            Finishing the current cycle. This pass can still record.
+          </p>
+        ) : null}
         {job?.message ? (
           <p className="text-[11px] leading-snug text-ocean-sand">{job.message}</p>
         ) : null}
       </div>
 
-      <ul className="space-y-1 rounded-md border border-ocean-mid/40 bg-ocean-surface/40 px-2 py-1.5">
-        {trackRows.map((row) => (
-          <li key={row.key} className="flex items-center justify-between gap-2 py-1">
-            <span className="text-sm font-medium text-ocean-foam">{row.label}</span>
-            {row.on ? (
-              <button
-                type="button"
-                className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
-                disabled={busy}
-                onClick={() => void stopRule(row.key)}
-              >
-                Stop
-              </button>
-            ) : (
-              <button
-                type="button"
-                className={cn(BTN, "bg-ocean-teal text-ocean-deep")}
-                disabled={busy || activeTickers.length === 0}
-                onClick={() => void startRule(row.key)}
-              >
-                Start
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
+      {sessionOpen ? null : (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-[11px] text-ocean-sand">
+            Simulate window ending
+            <input
+              type="datetime-local"
+              value={throughEt}
+              onChange={(event) => setThroughEt(event.target.value)}
+              className="mt-1 block rounded-md border border-ocean-mid/40 bg-ocean-deep px-2 py-1 text-[11px] text-ocean-foam"
+            />
+          </label>
+          <button
+            type="button"
+            className={cn(BTN, "border border-ocean-mid/40 text-ocean-foam")}
+            disabled={busy}
+            onClick={() => void runHistory()}
+          >
+            Simulate
+          </button>
+          {review ? (
+            <button
+              type="button"
+              className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
+              onClick={() => setReview(null)}
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <p className="text-[11px] font-medium text-ocean-foam">
@@ -266,7 +316,7 @@ export function MovementWatchPanel({
         {tickersLoading ? (
           <p className="text-[11px] text-ocean-sand">Loading tickers…</p>
         ) : (
-          <ActiveTickerBoard tickers={boardTickers} refreshKey={refreshKey} />
+          <ActiveTickerBoard tickers={boardTickers} refreshKey={refreshKey} live={live} review={review} />
         )}
       </div>
 

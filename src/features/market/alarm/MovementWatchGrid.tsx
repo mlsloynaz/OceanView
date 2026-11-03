@@ -29,6 +29,8 @@ type Props = {
   layoutClassName?: string;
   /** Size every graph thumbnail so the set fits the pane, keeping the chart shape. */
   fitViewport?: boolean;
+  /** The panel thumbnail is the chart while Live is running. */
+  hideCharts?: boolean;
 };
 
 export function usesFiveMinuteChart(
@@ -149,6 +151,7 @@ function MovementWatchCard({
   onConfirmExit,
   onClearMetStatus,
   onEnlargeChart,
+  hideCharts = false,
 }: {
   watch: MarketAlarmWatch;
   name?: string;
@@ -160,6 +163,7 @@ function MovementWatchCard({
   onConfirmExit: (id: string) => void;
   onClearMetStatus: (id: string, opts?: { restart?: boolean }) => void;
   onEnlargeChart: (id: string) => void;
+  hideCharts?: boolean;
 }) {
   const polling =
     watch.status === "running" ||
@@ -178,14 +182,15 @@ function MovementWatchCard({
   const levelWarning = levelWarningLine(watch);
   const [entriesOpen, setEntriesOpen] = useState(false);
   const showChart =
-    watchRuleKeys(watch).some(
+    !hideCharts &&
+    (watchRuleKeys(watch).some(
       (key) =>
         key === "trend_change_5m" ||
         key === "trend_change_15m" ||
         key === "ema_cross_5m" ||
         key === "breakout_quality" ||
         key === "orb_breakout_5m",
-    ) || Boolean(data?.bars?.length);
+    ) || Boolean(data?.bars?.length));
 
   return (
     <article
@@ -383,22 +388,25 @@ function FitGraphThumb({
   watch,
   name,
   onEnlargeChart,
+  hideCharts = false,
 }: {
   watch: MarketAlarmWatch;
   name?: string;
   onEnlargeChart: (id: string) => void;
+  hideCharts?: boolean;
 }) {
   const fiveMinute = usesFiveMinuteChart(watch);
   const data = chartForWatch(watch);
   const showChart =
-    watchRuleKeys(watch).some(
+    !hideCharts &&
+    (watchRuleKeys(watch).some(
       (key) =>
         key === "trend_change_5m" ||
         key === "trend_change_15m" ||
         key === "ema_cross_5m" ||
         key === "breakout_quality" ||
         key === "orb_breakout_5m",
-    ) || Boolean(data?.bars?.length);
+    ) || Boolean(data?.bars?.length));
 
   return (
     <div
@@ -474,6 +482,7 @@ export function MovementWatchGrid({
   onEnlargeChart,
   layoutClassName,
   fitViewport = false,
+  hideCharts = false,
 }: Props) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [pane, setPane] = useState({ width: 0, height: 0 });
@@ -536,6 +545,7 @@ export function MovementWatchGrid({
               watch={watch}
               name={tickerNameBySymbol.get(watch.symbol.toUpperCase())}
               onEnlargeChart={onEnlargeChart}
+              hideCharts={hideCharts}
             />
           ))}
         </div>
@@ -565,6 +575,7 @@ export function MovementWatchGrid({
             onConfirmExit={onConfirmExit}
             onClearMetStatus={onClearMetStatus}
             onEnlargeChart={onEnlargeChart}
+            hideCharts={hideCharts}
           />
         </div>
       ))}
