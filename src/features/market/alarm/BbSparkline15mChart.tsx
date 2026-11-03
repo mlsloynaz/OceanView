@@ -30,6 +30,8 @@ type Props = {
   miniScale?: boolean;
   /** Small 1-minute drawing over the top-left. The thumbnail uses its own 1m pane. */
   showMinuteCorner?: boolean;
+  /** Price touches an EMA, and EMA 10 crossing EMA 21. */
+  showEmaEvents?: boolean;
 };
 
 const THUMB_5M_BARS = 24;
@@ -274,6 +276,46 @@ function bbEnvelopePath(
   return `${top} ${bottom}`;
 }
 
+type EmaMark = {
+  index: number;
+  kind: "cross-up" | "cross-down" | "touch-10" | "touch-21";
+  price: number;
+};
+
+function covers(low: number, high: number, level: number | null | undefined): boolean {
+  return level != null && low <= level && level <= high;
+}
+
+function emaEventMarks(bars: BbSparkline15m["bars"]): EmaMark[] {
+  const marks: EmaMark[] = [];
+  for (let index = 1; index < bars.length; index += 1) {
+    const bar = bars[index];
+    const prev = bars[index - 1];
+    const ema10 = bar?.ema10;
+    const ema21 = bar?.ema21;
+    let crossed = false;
+    if (ema10 != null && ema21 != null && prev?.ema10 != null && prev?.ema21 != null) {
+      const before = prev.ema10 - prev.ema21;
+      const after = ema10 - ema21;
+      if (before < 0 && after >= 0) {
+        marks.push({ index, kind: "cross-up", price: (ema10 + ema21) / 2 });
+        crossed = true;
+      } else if (before > 0 && after <= 0) {
+        marks.push({ index, kind: "cross-down", price: (ema10 + ema21) / 2 });
+        crossed = true;
+      }
+    }
+    if (crossed || !bar) continue;
+    if (covers(bar.low, bar.high, ema10) && !covers(prev.low, prev.high, prev?.ema10)) {
+      marks.push({ index, kind: "touch-10", price: ema10 as number });
+    }
+    if (covers(bar.low, bar.high, ema21) && !covers(prev.low, prev.high, prev?.ema21)) {
+      marks.push({ index, kind: "touch-21", price: ema21 as number });
+    }
+  }
+  return marks;
+}
+
 export function BbSparkline15mChart({
   data,
   breakoutLevel,
@@ -286,6 +328,7 @@ export function BbSparkline15mChart({
   axis = false,
   miniScale = false,
   showMinuteCorner = false,
+  showEmaEvents = false,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const positionedRef = useRef<string | null>(null);
@@ -415,6 +458,7 @@ export function BbSparkline15mChart({
   const lowerPts = bbLine("bbLower");
   const ema10Pts = bbLine("ema10");
   const ema21Pts = bbLine("ema21");
+  const emaMarks = showEmaEvents ? emaEventMarks(bars) : [];
   const tf = data?.timeframe === "5m" ? "5m" : "15m";
   const envelope = bbEnvelopePath(bars, xCenter, yScale);
 
@@ -486,11 +530,13 @@ export function BbSparkline15mChart({
           <polygon
             points={envelope}
             className={
-              lastWidthExpanding
-                ? "fill-amber-400/25"
-                : widthExpanding
-                  ? "fill-ocean-teal/20"
-                  : "fill-ocean-sand/15"
+              showEmaEvents
+                ? "fill-slate-300/20"
+                : lastWidthExpanding
+                  ? "fill-amber-400/25"
+                  : widthExpanding
+                    ? "fill-ocean-teal/20"
+                    : "fill-ocean-sand/15"
             }
             stroke="none"
           />
@@ -527,18 +573,18 @@ export function BbSparkline15mChart({
         {ema21Pts ? (
           <polyline
             fill="none"
-            stroke="currentColor"
-            strokeWidth={strokeBand}
-            className="text-rose-300"
+            stroke={showEmaEvents ? "#FB923C" : "currentColor"}
+            strokeWidth={showEmaEvents ? 1.8 : strokeBand}
+            className={showEmaEvents ? undefined : "text-rose-300"}
             points={ema21Pts}
           />
         ) : null}
         {ema10Pts ? (
           <polyline
             fill="none"
-            stroke="currentColor"
-            strokeWidth={strokeBand}
-            className="text-amber-300"
+            stroke={showEmaEvents ? "#38BDF8" : "currentColor"}
+            strokeWidth={showEmaEvents ? 1.8 : strokeBand}
+            className={showEmaEvents ? undefined : "text-amber-300"}
             points={ema10Pts}
           />
         ) : null}
@@ -597,17 +643,17 @@ export function BbSparkline15mChart({
                 x2={xc}
                 y1={yH}
                 y2={yL}
-                stroke="currentColor"
+                stroke={showEmaEvents ? (bull ? "#3DDC97" : "#FF5C73") : "currentColor"}
                 strokeWidth={1}
-                className={bull ? "text-ocean-teal" : "text-ocean-danger"}
+                className={showEmaEvents ? undefined : bull ? "text-ocean-teal" : "text-ocean-danger"}
               />
               <rect
                 x={xc - bodyW / 2}
                 y={bodyTop}
                 width={bodyW}
                 height={bodyH}
-                fill="currentColor"
-                className={bull ? "text-ocean-teal" : "text-ocean-danger"}
+                fill={showEmaEvents ? (bull ? "#3DDC97" : "#FF5C73") : "currentColor"}
+                className={showEmaEvents ? undefined : bull ? "text-ocean-teal" : "text-ocean-danger"}
                 stroke={forming ? "currentColor" : undefined}
                 strokeWidth={forming ? 1.25 : 0}
                 strokeOpacity={forming ? 0.9 : undefined}
@@ -624,6 +670,42 @@ export function BbSparkline15mChart({
                 </text>
               ) : null}
             </g>
+          );
+        })}
+        {emaMarks.map((mark) => {
+          const x = xCenter(mark.index);
+          const bar = bars[mark.index];
+          if (!bar) return null;
+          if (mark.kind === "touch-10" || mark.kind === "touch-21") {
+            const color = mark.kind === "touch-10" ? "#38BDF8" : "#FB923C";
+            return (
+              <circle
+                key={`${mark.kind}-${mark.index}`}
+                cx={x}
+                cy={yScale(mark.price)}
+                r={2.4}
+                fill={color}
+                stroke="#071018"
+                strokeWidth={0.7}
+              >
+                <title>{mark.kind === "touch-10" ? "Price touched EMA 10" : "Price touched EMA 21"}</title>
+              </circle>
+            );
+          }
+          const up = mark.kind === "cross-up";
+          const y = up ? yScale(bar.high) - 7 : yScale(bar.low) + 7;
+          const tip = up ? y - 4.5 : y + 4.5;
+          const baseY = up ? y + 2 : y - 2;
+          return (
+            <polygon
+              key={`${mark.kind}-${mark.index}`}
+              points={`${x},${tip} ${x - 4},${baseY} ${x + 4},${baseY}`}
+              fill={up ? "#3DDC97" : "#FF5C73"}
+              stroke="#071018"
+              strokeWidth={0.6}
+            >
+              <title>{up ? "EMA 10 crossed above EMA 21" : "EMA 10 crossed below EMA 21"}</title>
+            </polygon>
           );
         })}
         {placedEntries.map((mark) => {

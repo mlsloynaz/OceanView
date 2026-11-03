@@ -27,6 +27,18 @@ type Snapshot = {
 };
 
 const emptyPanes: Panes = { "5m": [], "15m": [], "1m": [] };
+const FIFTEEN_MINUTES_1M = 15;
+const TWO_HOURS_5M_BARS = 24;
+const TWO_HOURS_15M_BARS = 8;
+
+function quote(bars: BbSparkline15mBar[]): { price: number; change: number; pct: number } | null {
+  if (bars.length === 0) return null;
+  const first = bars[0];
+  const last = bars[bars.length - 1];
+  if (!first || !last || !first.open) return null;
+  const change = last.close - first.open;
+  return { price: last.close, change, pct: (change / first.open) * 100 };
+}
 
 function asBars(body: unknown): BbSparkline15mBar[] {
   if (!Array.isArray(body)) return [];
@@ -59,6 +71,14 @@ function chart(symbol: string, bars: BbSparkline15mBar[]): BbSparkline15m {
   return { symbol, timeframe: "15m", bbPeriod: 20, bars };
 }
 
+function freshnessNote(
+  freshness: "fresh" | "stale" | "missing" | null | undefined,
+): string | null {
+  if (freshness === "stale") return "Stale · not this cycle";
+  if (freshness === "missing") return "Missing · no Schwab pane";
+  return null;
+}
+
 function PaneLabel({ children }: { children: string }) {
   return (
     <span className="pointer-events-none absolute top-0.5 left-0.5 z-20 rounded bg-ocean-deep/80 px-1 py-px text-[8px] font-semibold text-ocean-foam">
@@ -87,6 +107,7 @@ function useSnapshot(
             entryAt: row.entryAt,
             entrySide: row.entrySide,
             breakoutLevel: row.breakoutLevel,
+            note: freshnessNote(row.freshness),
             panes: {
               "5m": asBars(row.panes?.["5m"]),
               "15m": asBars(row.panes?.["15m"]),
@@ -95,7 +116,10 @@ function useSnapshot(
           };
         }
         setSnapshot({
-          label: body.label,
+          label:
+            body.uniform === false && body.source === "schwab"
+              ? "Schwab · each ticker on its own cycle"
+              : body.label,
           windowStartEt: body.windowStartEt,
           windowEndEt: body.windowEndEt,
           bySymbol,
@@ -131,54 +155,94 @@ export function TickerThumb({
   breakoutLevel?: number | null;
   note?: string | null;
 }) {
+  const five = panes["5m"].slice(-TWO_HOURS_5M_BARS);
+  const quoteRow = quote(five);
+  const down = (quoteRow?.change ?? 0) < 0;
   return (
-    <article className="rounded-lg border border-ocean-mid/40 bg-ocean-deep/30 p-2">
-      <p className="mb-1 truncate font-display text-sm font-semibold text-ocean-foam">
-        {symbol}
-        {name ? <span className="ml-1 text-[10px] font-normal text-ocean-sand">{name}</span> : null}
-      </p>
-      <div className="grid aspect-[16/10] grid-cols-[1.7fr_1fr] grid-rows-2 gap-1 overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-1">
-        <div className="relative row-span-2 min-h-0 min-w-0">
-          <PaneLabel>5m</PaneLabel>
+    <article className="rounded-lg border border-ocean-mid/40 bg-ocean-deep/30 p-1.5">
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <p className="truncate font-display text-sm font-semibold text-ocean-foam">
+          {symbol}
+          {name ? <span className="ml-1 text-[10px] font-normal text-ocean-sand">{name}</span> : null}
+        </p>
+        {quoteRow ? (
+          <p className={cnPrice(down)}>
+            {quoteRow.price.toFixed(2)}{" "}
+            <span className="font-medium">
+              {down ? "" : "+"}
+              {quoteRow.change.toFixed(2)} ({down ? "" : "+"}
+              {quoteRow.pct.toFixed(2)}%)
+            </span>
+          </p>
+        ) : null}
+      </div>
+      <div className="grid h-[214px] grid-rows-[1.45fr_1fr] gap-1 overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-1">
+        <div className="relative min-h-0 min-w-0">
+          <PaneLabel>5m · 2h</PaneLabel>
           <BbSparkline15mChart
-            data={chart(symbol, panes["5m"])}
+            data={chart(symbol, five)}
             entryAt={entryAt}
             entrySide={entrySide}
             variant="thumb"
             axis
+            showEmaEvents
             className="h-full"
           />
         </div>
-        <div className="relative min-h-0 min-w-0">
-          <PaneLabel>15m</PaneLabel>
-          <BbSparkline15mChart
-            data={chart(symbol, panes["15m"])}
-            breakoutLevel={breakoutLevel}
-            variant="thumb"
-            axis
-            miniScale
-            className="h-full"
-          />
-        </div>
-        <div className="relative min-h-0 min-w-0">
-          <PaneLabel>1m</PaneLabel>
-          <BbSparkline15mChart data={chart(symbol, panes["1m"])} variant="thumb" axis miniScale className="h-full" />
+        <div className="grid min-h-0 grid-cols-2 gap-1">
+          <div className="relative min-h-0 min-w-0">
+            <PaneLabel>1m · 15m</PaneLabel>
+            <BbSparkline15mChart
+              data={chart(symbol, panes["1m"].slice(-FIFTEEN_MINUTES_1M))}
+              variant="thumb"
+              axis
+              miniScale
+              showEmaEvents
+              className="h-full"
+            />
+          </div>
+          <div className="relative min-h-0 min-w-0">
+            <PaneLabel>15m · 2h</PaneLabel>
+            <BbSparkline15mChart
+              data={chart(symbol, panes["15m"].slice(-TWO_HOURS_15M_BARS))}
+              breakoutLevel={breakoutLevel}
+              variant="thumb"
+              axis
+              miniScale
+              showEmaEvents
+              className="h-full"
+            />
+          </div>
         </div>
       </div>
       {note ? <p className="mt-1 text-[10px] text-ocean-foam">{note}</p> : null}
       {error ? <p className="mt-1 text-[10px] text-ocean-danger">{error}</p> : null}
-      <p className="mt-1 flex flex-wrap gap-x-2 text-[9px] text-ocean-sand">
+      <p className="mt-1 flex flex-wrap gap-x-2 text-[8px] text-ocean-sand">
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-0.5 w-2.5 rounded-sm bg-amber-300" />
+          <span className="inline-block h-0.5 w-2.5 rounded-sm bg-sky-400" />
           EMA 10
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-0.5 w-2.5 rounded-sm bg-rose-300" />
+          <span className="inline-block h-0.5 w-2.5 rounded-sm bg-orange-400" />
           EMA 21
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-400" />
+          touch
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-0 w-0 border-x-[3px] border-b-[5px] border-x-transparent border-b-emerald-400" />
+          cross
         </span>
       </p>
     </article>
   );
+}
+
+function cnPrice(down: boolean): string {
+  return down
+    ? "shrink-0 text-[11px] font-semibold tabular-nums text-rose-300"
+    : "shrink-0 text-[11px] font-semibold tabular-nums text-emerald-300";
 }
 
 export function ActiveTickerBoard({

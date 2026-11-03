@@ -707,6 +707,8 @@ export async function fetchBoardSnapshot(refresh = false, live = false): Promise
   windowEndEt: string;
   cached: boolean;
   batchSize: number;
+  uniform?: boolean;
+  cycleId?: string | null;
   symbols: Record<
     string,
     {
@@ -714,6 +716,9 @@ export async function fetchBoardSnapshot(refresh = false, live = false): Promise
       entryAt?: string | null;
       entrySide?: "CALL" | "PUT" | null;
       breakoutLevel?: number | null;
+      freshness?: "fresh" | "stale" | "missing" | null;
+      fetchedAt?: string | null;
+      cycleId?: string | null;
       panes?: {
         "1m"?: Array<Record<string, unknown>>;
         "5m"?: Array<Record<string, unknown>>;
