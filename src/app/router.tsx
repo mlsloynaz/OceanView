@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AlarmsPage } from "@/features/alarms/AlarmsPage";
 import { MovementGridWindow } from "@/features/alarms/MovementGridWindow";
+import { ThumbnailGridWindow } from "@/features/market/alarm/ThumbnailGridWindow";
 import { AlarmsRedirect } from "@/features/alarms/AlarmsRedirect";
 import { alarmsPath, defaultAlarmsTab } from "@/features/alarms/lib/alarm-routes";
 import { AppShell } from "@/shared/components/layout/AppShell";
@@ -30,6 +31,15 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <MovementGridWindow />
+      </RequireAuth>
+    ),
+    errorElement: <RouteErrorFallback />,
+  },
+  {
+    path: "/alarms/thumbnails",
+    element: (
+      <RequireAuth>
+        <ThumbnailGridWindow />
       </RequireAuth>
     ),
     errorElement: <RouteErrorFallback />,

@@ -588,6 +588,17 @@ export async function fetchMovementWatchJobStatus(): Promise<MovementWatchJobSta
   });
 }
 
+export async function fetchMovementWatchResults(): Promise<{
+  results?: Array<{
+    symbol?: string;
+    hourRelation?: string | null;
+    hourRegime?: string | null;
+  }>;
+}> {
+  if (USE_MOCK) return { results: [] };
+  return fetchJson("/market/alarm/movement-watch/results", { method: "GET" });
+}
+
 export async function startMovementWatchJob(body?: {
   symbols?: string[];
   ruleKeys?: string[];
@@ -716,6 +727,8 @@ export async function fetchBoardSnapshot(refresh = false, live = false): Promise
       entryAt?: string | null;
       entrySide?: "CALL" | "PUT" | null;
       breakoutLevel?: number | null;
+      hourRelation?: string | null;
+      hourRegime?: string | null;
       freshness?: "fresh" | "stale" | "missing" | null;
       fetchedAt?: string | null;
       cycleId?: string | null;
@@ -762,6 +775,8 @@ export async function evaluateBoardHistory(throughEt: string): Promise<{
     {
       error?: string | null;
       matches?: BoardHistoryMatch[];
+      hourRelation?: string | null;
+      hourRegime?: string | null;
       panes?: { "1m"?: unknown; "5m"?: unknown; "15m"?: unknown };
     }
   >;

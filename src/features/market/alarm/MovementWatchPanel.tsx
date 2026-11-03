@@ -113,6 +113,7 @@ export function MovementWatchPanel({
   const [refreshKey, setRefreshKey] = useState(0);
   const [throughEt, setThroughEt] = useState("");
   const [review, setReview] = useState<BoardSnapshotView | null>(null);
+  const [windowBlocked, setWindowBlocked] = useState(false);
 
   const loadCatalog = useCallback(async () => {
     try {
@@ -175,6 +176,8 @@ export function MovementWatchPanel({
             "1m": asReviewBars(row.panes?.["1m"]),
           },
           note: simulationNote(met),
+          hourRelation: row.hourRelation,
+          hourRegime: row.hourRegime,
         };
       }
       setReview({
@@ -309,10 +312,34 @@ export function MovementWatchPanel({
       )}
 
       <div className="space-y-1.5">
-        <p className="text-[11px] font-medium text-ocean-foam">
-          Active tickers ({boardTickers.length})
-          {live ? " · updating every minute" : ""}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] font-medium text-ocean-foam">
+            Active tickers ({boardTickers.length})
+            {live ? " · updating every minute" : ""}
+          </p>
+          <button
+            type="button"
+            className={cn(BTN, "border border-ocean-mid/40 text-ocean-foam")}
+            onClick={() => {
+              const opened = window.open(
+                `${window.location.origin}/alarms/thumbnails`,
+                "oceanview-thumbnail-grid",
+                "popup=yes,width=1600,height=1000",
+              );
+              if (!opened || opened.closed) {
+                setWindowBlocked(true);
+                return;
+              }
+              setWindowBlocked(false);
+              opened.focus();
+            }}
+          >
+            Open full screen
+          </button>
+        </div>
+        {windowBlocked ? (
+          <p className="text-[11px] text-ocean-sand">Allow pop-ups for OceanView to open the thumbnail window.</p>
+        ) : null}
         {tickersLoading ? (
           <p className="text-[11px] text-ocean-sand">Loading tickers…</p>
         ) : (
