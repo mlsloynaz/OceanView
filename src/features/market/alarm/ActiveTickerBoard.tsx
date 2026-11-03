@@ -40,7 +40,7 @@ type Snapshot = {
 const emptyPanes: Panes = { "5m": [], "15m": [], "1m": [] };
 const FIFTEEN_MINUTES_1M = 15;
 const TWO_HOURS_5M_BARS = 24;
-const TWO_HOURS_15M_BARS = 8;
+const SESSION_15M_BARS = 26;
 
 function textOrNull(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
@@ -109,7 +109,7 @@ function ThumbPane({
   breakoutLevel?: number | null;
   axis?: boolean;
 }) {
-  const label = which === "5m" ? "5m · 2h" : which === "1m" ? "1m · 15m" : "15m · 2h";
+  const label = which === "5m" ? "5m · 2h" : which === "1m" ? "1m · 15m" : "15m · 1d";
   return (
     <div className="relative h-full min-h-0 min-w-0">
       <PaneLabel>{label}</PaneLabel>
@@ -197,6 +197,9 @@ export function TickerThumb({
   breakoutLevel,
   hourRelation,
   hourRegime,
+  transitionCandle = false,
+  lateralTrend = false,
+  pauseAction = null,
   note,
   frame = "all",
 }: {
@@ -209,6 +212,9 @@ export function TickerThumb({
   breakoutLevel?: number | null;
   hourRelation?: string | null;
   hourRegime?: string | null;
+  transitionCandle?: boolean;
+  lateralTrend?: boolean;
+  pauseAction?: string | null;
   note?: string | null;
   frame?: PaneFilter;
 }) {
@@ -224,7 +230,7 @@ export function TickerThumb({
           ? five
           : which === "1m"
             ? panes["1m"].slice(-FIFTEEN_MINUTES_1M)
-            : panes["15m"].slice(-TWO_HOURS_15M_BARS)
+            : panes["15m"].slice(-SESSION_15M_BARS)
       }
       entryAt={which === "5m" ? entryAt : null}
       entrySide={which === "5m" ? entrySide : null}
@@ -263,6 +269,30 @@ export function TickerThumb({
           {pane(frame)}
         </div>
       )}
+      {pauseAction || transitionCandle || lateralTrend ? (
+        <p
+          className={cn(
+            "mt-0.5 text-[9px] font-semibold",
+            pauseAction === "exit"
+              ? "text-ocean-danger"
+              : pauseAction === "continuation"
+                ? "text-ocean-teal"
+                : "text-amber-300",
+          )}
+        >
+          {pauseAction === "hold"
+            ? "Hold"
+            : pauseAction === "continuation"
+              ? "Continuation watch"
+              : pauseAction === "exit"
+                ? "Exit"
+                : ""}
+          {pauseAction && (transitionCandle || lateralTrend) ? " · " : ""}
+          {transitionCandle ? "1m transition" : ""}
+          {transitionCandle && lateralTrend ? " · " : ""}
+          {lateralTrend ? "5m lateral" : ""}
+        </p>
+      ) : null}
       {note ? <p className="mt-0.5 text-[9px] text-ocean-foam">{note}</p> : null}
       {error ? <p className="mt-0.5 text-[9px] text-ocean-danger">{error}</p> : null}
       <p className="mt-0.5 flex flex-wrap gap-x-2 text-[8px] text-ocean-sand">
@@ -290,9 +320,27 @@ export function TickerThumb({
 function useHourContext(
   refreshKey: number,
   enabled: boolean,
-): Record<string, { hourRelation: string | null; hourRegime: string | null }> {
+): Record<
+  string,
+  {
+    hourRelation: string | null;
+    hourRegime: string | null;
+    transitionCandle: boolean;
+    lateralTrend: boolean;
+    pauseAction: string | null;
+  }
+> {
   const [bySymbol, setBySymbol] = useState<
-    Record<string, { hourRelation: string | null; hourRegime: string | null }>
+    Record<
+      string,
+      {
+        hourRelation: string | null;
+        hourRegime: string | null;
+        transitionCandle: boolean;
+        lateralTrend: boolean;
+        pauseAction: string | null;
+      }
+    >
   >({});
   useEffect(() => {
     if (!enabled) return;
@@ -300,13 +348,25 @@ function useHourContext(
     void fetchMovementWatchResults()
       .then((body) => {
         if (cancel) return;
-        const next: Record<string, { hourRelation: string | null; hourRegime: string | null }> = {};
+        const next: Record<
+          string,
+          {
+            hourRelation: string | null;
+            hourRegime: string | null;
+            transitionCandle: boolean;
+            lateralTrend: boolean;
+            pauseAction: string | null;
+          }
+        > = {};
         for (const row of body.results ?? []) {
           const symbol = textOrNull(row.symbol)?.toUpperCase();
           if (!symbol) continue;
           next[symbol] = {
             hourRelation: textOrNull(row.hourRelation),
             hourRegime: textOrNull(row.hourRegime),
+            transitionCandle: row.transitionCandle === true,
+            lateralTrend: row.lateralTrend === true,
+            pauseAction: textOrNull(row.pauseAction),
           };
         }
         setBySymbol(next);
@@ -391,6 +451,9 @@ export function ActiveTickerBoard({
             hourRegime={
               snapshot?.bySymbol[ticker.symbol]?.hourRegime ?? hourBySymbol[ticker.symbol]?.hourRegime
             }
+            transitionCandle={hourBySymbol[ticker.symbol]?.transitionCandle === true}
+            lateralTrend={hourBySymbol[ticker.symbol]?.lateralTrend === true}
+            pauseAction={hourBySymbol[ticker.symbol]?.pauseAction}
             note={snapshot?.bySymbol[ticker.symbol]?.note}
             frame={frame}
           />

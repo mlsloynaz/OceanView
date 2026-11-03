@@ -593,6 +593,9 @@ export async function fetchMovementWatchResults(): Promise<{
     symbol?: string;
     hourRelation?: string | null;
     hourRegime?: string | null;
+    transitionCandle?: boolean | null;
+    lateralTrend?: boolean | null;
+    pauseAction?: string | null;
   }>;
 }> {
   if (USE_MOCK) return { results: [] };
