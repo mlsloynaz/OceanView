@@ -32,6 +32,8 @@ type Props = {
   showMinuteCorner?: boolean;
   /** Price touches an EMA, and EMA 10 crossing EMA 21. */
   showEmaEvents?: boolean;
+  /** Drawing size. The small panes use this so the candles match the box. */
+  frame?: { w: number; h: number };
 };
 
 const THUMB_5M_BARS = 24;
@@ -329,6 +331,7 @@ export function BbSparkline15mChart({
   miniScale = false,
   showMinuteCorner = false,
   showEmaEvents = false,
+  frame,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const positionedRef = useRef<string | null>(null);
@@ -339,11 +342,11 @@ export function BbSparkline15mChart({
   const bars =
     variant === "thumb" && data?.timeframe === "5m" ? allBars.slice(-THUMB_5M_BARS) : allBars;
   const base = SIZE[variant];
-  const frameH =
-    variant === "thumb" && shape === "portrait" ? Math.round((base.w * 8) / 7) : base.h;
+  const frameH = frame?.h ?? (variant === "thumb" && shape === "portrait" ? Math.round((base.w * 8) / 7) : base.h);
+  const frameW = frame?.w ?? base.w;
   const naturalW = base.pad.left + base.pad.right + bars.length * FULL_5M_SLOT;
   const scrollable = variant === "full" && data?.timeframe === "5m" && naturalW > 520;
-  const W = scrollable ? base.pad.left + base.pad.right + bars.length * FULL_5M_SLOT : base.w;
+  const W = scrollable ? base.pad.left + base.pad.right + bars.length * FULL_5M_SLOT : frameW;
   const H = frameH;
   const PAD = base.pad;
   const legend = showLegend ?? variant === "full";

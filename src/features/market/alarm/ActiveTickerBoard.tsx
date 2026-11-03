@@ -176,7 +176,7 @@ export function TickerThumb({
           </p>
         ) : null}
       </div>
-      <div className="grid h-[214px] grid-rows-[1.45fr_1fr] gap-1 overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-1">
+      <div className="grid h-[252px] grid-rows-[minmax(0,1fr)_112px] gap-1 overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-1">
         <div className="relative min-h-0 min-w-0">
           <PaneLabel>5m · 2h</PaneLabel>
           <BbSparkline15mChart
@@ -189,15 +189,14 @@ export function TickerThumb({
             className="h-full"
           />
         </div>
-        <div className="grid min-h-0 grid-cols-2 gap-1">
+        <div className="grid min-h-0 grid-cols-[15fr_8fr] gap-1">
           <div className="relative min-h-0 min-w-0">
             <PaneLabel>1m · 15m</PaneLabel>
             <BbSparkline15mChart
               data={chart(symbol, panes["1m"].slice(-FIFTEEN_MINUTES_1M))}
               variant="thumb"
-              axis
-              miniScale
               showEmaEvents
+              frame={{ w: 320, h: 148 }}
               className="h-full"
             />
           </div>
@@ -207,9 +206,8 @@ export function TickerThumb({
               data={chart(symbol, panes["15m"].slice(-TWO_HOURS_15M_BARS))}
               breakoutLevel={breakoutLevel}
               variant="thumb"
-              axis
-              miniScale
               showEmaEvents
+              frame={{ w: 176, h: 148 }}
               className="h-full"
             />
           </div>
