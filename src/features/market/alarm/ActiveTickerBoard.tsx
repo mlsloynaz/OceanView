@@ -186,6 +186,7 @@ export function TickerThumb({
             variant="thumb"
             axis
             showEmaEvents
+            fillPane
             className="h-full"
           />
         </div>
@@ -196,7 +197,7 @@ export function TickerThumb({
               data={chart(symbol, panes["1m"].slice(-FIFTEEN_MINUTES_1M))}
               variant="thumb"
               showEmaEvents
-              frame={{ w: 320, h: 148 }}
+              fillPane
               className="h-full"
             />
           </div>
@@ -207,7 +208,7 @@ export function TickerThumb({
               breakoutLevel={breakoutLevel}
               variant="thumb"
               showEmaEvents
-              frame={{ w: 176, h: 148 }}
+              fillPane
               className="h-full"
             />
           </div>

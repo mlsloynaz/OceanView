@@ -1,6 +1,6 @@
 /** Compact SVG candlestick + Bollinger disipadores for Breakout board (≤9 × 15m bars). */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import type { BbSparkline15m } from "./alarm-types";
 import {
@@ -34,6 +34,8 @@ type Props = {
   showEmaEvents?: boolean;
   /** Drawing size. The small panes use this so the candles match the box. */
   frame?: { w: number; h: number };
+  /** Fill the pane and scale price to the bars on screen, whatever the candle count. */
+  fillPane?: boolean;
 };
 
 const THUMB_5M_BARS = 24;
@@ -332,9 +334,11 @@ export function BbSparkline15mChart({
   showMinuteCorner = false,
   showEmaEvents = false,
   frame,
+  fillPane = false,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const positionedRef = useRef<string | null>(null);
+  const [plotSize, setPlotSize] = useState<{ w: number; h: number } | null>(null);
   const allBars =
     variant === "full" && data?.timeframe === "5m" && data.sessionBars?.length
       ? data.sessionBars
@@ -346,8 +350,12 @@ export function BbSparkline15mChart({
   const frameW = frame?.w ?? base.w;
   const naturalW = base.pad.left + base.pad.right + bars.length * FULL_5M_SLOT;
   const scrollable = variant === "full" && data?.timeframe === "5m" && naturalW > 520;
-  const W = scrollable ? base.pad.left + base.pad.right + bars.length * FULL_5M_SLOT : frameW;
-  const H = frameH;
+  const W = scrollable
+    ? base.pad.left + base.pad.right + bars.length * FULL_5M_SLOT
+    : fillPane && plotSize
+      ? plotSize.w
+      : frameW;
+  const H = fillPane && plotSize ? plotSize.h : frameH;
   const PAD = base.pad;
   const legend = showLegend ?? variant === "full";
   const strokeBand = variant === "full" ? 2 : 1.25;
@@ -363,6 +371,22 @@ export function BbSparkline15mChart({
     return marks;
   }, [loggedMarks, entryAt, entrySide]);
   const focusAt = entryMarks.length > 0 ? entryMarks[entryMarks.length - 1]?.at ?? entryAt : entryAt;
+
+  useLayoutEffect(() => {
+    if (!fillPane) return;
+    const node = scrollerRef.current;
+    if (!node) return;
+    const apply = () => {
+      const w = Math.floor(node.clientWidth);
+      const h = Math.floor(node.clientHeight);
+      if (w < 8 || h < 8) return;
+      setPlotSize((prev) => (prev && prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [fillPane, bars.length]);
 
   useEffect(() => {
     if (!scrollable || bars.length === 0) return;
@@ -426,12 +450,11 @@ export function BbSparkline15mChart({
     yMin = Math.min(yMin, breakoutLevel);
     yMax = Math.max(yMax, breakoutLevel);
   }
-  // Fitting the axis to the band makes every Bollinger look wide, and this
-  // card is tall, so a tight band fills the frame. Keep at least 5% of price
-  // on the axis. A wider move still expands past that.
+  // Other charts keep a 5% price floor so a tight Bollinger does not fill the frame.
+  // The thumbnail scales to the bars on screen, the way a chart pane does.
   const mid = (yMin + yMax) / 2;
   const span = Math.max(yMax - yMin, 0);
-  const window = Math.max(span * 1.12, Math.abs(mid) * 0.05, 0.5);
+  const window = fillPane ? Math.max(span * 1.08, 0.05) : Math.max(span * 1.12, Math.abs(mid) * 0.05, 0.5);
   yMin = mid - window / 2;
   yMax = mid + window / 2;
 
@@ -499,7 +522,7 @@ export function BbSparkline15mChart({
         width={scrollable ? W : undefined}
         height={scrollable ? H : undefined}
         className={cn("text-ocean-foam", scrollable ? "block max-w-none shrink-0" : "h-full w-full flex-1")}
-        preserveAspectRatio="xMidYMid meet"
+        preserveAspectRatio={fillPane ? "none" : "xMidYMid meet"}
         role="img"
         aria-label={`${data?.symbol ?? ""} ${tf} price, EMA 10, EMA 21, Bollinger`}
       >
