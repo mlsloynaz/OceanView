@@ -732,6 +732,8 @@ export async function fetchBoardSnapshot(refresh = false, live = false, minute =
       breakoutLevel?: number | null;
       hourRelation?: string | null;
       hourRegime?: string | null;
+      sectorEtf?: string | null;
+      etfMatch?: boolean | null;
       sentiment?: "bull S" | "bear S" | null;
       freshness?: "fresh" | "stale" | "missing" | null;
       fetchedAt?: string | null;

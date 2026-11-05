@@ -113,7 +113,6 @@ function contractLabel(
 
 function MovementWatchCard({
   watch,
-  name,
   onCheckNow,
   onStart,
   onStop,
@@ -176,9 +175,6 @@ function MovementWatchCard({
           <p className="truncate font-display text-sm font-semibold tabular-nums text-ocean-foam">
             <TickerMark symbol={watch.symbol} />
             {watch.symbol}
-            {name ? (
-              <span className="ml-1 text-[10px] font-normal text-ocean-sand">{name}</span>
-            ) : null}
           </p>
           <p className="truncate text-[10px] text-ocean-sand">
             {watch.ruleLabel}
@@ -346,7 +342,6 @@ function MovementWatchCard({
 
 function FitGraphThumb({
   watch,
-  name,
   onEnlargeChart,
   hideCharts = false,
 }: {
@@ -412,7 +407,6 @@ function FitGraphThumb({
         <span className="pointer-events-none absolute top-1 right-1 z-20 max-w-[80%] truncate rounded bg-ocean-deep/80 px-1 py-0.5 font-display text-[10px] font-semibold text-ocean-foam">
           <TickerMark symbol={watch.symbol} />
           {watch.symbol}
-          {name ? <span className="ml-1 font-normal text-ocean-sand">{name}</span> : null}
         </span>
         {levelWarningLine(watch) ? (
           <span className="pointer-events-none absolute bottom-1 left-1 z-20 max-w-[90%] truncate rounded bg-ocean-deep/80 px-1 py-0.5 text-[10px] font-semibold text-amber-400">

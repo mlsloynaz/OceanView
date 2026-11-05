@@ -75,6 +75,8 @@ type Snapshot = {
       breakoutLevel?: number | null;
       hourRelation?: string | null;
       hourRegime?: string | null;
+      sectorEtf?: string | null;
+      etfMatch?: boolean | null;
       sentiment?: "bull S" | "bear S" | null;
       note?: string | null;
     }
@@ -217,6 +219,8 @@ function useSnapshot(
             breakoutLevel: row.breakoutLevel,
             hourRelation: textOrNull(row.hourRelation),
             hourRegime: textOrNull(row.hourRegime),
+            sectorEtf: textOrNull(row.sectorEtf),
+            etfMatch: row.etfMatch === true ? true : row.etfMatch === false ? false : null,
             sentiment: row.sentiment === "bull S" || row.sentiment === "bear S" ? row.sentiment : null,
             note: freshnessNote(row.freshness),
             panes: {
@@ -282,7 +286,6 @@ function useFormingMinutes(symbols: string[], enabled: boolean): Record<string, 
 
 export function TickerThumb({
   symbol,
-  name,
   panes,
   error,
   entryAt,
@@ -290,6 +293,8 @@ export function TickerThumb({
   breakoutLevel,
   hourRelation,
   hourRegime,
+  sectorEtf = null,
+  etfMatch = null,
   sentiment = null,
   transitionCandle = false,
   lateralTrend = false,
@@ -310,6 +315,8 @@ export function TickerThumb({
   breakoutLevel?: number | null;
   hourRelation?: string | null;
   hourRegime?: string | null;
+  sectorEtf?: string | null;
+  etfMatch?: boolean | null;
   sentiment?: "bull S" | "bear S" | null;
   transitionCandle?: boolean;
   lateralTrend?: boolean;
@@ -369,7 +376,6 @@ export function TickerThumb({
             {sentiment === "bear S" ? (
               <span className="ml-1 text-[9px] font-semibold text-ocean-danger">bear S</span>
             ) : null}
-            {name ? <span className="ml-1 text-[9px] font-normal text-ocean-sand">{name}</span> : null}
           </span>
           {onMove ? (
             <button
@@ -394,6 +400,16 @@ export function TickerThumb({
           </div>
         ) : null}
       </div>
+      {sectorEtf && etfMatch != null ? (
+        <p
+          className={cn(
+            "mb-0.5 text-[9px] font-semibold",
+            etfMatch ? "text-ocean-teal" : "text-ocean-danger",
+          )}
+        >
+          {sectorEtf} {etfMatch ? "match" : "not"}
+        </p>
+      ) : null}
       {alertTags.length > 0 ? (
         <div className="mb-0.5 flex flex-wrap gap-1">
           {alertTags.map((tag) => (
@@ -644,6 +660,8 @@ export function ActiveTickerBoard({
             hourRegime={
               snapshot?.bySymbol[ticker.symbol]?.hourRegime ?? hourBySymbol[ticker.symbol]?.hourRegime
             }
+            sectorEtf={snapshot?.bySymbol[ticker.symbol]?.sectorEtf}
+            etfMatch={snapshot?.bySymbol[ticker.symbol]?.etfMatch}
             sentiment={snapshot?.bySymbol[ticker.symbol]?.sentiment}
             transitionCandle={hourBySymbol[ticker.symbol]?.transitionCandle === true}
             lateralTrend={hourBySymbol[ticker.symbol]?.lateralTrend === true}
