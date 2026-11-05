@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { BbSparkline15mChart } from "./BbSparkline15mChart";
+import { fetchFormingMinutes, loadAlpacaSession, mergeFormingMinute, nextFormingDelayMs } from "./alpaca-forming-minute";
 import { fetchBoardSnapshot, fetchMovementWatchResults } from "./alarm-client";
 import type { BbSparkline15m, BbSparkline15mBar } from "./alarm-types";
 
@@ -72,6 +73,7 @@ type Snapshot = {
       breakoutLevel?: number | null;
       hourRelation?: string | null;
       hourRegime?: string | null;
+      sentiment?: "bull S" | "bear S" | null;
       note?: string | null;
     }
   >;
@@ -115,13 +117,19 @@ function asBars(body: unknown): BbSparkline15mBar[] {
         bbLower: row.bbLower ?? null,
         ema10: row.ema10 ?? null,
         ema21: row.ema21 ?? null,
+        forming: row.forming === true,
       },
     ];
   });
 }
 
-function chart(symbol: string, bars: BbSparkline15mBar[]): BbSparkline15m {
-  return { symbol, timeframe: "15m", bbPeriod: 20, bars };
+function displayPanes(panes: Panes | undefined, forming: BbSparkline15mBar | undefined): Panes {
+  const base = panes ?? emptyPanes;
+  return { ...base, "1m": mergeFormingMinute(base["1m"], forming, new Date()) };
+}
+
+function chart(symbol: string, which: Frame, bars: BbSparkline15mBar[]): BbSparkline15m {
+  return { symbol, timeframe: which, bbPeriod: 20, bars };
 }
 
 function freshnessNote(
@@ -156,7 +164,7 @@ function ThumbPane({
     <div className="relative h-full min-h-0 min-w-0">
       <PaneLabel>{label}</PaneLabel>
       <BbSparkline15mChart
-        data={chart(symbol, bars)}
+        data={chart(symbol, which, bars)}
         entryAt={entryAt}
         entrySide={entrySide}
         breakoutLevel={breakoutLevel}
@@ -201,6 +209,7 @@ function useSnapshot(
             breakoutLevel: row.breakoutLevel,
             hourRelation: textOrNull(row.hourRelation),
             hourRegime: textOrNull(row.hourRegime),
+            sentiment: row.sentiment === "bull S" || row.sentiment === "bear S" ? row.sentiment : null,
             note: freshnessNote(row.freshness),
             panes: {
               "5m": asBars(row.panes?.["5m"]),
@@ -227,33 +236,40 @@ function useSnapshot(
       cancel = true;
     };
   }, [refreshKey, live, enabled]);
+  return { snapshot, error };
+}
+
+function useFormingMinutes(symbols: string[], enabled: boolean): Record<string, BbSparkline15mBar> {
+  const [bars, setBars] = useState<Record<string, BbSparkline15mBar>>({});
+  const key = symbols.join(",");
   useEffect(() => {
-    if (!enabled || !live) return;
+    const list = key ? key.split(",") : [];
+    if (!enabled || list.length === 0) return;
     let cancel = false;
-    const timer = window.setTimeout(() => {
-      void fetchBoardSnapshot(false, true, true)
-        .then((body) => {
-          if (cancel) return;
-          setSnapshot((current) => {
-            if (!current) return current;
-            const bySymbol = { ...current.bySymbol };
-            for (const [symbol, row] of Object.entries(body.symbols ?? {})) {
-              const bars = asBars(row.panes?.["1m"]);
-              const prior = bySymbol[symbol];
-              if (!prior || bars.length === 0) continue;
-              bySymbol[symbol] = { ...prior, panes: { ...prior.panes, "1m": bars } };
-            }
-            return { ...current, bySymbol };
-          });
-        })
-        .catch(() => {});
-    }, 30_000);
+    let timer = 0;
+    const tick = () => {
+      const delay = nextFormingDelayMs(new Date());
+      const wait = delay ?? 60_000;
+      if (delay != null) {
+        void loadAlpacaSession()
+          .then((session) => {
+            if (cancel || !session) return null;
+            return fetchFormingMinutes(list, session);
+          })
+          .then((next) => {
+            if (!cancel && next) setBars(next);
+          })
+          .catch(() => {});
+      }
+      timer = window.setTimeout(tick, wait);
+    };
+    tick();
     return () => {
       cancel = true;
       window.clearTimeout(timer);
     };
-  }, [refreshKey, live, enabled]);
-  return { snapshot, error };
+  }, [enabled, key]);
+  return enabled && nextFormingDelayMs(new Date()) != null ? bars : {};
 }
 
 export function TickerThumb({
@@ -266,6 +282,7 @@ export function TickerThumb({
   breakoutLevel,
   hourRelation,
   hourRegime,
+  sentiment = null,
   transitionCandle = false,
   lateralTrend = false,
   pauseAction = null,
@@ -284,6 +301,7 @@ export function TickerThumb({
   breakoutLevel?: number | null;
   hourRelation?: string | null;
   hourRegime?: string | null;
+  sentiment?: "bull S" | "bear S" | null;
   transitionCandle?: boolean;
   lateralTrend?: boolean;
   pauseAction?: string | null;
@@ -331,6 +349,12 @@ export function TickerThumb({
           ) : null}
           <span className="min-w-0 truncate">
             {symbol}
+            {sentiment === "bull S" ? (
+              <span className="ml-1 text-[9px] font-semibold text-ocean-teal">bull S</span>
+            ) : null}
+            {sentiment === "bear S" ? (
+              <span className="ml-1 text-[9px] font-semibold text-ocean-danger">bear S</span>
+            ) : null}
             {name ? <span className="ml-1 text-[9px] font-normal text-ocean-sand">{name}</span> : null}
           </span>
           {onMove ? (
@@ -357,7 +381,7 @@ export function TickerThumb({
         ) : null}
       </div>
       {frame === "all" ? (
-        <div className="grid h-[188px] grid-rows-2 gap-0.5 overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-0.5">
+        <div className="grid h-[248px] grid-rows-[3fr_2fr] gap-0.5 overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-0.5">
           {pane("5m")}
           <div className="grid min-h-0 grid-cols-[15fr_8fr] gap-1">
             {pane("1m")}
@@ -495,6 +519,10 @@ export function ActiveTickerBoard({
   const showingReview = review != null;
   const { snapshot: loaded, error } = useSnapshot(refreshKey, live, !showingReview);
   const snapshot = review ?? loaded;
+  const forming = useFormingMinutes(
+    tickers.map((ticker) => ticker.symbol.trim().toUpperCase()).filter(Boolean),
+    live && !showingReview,
+  );
   const hourBySymbol = useHourContext(refreshKey, !showingReview);
   useEffect(() => {
     const sync = () => setOrder(readThumbOrder());
@@ -582,7 +610,7 @@ export function ActiveTickerBoard({
             canMoveEarlier={index > 0}
             canMoveLater={index < arranged.length - 1}
             onMove={(direction) => moveTicker(ticker.symbol, direction)}
-            panes={snapshot?.bySymbol[ticker.symbol]?.panes ?? emptyPanes}
+            panes={displayPanes(snapshot?.bySymbol[ticker.symbol]?.panes, forming[ticker.symbol.trim().toUpperCase()])}
             error={snapshot?.bySymbol[ticker.symbol]?.error}
             entryAt={snapshot?.bySymbol[ticker.symbol]?.entryAt}
             entrySide={snapshot?.bySymbol[ticker.symbol]?.entrySide}
@@ -593,6 +621,7 @@ export function ActiveTickerBoard({
             hourRegime={
               snapshot?.bySymbol[ticker.symbol]?.hourRegime ?? hourBySymbol[ticker.symbol]?.hourRegime
             }
+            sentiment={snapshot?.bySymbol[ticker.symbol]?.sentiment}
             transitionCandle={hourBySymbol[ticker.symbol]?.transitionCandle === true}
             lateralTrend={hourBySymbol[ticker.symbol]?.lateralTrend === true}
             pauseAction={hourBySymbol[ticker.symbol]?.pauseAction}

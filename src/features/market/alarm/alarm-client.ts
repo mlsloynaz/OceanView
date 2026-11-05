@@ -167,7 +167,7 @@ export type MarketAlarmCheckResponse = {
   } | null;
 };
 
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_BASE) {
     throw new MarketAlarmApiError("VITE_API_BASE_URL is not set.");
   }
@@ -732,6 +732,7 @@ export async function fetchBoardSnapshot(refresh = false, live = false, minute =
       breakoutLevel?: number | null;
       hourRelation?: string | null;
       hourRegime?: string | null;
+      sentiment?: "bull S" | "bear S" | null;
       freshness?: "fresh" | "stale" | "missing" | null;
       fetchedAt?: string | null;
       cycleId?: string | null;
@@ -780,6 +781,8 @@ export async function evaluateBoardHistory(throughEt: string): Promise<{
       matches?: BoardHistoryMatch[];
       hourRelation?: string | null;
       hourRegime?: string | null;
+      entryAt?: string | null;
+      entrySide?: "CALL" | "PUT" | null;
       panes?: { "1m"?: unknown; "5m"?: unknown; "15m"?: unknown };
     }
   >;

@@ -124,7 +124,7 @@ export type BbSparkline15mBar = {
 
 export type BbSparkline15m = {
   symbol: string;
-  timeframe: "15m" | "5m";
+  timeframe: "15m" | "5m" | "1m";
   bbPeriod: number;
   /** Last candles for the card. A 5m card keeps about two hours. */
   bars: BbSparkline15mBar[];

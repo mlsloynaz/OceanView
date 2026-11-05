@@ -150,7 +150,8 @@ function entryCandleIndex(
   if (!entryAt) return -1;
   const entry = etMinute(entryAt);
   if (entry == null) return -1;
-  const width = (timeframe === "5m" ? 5 : 15) * 60_000;
+  const minutes = timeframe === "1m" ? 1 : timeframe === "5m" ? 5 : 15;
+  const width = minutes * 60_000;
   let match = -1;
   for (let i = 0; i < bars.length; i++) {
     const open = etMinute(bars[i]?.datetime ?? "");
@@ -219,7 +220,7 @@ function OpenMinutePanel({ points }: { points: OpenMinutePoint[] }) {
       viewBox="0 0 100 60"
       width="100%"
       height="100%"
-      preserveAspectRatio="none"
+      preserveAspectRatio="xMidYMid meet"
       className="block h-full w-full"
       aria-label="1 minute close, EMA 10 and EMA 21"
     >
@@ -443,26 +444,23 @@ export function BbSparkline15mChart({
   const ema21s = bars.map((b) => b.ema21).filter(onScale);
   const scaleLows = lows.length ? lows : closes;
   const scaleHighs = highs.length ? highs : closes;
-  const paneLows = fillPane ? [...scaleLows, ...ema10s, ...ema21s] : [...scaleLows, ...(bbLows.length ? bbLows : scaleLows), ...(ema10s.length ? ema10s : scaleLows), ...(ema21s.length ? ema21s : scaleLows)];
-  const paneHighs = fillPane ? [...scaleHighs, ...ema10s, ...ema21s] : [...scaleHighs, ...(bbUps.length ? bbUps : scaleHighs), ...(ema10s.length ? ema10s : scaleHighs), ...(ema21s.length ? ema21s : scaleHighs)];
-  let yMin = Math.min(...paneLows);
-  let yMax = Math.max(...paneHighs);
-  if (
-    !fillPane &&
-    typeof breakoutLevel === "number" &&
-    Number.isFinite(breakoutLevel) &&
-    breakoutLevel > 0
-  ) {
-    yMin = Math.min(yMin, breakoutLevel);
-    yMax = Math.max(yMax, breakoutLevel);
+  const bandLow = bbLows.length ? Math.min(...bbLows) : Math.min(...scaleLows);
+  const bandHigh = bbUps.length ? Math.max(...bbUps) : Math.max(...scaleHighs);
+  let yMin = bandLow;
+  let yMax = bandHigh;
+  const outside = [...scaleLows, ...scaleHighs, ...ema10s, ...ema21s];
+  if (typeof breakoutLevel === "number" && Number.isFinite(breakoutLevel) && breakoutLevel > 0) {
+    outside.push(breakoutLevel);
   }
-  // Other charts keep a 5% price floor so a tight Bollinger does not fill the frame.
-  // The thumbnail scales to the bars on screen, the way a chart pane does.
-  const mid = (yMin + yMax) / 2;
-  const span = Math.max(yMax - yMin, 0);
-  const window = fillPane ? Math.max(span * 1.04, 0.05) : Math.max(span * 1.12, Math.abs(mid) * 0.05, 0.5);
-  yMin = mid - window / 2;
-  yMax = mid + window / 2;
+  for (const value of outside) {
+    if (value < yMin) yMin = value;
+    if (value > yMax) yMax = value;
+  }
+  // The band edges sit just inside the plot. Nothing is stretched to fill the box.
+  const span = Math.max(yMax - yMin, 0.05);
+  const pad = span * 0.02;
+  yMin -= pad;
+  yMax += pad;
 
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
@@ -528,7 +526,7 @@ export function BbSparkline15mChart({
         width={scrollable ? W : undefined}
         height={scrollable ? H : undefined}
         className={cn("text-ocean-foam", scrollable ? "block max-w-none shrink-0" : "h-full w-full flex-1")}
-        preserveAspectRatio={fillPane ? "none" : "xMidYMid meet"}
+        preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label={`${data?.symbol ?? ""} ${tf} price, EMA 10, EMA 21, Bollinger`}
       >
@@ -621,7 +619,9 @@ export function BbSparkline15mChart({
           />
         ) : null}
 
-        {bars.map((b, i) =>
+        {data?.timeframe === "15m"
+          ? null
+          : bars.map((b, i) =>
           isHourOpen(b.datetime) ? (
             <line
               key={`hour-${b.datetime || i}`}

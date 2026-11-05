@@ -178,6 +178,8 @@ export function MovementWatchPanel({
           note: simulationNote(met),
           hourRelation: row.hourRelation,
           hourRegime: row.hourRegime,
+          entryAt: row.entryAt,
+          entrySide: row.entrySide === "CALL" || row.entrySide === "PUT" ? row.entrySide : null,
         };
       }
       setReview({
