@@ -149,6 +149,7 @@ function ThumbPane({
   breakoutLevel,
   axis,
   showAlarmMarks = true,
+  timeMarksEvery,
 }: {
   symbol: string;
   which: Frame;
@@ -158,6 +159,7 @@ function ThumbPane({
   breakoutLevel?: number | null;
   axis?: boolean;
   showAlarmMarks?: boolean;
+  timeMarksEvery?: number;
 }) {
   const label = which === "5m" ? "5m · 2h" : which === "1m" ? "1m · 15m" : "15m · 1d";
   return (
@@ -172,6 +174,7 @@ function ThumbPane({
         axis={axis}
         showEmaEvents
         showAlarmMarks={showAlarmMarks}
+        timeMarksEvery={timeMarksEvery}
         fillPane
         className="h-full"
       />
@@ -330,6 +333,7 @@ export function TickerThumb({
       breakoutLevel={which === "15m" && frame !== "all" ? breakoutLevel : null}
       showAlarmMarks={which !== "15m" || frame !== "all"}
       axis={which === "5m"}
+      timeMarksEvery={frame === "1m" ? 5 : frame === "5m" ? 15 : undefined}
     />
   );
   return (

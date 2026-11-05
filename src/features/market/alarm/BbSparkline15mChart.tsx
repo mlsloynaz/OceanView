@@ -38,6 +38,8 @@ type Props = {
   fillPane?: boolean;
   /** Entry asterisks. Off on the 15m pane while it shares the thumbnail. */
   showAlarmMarks?: boolean;
+  /** Solo graph. 1m marks every 5 minutes. 5m marks every 15 minutes. */
+  timeMarksEvery?: number;
 };
 
 const THUMB_5M_BARS = 24;
@@ -179,8 +181,21 @@ function timeLabel(iso: string): string {
   return `${m[1]}:${m[2]}`;
 }
 
+function clockMinute(iso: string): number | null {
+  const match = /[T ]\d{2}:(\d{2})/.exec(iso);
+  if (!match) return null;
+  const minute = Number(match[1]);
+  return Number.isFinite(minute) ? minute : null;
+}
+
 function isHourOpen(iso: string): boolean {
-  return /[T ]\d{2}:00/.test(iso);
+  return clockMinute(iso) === 0;
+}
+
+function isTimeMark(iso: string, everyMinutes: number): boolean {
+  const minute = clockMinute(iso);
+  if (minute == null || everyMinutes <= 0) return false;
+  return minute % everyMinutes === 0;
 }
 
 function formatPrice(value: number): string {
@@ -339,6 +354,7 @@ export function BbSparkline15mChart({
   frame,
   fillPane = false,
   showAlarmMarks = true,
+  timeMarksEvery,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const positionedRef = useRef<string | null>(null);
@@ -489,7 +505,8 @@ export function BbSparkline15mChart({
   const ema10Pts = bbLine("ema10");
   const ema21Pts = bbLine("ema21");
   const emaMarks = showEmaEvents ? emaEventMarks(bars) : [];
-  const tf = data?.timeframe === "5m" ? "5m" : "15m";
+  const tf = data?.timeframe === "1m" ? "1m" : data?.timeframe === "5m" ? "5m" : "15m";
+  const marksEvery = timeMarksEvery != null && timeMarksEvery > 0 ? timeMarksEvery : null;
   const envelope = bbEnvelopePath(bars, xCenter, yScale);
 
   const entryRadius = variant === "full" ? 5.5 : 4;
@@ -619,12 +636,15 @@ export function BbSparkline15mChart({
           />
         ) : null}
 
-        {data?.timeframe === "15m"
-          ? null
-          : bars.map((b, i) =>
-          isHourOpen(b.datetime) ? (
+        {bars.map((b, i) => {
+          const marked =
+            marksEvery != null
+              ? isTimeMark(b.datetime, marksEvery)
+              : data?.timeframe !== "15m" && isHourOpen(b.datetime);
+          if (!marked) return null;
+          return (
             <line
-              key={`hour-${b.datetime || i}`}
+              key={`mark-${b.datetime || i}`}
               x1={xCenter(i)}
               x2={xCenter(i)}
               y1={PAD.top}
@@ -634,8 +654,8 @@ export function BbSparkline15mChart({
               strokeWidth={variant === "full" ? 1.25 : 0.9}
               strokeDasharray={variant === "full" ? "5 4" : "3 2"}
             />
-          ) : null,
-        )}
+          );
+        })}
 
         {typeof breakoutLevel === "number" && Number.isFinite(breakoutLevel) ? (
           <line
@@ -660,7 +680,8 @@ export function BbSparkline15mChart({
           const bodyTop = Math.min(yO, yC);
           const bodyH = Math.max(1.5, Math.abs(yC - yO));
           const forming = Boolean(b.forming);
-          const onHour = isHourOpen(b.datetime);
+          const onHour =
+            marksEvery != null ? isTimeMark(b.datetime, marksEvery) : isHourOpen(b.datetime);
           const showTime = onHour
             ? true
             : scrollable
