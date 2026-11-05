@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/shared/lib/cn";
+import { AlarmSignalTag, type AlarmStripTag } from "./AlarmSignalStrip";
+import { TickerMark } from "./TickerMark";
 import { BbSparkline15mChart } from "./BbSparkline15mChart";
 import { fetchFormingMinutes, loadAlpacaSession, mergeFormingMinute, nextFormingDelayMs } from "./alpaca-forming-minute";
 import { fetchBoardSnapshot, fetchMovementWatchResults } from "./alarm-client";
@@ -297,6 +299,7 @@ export function TickerThumb({
   canMoveEarlier = false,
   canMoveLater = false,
   onMove,
+  alertTags = [],
 }: {
   symbol: string;
   name?: string;
@@ -316,6 +319,7 @@ export function TickerThumb({
   canMoveEarlier?: boolean;
   canMoveLater?: boolean;
   onMove?: (direction: -1 | 1) => void;
+  alertTags?: Array<AlarmStripTag & { colorIndex: number }>;
 }) {
   const five = panes["5m"].slice(-TWO_HOURS_5M_BARS);
   const oneMinuteCount = frame === "1m" ? SOLO_1M_BARS : FIFTEEN_MINUTES_1M;
@@ -357,6 +361,7 @@ export function TickerThumb({
             </button>
           ) : null}
           <span className="min-w-0 truncate">
+            <TickerMark symbol={symbol} />
             {symbol}
             {sentiment === "bull S" ? (
               <span className="ml-1 text-[9px] font-semibold text-ocean-teal">bull S</span>
@@ -389,6 +394,13 @@ export function TickerThumb({
           </div>
         ) : null}
       </div>
+      {alertTags.length > 0 ? (
+        <div className="mb-0.5 flex flex-wrap gap-1">
+          {alertTags.map((tag) => (
+            <AlarmSignalTag key={tag.id} tag={tag} index={tag.colorIndex} />
+          ))}
+        </div>
+      ) : null}
       {frame === "all" ? (
         <div className="grid h-[248px] grid-rows-[3fr_2fr] gap-0.5 overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-0.5">
           {pane("5m")}
@@ -517,11 +529,13 @@ export function ActiveTickerBoard({
   refreshKey,
   live = false,
   review = null,
+  alertTags = [],
 }: {
   tickers: Array<{ symbol: string; name?: string }>;
   refreshKey: number;
   live?: boolean;
   review?: Snapshot | null;
+  alertTags?: AlarmStripTag[];
 }) {
   const [frame, setFrame] = useState<PaneFilter>("all");
   const [order, setOrder] = useState<string[]>(() => readThumbOrder());
@@ -636,6 +650,11 @@ export function ActiveTickerBoard({
             pauseAction={hourBySymbol[ticker.symbol]?.pauseAction}
             note={snapshot?.bySymbol[ticker.symbol]?.note}
             frame={frame}
+            alertTags={alertTags.flatMap((tag, colorIndex) =>
+              tag.symbol.trim().toUpperCase() === ticker.symbol.trim().toUpperCase()
+                ? [{ ...tag, colorIndex }]
+                : [],
+            )}
           />
         ))}
       </div>

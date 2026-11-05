@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/shared/lib/cn";
+import { TickerMark } from "./TickerMark";
 import { formatEarningPctLabel, resolveEarningPct } from "./alarm-enter-pool";
 import type { AlarmPopupState } from "./alarm-types";
 
@@ -23,6 +24,43 @@ function operationLabel(kind: "enter" | "exit", side: string | null | undefined)
     value === "alcista" || value === "call" ? "Call" : value === "bajista" || value === "put" ? "Put" : "";
   const verb = kind === "enter" ? "Buy" : "Exit";
   return contract ? `${verb} ${contract}` : verb;
+}
+
+const TAG_COLORS = [
+  "bg-teal-300 text-ocean-deep",
+  "bg-sky-300 text-ocean-deep",
+  "bg-amber-300 text-ocean-deep",
+  "bg-rose-300 text-ocean-deep",
+  "bg-lime-300 text-ocean-deep",
+  "bg-violet-300 text-ocean-deep",
+  "bg-orange-300 text-ocean-deep",
+  "bg-cyan-200 text-ocean-deep",
+];
+
+export function alarmTagColor(index: number): string {
+  return TAG_COLORS[index % TAG_COLORS.length] ?? TAG_COLORS[0];
+}
+
+export function AlarmSignalTag({ tag, index }: { tag: AlarmStripTag; index: number }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex max-w-full shrink-0 items-center rounded-md px-2.5 py-1 text-[11px] font-semibold tabular-nums",
+        alarmTagColor(index),
+      )}
+    >
+      <TickerMark symbol={tag.symbol} className="mr-1 inline-block h-3.5 w-3.5 shrink-0 rounded-full object-contain" />
+      {tag.symbol}
+      <span className="mx-1 font-medium opacity-70">·</span>
+      {tag.operation}
+      {typeof tag.earningPct === "number" ? (
+        <>
+          <span className="mx-1 font-medium opacity-70">·</span>
+          {formatEarningPctLabel(tag.earningPct)}
+        </>
+      ) : null}
+    </span>
+  );
 }
 
 function byEarning(left: AlarmStripTag, right: AlarmStripTag): number {
@@ -80,29 +118,9 @@ export function AlarmSignalStrip({
       aria-label="Entry and exit alerts"
     >
       <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
-        {tags.map((tag, index) => {
-          const exit = tag.operation.startsWith("Exit");
-          return (
-            <span
-              key={tag.id}
-              className={cn(
-                "inline-flex shrink-0 items-center rounded-md px-2.5 py-1 text-[11px] font-semibold tabular-nums",
-                exit ? "bg-amber-400 text-ocean-deep" : "bg-ocean-teal text-ocean-deep",
-                index === 0 ? "ring-2 ring-white/80" : "",
-              )}
-            >
-              {tag.symbol}
-              <span className="mx-1 font-medium opacity-70">·</span>
-              {tag.operation}
-              {typeof tag.earningPct === "number" ? (
-                <>
-                  <span className="mx-1 font-medium opacity-70">·</span>
-                  {formatEarningPctLabel(tag.earningPct)}
-                </>
-              ) : null}
-            </span>
-          );
-        })}
+        {tags.map((tag, index) => (
+          <AlarmSignalTag key={tag.id} tag={tag} index={index} />
+        ))}
       </div>
       <button
         type="button"

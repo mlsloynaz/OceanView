@@ -130,7 +130,7 @@ export function ThumbnailGridWindow() {
         <AlarmSignalStrip tags={alerts.tags} onClose={alerts.dismiss} />
         {error ? <p className="mb-2 text-xs text-ocean-danger">{error}</p> : null}
         {tickersReady ? (
-          <ActiveTickerBoard tickers={tickers} refreshKey={refreshKey} live={live} />
+          <ActiveTickerBoard tickers={tickers} refreshKey={refreshKey} live={live} alertTags={alerts.tags} />
         ) : (
           <p className="text-[11px] text-ocean-sand">Loading tickers…</p>
         )}

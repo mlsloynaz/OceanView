@@ -349,7 +349,13 @@ export function MovementWatchPanel({
         {tickersLoading ? (
           <p className="text-[11px] text-ocean-sand">Loading tickers…</p>
         ) : (
-          <ActiveTickerBoard tickers={boardTickers} refreshKey={refreshKey} live={live} review={review} />
+          <ActiveTickerBoard
+            tickers={boardTickers}
+            refreshKey={refreshKey}
+            live={live}
+            review={review}
+            alertTags={alarmStripTags(alarms.alarmPopup)}
+          />
         )}
       </div>
 

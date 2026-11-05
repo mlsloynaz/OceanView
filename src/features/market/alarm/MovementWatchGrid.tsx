@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { BbSparkline15mChart } from "./BbSparkline15mChart";
+import { TickerMark } from "./TickerMark";
 import {
   formatAlarmTrend,
   watchRuleKeys,
@@ -173,6 +174,7 @@ function MovementWatchCard({
       <header className="mb-1 flex items-start justify-between gap-1">
         <div className="min-w-0">
           <p className="truncate font-display text-sm font-semibold tabular-nums text-ocean-foam">
+            <TickerMark symbol={watch.symbol} />
             {watch.symbol}
             {name ? (
               <span className="ml-1 text-[10px] font-normal text-ocean-sand">{name}</span>
@@ -408,6 +410,7 @@ function FitGraphThumb({
           </span>
         )}
         <span className="pointer-events-none absolute top-1 right-1 z-20 max-w-[80%] truncate rounded bg-ocean-deep/80 px-1 py-0.5 font-display text-[10px] font-semibold text-ocean-foam">
+          <TickerMark symbol={watch.symbol} />
           {watch.symbol}
           {name ? <span className="ml-1 font-normal text-ocean-sand">{name}</span> : null}
         </span>
