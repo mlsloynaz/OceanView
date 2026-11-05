@@ -2,15 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { TickerMark } from "./TickerMark";
 import { formatEarningPctLabel, resolveEarningPct } from "./alarm-enter-pool";
-import type { AlarmPopupState } from "./alarm-types";
+import { watchRuleKeys, type AlarmPopupState, type MarketAlarmWatch } from "./alarm-types";
 
 export const ALARM_STRIP_CHANNEL = "oceanview-alarm-strip";
+
+export type AlarmStripLane = "orb" | "trend";
 
 export type AlarmStripTag = {
   id: string;
   symbol: string;
   operation: string;
   earningPct: number | null;
+  lane: AlarmStripLane;
 };
 
 export type AlarmStripMessage =
@@ -70,37 +73,98 @@ function byEarning(left: AlarmStripTag, right: AlarmStripTag): number {
   return left.symbol.localeCompare(right.symbol);
 }
 
-/** Top estimated earning first. One tag per entry or exit. */
+function lanesFor(watch: MarketAlarmWatch): AlarmStripLane[] {
+  const keys = watchRuleKeys(watch);
+  const lanes: AlarmStripLane[] = [];
+  if (keys.includes("orb_breakout_5m")) lanes.push("orb");
+  if (keys.includes("trend_change_5m")) lanes.push("trend");
+  return lanes;
+}
+
+function tagFor(
+  watch: MarketAlarmWatch,
+  lane: AlarmStripLane,
+  operation: string,
+  earningPct: number | null,
+): AlarmStripTag {
+  return {
+    id: `${watch.id}:${lane}`,
+    symbol: watch.symbol,
+    operation,
+    earningPct,
+    lane,
+  };
+}
+
+/** Top estimated earning first. ORB and 5-minute trend stay on separate stripes. */
 export function alarmStripTags(popup: AlarmPopupState | null): AlarmStripTag[] {
   if (!popup) return [];
   if (popup.kind === "exit") {
     const watch = popup.watch;
-    return [
-      {
-        id: watch.id,
-        symbol: watch.symbol,
-        operation: operationLabel("exit", watch.lastDetectedTrend ?? watch.trend),
-        earningPct: resolveEarningPct(watch.lastOptionGainPct, watch.exitEvidence ?? watch.lastEvidence),
-      },
-    ];
+    const operation = operationLabel("exit", watch.lastDetectedTrend ?? watch.trend);
+    const earningPct = resolveEarningPct(watch.lastOptionGainPct, watch.exitEvidence ?? watch.lastEvidence);
+    return lanesFor(watch).map((lane) => tagFor(watch, lane, operation, earningPct));
   }
   const rows =
     popup.poolEntries && popup.poolEntries.length > 0
-      ? popup.poolEntries.map((row) => ({
-          id: row.watchId,
-          symbol: row.symbol,
-          operation: operationLabel("enter", row.sideLabel),
-          earningPct: row.earningPct,
-        }))
-      : [
-          {
-            id: popup.watch.id,
-            symbol: popup.watch.symbol,
-            operation: operationLabel("enter", popup.watch.lastDetectedTrend ?? popup.watch.trend),
-            earningPct: resolveEarningPct(popup.watch.lastOptionGainPct, popup.watch.lastEvidence),
-          },
-        ];
+      ? popup.poolEntries.flatMap((row) => {
+          const operation = operationLabel("enter", row.sideLabel);
+          return lanesFor(row.watch).map((lane) => tagFor(row.watch, lane, operation, row.earningPct));
+        })
+      : lanesFor(popup.watch).map((lane) =>
+          tagFor(
+            popup.watch,
+            lane,
+            operationLabel("enter", popup.watch.lastDetectedTrend ?? popup.watch.trend),
+            resolveEarningPct(popup.watch.lastOptionGainPct, popup.watch.lastEvidence),
+          ),
+        );
   return [...rows].sort(byEarning);
+}
+
+export function alarmStripLanes(tags: AlarmStripTag[]): { orb: AlarmStripTag[]; trend: AlarmStripTag[] } {
+  return {
+    orb: tags.filter((tag) => tag.lane === "orb"),
+    trend: tags.filter((tag) => tag.lane === "trend"),
+  };
+}
+
+const LANE_LABEL: Record<AlarmStripLane, string> = {
+  orb: "ORB",
+  trend: "5minTrend",
+};
+
+function AlarmLaneRow({
+  lane,
+  tags,
+  onClose,
+}: {
+  lane: AlarmStripLane;
+  tags: AlarmStripTag[];
+  onClose: () => void;
+}) {
+  if (tags.length === 0) return null;
+  const label = LANE_LABEL[lane];
+  return (
+    <div className="flex w-full items-center gap-2" role="status" aria-label={`${label} alerts`}>
+      <span className="w-16 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">
+        {label}
+      </span>
+      <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
+        {tags.map((tag, index) => (
+          <AlarmSignalTag key={tag.id} tag={tag} index={index} />
+        ))}
+      </div>
+      <button
+        type="button"
+        aria-label={`Hide ${label} alerts`}
+        className="shrink-0 rounded px-2 py-1 text-sm font-bold leading-none text-ocean-sand hover:bg-ocean-mid/30"
+        onClick={onClose}
+      >
+        X
+      </button>
+    </div>
+  );
 }
 
 export function AlarmSignalStrip({
@@ -110,26 +174,12 @@ export function AlarmSignalStrip({
   tags: AlarmStripTag[];
   onClose: () => void;
 }) {
-  if (tags.length === 0) return null;
+  const lanes = alarmStripLanes(tags);
+  if (lanes.orb.length === 0 && lanes.trend.length === 0) return null;
   return (
-    <div
-      className="sticky top-0 z-30 flex w-full items-center gap-2 border-b border-ocean-mid/40 bg-ocean-deep/95 px-1 py-1.5"
-      role="status"
-      aria-label="Entry and exit alerts"
-    >
-      <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
-        {tags.map((tag, index) => (
-          <AlarmSignalTag key={tag.id} tag={tag} index={index} />
-        ))}
-      </div>
-      <button
-        type="button"
-        aria-label="Hide alerts"
-        className="shrink-0 rounded px-2 py-1 text-sm font-bold leading-none text-ocean-sand hover:bg-ocean-mid/30"
-        onClick={onClose}
-      >
-        X
-      </button>
+    <div className="sticky top-0 z-30 flex w-full flex-col gap-1 border-b border-ocean-mid/40 bg-ocean-deep/95 px-1 py-1.5">
+      <AlarmLaneRow lane="orb" tags={lanes.orb} onClose={onClose} />
+      <AlarmLaneRow lane="trend" tags={lanes.trend} onClose={onClose} />
     </div>
   );
 }

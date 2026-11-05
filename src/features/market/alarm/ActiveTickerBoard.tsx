@@ -84,6 +84,90 @@ type Snapshot = {
 };
 
 const emptyPanes: Panes = { "5m": [], "15m": [], "1m": [] };
+const SECTOR_ETF: Record<string, "SMH" | "XLK"> = {
+  NVDA: "SMH",
+  AVGO: "SMH",
+  AAPL: "XLK",
+  MSFT: "XLK",
+  ORCL: "XLK",
+  PLTR: "XLK",
+};
+
+export function fiveMinuteMove(closes: number[]): 1 | -1 | null {
+  const last = closes.at(-1);
+  const previous = closes.at(-2);
+  if (last == null || previous == null) return null;
+  if (last > previous) return 1;
+  if (last < previous) return -1;
+  return null;
+}
+
+function etfComparison(
+  symbol: string,
+  companyBars: BbSparkline15mBar[],
+  etfMoves: Record<string, 1 | -1 | null>,
+  apiEtf: string | null,
+  apiMatch: boolean | null,
+): { etf: string; match: boolean } | null {
+  const etf = SECTOR_ETF[symbol.trim().toUpperCase()] ?? apiEtf;
+  if (!etf) return null;
+  const companyMove = fiveMinuteMove(companyBars.map((bar) => bar.close));
+  const etfMove = etfMoves[etf];
+  if (companyMove != null && (etfMove === 1 || etfMove === -1)) {
+    return { etf, match: companyMove === etfMove };
+  }
+  if (apiEtf && apiMatch != null) return { etf: apiEtf, match: apiMatch };
+  return null;
+}
+
+function useEtfMoves(enabled: boolean): Record<string, 1 | -1 | null> {
+  const [moves, setMoves] = useState<Record<string, 1 | -1 | null>>({});
+  useEffect(() => {
+    if (!enabled) return;
+    let cancel = false;
+    let timer = 0;
+    const tick = () => {
+      void loadAlpacaSession()
+        .then((session) => {
+          if (cancel || !session) return null;
+          const start = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+          const params = new URLSearchParams({
+            symbols: "SMH,XLK",
+            timeframe: "5Min",
+            start,
+            limit: "20",
+            feed: session.feed || "iex",
+          });
+          return fetch(`https://data.alpaca.markets/v2/stocks/bars?${params.toString()}`, {
+            headers: {
+              "APCA-API-KEY-ID": session.keyId,
+              "APCA-API-SECRET-KEY": session.secretKey,
+              Accept: "application/json",
+            },
+          }).then((response) => (response.ok ? response.json() : null));
+        })
+        .then((body: { bars?: Record<string, Array<{ c?: number }>> } | null) => {
+          if (cancel || !body?.bars) return;
+          const next: Record<string, 1 | -1 | null> = {};
+          for (const symbol of ["SMH", "XLK"]) {
+            const closes = (body.bars[symbol] ?? [])
+              .map((bar) => Number(bar.c))
+              .filter((close) => Number.isFinite(close));
+            next[symbol] = fiveMinuteMove(closes);
+          }
+          setMoves(next);
+        })
+        .catch(() => {});
+      timer = window.setTimeout(tick, 60_000);
+    };
+    tick();
+    return () => {
+      cancel = true;
+      window.clearTimeout(timer);
+    };
+  }, [enabled]);
+  return moves;
+}
 const ALL_1M_BARS = 60;
 const SOLO_1M_BARS = 30;
 const TWO_HOURS_5M_BARS = 24;
@@ -305,6 +389,7 @@ export function TickerThumb({
   canMoveLater = false,
   onMove,
   alertTags = [],
+  etfMoves = {},
 }: {
   symbol: string;
   name?: string;
@@ -327,7 +412,9 @@ export function TickerThumb({
   canMoveLater?: boolean;
   onMove?: (direction: -1 | 1) => void;
   alertTags?: Array<AlarmStripTag & { colorIndex: number }>;
+  etfMoves?: Record<string, 1 | -1 | null>;
 }) {
+  const etfResult = etfComparison(symbol, panes["5m"], etfMoves, sectorEtf, etfMatch);
   const five = panes["5m"].slice(-TWO_HOURS_5M_BARS);
   const oneMinuteCount = frame === "1m" ? SOLO_1M_BARS : ALL_1M_BARS;
   const relation = textOrNull(hourRelation);
@@ -370,6 +457,16 @@ export function TickerThumb({
           <span className="min-w-0 truncate">
             <TickerMark symbol={symbol} />
             {symbol}
+            {etfResult ? (
+              <span
+                className={cn(
+                  "ml-1 text-[9px] font-semibold",
+                  etfResult.match ? "text-ocean-teal" : "text-ocean-danger",
+                )}
+              >
+                {etfResult.etf} {etfResult.match ? "match" : "not"}
+              </span>
+            ) : null}
             {sentiment === "bull S" ? (
               <span className="ml-1 text-[9px] font-semibold text-ocean-teal">bull S</span>
             ) : null}
@@ -400,16 +497,6 @@ export function TickerThumb({
           </div>
         ) : null}
       </div>
-      {sectorEtf && etfMatch != null ? (
-        <p
-          className={cn(
-            "mb-0.5 text-[9px] font-semibold",
-            etfMatch ? "text-ocean-teal" : "text-ocean-danger",
-          )}
-        >
-          {sectorEtf} {etfMatch ? "match" : "not"}
-        </p>
-      ) : null}
       {alertTags.length > 0 ? (
         <div className="mb-0.5 flex flex-wrap gap-1">
           {alertTags.map((tag) => (
@@ -572,6 +659,7 @@ export function ActiveTickerBoard({
       globalThis.removeEventListener(THUMB_ORDER_EVENT, sync);
     };
   }, []);
+  const etfMoves = useEtfMoves(!showingReview);
   const arranged = arrangeTickers(tickers, order);
   const moveTicker = (symbol: string, direction: -1 | 1) => {
     const symbols = arranged.map((ticker) => ticker.symbol.toUpperCase());
@@ -662,17 +750,20 @@ export function ActiveTickerBoard({
             }
             sectorEtf={snapshot?.bySymbol[ticker.symbol]?.sectorEtf}
             etfMatch={snapshot?.bySymbol[ticker.symbol]?.etfMatch}
+            etfMoves={etfMoves}
             sentiment={snapshot?.bySymbol[ticker.symbol]?.sentiment}
             transitionCandle={hourBySymbol[ticker.symbol]?.transitionCandle === true}
             lateralTrend={hourBySymbol[ticker.symbol]?.lateralTrend === true}
             pauseAction={hourBySymbol[ticker.symbol]?.pauseAction}
             note={snapshot?.bySymbol[ticker.symbol]?.note}
             frame={frame}
-            alertTags={alertTags.flatMap((tag, colorIndex) =>
-              tag.symbol.trim().toUpperCase() === ticker.symbol.trim().toUpperCase()
-                ? [{ ...tag, colorIndex }]
-                : [],
-            )}
+            alertTags={alertTags.flatMap((tag) => {
+              if (tag.symbol.trim().toUpperCase() !== ticker.symbol.trim().toUpperCase()) return [];
+              const colorIndex = alertTags
+                .filter((row) => row.lane === tag.lane)
+                .findIndex((row) => row.id === tag.id);
+              return [{ ...tag, colorIndex: colorIndex < 0 ? 0 : colorIndex }];
+            })}
           />
         ))}
       </div>
