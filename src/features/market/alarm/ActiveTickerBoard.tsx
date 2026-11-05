@@ -82,7 +82,7 @@ type Snapshot = {
 };
 
 const emptyPanes: Panes = { "5m": [], "15m": [], "1m": [] };
-const FIFTEEN_MINUTES_1M = 15;
+const ALL_1M_BARS = 60;
 const SOLO_1M_BARS = 30;
 const TWO_HOURS_5M_BARS = 24;
 const SESSION_15M_BARS = 26;
@@ -166,7 +166,7 @@ function ThumbPane({
   timeMarksEvery?: number;
   caption?: string;
 }) {
-  const label = caption ?? (which === "5m" ? "5m · 2h" : which === "1m" ? "1m · 15m" : "15m · 1d");
+  const label = caption ?? (which === "5m" ? "5m · 2h" : which === "1m" ? "1m · 1h" : "15m · 1d");
   return (
     <div className="relative h-full min-h-0 min-w-0">
       <PaneLabel>{label}</PaneLabel>
@@ -322,7 +322,7 @@ export function TickerThumb({
   alertTags?: Array<AlarmStripTag & { colorIndex: number }>;
 }) {
   const five = panes["5m"].slice(-TWO_HOURS_5M_BARS);
-  const oneMinuteCount = frame === "1m" ? SOLO_1M_BARS : FIFTEEN_MINUTES_1M;
+  const oneMinuteCount = frame === "1m" ? SOLO_1M_BARS : ALL_1M_BARS;
   const relation = textOrNull(hourRelation);
   const regime = textOrNull(hourRegime);
   const pane = (which: Frame) => (
