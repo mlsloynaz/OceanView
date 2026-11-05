@@ -10,6 +10,8 @@ import {
   type MovementWatchJobStatus,
 } from "./alarm-client";
 import { ActiveTickerBoard, type BoardSnapshotView } from "./ActiveTickerBoard";
+import { AlarmSignalStrip, alarmStripTags } from "./AlarmSignalStrip";
+import { useAlarms } from "@/features/alarms/AlarmsProvider";
 
 function regularHoursNow(now = new Date()): boolean {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -114,6 +116,7 @@ export function MovementWatchPanel({
   const [throughEt, setThroughEt] = useState("");
   const [review, setReview] = useState<BoardSnapshotView | null>(null);
   const [windowBlocked, setWindowBlocked] = useState(false);
+  const alarms = useAlarms();
 
   const loadCatalog = useCallback(async () => {
     try {
@@ -342,6 +345,7 @@ export function MovementWatchPanel({
         {windowBlocked ? (
           <p className="text-[11px] text-ocean-sand">Allow pop-ups for OceanView to open the thumbnail window.</p>
         ) : null}
+        <AlarmSignalStrip tags={alarmStripTags(alarms.alarmPopup)} onClose={alarms.dismissAlarmPopup} />
         {tickersLoading ? (
           <p className="text-[11px] text-ocean-sand">Loading tickers…</p>
         ) : (

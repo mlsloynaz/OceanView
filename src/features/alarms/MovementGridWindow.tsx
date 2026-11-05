@@ -14,6 +14,7 @@ import {
   type MarketAlarmWatch,
 } from "@/features/market/alarm/alarm-types";
 import { cn } from "@/shared/lib/cn";
+import { AlarmSignalStrip, useRemoteAlarmStrip } from "@/features/market/alarm/AlarmSignalStrip";
 import {
   MOVEMENT_GRID_CHANNEL,
   type MovementGridActionName,
@@ -48,6 +49,7 @@ export function MovementGridWindow() {
   const [chartWatchId, setChartWatchId] = useState<string | null>(null);
   const [movementFocus, setMovementFocus] = useState<AlarmEligibleRuleKey | "all">("all");
   const [hourRelationFilter, setHourRelationFilter] = useState<HourRelationFilter>("all");
+  const alerts = useRemoteAlarmStrip();
 
   useEffect(() => {
     const channel = new BroadcastChannel(MOVEMENT_GRID_CHANNEL);
@@ -156,6 +158,7 @@ export function MovementGridWindow() {
           {fullscreen ? "Exit full screen" : "Full screen"}
         </button>
       </header>
+      <AlarmSignalStrip tags={alerts.tags} onClose={alerts.dismiss} />
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-3">
         {movementTabs.length > 0 ? (

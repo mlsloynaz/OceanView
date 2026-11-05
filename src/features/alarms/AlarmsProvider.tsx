@@ -1,5 +1,9 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
-import { AlarmTradeModal } from "@/features/market/alarm/AlarmTradeModal";
+import {
+  ALARM_STRIP_CHANNEL,
+  alarmStripTags,
+  type AlarmStripMessage,
+} from "@/features/market/alarm/AlarmSignalStrip";
 import { isMovementAlarmWatch } from "@/features/market/alarm/alarm-types";
 import { useMarketAlarms } from "@/features/market/alarm/useMarketAlarms";
 import {
@@ -99,28 +103,54 @@ function MovementGridSync() {
   return null;
 }
 
+/** Publishes the alert strip to graph windows and hides it when they press X. */
+function AlarmStripSync() {
+  const alarms = useAlarms();
+  const alarmsRef = useRef(alarms);
+  alarmsRef.current = alarms;
+
+  useEffect(() => {
+    const channel = new BroadcastChannel(ALARM_STRIP_CHANNEL);
+    const publish = () => {
+      channel.postMessage({
+        type: "strip",
+        tags: alarmStripTags(alarmsRef.current.alarmPopup),
+      } satisfies AlarmStripMessage);
+    };
+    const onMessage = (event: MessageEvent<AlarmStripMessage>) => {
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type === "hello") publish();
+      if (data.type === "dismiss") alarmsRef.current.dismissAlarmPopup();
+    };
+    channel.addEventListener("message", onMessage);
+    publish();
+    return () => {
+      channel.removeEventListener("message", onMessage);
+      channel.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    const channel = new BroadcastChannel(ALARM_STRIP_CHANNEL);
+    channel.postMessage({
+      type: "strip",
+      tags: alarmStripTags(alarms.alarmPopup),
+    } satisfies AlarmStripMessage);
+    channel.close();
+  }, [alarms.alarmPopup]);
+
+  return null;
+}
+
 export function AlarmsProvider({ children }: { children: ReactNode }) {
   const alarms = useMarketAlarms();
 
   return (
     <AlarmsContext.Provider value={alarms}>
       <MovementGridSync />
+      <AlarmStripSync />
       {children}
-      {alarms.alarmPopup ? (
-        <AlarmTradeModal
-          watch={alarms.alarmPopup.watch}
-          kind={alarms.alarmPopup.kind}
-          poolEntries={alarms.alarmPopup.poolEntries}
-          topRatedSymbol={alarms.alarmPopup.topRatedSymbol}
-          topRatedEarningPct={alarms.alarmPopup.topRatedEarningPct}
-          onClose={alarms.dismissAlarmPopup}
-          onConfirm={() =>
-            alarms.alarmPopup!.kind === "enter"
-              ? alarms.confirmEnter(alarms.alarmPopup!.watch.id)
-              : alarms.confirmExit(alarms.alarmPopup!.watch.id)
-          }
-        />
-      ) : null}
     </AlarmsContext.Provider>
   );
 }

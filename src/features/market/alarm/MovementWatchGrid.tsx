@@ -110,36 +110,6 @@ function contractLabel(
   return action;
 }
 
-function SignalOverlay({
-  kind,
-  trend,
-}: {
-  kind: "buy" | "exit";
-  trend?: MarketAlarmWatch["lastDetectedTrend"];
-}) {
-  const buy = kind === "buy";
-  return (
-    <div
-      className={cn(
-        "pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md",
-        buy ? "bg-ocean-teal/35" : "bg-amber-500/35",
-      )}
-      aria-hidden
-    >
-      <span
-        className={cn(
-          "animate-ov-alarm-blink whitespace-nowrap rounded-md px-3 py-1.5 font-display text-xl font-bold tracking-[0.08em] uppercase shadow-sm sm:text-2xl",
-          buy
-            ? "bg-ocean-teal text-ocean-deep"
-            : "bg-amber-400 text-ocean-deep",
-        )}
-      >
-        {contractLabel(kind, trend)}
-      </span>
-    </div>
-  );
-}
-
 function MovementWatchCard({
   watch,
   name,
@@ -271,12 +241,6 @@ function MovementWatchCard({
             shape="portrait"
             className="h-full"
           />
-          {watch.status === "met" ? (
-            <SignalOverlay kind="buy" trend={watch.lastDetectedTrend} />
-          ) : null}
-          {watch.status === "exit" ? (
-            <SignalOverlay kind="exit" trend={watch.lastDetectedTrend} />
-          ) : null}
         </button>
       ) : null}
       {fiveMinute && showChart ? (
@@ -297,12 +261,6 @@ function MovementWatchCard({
           <p className="px-2 text-center text-[10px] text-ocean-sand/70">
             Chart after next check
           </p>
-          {watch.status === "met" ? (
-            <SignalOverlay kind="buy" trend={watch.lastDetectedTrend} />
-          ) : null}
-          {watch.status === "exit" ? (
-            <SignalOverlay kind="exit" trend={watch.lastDetectedTrend} />
-          ) : null}
         </div>
       ) : null}
 
@@ -453,12 +411,6 @@ function FitGraphThumb({
           {watch.symbol}
           {name ? <span className="ml-1 font-normal text-ocean-sand">{name}</span> : null}
         </span>
-        {watch.status === "met" ? (
-          <SignalOverlay kind="buy" trend={watch.lastDetectedTrend} />
-        ) : null}
-        {watch.status === "exit" ? (
-          <SignalOverlay kind="exit" trend={watch.lastDetectedTrend} />
-        ) : null}
         {levelWarningLine(watch) ? (
           <span className="pointer-events-none absolute bottom-1 left-1 z-20 max-w-[90%] truncate rounded bg-ocean-deep/80 px-1 py-0.5 text-[10px] font-semibold text-amber-400">
             {levelWarningLine(watch)}

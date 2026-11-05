@@ -38,7 +38,7 @@ type Props = {
   fillPane?: boolean;
   /** Entry asterisks. Off on the 15m pane while it shares the thumbnail. */
   showAlarmMarks?: boolean;
-  /** Solo graph. 1m marks every 5 minutes. 5m marks every 15 minutes. */
+  /** Solo graph. 1m marks every 5 minutes. 5m marks every 15. 15m marks each hour. */
   timeMarksEvery?: number;
 };
 

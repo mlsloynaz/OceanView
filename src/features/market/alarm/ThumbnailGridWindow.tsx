@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { getTickersCatalog } from "@/features/admin/tickers/api/tickers-client";
 import { cn } from "@/shared/lib/cn";
 import { ActiveTickerBoard } from "./ActiveTickerBoard";
+import { AlarmSignalStrip, useRemoteAlarmStrip } from "./AlarmSignalStrip";
 import { fetchMovementWatchJobStatus, type MovementWatchJobStatus } from "./alarm-client";
 
 const BTN =
@@ -30,6 +31,7 @@ export function ThumbnailGridWindow() {
   const [job, setJob] = useState<MovementWatchJobStatus | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const alerts = useRemoteAlarmStrip();
 
   const sessionOpen = typeof job?.marketOpen === "boolean" ? job.marketOpen : regularHoursNow();
   const live = sessionOpen && (Boolean(job?.live) || job?.status === "running");
@@ -125,6 +127,7 @@ export function ThumbnailGridWindow() {
         </button>
       </header>
       <div className="min-h-0 flex-1 overflow-auto p-3">
+        <AlarmSignalStrip tags={alerts.tags} onClose={alerts.dismiss} />
         {error ? <p className="mb-2 text-xs text-ocean-danger">{error}</p> : null}
         {tickersReady ? (
           <ActiveTickerBoard tickers={tickers} refreshKey={refreshKey} live={live} />

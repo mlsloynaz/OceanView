@@ -81,6 +81,7 @@ type Snapshot = {
 
 const emptyPanes: Panes = { "5m": [], "15m": [], "1m": [] };
 const FIFTEEN_MINUTES_1M = 15;
+const SOLO_1M_BARS = 30;
 const TWO_HOURS_5M_BARS = 24;
 const SESSION_15M_BARS = 26;
 
@@ -150,6 +151,7 @@ function ThumbPane({
   axis,
   showAlarmMarks = true,
   timeMarksEvery,
+  caption,
 }: {
   symbol: string;
   which: Frame;
@@ -160,8 +162,9 @@ function ThumbPane({
   axis?: boolean;
   showAlarmMarks?: boolean;
   timeMarksEvery?: number;
+  caption?: string;
 }) {
-  const label = which === "5m" ? "5m · 2h" : which === "1m" ? "1m · 15m" : "15m · 1d";
+  const label = caption ?? (which === "5m" ? "5m · 2h" : which === "1m" ? "1m · 15m" : "15m · 1d");
   return (
     <div className="relative h-full min-h-0 min-w-0">
       <PaneLabel>{label}</PaneLabel>
@@ -315,6 +318,7 @@ export function TickerThumb({
   onMove?: (direction: -1 | 1) => void;
 }) {
   const five = panes["5m"].slice(-TWO_HOURS_5M_BARS);
+  const oneMinuteCount = frame === "1m" ? SOLO_1M_BARS : FIFTEEN_MINUTES_1M;
   const relation = textOrNull(hourRelation);
   const regime = textOrNull(hourRegime);
   const pane = (which: Frame) => (
@@ -325,15 +329,16 @@ export function TickerThumb({
         which === "5m"
           ? five
           : which === "1m"
-            ? panes["1m"].slice(-FIFTEEN_MINUTES_1M)
+            ? panes["1m"].slice(-oneMinuteCount)
             : panes["15m"].slice(-SESSION_15M_BARS)
       }
+      caption={which === "1m" && frame === "1m" ? "1m · 30m" : undefined}
       entryAt={which === "5m" || (which === "15m" && frame !== "all") ? entryAt : null}
       entrySide={which === "5m" || (which === "15m" && frame !== "all") ? entrySide : null}
       breakoutLevel={which === "15m" && frame !== "all" ? breakoutLevel : null}
       showAlarmMarks={which !== "15m" || frame !== "all"}
       axis={which === "5m"}
-      timeMarksEvery={frame === "1m" ? 5 : frame === "5m" ? 15 : undefined}
+      timeMarksEvery={frame === "1m" ? 5 : frame === "5m" ? 15 : frame === "15m" ? 60 : undefined}
     />
   );
   return (
