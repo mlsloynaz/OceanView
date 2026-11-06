@@ -112,10 +112,17 @@ export function emaAngleDeg(emaNow: number, emaPrev: number): number | null {
   return (Math.atan(stepPct / ANGLE_PCT_AT_45) * 180) / Math.PI;
 }
 
+function emaNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
 export function latestEmaAngle(bars: BbSparkline15mBar[]): number | null {
-  const line = bars
-    .map((bar) => bar.ema10)
-    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const line = bars.flatMap((bar) => {
+    const ema = emaNumber(bar.ema10);
+    return ema == null ? [] : [ema];
+  });
   if (line.length < 2) return null;
   return emaAngleDeg(line[line.length - 1]!, line[line.length - 2]!);
 }
@@ -155,20 +162,27 @@ function AngleLeadersBar({ leaders }: { leaders: AngleLeaders }) {
   const any = ANGLE_FRAMES.some((frame) => leaders[frame].up || leaders[frame].down);
   if (!any) return null;
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1" aria-label="Steepest EMA 10 angles">
-      {ANGLE_FRAMES.map((frame) => (
-        <p key={frame} className="flex items-center gap-2 text-[10px]">
-          <span className="font-semibold text-ocean-sand">{frame}</span>
-          <AngleChoice pick={leaders[frame].up} tone="up" />
-          <AngleChoice pick={leaders[frame].down} tone="down" />
-        </p>
-      ))}
+    <div
+      className="rounded border border-ocean-mid/40 bg-ocean-deep/40 px-2 py-1.5"
+      aria-label="Steepest EMA 10 angle by timeframe"
+    >
+      <ul className="space-y-1">
+        {ANGLE_FRAMES.map((frame) => (
+          <li key={frame} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+            <span className="w-8 shrink-0 font-display font-bold text-ocean-foam">{frame}</span>
+            <span className="text-ocean-sand">positive</span>
+            <AngleChoice pick={leaders[frame].up} tone="up" />
+            <span className="text-ocean-sand">negative</span>
+            <AngleChoice pick={leaders[frame].down} tone="down" />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
 function AngleChoice({ pick, tone }: { pick: AnglePick | null; tone: "up" | "down" }) {
-  if (!pick) return <span className="text-ocean-sand">—</span>;
+  if (!pick) return <span className="text-ocean-sand">none</span>;
   return (
     <span className={cn("inline-flex items-center", tone === "up" ? "text-ocean-teal" : "text-ocean-danger")}>
       <TickerMark symbol={pick.symbol} />
