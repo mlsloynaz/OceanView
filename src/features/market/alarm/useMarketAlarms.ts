@@ -827,9 +827,27 @@ export function useMarketAlarms() {
           lastDetectedTrend: detectedTrend ?? watch.lastDetectedTrend ?? null,
         };
 
-        // Entry was showing, or we are in the trade, and the setup is gone → EXIT.
+        // The entry banner was only showing. The next check dropped it.
+        // That is not an exit, and it must not ring one.
+        if (priorStatus === "met" && !result.met) {
+          setWatches((prev) =>
+            prev.map((w) =>
+              w.id === id
+                ? {
+                    ...w,
+                    ...patchBase,
+                    status: "running",
+                  }
+                : w,
+            ),
+          );
+          setAlarmPopup((current) => (current?.watch.id === id ? null : current));
+          return;
+        }
+
+        // We are in the trade and the setup is gone → EXIT.
         // The timer stays up so the next entry can still ring.
-        if ((priorStatus === "in_trade" || priorStatus === "met") && !result.met) {
+        if (priorStatus === "in_trade" && !result.met) {
           const exitSide =
             detectedTrend === "alcista" || watch.lastDetectedTrend === "alcista"
               ? "Call"

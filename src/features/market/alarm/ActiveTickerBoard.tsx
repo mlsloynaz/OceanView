@@ -103,6 +103,81 @@ export function fiveMinuteMove(closes: number[]): 1 | -1 | null {
   return null;
 }
 
+/** A 0.10% EMA 10 step in one bar is 45°. Same scale as the API angle. */
+const ANGLE_PCT_AT_45 = 0.1;
+
+export function emaAngleDeg(emaNow: number, emaPrev: number): number | null {
+  if (!Number.isFinite(emaNow) || !Number.isFinite(emaPrev) || emaPrev === 0) return null;
+  const stepPct = ((emaNow - emaPrev) / emaPrev) * 100;
+  return (Math.atan(stepPct / ANGLE_PCT_AT_45) * 180) / Math.PI;
+}
+
+export function latestEmaAngle(bars: BbSparkline15mBar[]): number | null {
+  const line = bars
+    .map((bar) => bar.ema10)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  if (line.length < 2) return null;
+  return emaAngleDeg(line[line.length - 1]!, line[line.length - 2]!);
+}
+
+export type AnglePick = { symbol: string; angle: number };
+export type AngleLeaders = Record<Frame, { up: AnglePick | null; down: AnglePick | null }>;
+
+const ANGLE_FRAMES: Frame[] = ["1m", "5m", "15m"];
+
+export function angleLeaders(rows: Array<{ symbol: string; panes: Panes | undefined }>): AngleLeaders {
+  const leaders = {} as AngleLeaders;
+  for (const frame of ANGLE_FRAMES) {
+    const ranked = rows.flatMap((row) => {
+      const angle = latestEmaAngle(row.panes?.[frame] ?? []);
+      return angle == null ? [] : [{ symbol: row.symbol.trim().toUpperCase(), angle }];
+    });
+    if (ranked.length === 0) {
+      leaders[frame] = { up: null, down: null };
+      continue;
+    }
+    const up = ranked.reduce((best, row) => (row.angle > best.angle ? row : best));
+    const down = ranked.reduce((best, row) => (row.angle < best.angle ? row : best));
+    leaders[frame] = {
+      up: up.angle > 0 ? up : null,
+      down: down.angle < 0 ? down : null,
+    };
+  }
+  return leaders;
+}
+
+function formatAngle(angle: number): string {
+  const sign = angle > 0 ? "+" : "";
+  return `${sign}${angle.toFixed(1)}°`;
+}
+
+function AngleLeadersBar({ leaders }: { leaders: AngleLeaders }) {
+  const any = ANGLE_FRAMES.some((frame) => leaders[frame].up || leaders[frame].down);
+  if (!any) return null;
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1" aria-label="Steepest EMA 10 angles">
+      {ANGLE_FRAMES.map((frame) => (
+        <p key={frame} className="flex items-center gap-2 text-[10px]">
+          <span className="font-semibold text-ocean-sand">{frame}</span>
+          <AngleChoice pick={leaders[frame].up} tone="up" />
+          <AngleChoice pick={leaders[frame].down} tone="down" />
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function AngleChoice({ pick, tone }: { pick: AnglePick | null; tone: "up" | "down" }) {
+  if (!pick) return <span className="text-ocean-sand">—</span>;
+  return (
+    <span className={cn("inline-flex items-center", tone === "up" ? "text-ocean-teal" : "text-ocean-danger")}>
+      <TickerMark symbol={pick.symbol} />
+      <span className="font-display font-bold">{pick.symbol}</span>
+      <span className="ml-1 tabular-nums">{formatAngle(pick.angle)}</span>
+    </span>
+  );
+}
+
 function etfComparison(
   symbol: string,
   companyBars: BbSparkline15mBar[],
@@ -132,31 +207,36 @@ function useEtfMoves(enabled: boolean): Record<string, 1 | -1 | null> {
         .then((session) => {
           if (cancel || !session) return null;
           const start = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
-          const params = new URLSearchParams({
-            symbols: "SMH,XLK",
-            timeframe: "5Min",
-            start,
-            limit: "20",
-            feed: session.feed || "iex",
-          });
-          return fetch(`https://data.alpaca.markets/v2/stocks/bars?${params.toString()}`, {
-            headers: {
-              "APCA-API-KEY-ID": session.keyId,
-              "APCA-API-SECRET-KEY": session.secretKey,
-              Accept: "application/json",
-            },
-          }).then((response) => (response.ok ? response.json() : null));
+          const headers = {
+            "APCA-API-KEY-ID": session.keyId,
+            "APCA-API-SECRET-KEY": session.secretKey,
+            Accept: "application/json",
+          };
+          return Promise.all(
+            ["SMH", "XLK"].map(async (symbol) => {
+              const params = new URLSearchParams({
+                symbols: symbol,
+                timeframe: "5Min",
+                start,
+                limit: "20",
+                feed: session.feed || "iex",
+              });
+              const response = await fetch(`https://data.alpaca.markets/v2/stocks/bars?${params.toString()}`, {
+                headers,
+              });
+              const body = response.ok
+                ? ((await response.json()) as { bars?: Record<string, Array<{ c?: number }>> })
+                : null;
+              const closes = (body?.bars?.[symbol] ?? [])
+                .map((bar) => Number(bar.c))
+                .filter((close) => Number.isFinite(close));
+              return [symbol, fiveMinuteMove(closes)] as const;
+            }),
+          );
         })
-        .then((body: { bars?: Record<string, Array<{ c?: number }>> } | null) => {
-          if (cancel || !body?.bars) return;
-          const next: Record<string, 1 | -1 | null> = {};
-          for (const symbol of ["SMH", "XLK"]) {
-            const closes = (body.bars[symbol] ?? [])
-              .map((bar) => Number(bar.c))
-              .filter((close) => Number.isFinite(close));
-            next[symbol] = fiveMinuteMove(closes);
-          }
-          setMoves(next);
+        .then((rows: Array<readonly [string, 1 | -1 | null]> | null) => {
+          if (cancel || !rows) return;
+          setMoves(Object.fromEntries(rows));
         })
         .catch(() => {});
       timer = window.setTimeout(tick, 60_000);
@@ -498,7 +578,7 @@ export function TickerThumb({
   return (
     <article className="rounded-md border border-ocean-mid/40 bg-ocean-deep/30 p-1">
       <div className="mb-0.5 flex items-start justify-between gap-1">
-        <p className="flex min-w-0 items-center gap-0.5 font-display text-xs font-semibold text-ocean-foam">
+        <p className="flex min-w-0 flex-wrap items-center gap-x-1 font-display text-xs font-semibold text-ocean-foam">
           {onMove ? (
             <button
               type="button"
@@ -510,26 +590,24 @@ export function TickerThumb({
               ‹
             </button>
           ) : null}
-          <span className="min-w-0 truncate">
-            <TickerMark symbol={symbol} />
-            {symbol}
-            {etfResult ? (
-              <span
-                className={cn(
-                  "ml-1 text-[9px] font-semibold",
-                  etfResult.match ? "text-ocean-teal" : "text-ocean-danger",
-                )}
-              >
-                {etfResult.etf} {etfResult.match ? "match" : "not"}
-              </span>
-            ) : null}
-            {sentiment === "bull S" ? (
-              <span className="ml-1 text-[9px] font-semibold text-ocean-teal">bull S</span>
-            ) : null}
-            {sentiment === "bear S" ? (
-              <span className="ml-1 text-[9px] font-semibold text-ocean-danger">bear S</span>
-            ) : null}
-          </span>
+          <TickerMark symbol={symbol} />
+          <span className="shrink-0">{symbol}</span>
+          {etfResult ? (
+            <span
+              className={cn(
+                "shrink-0 text-[9px] font-semibold",
+                etfResult.match ? "text-ocean-teal" : "text-ocean-danger",
+              )}
+            >
+              {etfResult.etf} {etfResult.match ? "match" : "not"}
+            </span>
+          ) : null}
+          {sentiment === "bull S" ? (
+            <span className="shrink-0 text-[9px] font-semibold text-ocean-teal">bull S</span>
+          ) : null}
+          {sentiment === "bear S" ? (
+            <span className="shrink-0 text-[9px] font-semibold text-ocean-danger">bear S</span>
+          ) : null}
           {onMove ? (
             <button
               type="button"
@@ -784,6 +862,17 @@ export function ActiveTickerBoard({
           {error}
         </p>
       ) : null}
+      <AngleLeadersBar
+        leaders={angleLeaders(
+          arranged.map((ticker) => ({
+            symbol: ticker.symbol,
+            panes: displayPanes(
+              snapshot?.bySymbol[ticker.symbol]?.panes,
+              forming[ticker.symbol.trim().toUpperCase()],
+            ),
+          })),
+        )}
+      />
       <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-4">
         {arranged.map((ticker, index) => (
           <TickerThumb
