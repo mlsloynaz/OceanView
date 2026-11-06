@@ -48,12 +48,21 @@ describe("ema angle leaders", () => {
     expect(angle).toBeCloseTo(45, 5);
   });
 
-  it("keeps a slow 15-minute rise flatter than a faster 1-minute rise", () => {
-    const oneMinute = emaAngleDeg(100.0213, 100, 1);
-    const fifteen = emaAngleDeg(100.0311, 100, 15);
-    expect(oneMinute).toBeCloseTo(12, 0);
-    expect(fifteen).toBeLessThan(2);
-    expect(fifteen).toBeLessThan(oneMinute ?? 0);
+  it("reads the 5m and 15m EMA angles from their own bars", () => {
+    const leaders = angleLeaders([
+      {
+        symbol: "ORCL",
+        panes: {
+          "1m": emaBars([100, 100.02]),
+          "5m": emaBars([100, 100.04]),
+          "15m": emaBars([100, 100.01]),
+        },
+      },
+    ]);
+    expect(leaders["5m"].up?.angle).toBeCloseTo(emaAngleDeg(100.04, 100) ?? 0, 5);
+    expect(leaders["15m"].up?.angle).toBeCloseTo(emaAngleDeg(100.01, 100) ?? 0, 5);
+    expect(leaders["15m"].up?.angle).toBeLessThan(leaders["5m"].up?.angle ?? 0);
+    expect(leaders["5m"].up?.angle).not.toBeCloseTo((leaders["1m"].up?.angle ?? 0) / 5, 1);
   });
 
   it("names the steepest rise and the steepest drop on each timeframe", () => {
