@@ -48,6 +48,14 @@ describe("ema angle leaders", () => {
     expect(angle).toBeCloseTo(45, 5);
   });
 
+  it("keeps a slow 15-minute rise flatter than a faster 1-minute rise", () => {
+    const oneMinute = emaAngleDeg(100.0213, 100, 1);
+    const fifteen = emaAngleDeg(100.0311, 100, 15);
+    expect(oneMinute).toBeCloseTo(12, 0);
+    expect(fifteen).toBeLessThan(2);
+    expect(fifteen).toBeLessThan(oneMinute ?? 0);
+  });
+
   it("names the steepest rise and the steepest drop on each timeframe", () => {
     const leaders = angleLeaders([
       { symbol: "NVDA", panes: { "1m": emaBars([100, 100.2]), "5m": emaBars([100, 99.8]), "15m": emaBars([50]) } },

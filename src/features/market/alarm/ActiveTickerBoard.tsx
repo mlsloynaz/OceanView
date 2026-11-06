@@ -103,13 +103,14 @@ export function fiveMinuteMove(closes: number[]): 1 | -1 | null {
   return null;
 }
 
-/** A 0.10% EMA 10 step in one bar is 45°. Same scale as the API angle. */
+/** A 0.10% EMA 10 step in one minute is 45°. Longer bars are divided by their minutes. */
 const ANGLE_PCT_AT_45 = 0.1;
+const FRAME_MINUTES: Record<Frame, number> = { "1m": 1, "5m": 5, "15m": 15 };
 
-export function emaAngleDeg(emaNow: number, emaPrev: number): number | null {
-  if (!Number.isFinite(emaNow) || !Number.isFinite(emaPrev) || emaPrev === 0) return null;
-  const stepPct = ((emaNow - emaPrev) / emaPrev) * 100;
-  return (Math.atan(stepPct / ANGLE_PCT_AT_45) * 180) / Math.PI;
+export function emaAngleDeg(emaNow: number, emaPrev: number, minutes = 1): number | null {
+  if (!Number.isFinite(emaNow) || !Number.isFinite(emaPrev) || emaPrev === 0 || minutes <= 0) return null;
+  const stepPctPerMinute = ((emaNow - emaPrev) / emaPrev) * 100 / minutes;
+  return (Math.atan(stepPctPerMinute / ANGLE_PCT_AT_45) * 180) / Math.PI;
 }
 
 function emaNumber(value: unknown): number | null {
@@ -118,13 +119,13 @@ function emaNumber(value: unknown): number | null {
   return null;
 }
 
-export function latestEmaAngle(bars: BbSparkline15mBar[]): number | null {
+export function latestEmaAngle(bars: BbSparkline15mBar[], minutes = 1): number | null {
   const line = bars.flatMap((bar) => {
     const ema = emaNumber(bar.ema10);
     return ema == null ? [] : [ema];
   });
   if (line.length < 2) return null;
-  return emaAngleDeg(line[line.length - 1]!, line[line.length - 2]!);
+  return emaAngleDeg(line[line.length - 1]!, line[line.length - 2]!, minutes);
 }
 
 export type AnglePick = { symbol: string; angle: number };
@@ -136,7 +137,7 @@ export function angleLeaders(rows: Array<{ symbol: string; panes: Panes | undefi
   const leaders = {} as AngleLeaders;
   for (const frame of ANGLE_FRAMES) {
     const ranked = rows.flatMap((row) => {
-      const angle = latestEmaAngle(row.panes?.[frame] ?? []);
+      const angle = latestEmaAngle(row.panes?.[frame] ?? [], FRAME_MINUTES[frame]);
       return angle == null ? [] : [{ symbol: row.symbol.trim().toUpperCase(), angle }];
     });
     if (ranked.length === 0) {
