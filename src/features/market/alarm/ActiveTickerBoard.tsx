@@ -73,6 +73,7 @@ type Snapshot = {
       entryAt?: string | null;
       entrySide?: "CALL" | "PUT" | null;
       breakoutLevel?: number | null;
+      premarketPrice?: number | null;
       hourRelation?: string | null;
       hourRegime?: string | null;
       sectorEtf?: string | null;
@@ -236,6 +237,7 @@ function ThumbPane({
   entryAt,
   entrySide,
   breakoutLevel,
+  priceLine,
   axis,
   showAlarmMarks = true,
   timeMarksEvery,
@@ -247,6 +249,7 @@ function ThumbPane({
   entryAt?: string | null;
   entrySide?: "CALL" | "PUT" | null;
   breakoutLevel?: number | null;
+  priceLine?: number | null;
   axis?: boolean;
   showAlarmMarks?: boolean;
   timeMarksEvery?: number;
@@ -261,6 +264,7 @@ function ThumbPane({
         entryAt={entryAt}
         entrySide={entrySide}
         breakoutLevel={breakoutLevel}
+        priceLine={priceLine}
         variant="thumb"
         axis={axis}
         showEmaEvents
@@ -281,6 +285,34 @@ function PaneLabel({ children }: { children: string }) {
   );
 }
 
+export function handoffBars(
+  previous: BbSparkline15mBar[] | undefined,
+  incoming: BbSparkline15mBar[],
+): BbSparkline15mBar[] {
+  if (!previous || previous.length === 0) return incoming;
+  if (incoming.length === 0) return previous;
+  const firstNext = incoming[0]?.datetime ?? "";
+  const firstPrev = previous[0]?.datetime ?? "";
+  if (firstNext > firstPrev && incoming.length < previous.length) {
+    const earlier = previous.filter((bar) => bar.datetime < firstNext);
+    if (earlier.length > 0) return [...earlier, ...incoming];
+  }
+  return incoming;
+}
+
+function regularSessionStarted(bars: BbSparkline15mBar[], now = new Date()): boolean {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  const day = `${value("year")}-${value("month")}-${value("day")}`;
+  return bars.some((bar) => bar.datetime >= `${day} 09:30:00`);
+}
+
 function useSnapshot(
   refreshKey: number,
   live: boolean,
@@ -294,13 +326,17 @@ function useSnapshot(
     void fetchBoardSnapshot(refreshKey > 0 && !live, live)
       .then((body) => {
         if (cancel) return;
-        const bySymbol: Snapshot["bySymbol"] = {};
+        const incoming: Snapshot["bySymbol"] = {};
         for (const [symbol, row] of Object.entries(body.symbols ?? {})) {
-          bySymbol[symbol] = {
+          incoming[symbol] = {
             error: row.error,
             entryAt: row.entryAt,
             entrySide: row.entrySide,
             breakoutLevel: row.breakoutLevel,
+            premarketPrice:
+              typeof row.premarketPrice === "number" && Number.isFinite(row.premarketPrice)
+                ? row.premarketPrice
+                : null,
             hourRelation: textOrNull(row.hourRelation),
             hourRegime: textOrNull(row.hourRegime),
             sectorEtf: textOrNull(row.sectorEtf),
@@ -314,14 +350,31 @@ function useSnapshot(
             },
           };
         }
-        setSnapshot({
-          label:
-            body.uniform === false && body.source === "schwab"
-              ? "Schwab · each ticker on its own cycle"
-              : body.label,
-          windowStartEt: body.windowStartEt,
-          windowEndEt: body.windowEndEt,
-          bySymbol,
+        setSnapshot((current) => {
+          const bySymbol: Snapshot["bySymbol"] = { ...(current?.bySymbol ?? {}) };
+          for (const [symbol, row] of Object.entries(incoming)) {
+            const prior = current?.bySymbol[symbol];
+            const panes = {
+              "5m": handoffBars(prior?.panes["5m"], row.panes["5m"]),
+              "15m": handoffBars(prior?.panes["15m"], row.panes["15m"]),
+              "1m": handoffBars(prior?.panes["1m"], row.panes["1m"]),
+            };
+            const opened = regularSessionStarted(panes["5m"]);
+            bySymbol[symbol] = {
+              ...row,
+              panes,
+              premarketPrice: opened ? null : (row.premarketPrice ?? prior?.premarketPrice ?? null),
+            };
+          }
+          return {
+            label:
+              body.uniform === false && body.source === "schwab"
+                ? "Schwab · each ticker on its own cycle"
+                : body.label,
+            windowStartEt: body.windowStartEt,
+            windowEndEt: body.windowEndEt,
+            bySymbol,
+          };
         });
         setError(null);
       })
@@ -375,6 +428,7 @@ export function TickerThumb({
   entryAt,
   entrySide,
   breakoutLevel,
+  premarketPrice = null,
   hourRelation,
   hourRegime,
   sectorEtf = null,
@@ -398,6 +452,7 @@ export function TickerThumb({
   entryAt?: string | null;
   entrySide?: "CALL" | "PUT" | null;
   breakoutLevel?: number | null;
+  premarketPrice?: number | null;
   hourRelation?: string | null;
   hourRegime?: string | null;
   sectorEtf?: string | null;
@@ -434,6 +489,7 @@ export function TickerThumb({
       entryAt={which === "5m" || (which === "15m" && frame !== "all") ? entryAt : null}
       entrySide={which === "5m" || (which === "15m" && frame !== "all") ? entrySide : null}
       breakoutLevel={which === "15m" && frame !== "all" ? breakoutLevel : null}
+      priceLine={which === "5m" ? premarketPrice : null}
       showAlarmMarks={which !== "15m" || frame !== "all"}
       axis={which === "5m"}
       timeMarksEvery={frame === "1m" ? 5 : frame === "5m" ? 15 : frame === "15m" ? 60 : undefined}
@@ -742,6 +798,7 @@ export function ActiveTickerBoard({
             entryAt={snapshot?.bySymbol[ticker.symbol]?.entryAt}
             entrySide={snapshot?.bySymbol[ticker.symbol]?.entrySide}
             breakoutLevel={snapshot?.bySymbol[ticker.symbol]?.breakoutLevel}
+            premarketPrice={snapshot?.bySymbol[ticker.symbol]?.premarketPrice}
             hourRelation={
               snapshot?.bySymbol[ticker.symbol]?.hourRelation ?? hourBySymbol[ticker.symbol]?.hourRelation
             }

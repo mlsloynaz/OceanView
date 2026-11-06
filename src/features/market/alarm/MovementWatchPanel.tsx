@@ -104,7 +104,8 @@ export function MovementWatchPanel({
   void breakoutRunning;
   const jobStatus = job?.status ?? "idle";
   const sessionOpen = typeof job?.marketOpen === "boolean" ? job.marketOpen : regularHoursNow();
-  const live = sessionOpen && (Boolean(job?.live) || jobStatus === "running");
+  const premarket = job?.premarket === true;
+  const live = (sessionOpen || premarket) && (Boolean(job?.live) || jobStatus === "running");
   const finishing = Boolean(job?.cycleBusy) && jobStatus !== "running";
 
   const [busy, setBusy] = useState(false);
@@ -269,8 +270,14 @@ export function MovementWatchPanel({
               live ? "bg-rose-500 text-white" : "border border-ocean-mid/40 text-ocean-foam",
             )}
             onClick={() => void toggleLive()}
-            disabled={busy || !sessionOpen}
-            title={sessionOpen ? "Collect Schwab charts and alarms" : "Live is available during regular hours"}
+            disabled={busy || (!sessionOpen && !premarket)}
+            title={
+              sessionOpen
+                ? "Collect Schwab charts and alarms"
+                : premarket
+                  ? "Alpaca last price on the 5m chart"
+                  : "Live is available in premarket and regular hours"
+            }
           >
             {live ? "LIVE" : "Live"}
           </button>

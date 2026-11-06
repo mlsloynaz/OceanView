@@ -40,6 +40,8 @@ type Props = {
   showAlarmMarks?: boolean;
   /** Solo graph. 1m marks every 5 minutes. 5m marks every 15. 15m marks each hour. */
   timeMarksEvery?: number;
+  /** Premarket last price. A line on the 5m chart, not a candle. */
+  priceLine?: number | null;
 };
 
 const THUMB_5M_BARS = 24;
@@ -355,6 +357,7 @@ export function BbSparkline15mChart({
   fillPane = false,
   showAlarmMarks = true,
   timeMarksEvery,
+  priceLine = null,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const positionedRef = useRef<string | null>(null);
@@ -467,6 +470,9 @@ export function BbSparkline15mChart({
   const outside = [...scaleLows, ...scaleHighs, ...ema10s, ...ema21s];
   if (typeof breakoutLevel === "number" && Number.isFinite(breakoutLevel) && breakoutLevel > 0) {
     outside.push(breakoutLevel);
+  }
+  if (typeof priceLine === "number" && Number.isFinite(priceLine) && priceLine > 0) {
+    outside.push(priceLine);
   }
   for (const value of outside) {
     if (value < yMin) yMin = value;
@@ -656,6 +662,17 @@ export function BbSparkline15mChart({
             />
           );
         })}
+
+        {typeof priceLine === "number" && Number.isFinite(priceLine) && priceLine > 0 ? (
+          <line
+            x1={PAD.left}
+            x2={W - PAD.right}
+            y1={yScale(priceLine)}
+            y2={yScale(priceLine)}
+            stroke="#f8fafc"
+            strokeWidth={variant === "full" ? 1.4 : 1.1}
+          />
+        ) : null}
 
         {typeof breakoutLevel === "number" && Number.isFinite(breakoutLevel) ? (
           <line

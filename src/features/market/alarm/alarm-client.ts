@@ -551,6 +551,7 @@ export type MovementWatchJobStatus = {
   activeTickerCount?: number;
   live?: boolean;
   marketOpen?: boolean;
+  premarket?: boolean;
   cycleBusy?: boolean;
   serverPolled?: boolean;
 };
@@ -730,6 +731,7 @@ export async function fetchBoardSnapshot(refresh = false, live = false, minute =
       entryAt?: string | null;
       entrySide?: "CALL" | "PUT" | null;
       breakoutLevel?: number | null;
+      premarketPrice?: number | null;
       hourRelation?: string | null;
       hourRegime?: string | null;
       sectorEtf?: string | null;
