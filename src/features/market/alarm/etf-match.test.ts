@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { angleLeaders, emaAngleDeg, fiveMinuteMove, handoffBars } from "./ActiveTickerBoard";
+import { angleLeaders, fiveMinuteMove, handoffBars, latestEmaAngle } from "./ActiveTickerBoard";
 import type { BbSparkline15mBar } from "./alarm-types";
 
 function bar(datetime: string): BbSparkline15mBar {
@@ -42,10 +42,30 @@ function emaBars(values: number[]): BbSparkline15mBar[] {
   }));
 }
 
+function rangedBars(emas: number[], low: number, high: number): BbSparkline15mBar[] {
+  return emas.map((ema10, index) => ({
+    datetime: `2026-11-06 10:${String(index).padStart(2, "0")}:00`,
+    open: ema10,
+    high,
+    low,
+    close: ema10,
+    bbUpper: null,
+    bbMid: null,
+    bbLower: null,
+    ema10,
+  }));
+}
+
 describe("ema angle leaders", () => {
-  it("uses the same 0.10% step as 45 degrees", () => {
-    const angle = emaAngleDeg(100.1, 100);
-    expect(angle).toBeCloseTo(45, 5);
+  it("ranks the line that falls farther across its own chart", () => {
+    const aapl = rangedBars([228, 221], 220, 230);
+    const tsla = rangedBars([450, 430], 400, 480);
+    expect(latestEmaAngle(aapl)).toBeLessThan(latestEmaAngle(tsla) ?? 0);
+    const leaders = angleLeaders([
+      { symbol: "AAPL", panes: { "1m": [], "5m": aapl, "15m": [] } },
+      { symbol: "TSLA", panes: { "1m": [], "5m": tsla, "15m": [] } },
+    ]);
+    expect(leaders["5m"].down?.symbol).toBe("AAPL");
   });
 
   it("reads the 5m and 15m EMA angles from their own bars", () => {
@@ -53,16 +73,26 @@ describe("ema angle leaders", () => {
       {
         symbol: "ORCL",
         panes: {
-          "1m": emaBars([100, 100.02]),
-          "5m": emaBars([100, 100.04]),
-          "15m": emaBars([100, 100.01]),
+          "1m": rangedBars([105, 106], 100, 110),
+          "5m": rangedBars([104, 108], 100, 110),
+          "15m": rangedBars([102, 103], 100, 110),
         },
       },
     ]);
-    expect(leaders["5m"].up?.angle).toBeCloseTo(emaAngleDeg(100.04, 100) ?? 0, 5);
-    expect(leaders["15m"].up?.angle).toBeCloseTo(emaAngleDeg(100.01, 100) ?? 0, 5);
-    expect(leaders["15m"].up?.angle).toBeLessThan(leaders["5m"].up?.angle ?? 0);
-    expect(leaders["5m"].up?.angle).not.toBeCloseTo((leaders["1m"].up?.angle ?? 0) / 5, 1);
+    expect(leaders["5m"].up?.angle).toBeGreaterThan(leaders["15m"].up?.angle ?? 0);
+    expect(leaders["15m"].up?.angle).toBeGreaterThan(0);
+  });
+
+  it("treats the 1m and 5m panes as two squares and the 15m pane as one", () => {
+    const across = rangedBars([100, 110], 100, 110);
+    const oneSquare = latestEmaAngle(across, 1);
+    const twoSquares = latestEmaAngle(across, 2);
+    expect(oneSquare).toBeCloseTo(45, 5);
+    expect(twoSquares).toBeCloseTo((Math.atan(0.5) * 180) / Math.PI, 5);
+    const leaders = angleLeaders([{ symbol: "ORCL", panes: { "1m": across, "5m": across, "15m": across } }]);
+    expect(leaders["15m"].up?.angle).toBeCloseTo(45, 5);
+    expect(leaders["1m"].up?.angle).toBeCloseTo(twoSquares ?? 0, 5);
+    expect(leaders["5m"].up?.angle).toBeCloseTo(twoSquares ?? 0, 5);
   });
 
   it("names the steepest rise and the steepest drop on each timeframe", () => {

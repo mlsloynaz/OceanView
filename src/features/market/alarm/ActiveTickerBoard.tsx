@@ -103,40 +103,68 @@ export function fiveMinuteMove(closes: number[]): 1 | -1 | null {
   return null;
 }
 
-/** A 0.10% EMA 10 step on that timeframe's own bar is 45°. */
-const ANGLE_PCT_AT_45 = 0.1;
-
-export function emaAngleDeg(emaNow: number, emaPrev: number): number | null {
-  if (!Number.isFinite(emaNow) || !Number.isFinite(emaPrev) || emaPrev === 0) return null;
-  const stepPct = ((emaNow - emaPrev) / emaPrev) * 100;
-  return (Math.atan(stepPct / ANGLE_PCT_AT_45) * 180) / Math.PI;
-}
-
 function emaNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Number(value);
   return null;
 }
 
-export function latestEmaAngle(bars: BbSparkline15mBar[]): number | null {
-  const line = bars.flatMap((bar) => {
+/**
+ * Angle of the EMA 10 line as drawn.
+ * `squares` is how many 15m squares wide that pane is. 15m is 1, 1m and 5m are 2.
+ */
+export function latestEmaAngle(bars: BbSparkline15mBar[], squares = 1): number | null {
+  const closes = bars
+    .map((bar) => emaNumber(bar.close))
+    .filter((value): value is number => value != null && value > 0);
+  const anchor = closes.length ? closes[Math.floor(closes.length / 2)]! : 0;
+  const onScale = (value: number) => value > 0 && (anchor <= 0 || Math.abs(value - anchor) / anchor <= 0.4);
+  const prices: number[] = [];
+  const line: Array<{ index: number; ema: number }> = [];
+  bars.forEach((bar, index) => {
+    for (const value of [bar.high, bar.low, bar.ema10, bar.ema21, bar.bbUpper, bar.bbLower]) {
+      const price = emaNumber(value);
+      if (price != null && onScale(price)) prices.push(price);
+    }
     const ema = emaNumber(bar.ema10);
-    return ema == null ? [] : [ema];
+    if (ema != null && onScale(ema)) line.push({ index, ema });
   });
-  if (line.length < 2) return null;
-  return emaAngleDeg(line[line.length - 1]!, line[line.length - 2]!);
+  if (line.length < 2 || prices.length < 2) return null;
+  const yMin = Math.min(...prices);
+  const yMax = Math.max(...prices);
+  const span = Math.max(yMax - yMin, 0.05);
+  const x0 = line[0]!.index;
+  const xSpan = Math.max(line[line.length - 1]!.index - x0, 1);
+  let sumX = 0;
+  let sumY = 0;
+  let sumXX = 0;
+  let sumXY = 0;
+  for (const point of line) {
+    const x = (point.index - x0) / xSpan;
+    const y = (point.ema - yMin) / span;
+    sumX += x;
+    sumY += y;
+    sumXX += x * x;
+    sumXY += x * y;
+  }
+  const denom = line.length * sumXX - sumX * sumX;
+  if (denom === 0) return null;
+  const slope = (line.length * sumXY - sumX * sumY) / denom;
+  return (Math.atan(slope / squares) * 180) / Math.PI;
 }
 
 export type AnglePick = { symbol: string; angle: number };
 export type AngleLeaders = Record<Frame, { up: AnglePick | null; down: AnglePick | null }>;
 
 const ANGLE_FRAMES: Frame[] = ["1m", "5m", "15m"];
+/** 15m is one square. The 1m pane is two of those squares wide, and the 5m pane is two squares wide. */
+const PANE_SQUARES: Record<Frame, number> = { "1m": 2, "5m": 2, "15m": 1 };
 
 export function angleLeaders(rows: Array<{ symbol: string; panes: Panes | undefined }>): AngleLeaders {
   const leaders = {} as AngleLeaders;
   for (const frame of ANGLE_FRAMES) {
     const ranked = rows.flatMap((row) => {
-      const angle = latestEmaAngle(row.panes?.[frame] ?? []);
+      const angle = latestEmaAngle(row.panes?.[frame] ?? [], PANE_SQUARES[frame]);
       return angle == null ? [] : [{ symbol: row.symbol.trim().toUpperCase(), angle }];
     });
     if (ranked.length === 0) {
@@ -267,6 +295,14 @@ const ALL_1M_BARS = 60;
 const SOLO_1M_BARS = 30;
 const TWO_HOURS_5M_BARS = 24;
 const SESSION_15M_BARS = 26;
+
+function visiblePanes(panes: Panes | undefined): Panes {
+  return {
+    "1m": (panes?.["1m"] ?? []).slice(-ALL_1M_BARS),
+    "5m": (panes?.["5m"] ?? []).slice(-TWO_HOURS_5M_BARS),
+    "15m": (panes?.["15m"] ?? []).slice(-SESSION_15M_BARS),
+  };
+}
 
 function textOrNull(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
@@ -880,9 +916,11 @@ export function ActiveTickerBoard({
         leaders={angleLeaders(
           arranged.map((ticker) => ({
             symbol: ticker.symbol,
-            panes: displayPanes(
-              snapshot?.bySymbol[ticker.symbol]?.panes,
-              forming[ticker.symbol.trim().toUpperCase()],
+            panes: visiblePanes(
+              displayPanes(
+                snapshot?.bySymbol[ticker.symbol]?.panes,
+                forming[ticker.symbol.trim().toUpperCase()],
+              ),
             ),
           })),
         )}
