@@ -242,8 +242,8 @@ function AngleBadge({ mark }: { mark: AngleMark }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-px font-display text-[9px] font-bold leading-none tabular-nums",
-        up ? "bg-ocean-teal text-ocean-deep" : "bg-ocean-danger text-white",
+        "inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-px font-display text-[9px] font-bold leading-none tabular-nums text-white",
+        up ? "bg-[#0f766e]" : "bg-[#9f1239]",
       )}
       title={`Steepest ${up ? "positive" : "negative"} EMA 10 on ${mark.frame}`}
     >
@@ -361,6 +361,21 @@ const ALL_1M_BARS = 60;
 const SOLO_1M_BARS = 30;
 const TWO_HOURS_5M_BARS = 24;
 const SESSION_15M_BARS = 26;
+/** All-view cell is 23/20 wide. Pane shape follows that grid: 5m is the top row, 1m and 15m split the bottom. */
+const SOLO_PANE_ASPECT: Record<Frame, string> = {
+  "5m": "23 / 12",
+  "1m": "15 / 8",
+  "15m": "1 / 1",
+};
+
+function soloPaneBox(aspect: string): { aspectRatio: string; width: string; height: string } {
+  const [widthPart, heightPart] = aspect.split("/").map((part) => Number(part.trim()));
+  return {
+    aspectRatio: aspect,
+    width: `min(100cqw, calc(100cqh * ${widthPart} / ${heightPart}))`,
+    height: `min(100cqh, calc(100cqw * ${heightPart} / ${widthPart}))`,
+  };
+}
 
 function visiblePanes(panes: Panes | undefined): Panes {
   return {
@@ -782,11 +797,13 @@ export function TickerThumb({
       ) : (
         <div
           className={cn(
-            "w-full overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-0.5",
+            "flex w-full items-center justify-center overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-0.5 [container-type:size]",
             fit ? "min-h-0 flex-1" : "aspect-[2/1] min-h-[240px]",
           )}
         >
-          {pane(frame)}
+          <div className="min-h-0 min-w-0" style={soloPaneBox(SOLO_PANE_ASPECT[frame])}>
+            {pane(frame)}
+          </div>
         </div>
       )}
       {pauseAction || transitionCandle || lateralTrend ? (
