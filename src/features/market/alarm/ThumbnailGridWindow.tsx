@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { getTickersCatalog } from "@/features/admin/tickers/api/tickers-client";
 import { cn } from "@/shared/lib/cn";
-import { ActiveTickerBoard } from "./ActiveTickerBoard";
-import { AlarmSignalStrip, useRemoteAlarmStrip } from "./AlarmSignalStrip";
+import { ActiveTickerBoard, ThumbnailFrameFilters, type ThumbnailFrame } from "./ActiveTickerBoard";
+import { useRemoteAlarmStrip } from "./AlarmSignalStrip";
 import { fetchMovementWatchJobStatus, type MovementWatchJobStatus } from "./alarm-client";
 
 const BTN =
@@ -26,6 +26,7 @@ function regularHoursNow(now = new Date()): boolean {
 export function ThumbnailGridWindow() {
   const rootRef = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [frame, setFrame] = useState<ThumbnailFrame>("all");
   const [tickers, setTickers] = useState<Array<{ symbol: string; name?: string }>>([]);
   const [tickersReady, setTickersReady] = useState(false);
   const [job, setJob] = useState<MovementWatchJobStatus | null>(null);
@@ -98,6 +99,18 @@ export function ThumbnailGridWindow() {
     void node.requestFullscreen().catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    const previousBody = document.body.style.overflow;
+    const previousRoot = root.style.overflow;
+    document.body.style.overflow = "hidden";
+    root.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousBody;
+      root.style.overflow = previousRoot;
+    };
+  }, []);
+
   const toggleFullscreen = () => {
     const node = rootRef.current;
     if (!node) return;
@@ -109,10 +122,13 @@ export function ThumbnailGridWindow() {
   };
 
   return (
-    <div ref={rootRef} className="flex h-dvh flex-col bg-ocean-deep text-ocean-foam">
+    <div ref={rootRef} className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-ocean-deep text-ocean-foam">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-ocean-mid/30 px-3 py-2">
         <div className="min-w-0">
-          <h1 className="font-display text-lg font-semibold">Thumbnail grid</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-display text-lg font-semibold">Thumbnail grid</h1>
+            <ThumbnailFrameFilters frame={frame} onChange={setFrame} prominent />
+          </div>
           <p className="text-[11px] text-ocean-sand">
             {tickers.length} active ticker{tickers.length === 1 ? "" : "s"}
             {live ? " · Live" : ""}
@@ -126,14 +142,27 @@ export function ThumbnailGridWindow() {
           {fullscreen ? "Exit full screen" : "Full screen"}
         </button>
       </header>
-      <div className="min-h-0 flex-1 overflow-auto p-3">
-        <AlarmSignalStrip tags={alerts.tags} onClose={alerts.dismiss} />
-        {error ? <p className="mb-2 text-xs text-ocean-danger">{error}</p> : null}
-        {tickersReady ? (
-          <ActiveTickerBoard tickers={tickers} refreshKey={refreshKey} live={live} alertTags={alerts.tags} />
-        ) : (
-          <p className="text-[11px] text-ocean-sand">Loading tickers…</p>
-        )}
+      <div className="relative min-h-0 flex-1">
+        <div className="absolute inset-0 flex flex-col overflow-hidden p-2">
+          {error ? <p className="mb-2 shrink-0 text-xs text-ocean-danger">{error}</p> : null}
+          {tickersReady ? (
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <ActiveTickerBoard
+                tickers={tickers}
+                refreshKey={refreshKey}
+                live={live}
+                alertTags={alerts.tags}
+                frame={frame}
+                onFrameChange={setFrame}
+                showFrameFilters={false}
+                showAngleLeaders={false}
+                fitViewport
+              />
+            </div>
+          ) : (
+            <p className="text-[11px] text-ocean-sand">Loading tickers…</p>
+          )}
+        </div>
       </div>
     </div>
   );

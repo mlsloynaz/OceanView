@@ -77,7 +77,7 @@ export function AlarmTriggerList() {
   const [weekStart, setWeekStart] = useState<string | null>(null);
   const [tradeDate, setTradeDate] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

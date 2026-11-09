@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { angleLeaders, fiveMinuteMove, handoffBars, latestEmaAngle } from "./ActiveTickerBoard";
+import { angleLeaders, angleMarksFor, fiveMinuteMove, handoffBars, latestEmaAngle } from "./ActiveTickerBoard";
 import type { BbSparkline15mBar } from "./alarm-types";
 
 function bar(datetime: string): BbSparkline15mBar {
@@ -83,6 +83,11 @@ describe("ema angle leaders", () => {
     expect(leaders["15m"].up?.angle).toBeGreaterThan(0);
   });
 
+  it("reads a rise then a drop as the downward right-hand side", () => {
+    const emas = [358, 358.4, 358.8, 359.2, 360, 360.6, 360.2, 359.4, 358.6];
+    expect(latestEmaAngle(rangedBars(emas, 357, 364), 2)).toBeLessThan(0);
+  });
+
   it("treats the 1m and 5m panes as two squares and the 15m pane as one", () => {
     const across = rangedBars([100, 110], 100, 110);
     const oneSquare = latestEmaAngle(across, 1);
@@ -106,5 +111,13 @@ describe("ema angle leaders", () => {
     expect(leaders["5m"].down?.symbol).toBe("NVDA");
     expect(leaders["15m"].up).toBeNull();
     expect(leaders["15m"].down).toBeNull();
+    expect(angleMarksFor(leaders, "nvda").map((mark) => `${mark.frame}:${mark.tone}`)).toEqual([
+      "1m:up",
+      "5m:down",
+    ]);
+    expect(angleMarksFor(leaders, "ORCL").map((mark) => `${mark.frame}:${mark.tone}`)).toEqual([
+      "1m:down",
+      "5m:up",
+    ]);
   });
 });

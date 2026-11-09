@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { AlarmSignalTag, type AlarmStripTag } from "./AlarmSignalStrip";
 import { TickerMark } from "./TickerMark";
 import { BbSparkline15mChart } from "./BbSparkline15mChart";
+import { THUMB_GAP_PX, fitThumbnailGrid } from "./fit-thumbnail-grid";
 import { fetchFormingMinutes, loadAlpacaSession, mergeFormingMinute, nextFormingDelayMs } from "./alpaca-forming-minute";
 import { fetchBoardSnapshot, fetchMovementWatchResults } from "./alarm-client";
 import type { BbSparkline15m, BbSparkline15mBar } from "./alarm-types";
@@ -16,6 +17,38 @@ const PANE_FILTERS: Array<{ id: PaneFilter; label: string }> = [
   { id: "5m", label: "5m" },
   { id: "all", label: "All" },
 ];
+
+export type ThumbnailFrame = PaneFilter;
+
+export function ThumbnailFrameFilters({
+  frame,
+  onChange,
+  prominent = false,
+}: {
+  frame: ThumbnailFrame;
+  onChange: (frame: ThumbnailFrame) => void;
+  prominent?: boolean;
+}) {
+  return (
+    <div className="flex gap-1" role="group" aria-label="Thumbnail timeframe">
+      {PANE_FILTERS.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          aria-pressed={frame === option.id}
+          className={cn(
+            "rounded font-semibold",
+            prominent ? "px-2.5 py-1 text-xs" : "px-2 py-0.5 text-[10px]",
+            frame === option.id ? "bg-ocean-teal text-ocean-deep" : "border border-ocean-mid/40 text-ocean-sand",
+          )}
+          onClick={() => onChange(option.id)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const THUMB_ORDER_KEY = "oceanview.thumbnailOrder";
 const THUMB_ORDER_EVENT = "oceanview-thumbnail-order";
@@ -135,11 +168,14 @@ export function latestEmaAngle(bars: BbSparkline15mBar[], squares = 1): number |
   const span = Math.max(yMax - yMin, 0.05);
   const x0 = line[0]!.index;
   const xSpan = Math.max(line[line.length - 1]!.index - x0, 1);
+  // The eye follows the right-hand side of the line. A rise earlier in the pane
+  // does not keep the angle positive once that side is falling.
+  const tail = line.slice(-Math.max(2, Math.ceil(line.length / 3)));
   let sumX = 0;
   let sumY = 0;
   let sumXX = 0;
   let sumXY = 0;
-  for (const point of line) {
+  for (const point of tail) {
     const x = (point.index - x0) / xSpan;
     const y = (point.ema - yMin) / span;
     sumX += x;
@@ -147,9 +183,9 @@ export function latestEmaAngle(bars: BbSparkline15mBar[], squares = 1): number |
     sumXX += x * x;
     sumXY += x * y;
   }
-  const denom = line.length * sumXX - sumX * sumX;
+  const denom = tail.length * sumXX - sumX * sumX;
   if (denom === 0) return null;
-  const slope = (line.length * sumXY - sumX * sumY) / denom;
+  const slope = (tail.length * sumXY - sumX * sumY) / denom;
   return (Math.atan(slope / squares) * 180) / Math.PI;
 }
 
@@ -184,6 +220,36 @@ export function angleLeaders(rows: Array<{ symbol: string; panes: Panes | undefi
 function formatAngle(angle: number): string {
   const sign = angle > 0 ? "+" : "";
   return `${sign}${angle.toFixed(1)}°`;
+}
+
+export type AngleMark = { frame: Frame; tone: "up" | "down"; angle: number };
+
+/** Steepest rise and drop for this ticker. Independent of which pane is on screen. */
+export function angleMarksFor(leaders: AngleLeaders, symbol: string): AngleMark[] {
+  const key = symbol.trim().toUpperCase();
+  const marks: AngleMark[] = [];
+  for (const frame of ANGLE_FRAMES) {
+    const up = leaders[frame].up;
+    const down = leaders[frame].down;
+    if (up?.symbol === key) marks.push({ frame, tone: "up", angle: up.angle });
+    if (down?.symbol === key) marks.push({ frame, tone: "down", angle: down.angle });
+  }
+  return marks;
+}
+
+function AngleBadge({ mark }: { mark: AngleMark }) {
+  const up = mark.tone === "up";
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-1 font-display text-xs font-bold leading-none tabular-nums",
+        up ? "bg-ocean-teal text-ocean-deep" : "bg-ocean-danger text-white",
+      )}
+      title={`Steepest ${up ? "positive" : "negative"} EMA 10 on ${mark.frame}`}
+    >
+      {mark.frame} {up ? "▲" : "▼"} {formatAngle(mark.angle)}
+    </span>
+  );
 }
 
 function AngleLeadersBar({ leaders }: { leaders: AngleLeaders }) {
@@ -372,6 +438,7 @@ function ThumbPane({
   showAlarmMarks = true,
   timeMarksEvery,
   caption,
+  angleMark = null,
 }: {
   symbol: string;
   which: Frame;
@@ -384,11 +451,12 @@ function ThumbPane({
   showAlarmMarks?: boolean;
   timeMarksEvery?: number;
   caption?: string;
+  angleMark?: AngleMark | null;
 }) {
   const label = caption ?? (which === "5m" ? "5m · 2h" : which === "1m" ? "1m · 1h" : "15m · 1d");
   return (
     <div className="relative h-full min-h-0 min-w-0">
-      <PaneLabel>{label}</PaneLabel>
+      <PaneLabel mark={angleMark}>{label}</PaneLabel>
       <BbSparkline15mChart
         data={chart(symbol, which, bars)}
         entryAt={entryAt}
@@ -407,10 +475,26 @@ function ThumbPane({
   );
 }
 
-function PaneLabel({ children }: { children: string }) {
+function PaneLabel({ children, mark = null }: { children: string; mark?: AngleMark | null }) {
+  const leader = mark != null;
+  const up = mark?.tone === "up";
   return (
-    <span className="pointer-events-none absolute top-0.5 left-0.5 z-20 rounded bg-ocean-deep/80 px-1 py-px text-[8px] font-semibold text-ocean-foam">
+    <span
+      className={cn(
+        "pointer-events-none absolute top-0.5 left-0.5 z-20 inline-flex items-center gap-1 rounded px-1 py-px font-semibold",
+        leader
+          ? up
+            ? "bg-ocean-teal text-[11px] font-bold text-ocean-deep"
+            : "bg-ocean-danger text-[11px] font-bold text-white"
+          : "bg-ocean-deep/80 text-[8px] text-ocean-foam",
+      )}
+    >
       {children}
+      {mark ? (
+        <span className="tabular-nums">
+          {up ? "▲" : "▼"} {formatAngle(mark.angle)}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -574,6 +658,8 @@ export function TickerThumb({
   onMove,
   alertTags = [],
   etfMoves = {},
+  angleMarks = [],
+  fit = false,
 }: {
   symbol: string;
   name?: string;
@@ -598,6 +684,8 @@ export function TickerThumb({
   onMove?: (direction: -1 | 1) => void;
   alertTags?: Array<AlarmStripTag & { colorIndex: number }>;
   etfMoves?: Record<string, 1 | -1 | null>;
+  angleMarks?: AngleMark[];
+  fit?: boolean;
 }) {
   const etfResult = etfComparison(symbol, panes["5m"], etfMoves, sectorEtf, etfMatch);
   const five = panes["5m"].slice(-TWO_HOURS_5M_BARS);
@@ -623,11 +711,17 @@ export function TickerThumb({
       showAlarmMarks={which !== "15m" || frame !== "all"}
       axis={which === "5m"}
       timeMarksEvery={frame === "1m" ? 5 : frame === "5m" ? 15 : frame === "15m" ? 60 : undefined}
+      angleMark={angleMarks.find((mark) => mark.frame === which) ?? null}
     />
   );
   return (
-    <article className="rounded-md border border-ocean-mid/40 bg-ocean-deep/30 p-1">
-      <div className="mb-0.5 flex items-start justify-between gap-1">
+    <article
+      className={cn(
+        "rounded-md border border-ocean-mid/40 bg-ocean-deep/30 p-1",
+        fit && "flex h-full min-h-0 flex-col overflow-hidden",
+      )}
+    >
+      <div className={cn("mb-0.5 flex items-start justify-between gap-1", fit && "shrink-0")}>
         <p className="flex min-w-0 flex-wrap items-center gap-x-1 font-display text-xs font-semibold text-ocean-foam">
           {onMove ? (
             <button
@@ -642,6 +736,9 @@ export function TickerThumb({
           ) : null}
           <TickerMark symbol={symbol} />
           <span className="shrink-0">{symbol}</span>
+          {angleMarks.map((mark) => (
+            <AngleBadge key={`${mark.frame}-${mark.tone}`} mark={mark} />
+          ))}
           {etfResult ? (
             <span
               className={cn(
@@ -689,7 +786,12 @@ export function TickerThumb({
         </div>
       ) : null}
       {frame === "all" ? (
-        <div className="grid h-[248px] grid-rows-[3fr_2fr] gap-0.5 overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-0.5">
+        <div
+          className={cn(
+            "grid grid-rows-[3fr_2fr] gap-0.5 overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-0.5",
+            fit ? "min-h-0 flex-1" : "h-[248px]",
+          )}
+        >
           {pane("5m")}
           <div className="grid min-h-0 grid-cols-[15fr_8fr] gap-1">
             {pane("1m")}
@@ -697,7 +799,12 @@ export function TickerThumb({
           </div>
         </div>
       ) : (
-        <div className="aspect-[2/1] min-h-[240px] w-full overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-0.5">
+        <div
+          className={cn(
+            "w-full overflow-hidden rounded-md border border-ocean-mid/30 bg-ocean-surface/40 p-0.5",
+            fit ? "min-h-0 flex-1" : "aspect-[2/1] min-h-[240px]",
+          )}
+        >
           {pane(frame)}
         </div>
       )}
@@ -727,6 +834,7 @@ export function TickerThumb({
       ) : null}
       {note ? <p className="mt-0.5 text-[9px] text-ocean-foam">{note}</p> : null}
       {error ? <p className="mt-0.5 text-[9px] text-ocean-danger">{error}</p> : null}
+      {fit ? null : (
       <p className="mt-0.5 flex flex-wrap gap-x-2 text-[8px] text-ocean-sand">
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-0.5 w-2.5 rounded-sm bg-sky-400" />
@@ -745,6 +853,7 @@ export function TickerThumb({
           cross
         </span>
       </p>
+      )}
     </article>
   );
 }
@@ -817,14 +926,31 @@ export function ActiveTickerBoard({
   live = false,
   review = null,
   alertTags = [],
+  frame: frameProp,
+  onFrameChange,
+  showFrameFilters = true,
+  showAngleLeaders = true,
+  fitViewport = false,
 }: {
   tickers: Array<{ symbol: string; name?: string }>;
   refreshKey: number;
   live?: boolean;
   review?: Snapshot | null;
   alertTags?: AlarmStripTag[];
+  frame?: ThumbnailFrame;
+  onFrameChange?: (frame: ThumbnailFrame) => void;
+  showFrameFilters?: boolean;
+  showAngleLeaders?: boolean;
+  fitViewport?: boolean;
 }) {
-  const [frame, setFrame] = useState<PaneFilter>("all");
+  const [uncontrolledFrame, setUncontrolledFrame] = useState<PaneFilter>("all");
+  const frame = frameProp ?? uncontrolledFrame;
+  const setFrame = (next: ThumbnailFrame) => {
+    onFrameChange?.(next);
+    if (frameProp === undefined) setUncontrolledFrame(next);
+  };
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [paneSize, setPaneSize] = useState({ width: 0, height: 0 });
   const [order, setOrder] = useState<string[]>(() => readThumbOrder());
   const showingReview = review != null;
   const { snapshot: loaded, error } = useSnapshot(refreshKey, live, !showingReview);
@@ -844,6 +970,20 @@ export function ActiveTickerBoard({
     };
   }, []);
   const etfMoves = useEtfMoves(!showingReview);
+  useEffect(() => {
+    if (!fitViewport) return;
+    const node = frameRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (!rect) return;
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      setPaneSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [fitViewport, tickers.length]);
   const arranged = arrangeTickers(tickers, order);
   const moveTicker = (symbol: string, direction: -1 | 1) => {
     const symbols = arranged.map((ticker) => ticker.symbol.toUpperCase());
@@ -866,9 +1006,20 @@ export function ActiveTickerBoard({
     snapshot?.windowStartEt && snapshot.windowEndEt
       ? `${snapshot.windowStartEt.slice(11, 16)}–${snapshot.windowEndEt.slice(11, 16)} ET`
       : "";
+  const leaders = angleLeaders(
+    arranged.map((ticker) => ({
+      symbol: ticker.symbol,
+      panes: visiblePanes(
+        displayPanes(snapshot?.bySymbol[ticker.symbol]?.panes, forming[ticker.symbol.trim().toUpperCase()]),
+      ),
+    })),
+  );
+  const fit = fitViewport
+    ? fitThumbnailGrid(arranged.length, paneSize.width, paneSize.height, THUMB_GAP_PX, frame === "all" ? 1.15 : 1.7)
+    : null;
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className={fitViewport ? "flex h-full min-h-0 flex-col gap-1 overflow-hidden" : "space-y-2"}>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <p className="text-[10px] text-ocean-sand">
           {snapshot?.label ?? "Alpaca IEX"}
           {window ? ` · ${window}` : ""}
@@ -887,24 +1038,7 @@ export function ActiveTickerBoard({
               Reset order
             </button>
           ) : null}
-        <div className="flex gap-1" role="group" aria-label="Thumbnail timeframe">
-          {PANE_FILTERS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              aria-pressed={frame === option.id}
-              className={cn(
-                "rounded px-2 py-0.5 text-[10px] font-semibold",
-                frame === option.id
-                  ? "bg-ocean-teal text-ocean-deep"
-                  : "border border-ocean-mid/40 text-ocean-sand",
-              )}
-              onClick={() => setFrame(option.id)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+          {showFrameFilters ? <ThumbnailFrameFilters frame={frame} onChange={setFrame} /> : null}
         </div>
       </div>
       {error ? (
@@ -912,20 +1046,22 @@ export function ActiveTickerBoard({
           {error}
         </p>
       ) : null}
-      <AngleLeadersBar
-        leaders={angleLeaders(
-          arranged.map((ticker) => ({
-            symbol: ticker.symbol,
-            panes: visiblePanes(
-              displayPanes(
-                snapshot?.bySymbol[ticker.symbol]?.panes,
-                forming[ticker.symbol.trim().toUpperCase()],
-              ),
-            ),
-          })),
-        )}
-      />
-      <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-4">
+      {showAngleLeaders ? <div className="shrink-0"><AngleLeadersBar leaders={leaders} /></div> : null}
+      <div ref={frameRef} className={fitViewport ? "relative min-h-0 flex-1 overflow-hidden" : undefined}>
+        <div
+          className={
+            fitViewport ? "absolute inset-0 grid overflow-hidden" : "grid grid-cols-2 gap-1.5 lg:grid-cols-4"
+          }
+          style={
+            fit
+              ? {
+                  gap: THUMB_GAP_PX,
+                  gridTemplateColumns: `repeat(${fit.columns}, minmax(0, 1fr))`,
+                  gridTemplateRows: `repeat(${fit.rows}, minmax(0, 1fr))`,
+                }
+              : undefined
+          }
+        >
         {arranged.map((ticker, index) => (
           <TickerThumb
             key={ticker.symbol}
@@ -934,6 +1070,8 @@ export function ActiveTickerBoard({
             canMoveEarlier={index > 0}
             canMoveLater={index < arranged.length - 1}
             onMove={(direction) => moveTicker(ticker.symbol, direction)}
+            fit={fitViewport}
+            angleMarks={angleMarksFor(leaders, ticker.symbol)}
             panes={displayPanes(snapshot?.bySymbol[ticker.symbol]?.panes, forming[ticker.symbol.trim().toUpperCase()])}
             error={snapshot?.bySymbol[ticker.symbol]?.error}
             entryAt={snapshot?.bySymbol[ticker.symbol]?.entryAt}
@@ -964,6 +1102,7 @@ export function ActiveTickerBoard({
             })}
           />
         ))}
+        </div>
       </div>
     </div>
   );
