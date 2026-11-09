@@ -194,6 +194,11 @@ function isHourOpen(iso: string): boolean {
   return clockMinute(iso) === 0;
 }
 
+function isSessionOpen(iso: string): boolean {
+  const match = /[T ](\d{2}):(\d{2})/.exec(iso);
+  return match?.[1] === "09" && match?.[2] === "30";
+}
+
 function isTimeMark(iso: string, everyMinutes: number): boolean {
   const minute = clockMinute(iso);
   if (minute == null || everyMinutes <= 0) return false;
@@ -643,10 +648,12 @@ export function BbSparkline15mChart({
         ) : null}
 
         {bars.map((b, i) => {
+          const sessionOpen = marksEvery != null && isSessionOpen(b.datetime);
           const marked =
-            marksEvery != null
+            sessionOpen ||
+            (marksEvery != null
               ? isTimeMark(b.datetime, marksEvery)
-              : data?.timeframe !== "15m" && isHourOpen(b.datetime);
+              : data?.timeframe !== "15m" && isHourOpen(b.datetime));
           if (!marked) return null;
           return (
             <line
@@ -655,10 +662,10 @@ export function BbSparkline15mChart({
               x2={xCenter(i)}
               y1={PAD.top}
               y2={H - PAD.bottom}
-              stroke="#94a3b8"
-              strokeOpacity={0.7}
-              strokeWidth={variant === "full" ? 1.25 : 0.9}
-              strokeDasharray={variant === "full" ? "5 4" : "3 2"}
+              stroke={sessionOpen ? "#f8fafc" : "#94a3b8"}
+              strokeOpacity={sessionOpen ? 1 : 0.7}
+              strokeWidth={sessionOpen ? (variant === "full" ? 2 : 1.4) : variant === "full" ? 1.25 : 0.9}
+              strokeDasharray={sessionOpen ? undefined : variant === "full" ? "5 4" : "3 2"}
             />
           );
         })}
@@ -697,8 +704,10 @@ export function BbSparkline15mChart({
           const bodyTop = Math.min(yO, yC);
           const bodyH = Math.max(1.5, Math.abs(yC - yO));
           const forming = Boolean(b.forming);
+          const sessionOpen = marksEvery != null && isSessionOpen(b.datetime);
           const onHour =
-            marksEvery != null ? isTimeMark(b.datetime, marksEvery) : isHourOpen(b.datetime);
+            sessionOpen ||
+            (marksEvery != null ? isTimeMark(b.datetime, marksEvery) : isHourOpen(b.datetime));
           const showTime = onHour
             ? true
             : scrollable
@@ -733,8 +742,11 @@ export function BbSparkline15mChart({
                   x={xc}
                   y={H - 2}
                   textAnchor="middle"
-                  className={onHour ? "fill-slate-400" : "fill-ocean-sand/80"}
-                  style={{ fontSize: onHour ? labelSize + 1 : labelSize, fontWeight: onHour ? 700 : 400 }}
+                  className={sessionOpen ? "fill-white" : onHour ? "fill-slate-400" : "fill-ocean-sand/80"}
+                  style={{
+                    fontSize: sessionOpen ? labelSize + 2 : onHour ? labelSize + 1 : labelSize,
+                    fontWeight: sessionOpen ? 800 : onHour ? 700 : 400,
+                  }}
                 >
                   {forming ? "now" : timeLabel(b.datetime)}
                 </text>

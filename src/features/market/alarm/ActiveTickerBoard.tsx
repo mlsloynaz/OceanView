@@ -242,7 +242,7 @@ function AngleBadge({ mark }: { mark: AngleMark }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-1 font-display text-xs font-bold leading-none tabular-nums",
+        "inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-px font-display text-[9px] font-bold leading-none tabular-nums",
         up ? "bg-ocean-teal text-ocean-deep" : "bg-ocean-danger text-white",
       )}
       title={`Steepest ${up ? "positive" : "negative"} EMA 10 on ${mark.frame}`}
@@ -438,7 +438,6 @@ function ThumbPane({
   showAlarmMarks = true,
   timeMarksEvery,
   caption,
-  angleMark = null,
 }: {
   symbol: string;
   which: Frame;
@@ -451,12 +450,11 @@ function ThumbPane({
   showAlarmMarks?: boolean;
   timeMarksEvery?: number;
   caption?: string;
-  angleMark?: AngleMark | null;
 }) {
   const label = caption ?? (which === "5m" ? "5m · 2h" : which === "1m" ? "1m · 1h" : "15m · 1d");
   return (
     <div className="relative h-full min-h-0 min-w-0">
-      <PaneLabel mark={angleMark}>{label}</PaneLabel>
+      <PaneLabel>{label}</PaneLabel>
       <BbSparkline15mChart
         data={chart(symbol, which, bars)}
         entryAt={entryAt}
@@ -475,26 +473,10 @@ function ThumbPane({
   );
 }
 
-function PaneLabel({ children, mark = null }: { children: string; mark?: AngleMark | null }) {
-  const leader = mark != null;
-  const up = mark?.tone === "up";
+function PaneLabel({ children }: { children: string }) {
   return (
-    <span
-      className={cn(
-        "pointer-events-none absolute top-0.5 left-0.5 z-20 inline-flex items-center gap-1 rounded px-1 py-px font-semibold",
-        leader
-          ? up
-            ? "bg-ocean-teal text-[11px] font-bold text-ocean-deep"
-            : "bg-ocean-danger text-[11px] font-bold text-white"
-          : "bg-ocean-deep/80 text-[8px] text-ocean-foam",
-      )}
-    >
+    <span className="pointer-events-none absolute top-0.5 left-0.5 z-20 inline-flex items-center rounded bg-ocean-deep/80 px-1 py-px text-[8px] font-semibold text-ocean-foam">
       {children}
-      {mark ? (
-        <span className="tabular-nums">
-          {up ? "▲" : "▼"} {formatAngle(mark.angle)}
-        </span>
-      ) : null}
     </span>
   );
 }
@@ -711,7 +693,6 @@ export function TickerThumb({
       showAlarmMarks={which !== "15m" || frame !== "all"}
       axis={which === "5m"}
       timeMarksEvery={frame === "1m" ? 5 : frame === "5m" ? 15 : frame === "15m" ? 60 : undefined}
-      angleMark={angleMarks.find((mark) => mark.frame === which) ?? null}
     />
   );
   return (
@@ -722,7 +703,7 @@ export function TickerThumb({
       )}
     >
       <div className={cn("mb-0.5 flex items-start justify-between gap-1", fit && "shrink-0")}>
-        <p className="flex min-w-0 flex-wrap items-center gap-x-1 font-display text-xs font-semibold text-ocean-foam">
+        <p className="flex min-w-0 flex-nowrap items-center gap-x-1 overflow-hidden font-display text-xs font-semibold text-ocean-foam">
           {onMove ? (
             <button
               type="button"
