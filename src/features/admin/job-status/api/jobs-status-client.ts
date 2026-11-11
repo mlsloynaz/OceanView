@@ -92,3 +92,25 @@ export async function getJobsStatus(): Promise<JobsStatusResponse> {
   }
   return mapJobsPayload((body ?? {}) as ApiListPayload);
 }
+
+export async function startTrendProfileJob(): Promise<void> {
+  if (USE_MOCK) {
+    await delay();
+    return;
+  }
+  const response = await apiFetch("/tickers/best-fit/trend-change-5m/evaluate", {
+    method: "POST",
+    body: "{}",
+  });
+  const body = await readResponseBody(response);
+  if (!response.ok) {
+    const message =
+      typeof body === "object" &&
+      body !== null &&
+      "error" in body &&
+      typeof (body as { error: unknown }).error === "string"
+        ? (body as { error: string }).error
+        : `HTTP ${response.status}`;
+    throw new Error(message);
+  }
+}

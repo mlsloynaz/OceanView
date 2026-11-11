@@ -57,10 +57,10 @@ function rangedBars(emas: number[], low: number, high: number): BbSparkline15mBa
 }
 
 describe("ema angle leaders", () => {
-  it("ranks the line that falls farther across its own chart", () => {
+  it("ranks the line that falls farther across its own reset chart", () => {
     const aapl = rangedBars([228, 221], 220, 230);
     const tsla = rangedBars([450, 430], 400, 480);
-    expect(latestEmaAngle(aapl)).toBeLessThan(latestEmaAngle(tsla) ?? 0);
+    expect(latestEmaAngle(aapl, 15 / 8)).toBeLessThan(latestEmaAngle(tsla, 15 / 8) ?? 0);
     const leaders = angleLeaders([
       { symbol: "AAPL", panes: { "1m": [], "5m": aapl, "15m": [] } },
       { symbol: "TSLA", panes: { "1m": [], "5m": tsla, "15m": [] } },
@@ -85,19 +85,19 @@ describe("ema angle leaders", () => {
 
   it("reads a rise then a drop as the downward right-hand side", () => {
     const emas = [358, 358.4, 358.8, 359.2, 360, 360.6, 360.2, 359.4, 358.6];
-    expect(latestEmaAngle(rangedBars(emas, 357, 364), 2)).toBeLessThan(0);
+    expect(latestEmaAngle(rangedBars(emas, 357, 364))).toBeLessThan(0);
   });
 
-  it("treats the 1m and 5m panes as two squares and the 15m pane as one", () => {
+  it("reads a full-fit rise as 45 degrees and a wider pane as flatter", () => {
     const across = rangedBars([100, 110], 100, 110);
-    const oneSquare = latestEmaAngle(across, 1);
-    const twoSquares = latestEmaAngle(across, 2);
-    expect(oneSquare).toBeCloseTo(45, 5);
-    expect(twoSquares).toBeCloseTo((Math.atan(0.5) * 180) / Math.PI, 5);
+    const square = latestEmaAngle(across, 1);
+    const wide = latestEmaAngle(across, 15 / 8);
+    const unit = (10 / 0.7) / 2;
+    expect(square).toBeCloseTo((Math.atan(10 / unit) * 180) / Math.PI, 4);
+    expect(wide).toBeLessThan(square ?? 0);
     const leaders = angleLeaders([{ symbol: "ORCL", panes: { "1m": across, "5m": across, "15m": across } }]);
-    expect(leaders["15m"].up?.angle).toBeCloseTo(45, 5);
-    expect(leaders["1m"].up?.angle).toBeCloseTo(twoSquares ?? 0, 5);
-    expect(leaders["5m"].up?.angle).toBeCloseTo(twoSquares ?? 0, 5);
+    expect(leaders["15m"].up?.angle).toBeCloseTo(square ?? 0, 4);
+    expect(leaders["1m"].up?.angle).toBeCloseTo(wide ?? 0, 4);
   });
 
   it("names the steepest rise and the steepest drop on each timeframe", () => {

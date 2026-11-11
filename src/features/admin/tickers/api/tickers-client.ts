@@ -1,6 +1,7 @@
 import type {
   BestFitOrb5mResponse,
   BestFitTrendChangeProfileResponse,
+  TrendProfileResponse,
   BestFitWatchlistResponse,
   CatalogTicker,
   CatalogTickersResponse,
@@ -53,25 +54,15 @@ let mockBestFitOrb5m: BestFitOrb5mResponse = {
   message: "No ORB 5m ranking yet. Run Resolve on Best-fit → ORB 5m.",
 };
 
-let mockBestFitTrendChange5m: BestFitTrendChangeProfileResponse = {
-  kind: "best_fit_trend_change_5m",
-  evaluatedAt: null,
-  scoredThisRun: 0,
-  pendingCount: 0,
-  sampleSize: 0,
-  achievedCount: 0,
-  achievedPct: null,
-  angle: {
-    all: { sampleSize: 0, mean: null, p25: null, p50: null, p75: null },
-    achieved: { sampleSize: 0, mean: null, p25: null, p50: null, p75: null },
-    missed: { sampleSize: 0, mean: null, p25: null, p50: null, p75: null },
-  },
-  buckets: [],
-  bestBucket: null,
-  via: [],
-  suggestedMinAngleDeg: null,
-  message:
-    "No scored 5m trend-change entries yet. Live alarms are stored when they ring, and the after-close job scores the session.",
+let mockTrendProfile: TrendProfileResponse = {
+  kind: "5m-trend-profile",
+  ranked: [],
+  missing: [],
+  errors: [],
+  calculatedAt: null,
+  dollarTarget: 1,
+  forwardBars: 30,
+  message: "No profiles yet. Calculate reads Alpaca for each active ticker.",
 };
 
 let mockBestFitTrendChange15m: BestFitTrendChangeProfileResponse = {
@@ -571,26 +562,25 @@ export async function getBestFitOrb5m(): Promise<BestFitOrb5mResponse> {
   return fetchJson<BestFitOrb5mResponse>("/tickers/best-fit/orb-5m");
 }
 
-export async function getBestFitTrendChange5m(): Promise<BestFitTrendChangeProfileResponse> {
+export async function getBestFitTrendChange5m(): Promise<TrendProfileResponse> {
   if (USE_MOCK) {
     await delay();
-    return { ...mockBestFitTrendChange5m, buckets: [...(mockBestFitTrendChange5m.buckets ?? [])], via: [...(mockBestFitTrendChange5m.via ?? [])] };
+    return { ...mockTrendProfile, ranked: [...mockTrendProfile.ranked], missing: [...mockTrendProfile.missing] };
   }
-  return fetchJson<BestFitTrendChangeProfileResponse>("/tickers/best-fit/trend-change-5m");
+  return fetchJson<TrendProfileResponse>("/tickers/best-fit/trend-change-5m");
 }
 
-export async function evaluateBestFitTrendChange5m(): Promise<BestFitTrendChangeProfileResponse> {
+export async function evaluateBestFitTrendChange5m(): Promise<TrendProfileResponse> {
   if (USE_MOCK) {
     await delay(250);
-    mockBestFitTrendChange5m = {
-      ...mockBestFitTrendChange5m,
-      evaluatedAt: new Date().toISOString(),
-      scoredThisRun: 0,
-      message: "Mock: no pending 5m trend-change entries to score.",
+    mockTrendProfile = {
+      ...mockTrendProfile,
+      calculatedAt: new Date().toISOString(),
+      message: "Mock: no Alpaca scan in mock mode.",
     };
-    return { ...mockBestFitTrendChange5m };
+    return { ...mockTrendProfile, ranked: [...mockTrendProfile.ranked], missing: [...mockTrendProfile.missing] };
   }
-  return fetchJson<BestFitTrendChangeProfileResponse>("/tickers/best-fit/trend-change-5m/evaluate", {
+  return fetchJson<TrendProfileResponse>("/tickers/best-fit/trend-change-5m/evaluate", {
     method: "POST",
     body: "{}",
   });

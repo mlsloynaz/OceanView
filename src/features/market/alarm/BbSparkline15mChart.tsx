@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import type { BbSparkline15m } from "./alarm-types";
+import { resetPriceWindow } from "./ema-angle-scale";
 import {
   ALARM_TRIGGER_LOG_CHANGED_EVENT,
   loadAlarmTriggerLog,
@@ -228,11 +229,12 @@ function OpenMinutePanel({ points }: { points: OpenMinutePoint[] }) {
   if (prices.length < 2) return null;
   const low = Math.min(...prices);
   const high = Math.max(...prices);
-  const pad = (high - low) * 0.08 || 0.05;
-  const yMin = low - pad;
-  const yMax = high + pad;
+  const gaps = Math.max(points.length - 1, 1);
+  const fitted = resetPriceWindow(low, high);
+  const yMin = fitted.yMin;
+  const yMax = fitted.yMax;
   const yAt = (price: number) => 8 + ((yMax - price) / (yMax - yMin || 1)) * 48;
-  const xAt = (index: number) => 2 + (index / Math.max(points.length - 1, 1)) * 96;
+  const xAt = (index: number) => 2 + (index / gaps) * 96;
   const closeLine = lineThrough(points, "close", xAt, yAt);
   const ema10Line = lineThrough(points, "ema10", xAt, yAt);
   const ema21Line = lineThrough(points, "ema21", xAt, yAt);
@@ -483,17 +485,15 @@ export function BbSparkline15mChart({
     if (value < yMin) yMin = value;
     if (value > yMax) yMax = value;
   }
-  // The band edges sit just inside the plot. Nothing is stretched to fill the box.
-  const span = Math.max(yMax - yMin, 0.05);
-  const pad = span * 0.02;
-  yMin -= pad;
-  yMax += pad;
-
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
+  const slot = scrollable ? FULL_5M_SLOT : plotW / Math.max(bars.length, 1);
+  const fitted = resetPriceWindow(yMin, yMax);
+  yMin = fitted.yMin;
+  yMax = fitted.yMax;
+
   const showAxis = axis || shape === "portrait" || variant === "full";
   const priceTicks = Array.from({ length: 5 }, (_, index) => yMax - ((yMax - yMin) * index) / 4);
-  const slot = scrollable ? FULL_5M_SLOT : plotW / bars.length;
   const bodyW = Math.max(variant === "full" ? 5 : 2.5, slot * 0.55);
 
   const yScale = (price: number) =>

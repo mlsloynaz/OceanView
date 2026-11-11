@@ -33,6 +33,7 @@ import { filterTickersBySearch } from "../search";
 import type {
   BestFitOrb5mResponse,
   BestFitTrendChangeProfileResponse,
+  TrendProfileResponse,
   BestFitWatchlistResponse,
   CatalogTicker,
   TickerCatalogFilter,
@@ -71,7 +72,7 @@ export function useTickersPane(open: boolean) {
   const [bestFitOrb5mResolving, setBestFitOrb5mResolving] = useState(false);
   const [bestFitOrb5mError, setBestFitOrb5mError] = useState<string | null>(null);
   const [bestFitTrendChange5m, setBestFitTrendChange5m] =
-    useState<BestFitTrendChangeProfileResponse | null>(null);
+    useState<TrendProfileResponse | null>(null);
   const [bestFitTrendChange5mLoading, setBestFitTrendChange5mLoading] = useState(false);
   const [bestFitTrendChange5mEvaluating, setBestFitTrendChange5mEvaluating] = useState(false);
   const [bestFitTrendChange5mError, setBestFitTrendChange5mError] = useState<string | null>(null);
@@ -137,7 +138,7 @@ export function useTickersPane(open: boolean) {
       setBestFitTrendChange5m(payload);
     } catch (err) {
       setBestFitTrendChange5mError(
-        err instanceof Error ? err.message : "Failed to load 5m trend-change profile.",
+        err instanceof Error ? err.message : "Failed to load the $1 follow-through profile.",
       );
     } finally {
       setBestFitTrendChange5mLoading(false);
@@ -150,10 +151,10 @@ export function useTickersPane(open: boolean) {
     try {
       const payload = await evaluateBestFitTrendChange5m();
       setBestFitTrendChange5m(payload);
-      setMessage(payload.message ?? "5m trend-change entries scored.");
+      setMessage(payload.message ?? "5m trend profile calculated.");
     } catch (err) {
       setBestFitTrendChange5mError(
-        err instanceof Error ? err.message : "Failed to score 5m trend-change entries.",
+        err instanceof Error ? err.message : "Failed to calculate the $1 follow-through profile.",
       );
     } finally {
       setBestFitTrendChange5mEvaluating(false);
@@ -378,6 +379,22 @@ export function useTickersPane(open: boolean) {
     loadBestFitTrendChange5m,
     loadBestFitTrendChange15m,
     loadTradable,
+  ]);
+
+  const trendProfileCalculating = bestFitTrendChange5m?.status === "running";
+
+  useEffect(() => {
+    if (!open || !trendProfileCalculating) return;
+    const pollMs = Math.max(3, Number(bestFitTrendChange5m?.pollIntervalSeconds) || 5) * 1000;
+    const id = window.setInterval(() => {
+      void loadBestFitTrendChange5m();
+    }, pollMs);
+    return () => window.clearInterval(id);
+  }, [
+    open,
+    trendProfileCalculating,
+    bestFitTrendChange5m?.pollIntervalSeconds,
+    loadBestFitTrendChange5m,
   ]);
 
   useEffect(() => {

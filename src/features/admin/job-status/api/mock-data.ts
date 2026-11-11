@@ -58,6 +58,19 @@ export function buildMockJobsStatus(): JobsStatusResponse {
         },
       },
       {
+        jobType: "trend_profile",
+        lastRun: {
+          runId: "",
+          kind: "trend_profile",
+          status: "idle",
+          trigger: null,
+          message:
+            "TrendProfile — Start calculates the $1 follow-through angle and separation for each active ticker. A later Start recalculates only tickers that do not already have today's profile.",
+          startedAt: null,
+          finishedAt: null,
+        },
+      },
+      {
         jobType: "movement_watch",
         lastRun: {
           runId: "",

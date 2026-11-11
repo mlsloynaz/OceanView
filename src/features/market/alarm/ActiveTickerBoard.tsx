@@ -7,6 +7,7 @@ import { THUMB_GAP_PX, fitThumbnailGrid } from "./fit-thumbnail-grid";
 import { fetchFormingMinutes, loadAlpacaSession, mergeFormingMinute, nextFormingDelayMs } from "./alpaca-forming-minute";
 import { fetchBoardSnapshot, fetchMovementWatchResults } from "./alarm-client";
 import type { BbSparkline15m, BbSparkline15mBar } from "./alarm-types";
+import { angleOnResetScale } from "./ema-angle-scale";
 
 type Frame = "5m" | "15m" | "1m";
 type PaneFilter = Frame | "all";
@@ -143,10 +144,11 @@ function emaNumber(value: unknown): number | null {
 }
 
 /**
- * Angle of the EMA 10 line as drawn.
- * `squares` is how many 15m squares wide that pane is. 15m is 1, 1m and 5m are 2.
+ * Angle of the EMA 10 line on a reset chart.
+ * The visible high and low fill the pane. `aspect` is the pane's width / height.
+ * One bar whose rise matches that fit is 45°.
  */
-export function latestEmaAngle(bars: BbSparkline15mBar[], squares = 1): number | null {
+export function latestEmaAngle(bars: BbSparkline15mBar[], aspect = 1): number | null {
   const closes = bars
     .map((bar) => emaNumber(bar.close))
     .filter((value): value is number => value != null && value > 0);
@@ -155,7 +157,7 @@ export function latestEmaAngle(bars: BbSparkline15mBar[], squares = 1): number |
   const prices: number[] = [];
   const line: Array<{ index: number; ema: number }> = [];
   bars.forEach((bar, index) => {
-    for (const value of [bar.high, bar.low, bar.ema10, bar.ema21, bar.bbUpper, bar.bbLower]) {
+    for (const value of [bar.high, bar.low, bar.close, bar.ema10, bar.ema21, bar.bbUpper, bar.bbLower]) {
       const price = emaNumber(value);
       if (price != null && onScale(price)) prices.push(price);
     }
@@ -163,11 +165,6 @@ export function latestEmaAngle(bars: BbSparkline15mBar[], squares = 1): number |
     if (ema != null && onScale(ema)) line.push({ index, ema });
   });
   if (line.length < 2 || prices.length < 2) return null;
-  const yMin = Math.min(...prices);
-  const yMax = Math.max(...prices);
-  const span = Math.max(yMax - yMin, 0.05);
-  const x0 = line[0]!.index;
-  const xSpan = Math.max(line[line.length - 1]!.index - x0, 1);
   // The eye follows the right-hand side of the line. A rise earlier in the pane
   // does not keep the angle positive once that side is falling.
   const tail = line.slice(-Math.max(2, Math.ceil(line.length / 3)));
@@ -176,31 +173,29 @@ export function latestEmaAngle(bars: BbSparkline15mBar[], squares = 1): number |
   let sumXX = 0;
   let sumXY = 0;
   for (const point of tail) {
-    const x = (point.index - x0) / xSpan;
-    const y = (point.ema - yMin) / span;
-    sumX += x;
-    sumY += y;
-    sumXX += x * x;
-    sumXY += x * y;
+    sumX += point.index;
+    sumY += point.ema;
+    sumXX += point.index * point.index;
+    sumXY += point.index * point.ema;
   }
   const denom = tail.length * sumXX - sumX * sumX;
   if (denom === 0) return null;
   const slope = (tail.length * sumXY - sumX * sumY) / denom;
-  return (Math.atan(slope / squares) * 180) / Math.PI;
+  return angleOnResetScale(slope, Math.min(...prices), Math.max(...prices), aspect, bars.length);
 }
 
 export type AnglePick = { symbol: string; angle: number };
 export type AngleLeaders = Record<Frame, { up: AnglePick | null; down: AnglePick | null }>;
 
 const ANGLE_FRAMES: Frame[] = ["1m", "5m", "15m"];
-/** 15m is one square. The 1m pane is two of those squares wide, and the 5m pane is two squares wide. */
-const PANE_SQUARES: Record<Frame, number> = { "1m": 2, "5m": 2, "15m": 1 };
+/** Width / height of each pane. Matches the solo graph boxes. */
+const PANE_ASPECT: Record<Frame, number> = { "1m": 15 / 8, "5m": 23 / 12, "15m": 1 };
 
 export function angleLeaders(rows: Array<{ symbol: string; panes: Panes | undefined }>): AngleLeaders {
   const leaders = {} as AngleLeaders;
   for (const frame of ANGLE_FRAMES) {
     const ranked = rows.flatMap((row) => {
-      const angle = latestEmaAngle(row.panes?.[frame] ?? [], PANE_SQUARES[frame]);
+      const angle = latestEmaAngle(row.panes?.[frame] ?? [], PANE_ASPECT[frame]);
       return angle == null ? [] : [{ symbol: row.symbol.trim().toUpperCase(), angle }];
     });
     if (ranked.length === 0) {
@@ -534,66 +529,72 @@ function useSnapshot(
   useEffect(() => {
     if (!enabled) return;
     let cancel = false;
-    void fetchBoardSnapshot(refreshKey > 0 && !live, live)
-      .then((body) => {
-        if (cancel) return;
-        const incoming: Snapshot["bySymbol"] = {};
-        for (const [symbol, row] of Object.entries(body.symbols ?? {})) {
-          incoming[symbol] = {
-            error: row.error,
-            entryAt: row.entryAt,
-            entrySide: row.entrySide,
-            breakoutLevel: row.breakoutLevel,
-            premarketPrice:
-              typeof row.premarketPrice === "number" && Number.isFinite(row.premarketPrice)
-                ? row.premarketPrice
-                : null,
-            hourRelation: textOrNull(row.hourRelation),
-            hourRegime: textOrNull(row.hourRegime),
-            sectorEtf: textOrNull(row.sectorEtf),
-            etfMatch: row.etfMatch === true ? true : row.etfMatch === false ? false : null,
-            sentiment: row.sentiment === "bull S" || row.sentiment === "bear S" ? row.sentiment : null,
-            note: freshnessNote(row.freshness),
-            panes: {
-              "5m": asBars(row.panes?.["5m"]),
-              "15m": asBars(row.panes?.["15m"]),
-              "1m": asBars(row.panes?.["1m"]),
-            },
-          };
-        }
-        setSnapshot((current) => {
-          const bySymbol: Snapshot["bySymbol"] = { ...(current?.bySymbol ?? {}) };
-          for (const [symbol, row] of Object.entries(incoming)) {
-            const prior = current?.bySymbol[symbol];
-            const panes = {
-              "5m": handoffBars(prior?.panes["5m"], row.panes["5m"]),
-              "15m": handoffBars(prior?.panes["15m"], row.panes["15m"]),
-              "1m": handoffBars(prior?.panes["1m"], row.panes["1m"]),
-            };
-            const opened = regularSessionStarted(panes["5m"]);
-            bySymbol[symbol] = {
-              ...row,
-              panes,
-              premarketPrice: opened ? null : (row.premarketPrice ?? prior?.premarketPrice ?? null),
+    let timer = 0;
+    const load = () => {
+      void fetchBoardSnapshot(refreshKey > 0 && !live, live)
+        .then((body) => {
+          if (cancel) return;
+          const incoming: Snapshot["bySymbol"] = {};
+          for (const [symbol, row] of Object.entries(body.symbols ?? {})) {
+            incoming[symbol] = {
+              error: row.error,
+              entryAt: row.entryAt,
+              entrySide: row.entrySide,
+              breakoutLevel: row.breakoutLevel,
+              premarketPrice:
+                typeof row.premarketPrice === "number" && Number.isFinite(row.premarketPrice)
+                  ? row.premarketPrice
+                  : null,
+              hourRelation: textOrNull(row.hourRelation),
+              hourRegime: textOrNull(row.hourRegime),
+              sectorEtf: textOrNull(row.sectorEtf),
+              etfMatch: row.etfMatch === true ? true : row.etfMatch === false ? false : null,
+              sentiment: row.sentiment === "bull S" || row.sentiment === "bear S" ? row.sentiment : null,
+              note: freshnessNote(row.freshness),
+              panes: {
+                "5m": asBars(row.panes?.["5m"]),
+                "15m": asBars(row.panes?.["15m"]),
+                "1m": asBars(row.panes?.["1m"]),
+              },
             };
           }
-          return {
-            label:
-              body.uniform === false && body.source === "schwab"
-                ? "Schwab · each ticker on its own cycle"
-                : body.label,
-            windowStartEt: body.windowStartEt,
-            windowEndEt: body.windowEndEt,
-            bySymbol,
-          };
+          setSnapshot((current) => {
+            const bySymbol: Snapshot["bySymbol"] = { ...(current?.bySymbol ?? {}) };
+            for (const [symbol, row] of Object.entries(incoming)) {
+              const prior = current?.bySymbol[symbol];
+              const panes = {
+                "5m": handoffBars(prior?.panes["5m"], row.panes["5m"]),
+                "15m": handoffBars(prior?.panes["15m"], row.panes["15m"]),
+                "1m": handoffBars(prior?.panes["1m"], row.panes["1m"]),
+              };
+              const opened = regularSessionStarted(panes["5m"]);
+              bySymbol[symbol] = {
+                ...row,
+                panes,
+                premarketPrice: opened ? null : (row.premarketPrice ?? prior?.premarketPrice ?? null),
+              };
+            }
+            return {
+              label:
+                body.uniform === false && body.source === "schwab"
+                  ? "Schwab · each ticker on its own cycle"
+                  : body.label,
+              windowStartEt: body.windowStartEt,
+              windowEndEt: body.windowEndEt,
+              bySymbol,
+            };
+          });
+          setError(null);
+        })
+        .catch((err: unknown) => {
+          if (!cancel) setError(err instanceof Error ? err.message : "Snapshot failed.");
         });
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        if (!cancel) setError(err instanceof Error ? err.message : "Snapshot failed.");
-      });
+    };
+    load();
+    if (live) timer = window.setInterval(load, 30_000);
     return () => {
       cancel = true;
+      window.clearInterval(timer);
     };
   }, [refreshKey, live, enabled]);
   return { snapshot, error };

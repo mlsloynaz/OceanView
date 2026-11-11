@@ -7,6 +7,7 @@ import { BEST_FIT_COLUMN_HELP } from "./best-fit-column-help";
 import { BestFitOrb5mSection } from "./BestFitOrb5mSection";
 import { BestFitTickerDetail } from "./BestFitTickerDetail";
 import { BestFitTrendChangeSection } from "./BestFitTrendChangeSection";
+import { BestFitTrendProfileSection } from "./BestFitTrendProfileSection";
 import { useTickersPane } from "./hooks/useTickersPane";
 import {
   bestFitSubTabFromHash,
@@ -259,7 +260,7 @@ export function BestFitPane({ onBack }: Props) {
         subTab === "orb-5m"
           ? "5-minute opening-range fitness from historical entries. Resolve scans Alpaca 5Min bars."
           : subTab === "trend-change-5m"
-            ? "Hour-angle profile from live 5m trend-change alarms. Score pending after the close."
+            ? "Angle and separation that most often see a $1 move after an EMA cross. Sorted by that percentage."
             : subTab === "trend-change-15m"
               ? "Angle profile from live 15m trend-change alarms. Score pending after the close."
               : "Movement-profile fitness (not strategy hit rate). Click a symbol for % and $. Check boxes to promote."
@@ -339,8 +340,7 @@ export function BestFitPane({ onBack }: Props) {
           onReload={reload}
         />
       ) : subTab === "trend-change-5m" ? (
-        <BestFitTrendChangeSection
-          variant="5m"
+        <BestFitTrendProfileSection
           data={bestFitTrendChange5m}
           loading={bestFitTrendChange5mLoading}
           evaluating={bestFitTrendChange5mEvaluating}

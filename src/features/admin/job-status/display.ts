@@ -16,6 +16,7 @@ const JOB_TITLES: Record<string, string> = {
   orb_auto_monitor: "ORB auto monitor",
   orb5m_auto_monitor: "Movement Watch (legacy id)",
   movement_watch: "Movement Watch",
+  trend_profile: "TrendProfile",
 };
 
 export function jobTypeTitle(jobType: string): string {
@@ -117,7 +118,9 @@ export function cardFromJob(entry: JobStatusEntry): JobStatusCardModel {
       jobType: entry.jobType,
       title,
       kind: "none",
-      body: "No active job. Latest run will appear here after a schedule or manual start.",
+      body:
+        run?.message?.trim() ||
+        "No active job. Latest run will appear here after a schedule or manual start.",
       meta: null,
       runId: run?.runId || null,
     };
@@ -134,7 +137,7 @@ export function cardFromJob(entry: JobStatusEntry): JobStatusCardModel {
 }
 
 export function cardsFromJobs(jobs: JobStatusEntry[]): JobStatusCardModel[] {
-  const order = ["movement_watch", "candles", "market", "preselection", "premarket"];
+  const order = ["trend_profile", "movement_watch", "candles", "market", "preselection", "premarket"];
   const rank = (jobType: string) => {
     const idx = order.indexOf(jobType);
     return idx === -1 ? order.length : idx;

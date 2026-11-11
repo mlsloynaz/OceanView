@@ -18,6 +18,7 @@ export function JobsStatusPane() {
     busyJob,
     startMovementWatch,
     stopMovementWatch,
+    startTrendProfile,
   } = useJobsStatusPane(true);
 
   return (
@@ -27,7 +28,7 @@ export function JobsStatusPane() {
       subtitle={
         usesMock
           ? "Mock data (VITE_USE_MOCK_JOBS_STATUS=true)"
-          : `Latest job messages — Movement Watch start/stop here${apiBase ? ` · ${apiBase}` : ""}`
+          : `Latest job messages — TrendProfile and Movement Watch start here${apiBase ? ` · ${apiBase}` : ""}`
       }
       headerExtra={
         <button
@@ -50,6 +51,9 @@ export function JobsStatusPane() {
       )}
 
       <p className="mb-3 text-[11px] leading-relaxed text-ocean-sand">
+        <span className="font-medium text-ocean-foam">TrendProfile</span> calculates the $1
+        follow-through angle and separation for active tickers. A later Start skips tickers
+        already calculated today.{" "}
         <span className="font-medium text-ocean-foam">Movement Watch</span> evaluates active
         tickers × active-movements. Prefer{" "}
         <span className="font-medium text-ocean-foam">Alarms → Movement</span> to pick
@@ -75,12 +79,19 @@ export function JobsStatusPane() {
         <div className="grid gap-3 sm:grid-cols-2">
           {cards.map((card) => {
             const isMw = card.jobType === "movement_watch";
+            const isTrend = card.jobType === "trend_profile";
             return (
               <JobStatusCard
                 key={card.jobType}
                 card={card}
                 busy={busyJob === card.jobType}
-                onStart={isMw ? () => void startMovementWatch() : undefined}
+                onStart={
+                  isTrend
+                    ? () => void startTrendProfile()
+                    : isMw
+                      ? () => void startMovementWatch()
+                      : undefined
+                }
                 onStop={isMw ? () => void stopMovementWatch() : undefined}
               />
             );

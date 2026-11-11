@@ -235,6 +235,40 @@ export type BestFitTrendChangeProfileResponse = {
   message?: string | null;
 };
 
+export type TrendProfileMetric = {
+  angleDeg?: number | null;
+  separationPct?: number | null;
+  pct?: number | null;
+  trades?: number | null;
+  hits?: number | null;
+  earning?: number | null;
+};
+
+export type TrendProfileRow = {
+  symbol: string;
+  calculatedAt?: string | null;
+  bestPct?: number | null;
+  bestEarning?: number | null;
+  bestAngleDeg?: number | null;
+  bestTimeframe?: string | null;
+  profile?: Record<string, Record<string, TrendProfileMetric | number | null> | undefined> | null;
+};
+
+export type TrendProfileResponse = {
+  kind: "5m-trend-profile";
+  status?: "idle" | "running" | "complete" | "error" | string;
+  ranked: TrendProfileRow[];
+  missing: string[];
+  errors?: { symbol: string; error: string }[];
+  progress?: { done?: number; total?: number };
+  pollIntervalSeconds?: number;
+  calculatedAt?: string | null;
+  dollarTarget?: number;
+  forwardBars?: number;
+  lookbackDays?: { "1m"?: number; "1h"?: number; "1D"?: number };
+  message?: string | null;
+};
+
 export type TradableSideMetrics = {
   contractCount?: number | null;
   liquidRate?: number | null;
