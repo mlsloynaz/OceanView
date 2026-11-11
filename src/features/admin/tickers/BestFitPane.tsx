@@ -93,6 +93,7 @@ export function BestFitPane({ onBack }: Props) {
     bestFitTrendChange5mError,
     loadBestFitTrendChange5m,
     evaluateBestFitTrendChange5m,
+    recalculateBestFitTrendChange5m,
     bestFitTrendChange15m,
     bestFitTrendChange15mLoading,
     bestFitTrendChange15mEvaluating,
@@ -346,6 +347,7 @@ export function BestFitPane({ onBack }: Props) {
           evaluating={bestFitTrendChange5mEvaluating}
           error={bestFitTrendChange5mError}
           onEvaluate={evaluateBestFitTrendChange5m}
+          onRecalculate={recalculateBestFitTrendChange5m}
           onReload={loadBestFitTrendChange5m}
         />
       ) : subTab === "trend-change-15m" ? (

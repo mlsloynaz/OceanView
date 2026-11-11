@@ -121,6 +121,7 @@ type Props = {
   evaluating: boolean;
   error: string | null;
   onEvaluate: () => Promise<void>;
+  onRecalculate: () => Promise<void>;
   onReload: () => Promise<void>;
 };
 
@@ -130,6 +131,7 @@ export function BestFitTrendProfileSection({
   evaluating,
   error,
   onEvaluate,
+  onRecalculate,
   onReload,
 }: Props) {
   const calculating = evaluating || data?.status === "running";
@@ -175,6 +177,15 @@ export function BestFitTrendProfileSection({
           >
             {calculating ? "Calculating…" : "Calculate from Alpaca"}
           </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void onRecalculate()}
+            title="Deletes every saved 5m profile, then calculates again"
+            className={cn(BTN, "border border-ocean-danger/50 text-ocean-danger hover:bg-ocean-danger/10")}
+          >
+            Recalculate
+          </button>
         </div>
       </div>
 
@@ -209,7 +220,7 @@ export function BestFitTrendProfileSection({
             {ranked.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-3 py-6 text-ocean-sand">
-                  {loading ? "Loading profiles…" : "No calculated profiles yet."}
+                  {loading ? "Loading profiles…" : calculating ? "Calculating…" : "No calculated profiles yet."}
                 </td>
               </tr>
             ) : (

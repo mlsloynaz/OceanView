@@ -570,6 +570,25 @@ export async function getBestFitTrendChange5m(): Promise<TrendProfileResponse> {
   return fetchJson<TrendProfileResponse>("/tickers/best-fit/trend-change-5m");
 }
 
+export async function recalculateBestFitTrendChange5m(): Promise<TrendProfileResponse> {
+  if (USE_MOCK) {
+    await delay(250);
+    mockTrendProfile = {
+      ...mockTrendProfile,
+      ranked: [],
+      missing: [],
+      calculatedAt: null,
+      status: "running",
+      message: "Mock: cleared saved profiles.",
+    };
+    return { ...mockTrendProfile, ranked: [], missing: [] };
+  }
+  return fetchJson<TrendProfileResponse>("/tickers/best-fit/trend-change-5m/evaluate", {
+    method: "POST",
+    body: JSON.stringify({ recalculate: true }),
+  });
+}
+
 export async function evaluateBestFitTrendChange5m(): Promise<TrendProfileResponse> {
   if (USE_MOCK) {
     await delay(250);

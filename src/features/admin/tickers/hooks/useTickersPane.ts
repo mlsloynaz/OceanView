@@ -4,6 +4,7 @@ import {
   deleteTicker,
   evaluateBestFitTrendChange15m,
   evaluateBestFitTrendChange5m,
+  recalculateBestFitTrendChange5m,
   fetchMovementProfilesForSymbols,
   getBestFitOrb5m,
   getBestFitTrendChange15m,
@@ -142,6 +143,22 @@ export function useTickersPane(open: boolean) {
       );
     } finally {
       setBestFitTrendChange5mLoading(false);
+    }
+  }, []);
+
+  const recalculateBestFitTrendChange5mProfile = useCallback(async () => {
+    setBestFitTrendChange5mError(null);
+    setBestFitTrendChange5mEvaluating(true);
+    try {
+      const payload = await recalculateBestFitTrendChange5m();
+      setBestFitTrendChange5m(payload);
+      setMessage(payload.message ?? "Saved 5m profiles cleared. Calculating again.");
+    } catch (err) {
+      setBestFitTrendChange5mError(
+        err instanceof Error ? err.message : "Failed to recalculate the option follow-through profile.",
+      );
+    } finally {
+      setBestFitTrendChange5mEvaluating(false);
     }
   }, []);
 
@@ -812,6 +829,7 @@ export function useTickersPane(open: boolean) {
     bestFitTrendChange5mError,
     loadBestFitTrendChange5m,
     evaluateBestFitTrendChange5m: evaluateBestFitTrendChange5mProfile,
+    recalculateBestFitTrendChange5m: recalculateBestFitTrendChange5mProfile,
     bestFitTrendChange15m,
     bestFitTrendChange15mLoading,
     bestFitTrendChange15mEvaluating,
