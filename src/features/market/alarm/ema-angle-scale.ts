@@ -1,7 +1,7 @@
 /**
- * TradingView Auto (reset) scale. The visible high and low fill the pane,
- * with 20% empty on top and 10% on the bottom. One candle is 45° when its
- * rise is as tall, in pixels, as the candle is wide.
+ * Visual angle. TradingView Auto (reset) scale: the visible high and low fill
+ * the pane, with 20% empty on top and 10% on the bottom. One candle is 45°
+ * when its rise is as tall, in pixels, as the candle is wide.
  */
 
 export const RESET_MARGIN_TOP = 0.2;

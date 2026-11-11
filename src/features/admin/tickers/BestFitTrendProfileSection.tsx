@@ -149,15 +149,15 @@ export function BestFitTrendProfileSection({
             After EMA 10 crosses EMA 21, the angle and the separation are read on the first bar
             where they clear, the cross bar or one of the next 10. The clock starts when that bar
             closes, and only while the cross still holds. A hit is the stock move that matches a{" "}
-            {gain} option gain for that ticker, taken from its stored 12% move and scaled. That
-            12% figure is the near-the-money calibration, so a 20–30 delta contract needs a larger
-            stock move than the number shown. On 1m and 5m the half hour stays inside the session.
+            {gain} option gain for that ticker. The 35% distance is the hardcoded Alpaca move for a
+            Friday option with delta from 0.20 to 0.40. The 20% distance is 20/35 of that move. On 1m and 5m the half hour stays inside the session.
             A cutoff on 1m and 5m needs at least 100 trades. 15m, 1h, and 1D need 30, because
             those bars rarely produce 100 qualified trades in three months. A handful of perfect
             trades does not win over a larger sample. Reversed is how far price went against the trade, in the middle of the
             trades that still reached {gain}. The 2h line is the same idea over 2 hours and is not
             used to sort. The sort uses the 30-minute percentage, then the median favorable dollars.
-            The angle uses 0.10% of price as 45°. These figures are research, not a live entry rule.
+            The relative angle uses 0.10% of price as 45°. The visual angle on the board is the
+            TradingView reset and is not this number. These figures are research, not a live entry rule.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -256,7 +256,7 @@ export function BestFitTrendProfileSection({
                     <td key={timeframe} className="px-3 py-2">
                       <div className="grid gap-1.5">
                         <div>
-                          <div className="text-[10px] uppercase tracking-wide text-ocean-sand/70">Angle</div>
+                          <div className="text-[10px] uppercase tracking-wide text-ocean-sand/70">Relative</div>
                           <MetricLines row={metric(target === 1 ? row.profile : row.profile2, timeframe, "angl")} />
                         </div>
                         <div>

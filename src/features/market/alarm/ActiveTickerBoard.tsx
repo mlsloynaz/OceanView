@@ -144,7 +144,7 @@ function emaNumber(value: unknown): number | null {
 }
 
 /**
- * Angle of the EMA 10 line on a reset chart.
+ * Visual angle of the EMA 10 line on a reset chart.
  * The visible high and low fill the pane. `aspect` is the pane's width / height.
  * One bar whose rise matches that fit is 45°.
  */
@@ -242,7 +242,7 @@ function AngleBadge({ mark }: { mark: AngleMark }) {
       )}
       title={`Steepest ${up ? "positive" : "negative"} EMA 10 on ${mark.frame}`}
     >
-      {mark.frame} {up ? "▲" : "▼"} {formatAngle(mark.angle)}
+      {mark.frame} {up ? "▲" : "▼"} {formatAngle(mark.angle)} visual
     </span>
   );
 }
@@ -253,8 +253,9 @@ function AngleLeadersBar({ leaders }: { leaders: AngleLeaders }) {
   return (
     <div
       className="rounded border border-ocean-mid/40 bg-ocean-deep/40 px-2 py-1.5"
-      aria-label="Steepest EMA 10 angle by timeframe"
+      aria-label="Steepest visual angle by timeframe"
     >
+      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ocean-sand">Visual angle</p>
       <ul className="space-y-1">
         {ANGLE_FRAMES.map((frame) => (
           <li key={frame} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">

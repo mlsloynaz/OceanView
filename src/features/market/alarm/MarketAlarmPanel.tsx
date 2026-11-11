@@ -226,7 +226,7 @@ function ValidEntryLine({
           ) : null}
         </p>
         <p className="mt-0.5 text-sm text-ocean-sand">
-          5m angle {early.five ?? "—"}° · 15m angle {early.fifteen ?? "—"}° · separation{" "}
+          5m relative angle {early.five ?? "—"}° · 15m relative angle {early.fifteen ?? "—"}° · separation{" "}
           {early.separation ?? "—"}
           {bias ? ` · Ticker bias 1h ${bias}` : ""}
         </p>
