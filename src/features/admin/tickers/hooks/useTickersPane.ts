@@ -138,7 +138,7 @@ export function useTickersPane(open: boolean) {
       setBestFitTrendChange5m(payload);
     } catch (err) {
       setBestFitTrendChange5mError(
-        err instanceof Error ? err.message : "Failed to load the $1 follow-through profile.",
+        err instanceof Error ? err.message : "Failed to load the option follow-through profile.",
       );
     } finally {
       setBestFitTrendChange5mLoading(false);
@@ -154,7 +154,7 @@ export function useTickersPane(open: boolean) {
       setMessage(payload.message ?? "5m trend profile calculated.");
     } catch (err) {
       setBestFitTrendChange5mError(
-        err instanceof Error ? err.message : "Failed to calculate the $1 follow-through profile.",
+        err instanceof Error ? err.message : "Failed to calculate the option follow-through profile.",
       );
     } finally {
       setBestFitTrendChange5mEvaluating(false);

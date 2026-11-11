@@ -242,6 +242,18 @@ export type TrendProfileMetric = {
   trades?: number | null;
   hits?: number | null;
   earning?: number | null;
+  /** Median dollars against the trade, on the trades that still reached the target in 30 minutes. */
+  reverse?: number | null;
+  /** Share of those trades that also reach the target within 2 hours. Not used to rank. */
+  pct2h?: number | null;
+  /** Median dollars against the trade, on the trades that still reached the target in 2 hours. */
+  reverse2h?: number | null;
+};
+
+export type TrendProfileHistory = {
+  start?: string | null;
+  end?: string | null;
+  bars?: number | null;
 };
 
 export type TrendProfileRow = {
@@ -251,7 +263,17 @@ export type TrendProfileRow = {
   bestEarning?: number | null;
   bestAngleDeg?: number | null;
   bestTimeframe?: string | null;
+  bestPct2?: number | null;
+  bestEarning2?: number | null;
+  bestAngleDeg2?: number | null;
+  bestTimeframe2?: string | null;
+  /** Stock dollars that match a 20% option gain for this ticker. */
+  moveDollars20?: number | null;
+  /** Stock dollars that match a 35% option gain for this ticker. */
+  moveDollars35?: number | null;
+  note?: string | null;
   profile?: Record<string, Record<string, TrendProfileMetric | number | null> | undefined> | null;
+  profile2?: Record<string, Record<string, TrendProfileMetric | number | null> | undefined> | null;
 };
 
 export type TrendProfileResponse = {
@@ -263,7 +285,7 @@ export type TrendProfileResponse = {
   progress?: { done?: number; total?: number };
   pollIntervalSeconds?: number;
   calculatedAt?: string | null;
-  dollarTarget?: number;
+  gainTargetsPct?: number[];
   forwardBars?: number;
   lookbackDays?: { "1m"?: number; "1h"?: number; "1D"?: number };
   message?: string | null;

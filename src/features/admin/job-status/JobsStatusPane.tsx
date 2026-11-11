@@ -51,9 +51,8 @@ export function JobsStatusPane() {
       )}
 
       <p className="mb-3 text-[11px] leading-relaxed text-ocean-sand">
-        <span className="font-medium text-ocean-foam">TrendProfile</span> calculates the $1
-        follow-through angle and separation for active tickers. A later Start skips tickers
-        already calculated today.{" "}
+        <span className="font-medium text-ocean-foam">TrendProfile</span> recalculates every
+        active ticker from at least 3 months of history, two tickers at a time.{" "}
         <span className="font-medium text-ocean-foam">Movement Watch</span> evaluates active
         tickers × active-movements. Prefer{" "}
         <span className="font-medium text-ocean-foam">Alarms → Movement</span> to pick

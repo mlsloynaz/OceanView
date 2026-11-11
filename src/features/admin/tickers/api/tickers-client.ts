@@ -60,7 +60,7 @@ let mockTrendProfile: TrendProfileResponse = {
   missing: [],
   errors: [],
   calculatedAt: null,
-  dollarTarget: 1,
+  gainTargetsPct: [20, 35],
   forwardBars: 30,
   message: "No profiles yet. Calculate reads Alpaca for each active ticker.",
 };
