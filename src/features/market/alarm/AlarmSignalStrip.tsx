@@ -3,6 +3,7 @@ import { cn } from "@/shared/lib/cn";
 import { TickerMark } from "./TickerMark";
 import { formatEarningPctLabel, resolveEarningPct } from "./alarm-enter-pool";
 import { watchRuleKeys, type AlarmPopupState, type MarketAlarmWatch } from "./alarm-types";
+import { entryClock } from "./five-minute-entry";
 
 export const ALARM_STRIP_CHANNEL = "oceanview-alarm-strip";
 
@@ -14,6 +15,8 @@ export type AlarmStripTag = {
   operation: string;
   earningPct: number | null;
   lane: AlarmStripLane;
+  /** Eastern clock when this entry became valid. */
+  validAt: string | null;
 };
 
 export type AlarmStripMessage =
@@ -48,19 +51,24 @@ export function AlarmSignalTag({ tag, index }: { tag: AlarmStripTag; index: numb
   return (
     <span
       className={cn(
-        "inline-flex max-w-full shrink-0 items-center rounded-md px-2.5 py-1 text-[11px] font-semibold tabular-nums",
+        "inline-flex max-w-full shrink-0 flex-col items-center rounded-md px-2.5 py-1 text-[11px] font-semibold tabular-nums",
         alarmTagColor(index),
       )}
     >
-      <TickerMark symbol={tag.symbol} className="mr-1 inline-block h-3.5 w-3.5 shrink-0 rounded-full object-contain" />
-      {tag.symbol}
-      <span className="mx-1 font-medium opacity-70">·</span>
-      {tag.operation}
-      {typeof tag.earningPct === "number" ? (
-        <>
-          <span className="mx-1 font-medium opacity-70">·</span>
-          {formatEarningPctLabel(tag.earningPct)}
-        </>
+      <span className="inline-flex items-center">
+        <TickerMark symbol={tag.symbol} className="mr-1 inline-block h-3.5 w-3.5 shrink-0 rounded-full object-contain" />
+        {tag.symbol}
+        <span className="mx-1 font-medium opacity-70">·</span>
+        {tag.operation}
+        {typeof tag.earningPct === "number" ? (
+          <>
+            <span className="mx-1 font-medium opacity-70">·</span>
+            {formatEarningPctLabel(tag.earningPct)}
+          </>
+        ) : null}
+      </span>
+      {tag.validAt ? (
+        <span className="text-[9px] font-medium leading-none opacity-75">{tag.validAt}</span>
       ) : null}
     </span>
   );
@@ -81,6 +89,13 @@ function lanesFor(watch: MarketAlarmWatch): AlarmStripLane[] {
   return lanes;
 }
 
+/** When the entry became valid. Prefer the entry stamp over the poll that noticed it. */
+function entryValidClock(watch: MarketAlarmWatch): string | null {
+  const raw = (watch.lastEntryAt || watch.metAt || "").trim();
+  if (!raw) return null;
+  return entryClock(raw);
+}
+
 function tagFor(
   watch: MarketAlarmWatch,
   lane: AlarmStripLane,
@@ -93,6 +108,7 @@ function tagFor(
     operation,
     earningPct,
     lane,
+    validAt: entryValidClock(watch),
   };
 }
 

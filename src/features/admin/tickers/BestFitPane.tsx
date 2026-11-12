@@ -261,7 +261,7 @@ export function BestFitPane({ onBack }: Props) {
         subTab === "orb-5m"
           ? "5-minute opening-range fitness from historical entries. Resolve scans Alpaca 5Min bars."
           : subTab === "trend-change-5m"
-            ? "Relative angle and separation that most often see a 20% option gain after an EMA cross. A 35% tab is beside it. Sorted by that percentage."
+            ? "1-minute EMA10 angle before a 5-minute EMA cross. Sorted by how often the cross follows within 30 minutes."
             : subTab === "trend-change-15m"
               ? "Relative angle profile from live 15m trend-change alarms. Score pending after the close."
               : "Movement-profile fitness (not strategy hit rate). Click a symbol for % and $. Check boxes to promote."

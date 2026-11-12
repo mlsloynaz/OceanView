@@ -50,6 +50,7 @@ describe("alarm strip", () => {
     expect(tags.map((tag) => tag.symbol)).toEqual(["AAA", "BBB"]);
     expect(tags[0]?.operation).toBe("Buy Call");
     expect(tags[1]?.operation).toBe("Buy Put");
+    expect(tags[0]?.validAt).toBeNull();
     expect(alarmStripLanes(tags).trend.map((tag) => tag.symbol)).toEqual(["AAA", "BBB"]);
     expect(alarmStripLanes(tags).orb).toEqual([]);
   });
@@ -82,5 +83,19 @@ describe("alarm strip", () => {
     const lanes = alarmStripLanes(alarmStripTags(popup));
     expect(lanes.orb.map((tag) => tag.symbol)).toEqual(["NVDA"]);
     expect(lanes.trend.map((tag) => tag.symbol)).toEqual(["AAPL"]);
+  });
+
+  it("stamps the Eastern time the entry became valid", () => {
+    const popup: AlarmPopupState = {
+      kind: "enter",
+      watch: watch({
+        id: "tsla",
+        symbol: "TSLA",
+        lastEntryAt: "2026-11-11T15:14:00.000Z",
+        metAt: "2026-11-11T15:20:00.000Z",
+      }),
+    };
+    const tags = alarmStripTags(popup);
+    expect(tags[0]?.validAt).toBe("10:14");
   });
 });

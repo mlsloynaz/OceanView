@@ -256,6 +256,34 @@ export type TrendProfileHistory = {
   bars?: number | null;
 };
 
+export type TrendPredictThreshold = {
+  angleDeg: number;
+  signals?: number | null;
+  cross5?: number | null;
+  cross10?: number | null;
+  cross15?: number | null;
+  cross20?: number | null;
+  cross30?: number | null;
+  pct5?: number | null;
+  pct10?: number | null;
+  pct15?: number | null;
+  pct20?: number | null;
+  pct30?: number | null;
+  earlyPct35?: number | null;
+  latePct35?: number | null;
+  lateSignals?: number | null;
+  medianLead?: number | null;
+  medianAngle?: number | null;
+  medianAccel?: number | null;
+  medianAtrSlope?: number | null;
+  medianSep1m?: number | null;
+  medianSep5m?: number | null;
+  gapNarrowingPct?: number | null;
+  medianPriceVsEma10?: number | null;
+  medianPriceVsEma21?: number | null;
+  medianMinute?: number | null;
+};
+
 export type TrendProfileRow = {
   symbol: string;
   calculatedAt?: string | null;
@@ -267,11 +295,15 @@ export type TrendProfileRow = {
   bestEarning2?: number | null;
   bestAngleDeg2?: number | null;
   bestTimeframe2?: string | null;
+  earlyPct35?: number | null;
+  latePct35?: number | null;
+  medianLead?: number | null;
   /** Stock dollars that match a 20% option gain for this ticker. */
   moveDollars20?: number | null;
   /** Stock dollars that match a 35% option gain for this ticker. */
   moveDollars35?: number | null;
   note?: string | null;
+  thresholds?: TrendPredictThreshold[] | null;
   profile?: Record<string, Record<string, TrendProfileMetric | number | null> | undefined> | null;
   profile2?: Record<string, Record<string, TrendProfileMetric | number | null> | undefined> | null;
 };
