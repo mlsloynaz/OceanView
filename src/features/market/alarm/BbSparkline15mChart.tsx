@@ -663,8 +663,8 @@ export function BbSparkline15mChart({
               y1={PAD.top}
               y2={H - PAD.bottom}
               stroke={sessionOpen ? "#f8fafc" : "#94a3b8"}
-              strokeOpacity={sessionOpen ? 1 : 0.7}
-              strokeWidth={sessionOpen ? (variant === "full" ? 2 : 1.4) : variant === "full" ? 1.25 : 0.9}
+              strokeOpacity={sessionOpen ? 0.28 : 0.7}
+              strokeWidth={sessionOpen ? 1 : variant === "full" ? 1.25 : 0.9}
               strokeDasharray={sessionOpen ? undefined : variant === "full" ? "5 4" : "3 2"}
             />
           );
