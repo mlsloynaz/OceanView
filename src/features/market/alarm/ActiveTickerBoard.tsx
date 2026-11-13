@@ -219,6 +219,16 @@ function formatAngle(angle: number): string {
 
 export type AngleMark = { frame: Frame; tone: "up" | "down"; angle: number };
 
+/** Ticker that is the steepest on 1m, 5m, and 15m. One name per side. */
+export function leaderOnEveryFrame(leaders: AngleLeaders): { up: string | null; down: string | null } {
+  const side = (tone: "up" | "down") => {
+    const names = ANGLE_FRAMES.map((frame) => leaders[frame][tone]?.symbol ?? null);
+    const first = names[0];
+    return first && names.every((name) => name === first) ? first : null;
+  };
+  return { up: side("up"), down: side("down") };
+}
+
 /** Steepest rise and drop for this ticker. Independent of which pane is on screen. */
 export function angleMarksFor(leaders: AngleLeaders, symbol: string): AngleMark[] {
   const key = symbol.trim().toUpperCase();
@@ -247,8 +257,21 @@ function AngleBadge({ mark }: { mark: AngleMark }) {
   );
 }
 
-function AngleLeadersBar({ leaders }: { leaders: AngleLeaders }) {
+const OPEN_MINUTE_BLINK_SECONDS = 10;
+
+function useOpenMinuteBlink(): boolean {
+  const [on, setOn] = useState(() => new Date().getSeconds() < OPEN_MINUTE_BLINK_SECONDS);
+  useEffect(() => {
+    const tick = () => setOn(new Date().getSeconds() < OPEN_MINUTE_BLINK_SECONDS);
+    const id = window.setInterval(tick, 250);
+    return () => window.clearInterval(id);
+  }, []);
+  return on;
+}
+
+function AngleLeadersBar({ leaders, blinkOn }: { leaders: AngleLeaders; blinkOn: boolean }) {
   const any = ANGLE_FRAMES.some((frame) => leaders[frame].up || leaders[frame].down);
+  const sweeps = leaderOnEveryFrame(leaders);
   if (!any) return null;
   return (
     <div
@@ -261,9 +284,17 @@ function AngleLeadersBar({ leaders }: { leaders: AngleLeaders }) {
           <li key={frame} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
             <span className="w-8 shrink-0 font-display font-bold text-ocean-foam">{frame}</span>
             <span className="text-ocean-sand">positive</span>
-            <AngleChoice pick={leaders[frame].up} tone="up" />
+            <AngleChoice
+              pick={leaders[frame].up}
+              tone="up"
+              blink={blinkOn && sweeps.up === leaders[frame].up?.symbol}
+            />
             <span className="text-ocean-sand">negative</span>
-            <AngleChoice pick={leaders[frame].down} tone="down" />
+            <AngleChoice
+              pick={leaders[frame].down}
+              tone="down"
+              blink={blinkOn && sweeps.down === leaders[frame].down?.symbol}
+            />
           </li>
         ))}
       </ul>
@@ -271,12 +302,14 @@ function AngleLeadersBar({ leaders }: { leaders: AngleLeaders }) {
   );
 }
 
-function AngleChoice({ pick, tone }: { pick: AnglePick | null; tone: "up" | "down" }) {
+function AngleChoice({ pick, tone, blink = false }: { pick: AnglePick | null; tone: "up" | "down"; blink?: boolean }) {
   if (!pick) return <span className="text-ocean-sand">none</span>;
   return (
     <span className={cn("inline-flex items-center", tone === "up" ? "text-ocean-teal" : "text-ocean-danger")}>
-      <TickerMark symbol={pick.symbol} />
-      <span className="font-display font-bold">{pick.symbol}</span>
+      <span className={cn("inline-flex items-center", blink && "animate-ov-alarm-blink")}>
+        <TickerMark symbol={pick.symbol} />
+        <span className="font-display font-bold">{pick.symbol}</span>
+      </span>
       <span className="ml-1 tabular-nums">{formatAngle(pick.angle)}</span>
     </span>
   );
@@ -658,6 +691,7 @@ export function TickerThumb({
   alertTags = [],
   etfMoves = {},
   angleMarks = [],
+  blinkTicker = false,
   fit = false,
 }: {
   symbol: string;
@@ -684,6 +718,7 @@ export function TickerThumb({
   alertTags?: Array<AlarmStripTag & { colorIndex: number }>;
   etfMoves?: Record<string, 1 | -1 | null>;
   angleMarks?: AngleMark[];
+  blinkTicker?: boolean;
   fit?: boolean;
 }) {
   const etfResult = etfComparison(symbol, panes["5m"], etfMoves, sectorEtf, etfMatch);
@@ -732,8 +767,10 @@ export function TickerThumb({
               ‹
             </button>
           ) : null}
-          <TickerMark symbol={symbol} />
-          <span className="shrink-0">{symbol}</span>
+          <span className={cn("inline-flex shrink-0 items-center", blinkTicker && "animate-ov-alarm-blink")}>
+            <TickerMark symbol={symbol} />
+            <span>{symbol}</span>
+          </span>
           {angleMarks.map((mark) => (
             <AngleBadge key={`${mark.frame}-${mark.tone}`} mark={mark} />
           ))}
@@ -970,6 +1007,7 @@ export function ActiveTickerBoard({
     };
   }, []);
   const etfMoves = useEtfMoves(!showingReview);
+  const blinkOn = useOpenMinuteBlink();
   useEffect(() => {
     if (!fitViewport) return;
     const node = frameRef.current;
@@ -1014,6 +1052,7 @@ export function ActiveTickerBoard({
       ),
     })),
   );
+  const sweeps = leaderOnEveryFrame(leaders);
   const fit = fitViewport
     ? fitThumbnailGrid(arranged.length, paneSize.width, paneSize.height, THUMB_GAP_PX, frame === "all" ? 1.15 : 1.7)
     : null;
@@ -1046,7 +1085,7 @@ export function ActiveTickerBoard({
           {error}
         </p>
       ) : null}
-      {showAngleLeaders ? <div className="shrink-0"><AngleLeadersBar leaders={leaders} /></div> : null}
+      {showAngleLeaders ? <div className="shrink-0"><AngleLeadersBar leaders={leaders} blinkOn={blinkOn} /></div> : null}
       <div ref={frameRef} className={fitViewport ? "relative min-h-0 flex-1 overflow-hidden" : undefined}>
         <div
           className={
@@ -1072,6 +1111,10 @@ export function ActiveTickerBoard({
             onMove={(direction) => moveTicker(ticker.symbol, direction)}
             fit={fitViewport}
             angleMarks={angleMarksFor(leaders, ticker.symbol)}
+            blinkTicker={
+              blinkOn &&
+              (sweeps.up === ticker.symbol.trim().toUpperCase() || sweeps.down === ticker.symbol.trim().toUpperCase())
+            }
             panes={displayPanes(snapshot?.bySymbol[ticker.symbol]?.panes, forming[ticker.symbol.trim().toUpperCase()])}
             error={snapshot?.bySymbol[ticker.symbol]?.error}
             entryAt={snapshot?.bySymbol[ticker.symbol]?.entryAt}

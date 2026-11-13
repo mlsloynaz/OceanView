@@ -1,48 +1,117 @@
 import { cn } from "@/shared/lib/cn";
-import type { TrendPredictThreshold, TrendProfileResponse, TrendProfileRow } from "./types";
+import type { EmaCrossBucket, EmaCrossFrame, TrendProfileResponse, TrendProfileRow } from "./types";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
-
-const HORIZONS = [5, 10, 15, 20, 30] as const;
 
 function fmtPct(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "—";
   return `${value.toFixed(1)}%`;
 }
 
-function fmtCount(hits: number | null | undefined, signals: number | null | undefined): string {
-  if (hits == null || signals == null) return "—";
-  return `${hits}/${signals}`;
+function fmtAngle(frame: EmaCrossFrame | null | undefined): string {
+  if (!frame || frame.ang == null) return frame?.angLabel ?? "—";
+  return `${frame.ang}°`;
 }
 
-function fmtMoney(value: number | null | undefined): string {
+function fmtGap(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "—";
-  return `$${value.toFixed(2)}`;
+  return value < 1 ? `${Math.round(value * 100)}¢` : `$${value.toFixed(2)}`;
 }
 
-function fmtSigned(value: number | null | undefined, digits = 2): string {
-  if (value == null || Number.isNaN(value)) return "—";
-  return value.toFixed(digits);
+function fmtSep(frame: EmaCrossFrame | null | undefined): string {
+  if (!frame || frame.sep == null) return frame?.sepLabel ?? "—";
+  return fmtGap(frame.sep);
 }
 
-function detailTitle(row: TrendPredictThreshold): string {
-  return [
-    `median angle ${fmtSigned(row.medianAngle, 1)}°`,
-    `acceleration ${fmtSigned(row.medianAccel, 1)}`,
-    `ATR slope ${fmtSigned(row.medianAtrSlope, 3)}`,
-    `1m separation ${fmtSigned(row.medianSep1m, 3)}%`,
-    `5m separation ${fmtSigned(row.medianSep5m, 3)}%`,
-    `gap narrowing ${fmtPct(row.gapNarrowingPct)}`,
-    `price vs EMA10 ${fmtSigned(row.medianPriceVsEma10, 3)}%`,
-    `price vs EMA21 ${fmtSigned(row.medianPriceVsEma21, 3)}%`,
-    `minute ${row.medianMinute ?? "—"}`,
-  ].join(" · ");
+function filled(buckets: EmaCrossBucket[] | null | undefined): EmaCrossBucket[] {
+  return (buckets ?? []).filter((row) => row.count > 0);
 }
 
-function stockMove(row: TrendProfileRow): string {
-  if (row.moveDollars35 == null) return "No stock move yet";
-  return `35% needs ${fmtMoney(row.moveDollars35)} of stock`;
+function BucketList({
+  title,
+  buckets,
+  winner,
+}: {
+  title: string;
+  buckets: EmaCrossBucket[];
+  winner?: string | null;
+}) {
+  if (buckets.length === 0) {
+    return <p className="text-[11px] text-ocean-sand">No {title.toLowerCase()} yet.</p>;
+  }
+  return (
+    <div>
+      <div className="mb-1 text-[10px] uppercase tracking-wide text-ocean-sand">{title}</div>
+      <ul className="space-y-0.5">
+        {buckets.map((row) => {
+          const best = row.label === winner;
+          return (
+            <li
+              key={row.label}
+              className={cn("flex justify-between gap-3 tabular-nums", best && "font-semibold text-ocean-foam")}
+            >
+              <span>
+                {row.label}
+                {best ? " best" : ""}
+              </span>
+              <span>
+                {fmtPct(row.pct)} · {row.hits}/{row.count}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function FrameCard({ label, frame }: { label: string; frame: EmaCrossFrame | null | undefined }) {
+  return (
+    <div className="rounded-md border border-ocean-mid/30 p-3">
+      <div className="text-xs font-semibold text-ocean-foam">{label}</div>
+      <p className="mt-1 text-[11px] text-ocean-sand">
+        Angle {fmtAngle(frame)}
+        {frame?.angLabel ? ` (${frame.angLabel})` : ""} · {fmtPct(frame?.angPct)}
+        {" · "}
+        Separation {fmtSep(frame)}
+        {frame?.sepLabel ? ` (${frame.sepLabel})` : ""} · {fmtPct(frame?.sepPct)}
+      </p>
+      <p className="mt-0.5 text-[11px] text-ocean-sand">
+        {frame?.crosses ?? 0} crosses · {fmtPct(frame?.followedPct)} followed $1
+      </p>
+      <p className="mt-0.5 text-[11px] text-ocean-sand">
+        $2 angle {frame?.ang2 == null ? "—" : `${frame.ang2}°`}
+        {frame?.ang2Label ? ` (${frame.ang2Label})` : ""} · {fmtPct(frame?.ang2Pct)}
+        {" · "}
+        $2 separation {fmtGap(frame?.sep2)}
+        {frame?.sep2Label ? ` (${frame.sep2Label})` : ""} · {fmtPct(frame?.sep2Pct)}
+      </p>
+      <p className="mt-0.5 text-[11px] text-ocean-sand">
+        $1 most often {frame?.time1Label ?? "—"} ({fmtPct(frame?.time1Pct)})
+      </p>
+      <p className="mt-0.5 text-[11px] text-ocean-sand">
+        $2 most often {frame?.time2Label ?? "—"} ({fmtPct(frame?.time2Pct)})
+      </p>
+      <div className="mt-2 grid gap-3 sm:grid-cols-2">
+        <BucketList title="Angle" buckets={filled(frame?.angle)} winner={frame?.angLabel} />
+        <BucketList title="Separation" buckets={filled(frame?.separation)} winner={frame?.sepLabel} />
+      </div>
+    </div>
+  );
+}
+
+function TickerBlock({ row }: { row: TrendProfileRow }) {
+  return (
+    <section className="rounded-md border border-ocean-mid/40 p-3">
+      <h4 className="text-sm font-semibold text-ocean-foam">{row.symbol}</h4>
+      {row.note ? <p className="mt-1 text-[11px] text-ocean-sand">{row.note}</p> : null}
+      <div className="mt-2 grid gap-3 lg:grid-cols-2">
+        <FrameCard label="1m" frame={row.m1} />
+        <FrameCard label="5m" frame={row.m5} />
+      </div>
+    </section>
+  );
 }
 
 type Props = {
@@ -72,18 +141,16 @@ export function BestFitTrendProfileSection({
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="max-w-3xl">
-          <h3 className="text-sm font-semibold text-ocean-foam">1m angle before the 5m cross</h3>
+          <h3 className="text-sm font-semibold text-ocean-foam">1m ema cross study</h3>
           <p className="mt-1 text-xs leading-relaxed text-ocean-sand">
-            Each row is the first time the 1-minute EMA10 relative angle reaches that degree while the
-            last completed 5-minute candle still has EMA10 on the other side of EMA21. The forming
-            5-minute candle is not used. A threshold fires once per episode, so one trend is not counted
-            on every candle. The cross columns are a completed 5-minute candle that crosses in that
-            direction within 5, 10, 15, 20, or 30 minutes. 35% at the 1m signal enters on that minute's
-            close. 35% after the 5m cross enters on the confirming 5-minute close, and only when the
-            cross arrived within 30 minutes. Lead is the stock already traveled by the time that cross
-            prints. The best angle is the highest 30-minute cross rate with at least 3 signals. Hover an
-            angle for the acceleration, ATR slope, separations, and time of day.             The relative angle still uses 0.10% of price as 45°, the same formula as the alarms. This
-            replaces the study that scored the angle after the cross. Alarms are unchanged.
+            After EMA 10 crosses EMA 21, this counts how often price then moves at least $1 with the
+            cross, within 30 minutes and before the averages cross back. A call uses the high. A put
+            uses the low. Angle and separation are scored separately. The highlighted bucket is
+            the one with the stronger 95% Wilson lower bound. The percentage shown is how many
+            of its crosses reached $1. The same ranking also picks an angle and a separation for a
+            $2 follow. For the crosses that reach $1, and again for the crosses that reach $2, the
+            card shows the time that occurs most often. The same
+            study runs on about one month of 1-minute and 5-minute bars. Alarms are unchanged.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -107,7 +174,7 @@ export function BestFitTrendProfileSection({
             type="button"
             disabled={busy}
             onClick={() => void onRecalculate()}
-            title="Deletes every saved 5m profile, then calculates again"
+            title="Deletes every saved profile, then calculates again"
             className={cn(BTN, "border border-ocean-danger/50 text-ocean-danger hover:bg-ocean-danger/10")}
           >
             Recalculate
@@ -118,102 +185,20 @@ export function BestFitTrendProfileSection({
       {error ? <p className="text-xs text-ocean-danger">{error}</p> : null}
       {data?.message ? <p className="text-xs text-ocean-sand/90">{data.message}</p> : null}
 
-      <div className="overflow-x-auto rounded-md border border-ocean-mid/30">
-        <table className="min-w-[1100px] w-full text-left text-xs text-ocean-foam">
-          <thead className="bg-ocean-mid/20 text-ocean-sand">
-            <tr>
-              <th className="px-3 py-2 font-medium">Ticker</th>
-              <th className="px-3 py-2 font-medium">Angle</th>
-              <th className="px-3 py-2 font-medium">Signals</th>
-              {HORIZONS.map((minutes) => (
-                <th key={minutes} className="px-3 py-2 font-medium">
-                  {minutes}m cross
-                </th>
-              ))}
-              <th className="px-3 py-2 font-medium">35% at 1m</th>
-              <th className="px-3 py-2 font-medium">35% after 5m</th>
-              <th className="px-3 py-2 font-medium">Lead</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ranked.length === 0 ? (
-              <tr>
-                <td colSpan={11} className="px-3 py-6 text-ocean-sand">
-                  {loading ? "Loading profiles…" : calculating ? "Calculating…" : "No calculated profiles yet."}
-                </td>
-              </tr>
-            ) : (
-              ranked.map((row) => {
-                const thresholds = (row.thresholds ?? []).filter((item) => (item.signals ?? 0) > 0);
-                if (thresholds.length === 0) {
-                  return (
-                    <tr key={row.symbol} className="border-t border-ocean-mid/20 align-top">
-                      <td className="px-3 py-2 font-semibold">
-                        {row.symbol}
-                        <div className="text-[10px] font-normal text-ocean-sand">{stockMove(row)}</div>
-                      </td>
-                      <td colSpan={10} className="px-3 py-2 text-ocean-sand">
-                        {row.note ?? "No 1m signal in this history."}
-                      </td>
-                    </tr>
-                  );
-                }
-                return thresholds.map((item, index) => {
-                  const best = item.angleDeg === row.bestAngleDeg && (item.signals ?? 0) >= 3;
-                  return (
-                    <tr
-                      key={`${row.symbol}-${item.angleDeg}`}
-                      className={cn("border-t border-ocean-mid/20 align-top", best && "bg-ocean-teal/10")}
-                    >
-                      {index === 0 ? (
-                        <td className="px-3 py-2 font-semibold" rowSpan={thresholds.length}>
-                          {row.symbol}
-                          <div className="text-[10px] font-normal text-ocean-sand">{stockMove(row)}</div>
-                          {row.note ? (
-                            <div className="mt-0.5 max-w-[14rem] text-[10px] font-normal text-ocean-sand/80">
-                              {row.note}
-                            </div>
-                          ) : null}
-                        </td>
-                      ) : null}
-                      <td className="px-3 py-2" title={detailTitle(item)}>
-                        <span className={cn(best && "font-semibold text-ocean-foam")}>
-                          {item.angleDeg}°{best ? " best" : ""}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 tabular-nums">{item.signals ?? 0}</td>
-                      {HORIZONS.map((minutes) => (
-                        <td key={minutes} className="px-3 py-2">
-                          <div className="tabular-nums">
-                            {fmtPct(item[`pct${minutes}` as keyof TrendPredictThreshold] as number | null)}
-                          </div>
-                          <div className="text-[10px] text-ocean-sand">
-                            {fmtCount(
-                              item[`cross${minutes}` as keyof TrendPredictThreshold] as number | null,
-                              item.signals,
-                            )}
-                          </div>
-                        </td>
-                      ))}
-                      <td className="px-3 py-2 tabular-nums">{fmtPct(item.earlyPct35)}</td>
-                      <td className="px-3 py-2">
-                        <div className="tabular-nums">{fmtPct(item.latePct35)}</div>
-                        <div className="text-[10px] text-ocean-sand">{item.lateSignals ?? 0} crosses</div>
-                      </td>
-                      <td className="px-3 py-2 tabular-nums">{fmtMoney(item.medianLead)}</td>
-                    </tr>
-                  );
-                });
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      {ranked.length === 0 ? (
+        <p className="text-xs text-ocean-sand">
+          {loading ? "Loading profiles…" : calculating ? "Calculating…" : "No calculated profiles yet."}
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {ranked.map((row) => (
+            <TickerBlock key={row.symbol} row={row} />
+          ))}
+        </div>
+      )}
 
       {data?.missing?.length ? (
-        <p className="text-[11px] text-ocean-sand/80">
-          Not calculated yet: {data.missing.join(", ")}
-        </p>
+        <p className="text-[11px] text-ocean-sand/80">Not calculated yet: {data.missing.join(", ")}</p>
       ) : null}
       {data?.errors?.length ? (
         <ul className="space-y-1 text-[11px] text-ocean-danger">

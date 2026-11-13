@@ -554,6 +554,11 @@ export type MovementWatchJobStatus = {
   premarket?: boolean;
   cycleBusy?: boolean;
   serverPolled?: boolean;
+  /** True for 30 minutes after a hop was late or never arrived. */
+  cycleMissed?: boolean;
+  cycleMissedNote?: string | null;
+  /** Set while Schwab is rejecting the sign-in. */
+  schwabAuthError?: string | null;
 };
 
 export type ActiveMovementsPayload = {

@@ -55,14 +55,15 @@ let mockBestFitOrb5m: BestFitOrb5mResponse = {
 };
 
 let mockTrendProfile: TrendProfileResponse = {
-  kind: "5m-trend-profile",
+  kind: "trendprofile",
+  name: "1m ema cross study",
   ranked: [],
   missing: [],
   errors: [],
   calculatedAt: null,
-  gainTargetsPct: [20, 35],
-  forwardBars: 30,
-  message: "No profiles yet. Calculate reads Alpaca for each active ticker.",
+  followDollars: 1,
+  windowMinutes: 30,
+  message: "No profiles yet. Calculate reads one month of 1m and 5m bars for each active ticker.",
 };
 
 let mockBestFitTrendChange15m: BestFitTrendChangeProfileResponse = {

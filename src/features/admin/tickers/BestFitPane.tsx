@@ -8,6 +8,7 @@ import { BestFitOrb5mSection } from "./BestFitOrb5mSection";
 import { BestFitTickerDetail } from "./BestFitTickerDetail";
 import { BestFitTrendChangeSection } from "./BestFitTrendChangeSection";
 import { BestFitTrendProfileSection } from "./BestFitTrendProfileSection";
+import { TrendAlarmStudySection } from "./TrendAlarmStudySection";
 import { useTickersPane } from "./hooks/useTickersPane";
 import {
   bestFitSubTabFromHash,
@@ -308,6 +309,7 @@ export function BestFitPane({ onBack }: Props) {
             ["orb-5m", "ORB 5m"],
             ["trend-change-5m", "5m trend change"],
             ["trend-change-15m", "15m trend change"],
+            ["trend-alarm-study", "Trend-alarm study"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -350,6 +352,8 @@ export function BestFitPane({ onBack }: Props) {
           onRecalculate={recalculateBestFitTrendChange5m}
           onReload={loadBestFitTrendChange5m}
         />
+      ) : subTab === "trend-alarm-study" ? (
+        <TrendAlarmStudySection data={bestFitTrendChange5m} loading={bestFitTrendChange5mLoading} />
       ) : subTab === "trend-change-15m" ? (
         <BestFitTrendChangeSection
           variant="15m"

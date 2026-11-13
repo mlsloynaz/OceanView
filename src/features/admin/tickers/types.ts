@@ -284,32 +284,74 @@ export type TrendPredictThreshold = {
   medianMinute?: number | null;
 };
 
+export type EmaCrossBucket = {
+  label: string;
+  value?: number | null;
+  count: number;
+  hits: number;
+  pct?: number | null;
+};
+
+export type EmaCrossFrame = {
+  ang?: number | null;
+  sep?: number | null;
+  angLabel?: string | null;
+  sepLabel?: string | null;
+  angPct?: number | null;
+  sepPct?: number | null;
+  angCount?: number | null;
+  sepCount?: number | null;
+  ang2?: number | null;
+  sep2?: number | null;
+  ang2Label?: string | null;
+  sep2Label?: string | null;
+  ang2Pct?: number | null;
+  sep2Pct?: number | null;
+  followed2Pct?: number | null;
+  time1?: number | null;
+  time1Label?: string | null;
+  time1Pct?: number | null;
+  time1Count?: number | null;
+  time2?: number | null;
+  time2Label?: string | null;
+  time2Pct?: number | null;
+  time2Count?: number | null;
+  crosses?: number | null;
+  followed?: number | null;
+  followedPct?: number | null;
+  separation?: EmaCrossBucket[] | null;
+  angle?: EmaCrossBucket[] | null;
+};
+
+export type AlarmFollow = {
+  count?: number | null;
+  hits?: number | null;
+  pct?: number | null;
+  ang?: number | null;
+  sep?: number | null;
+  crosses?: number | null;
+  touches?: number | null;
+};
+
+export type AlarmStudy = {
+  optionA?: AlarmFollow | null;
+  optionB?: AlarmFollow | null;
+  optionC?: AlarmFollow | null;
+};
+
 export type TrendProfileRow = {
   symbol: string;
   calculatedAt?: string | null;
-  bestPct?: number | null;
-  bestEarning?: number | null;
-  bestAngleDeg?: number | null;
-  bestTimeframe?: string | null;
-  bestPct2?: number | null;
-  bestEarning2?: number | null;
-  bestAngleDeg2?: number | null;
-  bestTimeframe2?: string | null;
-  earlyPct35?: number | null;
-  latePct35?: number | null;
-  medianLead?: number | null;
-  /** Stock dollars that match a 20% option gain for this ticker. */
-  moveDollars20?: number | null;
-  /** Stock dollars that match a 35% option gain for this ticker. */
-  moveDollars35?: number | null;
   note?: string | null;
-  thresholds?: TrendPredictThreshold[] | null;
-  profile?: Record<string, Record<string, TrendProfileMetric | number | null> | undefined> | null;
-  profile2?: Record<string, Record<string, TrendProfileMetric | number | null> | undefined> | null;
+  m1?: EmaCrossFrame | null;
+  m5?: EmaCrossFrame | null;
+  alarmStudy?: AlarmStudy | null;
+  profile?: { "1m"?: EmaCrossFrame; "5m"?: EmaCrossFrame; alarmStudy?: AlarmStudy } | null;
 };
 
 export type TrendProfileResponse = {
-  kind: "5m-trend-profile";
+  kind: "trendprofile";
+  name?: string | null;
   status?: "idle" | "running" | "complete" | "error" | string;
   ranked: TrendProfileRow[];
   missing: string[];
@@ -317,9 +359,9 @@ export type TrendProfileResponse = {
   progress?: { done?: number; total?: number };
   pollIntervalSeconds?: number;
   calculatedAt?: string | null;
-  gainTargetsPct?: number[];
-  forwardBars?: number;
-  lookbackDays?: { "1m"?: number; "1h"?: number; "1D"?: number };
+  followDollars?: number;
+  windowMinutes?: number;
+  lookbackDays?: { "1m"?: number; "5m"?: number };
   message?: string | null;
 };
 

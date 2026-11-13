@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { angleLeaders, angleMarksFor, fiveMinuteMove, handoffBars, latestEmaAngle } from "./ActiveTickerBoard";
+import { angleLeaders, angleMarksFor, fiveMinuteMove, handoffBars, latestEmaAngle, leaderOnEveryFrame } from "./ActiveTickerBoard";
 import type { BbSparkline15mBar } from "./alarm-types";
 
 function bar(datetime: string): BbSparkline15mBar {
@@ -119,5 +119,22 @@ describe("ema angle leaders", () => {
       "1m:down",
       "5m:up",
     ]);
+  });
+
+  it("names a ticker only when it leads every timeframe on that side", () => {
+    const tsla = { symbol: "TSLA", angle: 12 };
+    const partial = {
+      "1m": { up: tsla, down: { symbol: "V", angle: -32 } },
+      "5m": { up: tsla, down: { symbol: "V", angle: -17 } },
+      "15m": { up: tsla, down: { symbol: "NVDA", angle: -10 } },
+    };
+    expect(leaderOnEveryFrame(partial)).toEqual({ up: "TSLA", down: null });
+    expect(
+      leaderOnEveryFrame({
+        "1m": { up: tsla, down: { symbol: "V", angle: -30 } },
+        "5m": { up: tsla, down: { symbol: "V", angle: -20 } },
+        "15m": { up: tsla, down: { symbol: "V", angle: -8 } },
+      }),
+    ).toEqual({ up: "TSLA", down: "V" });
   });
 });

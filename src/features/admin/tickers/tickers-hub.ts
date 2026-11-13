@@ -40,16 +40,23 @@ export const TICKERS_HUB: Record<Exclude<TickersHubView, "hub">, TickersHubMeta>
 
 export const TICKERS_HUB_ROOT_ANCHOR = "admin-tickers-pane";
 
-export type BestFitSubTab = "movement" | "orb-5m" | "trend-change-5m" | "trend-change-15m";
+export type BestFitSubTab =
+  | "movement"
+  | "orb-5m"
+  | "trend-change-5m"
+  | "trend-change-15m"
+  | "trend-alarm-study";
 
 export const BEST_FIT_ORB5M_ANCHOR = "admin-tickers-best-fit-orb-5m";
 export const BEST_FIT_TREND_CHANGE_5M_ANCHOR = "admin-tickers-best-fit-trend-change-5m";
 export const BEST_FIT_TREND_CHANGE_15M_ANCHOR = "admin-tickers-best-fit-trend-change-15m";
+export const BEST_FIT_TREND_ALARM_ANCHOR = "admin-tickers-best-fit-trend-alarm-study";
 
 const BEST_FIT_SUBTAB_BY_HASH: Record<string, BestFitSubTab> = {
   [BEST_FIT_ORB5M_ANCHOR]: "orb-5m",
   [BEST_FIT_TREND_CHANGE_5M_ANCHOR]: "trend-change-5m",
   [BEST_FIT_TREND_CHANGE_15M_ANCHOR]: "trend-change-15m",
+  [BEST_FIT_TREND_ALARM_ANCHOR]: "trend-alarm-study",
   [TICKERS_HUB["best-fit"].anchorId]: "movement",
 };
 
@@ -62,6 +69,7 @@ export function hashForBestFitSubTab(tab: BestFitSubTab): string {
   if (tab === "orb-5m") return `#${BEST_FIT_ORB5M_ANCHOR}`;
   if (tab === "trend-change-5m") return `#${BEST_FIT_TREND_CHANGE_5M_ANCHOR}`;
   if (tab === "trend-change-15m") return `#${BEST_FIT_TREND_CHANGE_15M_ANCHOR}`;
+  if (tab === "trend-alarm-study") return `#${BEST_FIT_TREND_ALARM_ANCHOR}`;
   return `#${TICKERS_HUB["best-fit"].anchorId}`;
 }
 
@@ -71,7 +79,8 @@ export function tickersHubViewFromHash(hash: string): TickersHubView {
   if (
     id === BEST_FIT_ORB5M_ANCHOR ||
     id === BEST_FIT_TREND_CHANGE_5M_ANCHOR ||
-    id === BEST_FIT_TREND_CHANGE_15M_ANCHOR
+    id === BEST_FIT_TREND_CHANGE_15M_ANCHOR ||
+    id === BEST_FIT_TREND_ALARM_ANCHOR
   ) {
     return "best-fit";
   }

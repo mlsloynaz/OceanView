@@ -78,6 +78,30 @@ function statusTone(status: string): string {
   return "border-ocean-mid/40 bg-ocean-surface/60";
 }
 
+export function MovementWatchNotices({ job }: { job: MovementWatchJobStatus | null }) {
+  if (!job?.schwabAuthError && !job?.cycleMissed) return null;
+  return (
+    <div className="space-y-1">
+      {job.schwabAuthError ? (
+        <p
+          role="alert"
+          className="rounded-md border border-ocean-danger/50 bg-ocean-danger/10 px-2 py-1 text-[11px] font-semibold text-ocean-danger"
+        >
+          {job.schwabAuthError}
+        </p>
+      ) : null}
+      {job.cycleMissed ? (
+        <p
+          role="alert"
+          className="rounded-md border border-amber-400/50 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-200"
+        >
+          {job.cycleMissedNote || "A cycle was missed. The next check has started."}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 type Props = {
   job: MovementWatchJobStatus | null;
   tickers: CatalogTicker[];
@@ -290,6 +314,7 @@ export function MovementWatchPanel({
         {job?.message ? (
           <p className="text-[11px] leading-snug text-ocean-sand">{job.message}</p>
         ) : null}
+        <MovementWatchNotices job={job} />
       </div>
 
       {sessionOpen ? null : (

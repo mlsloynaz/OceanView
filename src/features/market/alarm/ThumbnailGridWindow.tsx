@@ -4,6 +4,7 @@ import { cn } from "@/shared/lib/cn";
 import { ActiveTickerBoard, ThumbnailFrameFilters, type ThumbnailFrame } from "./ActiveTickerBoard";
 import { useRemoteAlarmStrip } from "./AlarmSignalStrip";
 import { fetchMovementWatchJobStatus, type MovementWatchJobStatus } from "./alarm-client";
+import { MovementWatchNotices } from "./MovementWatchPanel";
 
 const BTN =
   "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -145,6 +146,11 @@ export function ThumbnailGridWindow() {
       <div className="relative min-h-0 flex-1">
         <div className="absolute inset-0 flex flex-col overflow-hidden p-2">
           {error ? <p className="mb-2 shrink-0 text-xs text-ocean-danger">{error}</p> : null}
+          {job?.schwabAuthError || job?.cycleMissed ? (
+            <div className="mb-2 shrink-0">
+              <MovementWatchNotices job={job} />
+            </div>
+          ) : null}
           {tickersReady ? (
             <div className="min-h-0 flex-1 overflow-hidden">
               <ActiveTickerBoard
