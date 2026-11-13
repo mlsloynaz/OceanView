@@ -10,7 +10,8 @@ import {
   type MovementWatchJobStatus,
 } from "./alarm-client";
 import { ActiveTickerBoard, type BoardSnapshotView } from "./ActiveTickerBoard";
-import { AlarmSignalStrip, alarmStripTags } from "./AlarmSignalStrip";
+import { AlarmSignalStrip, alarmStripTags, type AlarmStripTag } from "./AlarmSignalStrip";
+import { entryClock } from "./five-minute-entry";
 import { useAlarms } from "@/features/alarms/AlarmsProvider";
 
 function regularHoursNow(now = new Date()): boolean {
@@ -41,8 +42,33 @@ const HOUR_BLOCK_NOTE =
   "This switch applies to confirmed 5m trend change and 15m trend change. Off still records those entries and keeps the detected 1h trend. Early 5m continuation and reversal always block a strong opposite 1h trend.";
 
 function simulationNote(matches: BoardHistoryMatch[]): string {
-  if (matches.length === 0) return "Simulation only · no movement";
-  return `Simulation only · ${matches.map((match) => match.ruleKey || "movement").join(", ")}`;
+  const met = matches.filter((match) => match.met);
+  if (met.length > 0) {
+    const text = met.map((match) => match.evidence || match.ruleKey || "movement").join(" · ");
+    return `Alarm · ${text}`;
+  }
+  const reason = matches.map((match) => match.evidence).find((evidence) => evidence);
+  return reason ? `No alarm · ${reason}` : "Simulation only · no movement";
+}
+
+function simulationTag(symbol: string, row: {
+  entrySide?: "CALL" | "PUT" | null;
+  entryAt?: string | null;
+  matches?: BoardHistoryMatch[];
+}): AlarmStripTag | null {
+  const met = (row.matches ?? []).filter((match) => match.met);
+  if (met.length === 0) return null;
+  const evidence = met.map((match) => match.evidence || "").join(" ");
+  const side = row.entrySide;
+  return {
+    id: `${symbol}-simulation`,
+    symbol,
+    operation: side === "PUT" ? "Buy Put" : side === "CALL" ? "Buy Call" : "Alarm",
+    earningPct: null,
+    lane: "trend",
+    validAt: row.entryAt ? entryClock(row.entryAt) : null,
+    priority: /top priority/i.test(evidence),
+  };
 }
 
 function asReviewBars(body: unknown): BoardSnapshotView["bySymbol"][string]["panes"]["5m"] {
@@ -140,6 +166,7 @@ export function MovementWatchPanel({
   const [refreshKey, setRefreshKey] = useState(0);
   const [throughEt, setThroughEt] = useState("");
   const [review, setReview] = useState<BoardSnapshotView | null>(null);
+  const [reviewTags, setReviewTags] = useState<AlarmStripTag[]>([]);
   const [windowBlocked, setWindowBlocked] = useState(false);
   const alarms = useAlarms();
 
@@ -160,12 +187,16 @@ export function MovementWatchPanel({
   }, [loadCatalog]);
 
   useEffect(() => {
-    if (sessionOpen) setReview(null);
+    if (sessionOpen) {
+      setReview(null);
+      setReviewTags([]);
+    }
   }, [sessionOpen]);
 
   useEffect(() => {
     if (!live) return;
     setReview(null);
+    setReviewTags([]);
     setRefreshKey((value) => value + 1);
     const timer = window.setInterval(() => setRefreshKey((value) => value + 1), 60_000);
     return () => window.clearInterval(timer);
@@ -194,8 +225,11 @@ export function MovementWatchPanel({
     try {
       const payload = await evaluateBoardHistory(new Date(throughEt).toISOString());
       const bySymbol: BoardSnapshotView["bySymbol"] = {};
+      const tags: AlarmStripTag[] = [];
       for (const [symbol, row] of Object.entries(payload.symbols ?? {})) {
-        const met = (row.matches ?? []).filter((match) => match.met);
+        const entrySide = row.entrySide === "CALL" || row.entrySide === "PUT" ? row.entrySide : null;
+        const tag = simulationTag(symbol, { ...row, entrySide });
+        if (tag) tags.push(tag);
         bySymbol[symbol] = {
           error: row.error,
           panes: {
@@ -203,13 +237,14 @@ export function MovementWatchPanel({
             "15m": asReviewBars(row.panes?.["15m"]),
             "1m": asReviewBars(row.panes?.["1m"]),
           },
-          note: simulationNote(met),
+          note: simulationNote(row.matches ?? []),
           hourRelation: row.hourRelation,
           hourRegime: row.hourRegime,
           entryAt: row.entryAt,
-          entrySide: row.entrySide === "CALL" || row.entrySide === "PUT" ? row.entrySide : null,
+          entrySide,
         };
       }
+      setReviewTags(tags);
       setReview({
         label: "Simulation only · Alpaca IEX",
         windowStartEt: payload.windowStartEt,
@@ -340,7 +375,10 @@ export function MovementWatchPanel({
             <button
               type="button"
               className={cn(BTN, "border border-ocean-mid/40 text-ocean-sand")}
-              onClick={() => setReview(null)}
+              onClick={() => {
+                setReview(null);
+                setReviewTags([]);
+              }}
             >
               Clear
             </button>
@@ -386,7 +424,7 @@ export function MovementWatchPanel({
             refreshKey={refreshKey}
             live={live}
             review={review}
-            alertTags={alarmStripTags(alarms.alarmPopup)}
+            alertTags={review ? reviewTags : alarmStripTags(alarms.alarmPopup)}
           />
         )}
       </div>

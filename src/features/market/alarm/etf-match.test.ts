@@ -90,14 +90,23 @@ describe("ema angle leaders", () => {
 
   it("reads a full-fit rise as 45 degrees and a wider pane as flatter", () => {
     const across = rangedBars([100, 110], 100, 110);
-    const square = latestEmaAngle(across, 1);
-    const wide = latestEmaAngle(across, 15 / 8);
+    const square = latestEmaAngle(across, 1, 2);
+    const wide = latestEmaAngle(across, 15 / 8, 2);
     const unit = (10 / 0.7) / 2;
     expect(square).toBeCloseTo((Math.atan(10 / unit) * 180) / Math.PI, 4);
     expect(wide).toBeLessThan(square ?? 0);
     const leaders = angleLeaders([{ symbol: "ORCL", panes: { "1m": across, "5m": across, "15m": across } }]);
-    expect(leaders["15m"].up?.angle).toBeCloseTo(square ?? 0, 4);
-    expect(leaders["1m"].up?.angle).toBeCloseTo(wide ?? 0, 4);
+    expect(leaders["15m"].up?.angle).toBeCloseTo(latestEmaAngle(across, 1, 26) ?? 0, 4);
+    expect(leaders["1m"].up?.angle).toBeCloseTo(latestEmaAngle(across, 15 / 8, 60) ?? 0, 4);
+    expect(Math.abs(leaders["1m"].up?.angle ?? 0)).toBeLessThan(90);
+  });
+
+  it("measures a short open on the full pane, not on stretched candles", () => {
+    const open = rangedBars([100, 101], 100, 101);
+    const stretched = latestEmaAngle(open, 23 / 12, 2);
+    const pane = latestEmaAngle(open, 23 / 12, 24);
+    expect(pane).toBeGreaterThan(stretched ?? 0);
+    expect(pane).toBeLessThan(90);
   });
 
   it("names the steepest rise and the steepest drop on each timeframe", () => {

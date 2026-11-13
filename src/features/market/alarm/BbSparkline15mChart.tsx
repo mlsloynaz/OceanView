@@ -41,6 +41,8 @@ type Props = {
   showAlarmMarks?: boolean;
   /** Solo graph. 1m marks every 5 minutes. 5m marks every 15. 15m marks each hour. */
   timeMarksEvery?: number;
+  /** Candle slots in this pane. A short series stays candle-sized and sits on the right. */
+  slotCount?: number;
   /** Premarket last price. A line on the 5m chart, not a candle. */
   priceLine?: number | null;
 };
@@ -365,6 +367,7 @@ export function BbSparkline15mChart({
   showAlarmMarks = true,
   timeMarksEvery,
   priceLine = null,
+  slotCount,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const positionedRef = useRef<string | null>(null);
@@ -487,7 +490,9 @@ export function BbSparkline15mChart({
   }
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
-  const slot = scrollable ? FULL_5M_SLOT : plotW / Math.max(bars.length, 1);
+  const slots = scrollable ? bars.length : Math.max(slotCount ?? bars.length, bars.length, 1);
+  const slot = scrollable ? FULL_5M_SLOT : plotW / slots;
+  const skip = scrollable ? 0 : slots - bars.length;
   const fitted = resetPriceWindow(yMin, yMax);
   yMin = fitted.yMin;
   yMax = fitted.yMax;
@@ -498,7 +503,7 @@ export function BbSparkline15mChart({
 
   const yScale = (price: number) =>
     PAD.top + ((yMax - price) / (yMax - yMin || 1)) * plotH;
-  const xCenter = (i: number) => PAD.left + slot * i + slot / 2;
+  const xCenter = (i: number) => PAD.left + slot * (i + skip) + slot / 2;
 
   const bbLine = (key: "bbUpper" | "bbMid" | "bbLower" | "ema10" | "ema21") => {
     const pts: string[] = [];

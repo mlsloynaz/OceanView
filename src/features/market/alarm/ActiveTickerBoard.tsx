@@ -148,7 +148,7 @@ function emaNumber(value: unknown): number | null {
  * The visible high and low fill the pane. `aspect` is the pane's width / height.
  * One bar whose rise matches that fit is 45°.
  */
-export function latestEmaAngle(bars: BbSparkline15mBar[], aspect = 1): number | null {
+export function latestEmaAngle(bars: BbSparkline15mBar[], aspect = 1, slotCount = bars.length): number | null {
   const closes = bars
     .map((bar) => emaNumber(bar.close))
     .filter((value): value is number => value != null && value > 0);
@@ -181,7 +181,13 @@ export function latestEmaAngle(bars: BbSparkline15mBar[], aspect = 1): number | 
   const denom = tail.length * sumXX - sumX * sumX;
   if (denom === 0) return null;
   const slope = (tail.length * sumXY - sumX * sumY) / denom;
-  return angleOnResetScale(slope, Math.min(...prices), Math.max(...prices), aspect, bars.length);
+  return angleOnResetScale(
+    slope,
+    Math.min(...prices),
+    Math.max(...prices),
+    aspect,
+    Math.max(slotCount, bars.length, 1),
+  );
 }
 
 export type AnglePick = { symbol: string; angle: number };
@@ -195,7 +201,7 @@ export function angleLeaders(rows: Array<{ symbol: string; panes: Panes | undefi
   const leaders = {} as AngleLeaders;
   for (const frame of ANGLE_FRAMES) {
     const ranked = rows.flatMap((row) => {
-      const angle = latestEmaAngle(row.panes?.[frame] ?? [], PANE_ASPECT[frame]);
+      const angle = latestEmaAngle(row.panes?.[frame] ?? [], PANE_ASPECT[frame], PANE_SLOTS[frame]);
       return angle == null ? [] : [{ symbol: row.symbol.trim().toUpperCase(), angle }];
     });
     if (ranked.length === 0) {
@@ -390,6 +396,12 @@ const ALL_1M_BARS = 60;
 const SOLO_1M_BARS = 30;
 const TWO_HOURS_5M_BARS = 24;
 const SESSION_15M_BARS = 26;
+/** Candle slots in the all-view panes. A short series does not widen each candle. */
+const PANE_SLOTS: Record<Frame, number> = {
+  "1m": ALL_1M_BARS,
+  "5m": TWO_HOURS_5M_BARS,
+  "15m": SESSION_15M_BARS,
+};
 /** All-view cell is 23/20 wide. Pane shape follows that grid: 5m is the top row, 1m and 15m split the bottom. */
 const SOLO_PANE_ASPECT: Record<Frame, string> = {
   "5m": "23 / 12",
@@ -482,6 +494,7 @@ function ThumbPane({
   showAlarmMarks = true,
   timeMarksEvery,
   caption,
+  slotCount,
 }: {
   symbol: string;
   which: Frame;
@@ -494,6 +507,7 @@ function ThumbPane({
   showAlarmMarks?: boolean;
   timeMarksEvery?: number;
   caption?: string;
+  slotCount?: number;
 }) {
   const label = caption ?? (which === "5m" ? "5m · 2h" : which === "1m" ? "1m · 1h" : "15m · 1d");
   return (
@@ -510,6 +524,7 @@ function ThumbPane({
         showEmaEvents
         showAlarmMarks={showAlarmMarks}
         timeMarksEvery={timeMarksEvery}
+        slotCount={slotCount}
         fillPane
         className="h-full"
       />
@@ -745,6 +760,7 @@ export function TickerThumb({
       showAlarmMarks={which !== "15m" || frame !== "all"}
       axis={which === "5m"}
       timeMarksEvery={frame === "1m" ? 5 : frame === "5m" ? 15 : frame === "15m" ? 60 : undefined}
+      slotCount={which === "1m" ? oneMinuteCount : PANE_SLOTS[which]}
     />
   );
   return (
@@ -1122,18 +1138,22 @@ export function ActiveTickerBoard({
             breakoutLevel={snapshot?.bySymbol[ticker.symbol]?.breakoutLevel}
             premarketPrice={snapshot?.bySymbol[ticker.symbol]?.premarketPrice}
             hourRelation={
-              snapshot?.bySymbol[ticker.symbol]?.hourRelation ?? hourBySymbol[ticker.symbol]?.hourRelation
+              showingReview
+                ? snapshot?.bySymbol[ticker.symbol]?.hourRelation
+                : (snapshot?.bySymbol[ticker.symbol]?.hourRelation ?? hourBySymbol[ticker.symbol]?.hourRelation)
             }
             hourRegime={
-              snapshot?.bySymbol[ticker.symbol]?.hourRegime ?? hourBySymbol[ticker.symbol]?.hourRegime
+              showingReview
+                ? snapshot?.bySymbol[ticker.symbol]?.hourRegime
+                : (snapshot?.bySymbol[ticker.symbol]?.hourRegime ?? hourBySymbol[ticker.symbol]?.hourRegime)
             }
             sectorEtf={snapshot?.bySymbol[ticker.symbol]?.sectorEtf}
             etfMatch={snapshot?.bySymbol[ticker.symbol]?.etfMatch}
             etfMoves={etfMoves}
             sentiment={snapshot?.bySymbol[ticker.symbol]?.sentiment}
-            transitionCandle={hourBySymbol[ticker.symbol]?.transitionCandle === true}
-            lateralTrend={hourBySymbol[ticker.symbol]?.lateralTrend === true}
-            pauseAction={hourBySymbol[ticker.symbol]?.pauseAction}
+            transitionCandle={!showingReview && hourBySymbol[ticker.symbol]?.transitionCandle === true}
+            lateralTrend={!showingReview && hourBySymbol[ticker.symbol]?.lateralTrend === true}
+            pauseAction={showingReview ? null : hourBySymbol[ticker.symbol]?.pauseAction}
             note={snapshot?.bySymbol[ticker.symbol]?.note}
             frame={frame}
             alertTags={alertTags.flatMap((tag) => {
