@@ -337,6 +337,7 @@ export type AlarmStudy = {
   optionA?: AlarmFollow | null;
   optionB?: AlarmFollow | null;
   optionC?: AlarmFollow | null;
+  optionD?: AlarmFollow | null;
 };
 
 export type TrendProfileRow = {

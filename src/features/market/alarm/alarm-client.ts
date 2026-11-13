@@ -44,6 +44,7 @@ export type MarketAlarmCheckResponse = {
   qualityPct?: number;
   evidence?: string | null;
   entryAt?: string | null;
+  priorityEntry?: boolean | null;
   possibleOptionGainPct?: number | null;
   suggestedTrend?: string | null;
   suggestedDirection?: string | null;

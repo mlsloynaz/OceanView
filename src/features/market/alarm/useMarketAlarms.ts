@@ -692,6 +692,7 @@ export function useMarketAlarms() {
           lastRuleStatus: result.ruleStatus,
           lastEvidence: result.evidence ?? null,
           lastEntryAt: result.entryAt ?? watch.lastEntryAt ?? null,
+          lastPriorityEntry: result.priorityEntry === true,
           lastOptionGainPct:
             typeof result.possibleOptionGainPct === "number"
               ? result.possibleOptionGainPct

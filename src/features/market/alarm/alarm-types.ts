@@ -158,6 +158,8 @@ export type MarketAlarmWatch = {
   lastRuleStatus: string | null;
   lastEvidence: string | null;
   lastEntryAt?: string | null;
+  /** Option D: Option B and Option C are both true. Shown ahead of the other entries. */
+  lastPriorityEntry?: boolean | null;
   lastOptionGainPct?: number | null;
   lastCheckedAt: string | null;
   lastError: string | null;

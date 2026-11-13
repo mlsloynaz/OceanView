@@ -52,6 +52,7 @@ function TickerRow({ row }: { row: TrendProfileRow }) {
       <Cell row={study?.optionA} />
       <Cell row={optionB} />
       <Cell row={optionC} />
+      <Cell row={study?.optionD} />
     </tr>
   );
 }
@@ -72,8 +73,9 @@ export function TrendAlarmStudySection({ data, loading }: Props) {
           at least the saved angle and whose separation is at least the saved 1-minute separation
           for that ticker. Option C opens on a 5-minute EMA cross, or when price touches EMA 10 or
           EMA 21 while EMA 10 is already on the trade side of EMA 21. Its angle and separation come
-          from that ticker's saved 5-minute profile. The percentage is how often price then moved
-          $1 with the entry within 30 minutes. The live alarm is unchanged.
+          from that ticker's saved 5-minute profile. Option D keeps an Option B cross only when
+          that minute sits inside a 5-minute bar that also meets Option C. The percentage is how
+          often price then moved $1 with the entry within 30 minutes. The live alarm is unchanged.
         </p>
       </div>
       {data?.message ? <p className="text-xs text-ocean-sand/90">{data.message}</p> : null}
@@ -85,12 +87,13 @@ export function TrendAlarmStudySection({ data, loading }: Props) {
               <OptionHead name="Option A" />
               <OptionHead name="Option B" />
               <OptionHead name="Option C" />
+              <OptionHead name="Option D" />
             </tr>
           </thead>
           <tbody>
             {ranked.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-3 py-6 text-ocean-sand">
+                <td colSpan={5} className="px-3 py-6 text-ocean-sand">
                   {loading ? "Loading…" : "No alarm study yet. Calculate from Alpaca on the 5m trend change tab."}
                 </td>
               </tr>

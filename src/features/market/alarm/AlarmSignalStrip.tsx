@@ -17,6 +17,8 @@ export type AlarmStripTag = {
   lane: AlarmStripLane;
   /** Eastern clock when this entry became valid. */
   validAt: string | null;
+  /** Option D, both Option B and Option C. These tags lead the strip. */
+  priority?: boolean;
 };
 
 export type AlarmStripMessage =
@@ -59,6 +61,7 @@ export function AlarmSignalTag({ tag, index }: { tag: AlarmStripTag; index: numb
         <TickerMark symbol={tag.symbol} className="mr-1 inline-block h-3.5 w-3.5 shrink-0 rounded-full object-contain" />
         {tag.symbol}
         <span className="mx-1 font-medium opacity-70">·</span>
+        {tag.priority ? "Top · " : ""}
         {tag.operation}
         {typeof tag.earningPct === "number" ? (
           <>
@@ -75,6 +78,7 @@ export function AlarmSignalTag({ tag, index }: { tag: AlarmStripTag; index: numb
 }
 
 function byEarning(left: AlarmStripTag, right: AlarmStripTag): number {
+  if (Boolean(left.priority) !== Boolean(right.priority)) return left.priority ? -1 : 1;
   const leftEarn = left.earningPct ?? Number.NEGATIVE_INFINITY;
   const rightEarn = right.earningPct ?? Number.NEGATIVE_INFINITY;
   if (rightEarn !== leftEarn) return rightEarn - leftEarn;
@@ -109,6 +113,7 @@ function tagFor(
     earningPct,
     lane,
     validAt: entryValidClock(watch),
+    priority: watch.lastPriorityEntry === true,
   };
 }
 
