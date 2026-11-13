@@ -347,7 +347,14 @@ export type TrendProfileRow = {
   m1?: EmaCrossFrame | null;
   m5?: EmaCrossFrame | null;
   alarmStudy?: AlarmStudy | null;
-  profile?: { "1m"?: EmaCrossFrame; "5m"?: EmaCrossFrame; alarmStudy?: AlarmStudy } | null;
+  profile?: {
+    "1m"?: EmaCrossFrame;
+    "5m"?: EmaCrossFrame;
+    alarmStudy?: AlarmStudy;
+    "1m-reversal-angl"?: number | null;
+    "1m-reversal-cross"?: number | null;
+    "1m-reversal-distance"?: number | null;
+  } | null;
 };
 
 export type TrendProfileResponse = {

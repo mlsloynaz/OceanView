@@ -106,6 +106,13 @@ function TickerBlock({ row }: { row: TrendProfileRow }) {
     <section className="rounded-md border border-ocean-mid/40 p-3">
       <h4 className="text-sm font-semibold text-ocean-foam">{row.symbol}</h4>
       {row.note ? <p className="mt-1 text-[11px] text-ocean-sand">{row.note}</p> : null}
+      <p className="mt-1 text-[11px] text-ocean-sand">
+        Reversal {row.profile?.["1m-reversal-angl"] == null ? "—" : `${row.profile["1m-reversal-angl"]}°`}
+        {" · "}
+        cross {row.profile?.["1m-reversal-cross"] == null ? "—" : `${row.profile["1m-reversal-cross"]} min`}
+        {" · "}
+        {fmtGap(row.profile?.["1m-reversal-distance"])} from EMA 10
+      </p>
       <div className="mt-2 grid gap-3 lg:grid-cols-2">
         <FrameCard label="1m" frame={row.m1} />
         <FrameCard label="5m" frame={row.m5} />
